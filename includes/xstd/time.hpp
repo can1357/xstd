@@ -110,7 +110,10 @@ namespace xstd
 		inline static uint64_t monotonic()
 		{
 #if WINDOWS_TARGET
-			return *( volatile uint64_t* ) 0x7FFE0014;
+			if constexpr ( is_kernel_mode() )
+				return *( volatile uint64_t* ) 0xFFFFF78000000008;
+			else
+				return *( volatile uint64_t* ) 0x7FFE0008;
 #else
 			return ++mimpl::tcounter;
 #endif
