@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="xstd.licenseheader" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{ea7941ed-b88f-4899-bbc5-6f7bb2c54dd7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers\I/O">
+      <UniqueIdentifier>{e4a065b8-2bbd-4630-b894-21ee9f90bd90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers\Ranges">
+      <UniqueIdentifier>{16e6d8ed-60e2-4e49-9445-aa6de7892f3f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers\Types">
+      <UniqueIdentifier>{47bd5405-b504-4d21-8120-06c21d432948}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers\Numeric">
+      <UniqueIdentifier>{d2c97606-7bf3-4c20-9d7b-675b7c25e27d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers\Misc">
+      <UniqueIdentifier>{e4b12102-ba84-4791-87d6-9693f3c4c95c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="includes\xstd\intrinsics.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\assert.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\enum_name.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\file.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\formatting.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\logger.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\strong_formatting.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\table_view.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\range.hpp">
+      <Filter>Headers\Ranges</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\reverse_iterator.hpp">
+      <Filter>Headers\Ranges</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\zip.hpp">
+      <Filter>Headers\Ranges</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\transform.hpp">
+      <Filter>Headers\Ranges</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\numeric_range.hpp">
+      <Filter>Headers\Ranges</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\hashable.hpp">
+      <Filter>Headers\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\lt_typeid.hpp">
+      <Filter>Headers\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\reducable.hpp">
+      <Filter>Headers\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\relaxed_atomics.hpp">
+      <Filter>Headers\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\stack_containers.hpp">
+      <Filter>Headers\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\type_helpers.hpp">
+      <Filter>Headers\Types</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\bitmap.hpp">
+      <Filter>Headers\Numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\bitwise.hpp">
+      <Filter>Headers\Numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\fnv64.hpp">
+      <Filter>Headers\Numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\random.hpp">
+      <Filter>Headers\Numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\static_warning.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\deferred_value.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\function_view.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\conditional_lock.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\finally.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\time.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+  </ItemGroup>
+</Project>
