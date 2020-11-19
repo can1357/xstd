@@ -68,15 +68,20 @@
 
 // Determine if we're compiling in debug mode.
 //
-#ifndef DEBUG_BUILD
+#ifndef XSTD_DEBUG_BUILD
     #if NDEBUG
         #define DEBUG_BUILD    0
+        #define RELEASE_BUILD  1
     #elif _DEBUG               
         #define DEBUG_BUILD    1
+        #define RELEASE_BUILD  0
     #else                      
         #define DEBUG_BUILD    0
+        #define RELEASE_BUILD  1
     #endif
 #endif
+inline static constexpr bool is_debug_build() { return DEBUG_BUILD; }
+inline static constexpr bool is_release_build() { return RELEASE_BUILD; }
 
 // Determine the target platform.
 //
@@ -95,6 +100,9 @@
 #else
     #error "Unknown target architecture."
 #endif
+inline static constexpr bool is_amd64_target() { return AMD64_TARGET; }
+inline static constexpr bool is_arm64_target() { return ARM64_TARGET; }
+inline static constexpr bool is_wasm_target() { return WASM_TARGET; }
 
 #if defined(_WIN64)
     #define WINDOWS_TARGET 1
@@ -115,20 +123,30 @@
 #else
     #error "Unknown target OS."
 #endif
+inline static constexpr bool is_windows_target() { return WINDOWS_TARGET; }
+inline static constexpr bool is_unix_target() { return UNIX_TARGET; }
+inline static constexpr bool is_osx_target() { return OSX_TARGET; }
 
 // Determine the compiler.
 //
 #if defined(__GNUC__) || defined(__clang__) || defined(__EMSCRIPTEN__) || defined(__MINGW64__)
-    #define MS_COMPILER    0
-    #define GNU_COMPILER   1
-    #define EX_MS_COMPILER 1
+    #define MS_COMPILER       0
+    #define GNU_COMPILER      1
+#ifdef _MSC_VER
+    #define HAS_MS_EXTENSIONS 1
+#else
+    #define HAS_MS_EXTENSIONS 0
+#endif
 #elif defined(_MSC_VER)
-    #define MS_COMPILER    1
-    #define GNU_COMPILER   0
-    #define EX_MS_COMPILER defined(_MSC_VER)
+    #define MS_COMPILER       1
+    #define GNU_COMPILER      0
+    #define HAS_MS_EXTENSIONS 1
 #else
     #error "Unknown compiler."
 #endif
+inline static constexpr bool is_msvc() { return MS_COMPILER; }
+inline static constexpr bool is_gcc() { return GNU_COMPILER; }
+inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 
 // Determine bitcast support.
 //
@@ -150,14 +168,15 @@
 
 // Declare simple kernel mode switch.
 //
-inline static constexpr bool is_kernel_mode()
-{
-#ifdef _KERNEL_MODE
-	return true;
+#if (defined(_KERNEL_MODE) || defined(XSTD_KERNEL_MODE))
+    #define USER_TARGET   0
+    #define KERNEL_TARGET 1
 #else
-	return false;
+    #define USER_TARGET   1
+    #define KERNEL_TARGET 0
 #endif
-}
+inline static constexpr bool is_user_mode() { return USER_TARGET; }
+inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
 
 // Determine RTTI support.
 //
@@ -170,6 +189,7 @@ inline static constexpr bool is_kernel_mode()
 #else
 	#define HAS_RTTI	   0
 #endif
+inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 
 // Ignore some warnings if GNU.
 //
@@ -177,7 +197,7 @@ inline static constexpr bool is_kernel_mode()
     #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 
-#if MS_COMPILER
+#if HAS_MS_EXTENSIONS
     #include <intrin.h>
 
     // Declare demangled function name.
@@ -227,10 +247,9 @@ inline static constexpr bool is_kernel_mode()
 
     // Declare MS-style builtins we use.
     //
-    #if !EX_MS_COMPILER
-        #define __forceinline             __attribute__((always_inline))
-        #define _AddressOfReturnAddress() ((void*)__builtin_frame_address(0))
-    #endif
+    #define __forceinline             __attribute__((always_inline))
+    #define _AddressOfReturnAddress() ((void*)__builtin_frame_address(0))
+
     // Declare fastfail.
     //
     __forceinline static void fastfail [[noreturn]] ( int status ) { abort(); }
@@ -252,18 +271,16 @@ inline static constexpr bool is_kernel_mode()
     // Declare debugbreak.
     // - Some compilers apparently assume debugbreak is [[noreturn]] which is unwanted so use actual builtin as fallback.
     //
-    #if !EX_MS_COMPILER
-        #if AMD64_TARGET
-            #define __debugbreak() asm volatile ( "int $3" )
-        #elif ARM64_TARGET
-            #define __debugbreak() asm volatile ( "bkpt #0" )
-        #elif __has_builtin(__builtin_debugtrap)
-            #define __debugbreak() __builtin_debugtrap()
-        #elif __has_builtin(__builtin_trap)
-            #define __debugbreak() __builtin_trap()
-        #else
-            #define __debugbreak() { *(int*) 1 = 1; }
-        #endif
+    #if AMD64_TARGET
+        #define __debugbreak() asm volatile ( "int $3" )
+    #elif ARM64_TARGET
+        #define __debugbreak() asm volatile ( "bkpt #0" )
+    #elif __has_builtin(__builtin_debugtrap)
+        #define __debugbreak() __builtin_debugtrap()
+    #elif __has_builtin(__builtin_trap)
+        #define __debugbreak() __builtin_trap()
+    #else
+        #define __debugbreak() { *(int*) 1 = 1; }
     #endif
     
     // Declare yield.
@@ -304,7 +321,6 @@ inline static constexpr bool is_kernel_mode()
     //
     using int128_t =  __int128;
     using uint128_t = unsigned __int128;
-    #if !EX_MS_COMPILER
     __forceinline static uint64_t _umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
     {
         uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
@@ -334,11 +350,10 @@ inline static constexpr bool is_kernel_mode()
         _umul128( _Multiplier, _Multiplicand, &HighProduct );
         return HighProduct;
     }
-    #endif
 
     // Declare demangling helper.
     //
-    #if (GNU_COMPILER && !EX_MS_COMPILER)
+    #if GNU_COMPILER
 	    #include <cxxabi.h>
         __forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) 
         {
