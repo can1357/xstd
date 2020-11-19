@@ -42,7 +42,7 @@ namespace xstd
 		{
 			// Generic iterator typedefs.
 			//
-			using iterator_category = std::bidirectional_iterator_tag;
+			using iterator_category = std::random_access_iterator_tag;
 			using difference_type =   std::make_signed_t<T>;
 			using value_type =        T;
 			using reference =         T&;
@@ -50,15 +50,21 @@ namespace xstd
 
 			value_type at;
 
-			// Support bidirectional iteration.
+			// Support random iteration.
 			//
 			constexpr iterator& operator++() { at++; return *this; }
 			constexpr iterator& operator--() { at--; return *this; }
-			constexpr iterator operator++( int ) { auto s = *this; operator++(); return s; }
-			constexpr iterator operator--( int ) { auto s = *this; operator--(); return s; }
+			constexpr iterator operator++( int ) const { auto s = *this; operator++(); return s; }
+			constexpr iterator operator--( int ) const { auto s = *this; operator--(); return s; }
+			constexpr iterator& operator+=( difference_type d ) { at += d; return *this; }
+			constexpr iterator& operator-=( difference_type d ) { at -= d; return *this; }
+			constexpr iterator operator+( difference_type d ) const { auto s = *this; operator+=( d ); return s; }
+			constexpr iterator operator-( difference_type d ) const { auto s = *this; operator-=( d ); return s; }
 
-			// Equality check against another iterator.
+			// Comparison and difference against another iterator.
 			//
+			constexpr difference_type operator-( const iterator& other ) const { return at - other.at; }
+			constexpr bool operator<( const iterator& other ) const { return at < other.at; }
 			constexpr bool operator==( const iterator& other ) const { return at == other.at; }
 			constexpr bool operator!=( const iterator& other ) const { return at != other.at; }
 			
