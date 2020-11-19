@@ -34,25 +34,26 @@
 #include "logger.hpp"
 
 // [Configuration]
-// XSTD_ASSERT_NO_TRACE: If set, will not leak the file name / line information in string format into the final binary.
-//
-#ifndef XSTD_ASSERT_NO_TRACE
-	#define XSTD_ASSERT_NO_TRACE !DEBUG_BUILD
-#endif
-
-// [Configuration]
+// XSTD_ASSERT_MESSAGE: Sets the assert failure message.
 // XSTD_NO_EXCEPTIONS: If set, exceptions will resolve into error instead.
-//
-#ifndef XSTD_NO_EXCEPTIONS
-	#define XSTD_NO_EXCEPTIONS 0
-#endif
-
-// [Configuration]
 // XSTD_ASSERT_LEVEL: Declares assert level, valid values are:
 //  - 2: Both dassert and fassert will be evaluated. Debug mode default.
 //  - 1: Only fassert will be evaluated. Release mode default. 
 //  - 0: All asserts are ignored.
-// 
+//
+#ifndef XSTD_ASSERT_MESSAGE
+	#if DEBUG_BUILD
+		#define XSTD_ASSERT_MESSAGE( code, file, line ) XSTD_ESTR( "Assertion failure, " code " at " file ":" line )
+	#else
+		#define XSTD_ASSERT_MESSAGE( code, file, line ) XSTD_ESTR( "Assertion failure." )
+	#endif
+#endif
+#ifndef XSTD_ASSERT_NO_TRACE
+	#define XSTD_ASSERT_NO_TRACE !DEBUG_BUILD
+#endif
+#ifndef XSTD_NO_EXCEPTIONS
+	#define XSTD_NO_EXCEPTIONS 0
+#endif
 #ifndef XSTD_ASSERT_LEVEL
 	#if DEBUG_BUILD
 		#define XSTD_ASSERT_LEVEL 2
@@ -100,12 +101,7 @@ namespace xstd
 //
 #define xassert__stringify(x) #x
 #define xassert__istringify(x) xassert__stringify(x)
-
-#if XSTD_ASSERT_NO_TRACE
-	#define xassert(...) xstd::abort_if(!bool(__VA_ARGS__), "" )
-#else
-	#define xassert(...) xstd::abort_if(!bool(__VA_ARGS__), "Assertion failure, " xassert__stringify(__VA_ARGS__) " at " __FILE__ ":" xassert__istringify(__LINE__) )
-#endif
+#define xassert(...) xstd::abort_if(!bool(__VA_ARGS__), XSTD_ASSERT_MESSAGE( xassert__stringify( __VA_ARGS__ ), __FILE__, xassert__istringify( __LINE__ ) ) )
 
 // Declare assertions, dassert is debug mode only, fassert is demo mode only, _s helpers 
 // have the same functionality but still evaluate the statement.
