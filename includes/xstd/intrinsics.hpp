@@ -68,12 +68,14 @@
 
 // Determine if we're compiling in debug mode.
 //
-#if NDEBUG
-    #define DEBUG_BUILD    0
-#elif _DEBUG               
-    #define DEBUG_BUILD    1
-#else                      
-    #define DEBUG_BUILD    0
+#ifndef DEBUG_BUILD
+    #if NDEBUG
+        #define DEBUG_BUILD    0
+    #elif _DEBUG               
+        #define DEBUG_BUILD    1
+    #else                      
+        #define DEBUG_BUILD    0
+    #endif
 #endif
 
 // Determine the target platform.

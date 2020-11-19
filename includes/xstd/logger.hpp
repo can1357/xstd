@@ -42,12 +42,28 @@
 
 // [Configuration]
 // XSTD_CON_THREAD_LOCAL: If set, will use a mutex to protect the writes into console.
+// XSTD_CON_ENFORCE_UTF8_WINDOWS: If set, will enforce the command-line to output UTF8 on Windows platform.
+// XSTD_CON_NO_COLORS: If set, disables colors.
+// XSTD_CON_NO_WARNINGS: If set, disables warnings.
+// XSTD_CON_ERROR_REDIRECT: If set, redirects errors to the set name. [Prototype: extern "C" void [[noreturn]] ( const std::string& )]
 //
 #ifndef XSTD_CON_THREAD_LOCAL
 	#define XSTD_CON_THREAD_LOCAL 1
 #endif
+#ifndef XSTD_CON_ENFORCE_UTF8_WINDOWS
+	#define XSTD_CON_ENFORCE_UTF8_WINDOWS 1
+#endif
+#ifndef XSTD_CON_NO_COLORS
+	#define XSTD_CON_NO_COLORS 0
+#endif
+#ifndef XSTD_CON_NO_WARNINGS
+	#define XSTD_CON_NO_WARNINGS 0
+#endif
+#ifdef XSTD_CON_ERROR_REDIRECT
+	extern "C" void [[noreturn]] XSTD_CON_ERROR_REDIRECT ( const std::string& );
+#endif
 
-#if WINDOWS_TARGET
+#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
 extern "C" 
 {
 	__declspec( dllimport ) int __stdcall SetConsoleOutputCP( uint32_t code_page_id );
@@ -98,12 +114,14 @@ namespace xstd
 		//
 		logger_state_t()
 		{
-#if WINDOWS_TARGET
-			constexpr uint32_t CP_UTF8 = 65001;
 			constexpr uint32_t STD_OUTPUT_HANDLE = ( uint32_t ) -11;
-			constexpr uint32_t ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
 
+#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
+			constexpr uint32_t CP_UTF8 = 65001;
 			SetConsoleOutputCP( CP_UTF8 );
+#endif
+#if ( WINDOWS_TARGET && !XSTD_CON_NO_COLORS )
+			constexpr uint32_t ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
 			uint32_t mode;
 			GetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), &mode );
 			SetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING );
@@ -193,6 +211,7 @@ namespace xstd
 	{
 		static constexpr const char* translate_color( console_color color )
 		{
+#if !XSTD_CON_NO_COLORS
 			switch ( color )
 			{
 				case CON_BRG: return XSTD_ESTR( ANSI_ESCAPE( "1;37m" ) );
@@ -205,6 +224,9 @@ namespace xstd
 				case CON_DEF:
 				default:      return XSTD_ESTR( ANSI_ESCAPE( "0m" ) );
 			}
+#else
+			return "";
+#endif
 		}
 
 		template<bool has_args>
@@ -294,6 +316,7 @@ namespace xstd
 	template<typename... params>
 	static void warning( const char* fmt, params&&... ps )
 	{
+#if !XSTD_CON_NO_WARNINGS
 		// Format warning message.
 		//
 		std::string message = XSTD_STR( "\n" ) + impl::translate_color( CON_YLW ) + XSTD_STR( "[!] Warning: " ) + format::str(
@@ -309,12 +332,8 @@ namespace xstd
 		// Unlock if previously locked.
 		//
 		if ( locked ) logger_state.unlock();
+#endif
 	}
-
-	// Allows to place a hook onto the error function, this is mainly used for
-	// the python project to avoid crasing the process.
-	//
-	inline std::function<void( const std::string& )> error_hook;
 
 	// Prints an error message and breaks the execution.
 	//
@@ -328,18 +347,21 @@ namespace xstd
 			std::forward<params>( ps )...
 		);
 
-		// If there is an active hook, call into it, then add formatting.
+		// If there is an active hook, call into it, else add formatting and print.
 		//
-		if ( error_hook ) error_hook( message );
+#ifdef XSTD_CON_ERROR_REDIRECT
+		XSTD_CON_ERROR_REDIRECT( message );
+#else
 		message = XSTD_STR( "\n" ) + impl::translate_color( CON_RED ) + XSTD_STR( "[*] Error:" ) + std::move( message ) + '\n';
 
 		// Try acquiring the lock and print the error, if properly locked skiped the first newline.
 		//
-		bool locked = logger_state.try_lock( 100s );
+		bool locked = logger_state.try_lock( 100ms );
 		fputs( message.c_str() + locked, stderr );
 
 		// Break the program, leave the logger locked since we'll break anyways.
 		//
 		unreachable();
+#endif
 	}
 };
