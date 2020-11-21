@@ -100,7 +100,7 @@ namespace xstd::format
 					// Convert float to string.
 					//
 					char buffer[ 32 ];
-					snprintf( buffer, 32, XSTD_ESTR( "%.1lf%s" ), fvalue / limit, abbrv );
+					snprintf( buffer, 32, XSTD_CSTR( "%.1lf%s" ), fvalue / limit, abbrv );
 					return buffer;
 				}
 			}
@@ -145,7 +145,7 @@ namespace xstd::format
 		std::string to_string() const
 		{
 			char buffer[ 32 ];
-			snprintf( buffer, 32, XSTD_ESTR( "%.2lf%%" ), double( value * 100 ) );
+			snprintf( buffer, 32, XSTD_CSTR( "%.2lf%%" ), double( value * 100 ) );
 			return buffer;
 		}
 	};

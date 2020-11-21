@@ -95,7 +95,7 @@ namespace xstd
 		std::string to_string() const
 		{
 			char str[ 16 + 3 ] = {};
-			sprintf( str, XSTD_ESTR( "0x%llx" ), value );
+			sprintf( str, XSTD_CSTR( "0x%llx" ), value );
 			return str;
 		}
 

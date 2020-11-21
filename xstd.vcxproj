@@ -26,6 +26,7 @@
     <ClInclude Include="includes\xstd\bitmap.hpp" />
     <ClInclude Include="includes\xstd\bitwise.hpp" />
     <ClInclude Include="includes\xstd\conditional_lock.hpp" />
+    <ClInclude Include="includes\xstd\datalen.hpp" />
     <ClInclude Include="includes\xstd\deferred_value.hpp" />
     <ClInclude Include="includes\xstd\enum_name.hpp" />
     <ClInclude Include="includes\xstd\file.hpp" />
@@ -37,6 +38,7 @@
     <ClInclude Include="includes\xstd\intrinsics.hpp" />
     <ClInclude Include="includes\xstd\logger.hpp" />
     <ClInclude Include="includes\xstd\lt_typeid.hpp" />
+    <ClInclude Include="includes\xstd\narrow_cast.hpp" />
     <ClInclude Include="includes\xstd\numeric_range.hpp" />
     <ClInclude Include="includes\xstd\random.hpp" />
     <ClInclude Include="includes\xstd\range.hpp" />

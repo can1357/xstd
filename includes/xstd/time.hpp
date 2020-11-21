@@ -97,7 +97,7 @@ namespace xstd
 					// Convert float to string.
 					//
 					char buffer[ 32 ];
-					snprintf( buffer, 32, XSTD_ESTR( "%.2lf%s" ), t.count() / double( duration.count() ), abbrv );
+					snprintf( buffer, 32, XSTD_CSTR( "%.2lf%s" ), t.count() / double( duration.count() ), abbrv );
 					return buffer;
 				}
 			}
