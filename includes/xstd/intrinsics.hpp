@@ -72,17 +72,25 @@
 
 // Determine if we're compiling in debug mode.
 //
-#ifndef XSTD_DEBUG_BUILD
-    #if NDEBUG
-        #define DEBUG_BUILD    0
-        #define RELEASE_BUILD  1
-    #elif _DEBUG               
-        #define DEBUG_BUILD    1
-        #define RELEASE_BUILD  0
-    #else                      
-        #define DEBUG_BUILD    0
-        #define RELEASE_BUILD  1
+#if defined(DEBUG_BUILD)
+    #if defined(RELEASE_BUILD)
+        static_assert( DEBUG_BUILD == !RELEASE_BUILD, "Invalid configuration." );
     #endif
+    #define RELEASE_BULD   !DEBUG_BUILD
+#elif defined(RELEASE_BUILD)
+    #if defined(DEBUG_BUILD)
+        static_assert( DEBUG_BUILD == !RELEASE_BUILD, "Invalid configuration." );
+    #endif
+    #define DEBUG_BUILD    !RELEASE_BUILD
+#elif NDEBUG
+    #define DEBUG_BUILD    0
+    #define RELEASE_BUILD  1
+#elif _DEBUG               
+    #define DEBUG_BUILD    1
+    #define RELEASE_BUILD  0
+#else                      
+    #define DEBUG_BUILD    0
+    #define RELEASE_BUILD  1
 #endif
 inline static constexpr bool is_debug_build() { return DEBUG_BUILD; }
 inline static constexpr bool is_release_build() { return RELEASE_BUILD; }
