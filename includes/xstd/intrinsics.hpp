@@ -38,14 +38,18 @@
 #endif
 
 // [Configuration]
-// XSTD_STR, XSTD_ESTR: Easy to override macro to control any strings emitted into binary, 
-// _E prefix means it should be returning a const char* instead.
+// XSTD_STR, XSTD_CSTR: Easy to override macro to control any strings emitted into binary, 
+// _C prefix means it should be returning a C string instead.
+// _E prefix means that this is an error string in the form of a C string.
 //
 #ifndef XSTD_STR
     #define XSTD_STR(x) std::string{x}
 #endif
+#ifndef XSTD_CSTR
+    #define XSTD_CSTR(x) (x)
+#endif
 #ifndef XSTD_ESTR
-    #define XSTD_ESTR(x) (x)
+    #define XSTD_ESTR(x) XSTD_CSTR(x)
 #endif
 
 // Determine compiler support for C++20 constant evaluation.
@@ -104,6 +108,8 @@ inline static constexpr bool is_amd64_target() { return AMD64_TARGET; }
 inline static constexpr bool is_arm64_target() { return ARM64_TARGET; }
 inline static constexpr bool is_wasm_target() { return WASM_TARGET; }
 
+// Determine the target operating system.
+//
 #if defined(_WIN64)
     #define WINDOWS_TARGET 1
     #define UNIX_TARGET    0
@@ -126,6 +132,16 @@ inline static constexpr bool is_wasm_target() { return WASM_TARGET; }
 inline static constexpr bool is_windows_target() { return WINDOWS_TARGET; }
 inline static constexpr bool is_unix_target() { return UNIX_TARGET; }
 inline static constexpr bool is_osx_target() { return OSX_TARGET; }
+
+#if (defined(_KERNEL_MODE) || defined(XSTD_KERNEL_MODE))
+    #define USER_TARGET   0
+    #define KERNEL_TARGET 1
+#else
+    #define USER_TARGET   1
+    #define KERNEL_TARGET 0
+#endif
+inline static constexpr bool is_user_mode() { return USER_TARGET; }
+inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
 
 // Determine the compiler.
 //
@@ -166,18 +182,6 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
     #define is_constant_evaluated() true_type::value
 #endif
 
-// Declare simple kernel mode switch.
-//
-#if (defined(_KERNEL_MODE) || defined(XSTD_KERNEL_MODE))
-    #define USER_TARGET   0
-    #define KERNEL_TARGET 1
-#else
-    #define USER_TARGET   1
-    #define KERNEL_TARGET 0
-#endif
-inline static constexpr bool is_user_mode() { return USER_TARGET; }
-inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
-
 // Determine RTTI support.
 //
 #if defined(_CPPRTTI)
@@ -190,6 +194,38 @@ inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
 	#define HAS_RTTI	   0
 #endif
 inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
+
+// Declare inlining primitives.
+//
+#if GNU_COMPILER
+    #define FORCE_INLINE __attribute__((always_inline))
+    #define NOINLINE     __attribute__((noinline))
+#else
+    #define FORCE_INLINE __forceinline
+    #define NOINLINE     __declspec(noinline)
+#endif
+
+#ifndef RINLINE
+    #if RELEASE_BUILD
+        #define RINLINE     FORCE_INLINE
+    #else
+        #define RINLINE     NOINLINE
+    #endif
+#endif
+
+// Stringification helper.
+//
+#define ixstringify(x) #x
+#define xstringify(x)  ixstringify(x)
+
+// Make sure all users link to the same version.
+//
+#if HAS_MS_EXTENSIONS
+    #define MUST_MATCH(x) __pragma(comment(linker, "/failifmismatch:\"" #x "=" xstringify(x) "\""))
+#else
+    #define MUST_MATCH(x)
+#endif
+MUST_MATCH( DEBUG_BUILD );
 
 // Ignore some warnings if GNU.
 //

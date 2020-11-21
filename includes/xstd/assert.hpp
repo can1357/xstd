@@ -43,9 +43,9 @@
 //
 #ifndef XSTD_ASSERT_MESSAGE
 	#if DEBUG_BUILD
-		#define XSTD_ASSERT_MESSAGE( code, file, line ) XSTD_ESTR( "Assertion failure, " code " at " file ":" line )
+		#define XSTD_ASSERT_MESSAGE( cc, file, line ) XSTD_ESTR( "Assertion failure, condition {" cc "} at " file ":" line )
 	#else
-		#define XSTD_ASSERT_MESSAGE( code, file, line ) XSTD_ESTR( "Assertion failure." )
+		#define XSTD_ASSERT_MESSAGE( cc, file, line ) XSTD_ESTR( "Assertion failure." )
 	#endif
 #endif
 #ifndef XSTD_ASSERT_NO_TRACE
@@ -75,7 +75,7 @@ namespace xstd
 			// Throw exception if consteval, else invoke logger error.
 			//
 			if ( std::is_constant_evaluated() ) throw std::logic_error{ string };
-			else                                error( XSTD_ESTR( "%s" ), string );
+			else                                error( XSTD_CSTR( "%s" ), string );
 		}
 	}
 
@@ -99,9 +99,7 @@ namespace xstd
 
 // Declare main assert macro.
 //
-#define xassert__stringify(x) #x
-#define xassert__istringify(x) xassert__stringify(x)
-#define xassert(...) xstd::abort_if(!bool(__VA_ARGS__), XSTD_ASSERT_MESSAGE( xassert__stringify( __VA_ARGS__ ), __FILE__, xassert__istringify( __LINE__ ) ) )
+#define xassert(...) xstd::abort_if(!bool(__VA_ARGS__), XSTD_ASSERT_MESSAGE( xstringify( __VA_ARGS__ ), __FILE__, xstringify( __LINE__ ) ) )
 
 // Declare assertions, dassert is debug mode only, fassert is demo mode only, _s helpers 
 // have the same functionality but still evaluate the statement.
