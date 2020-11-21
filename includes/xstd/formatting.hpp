@@ -112,16 +112,12 @@ namespace xstd::format
 	template<typename T>
 	static const std::string& static_type_name()
 	{
-		static const std::string res = [ ] ()
-		{
 #if HAS_RTTI
-			return impl::fix_type_name( compiler_demangle_type_name( typeid( T ) ) );
+		static const std::string value = impl::fix_type_name( compiler_demangle_type_name( typeid( T ) ) );
 #else
-			return XSTD_STR( "Type<" ) + std::to_string( lt_typeid_v<T>::value ) + XSTD_STR( ">" );
+		static const std::string value = std::string{ type_tag<T>::name() };
 #endif
-
-		}();
-		return res;
+		return value;
 	}
 	template<typename T>
 	static std::string dynamic_type_name( const T& o )
@@ -174,11 +170,11 @@ namespace xstd::format
 				if ( x < 0 )
 				{
 					char buffer[ 16 + 4 ];
-					return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), XSTD_ESTR( "-0x%llx" ), -x ) };
+					return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), XSTD_CSTR( "-0x%llx" ), -x ) };
 				}
 			}
 			char buffer[ 16 + 3 ];
-			return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), XSTD_ESTR( "0x%llx" ), x ) };
+			return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), XSTD_CSTR( "0x%llx" ), x ) };
 		}
 		else if constexpr ( std::is_same_v<base_type, bool> )
 		{
@@ -214,7 +210,7 @@ namespace xstd::format
 		else if constexpr ( std::is_pointer_v<base_type> )
 		{
 			char buffer[ 17 ];
-			snprintf( buffer, 17, XSTD_ESTR( "%p" ), x );
+			snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
 			return std::string{ buffer };
 		}
 		else if constexpr ( is_specialization_v<std::pair, base_type> )
@@ -351,8 +347,8 @@ namespace xstd::format
 		}
 		else
 		{
-			if ( value >= 0 ) return str( XSTD_ESTR( "0x%llx" ), value );
-			else              return str( XSTD_ESTR( "-0x%llx" ), -value );
+			if ( value >= 0 ) return str( XSTD_CSTR( "0x%llx" ), value );
+			else              return str( XSTD_CSTR( "-0x%llx" ), -value );
 		}
 	}
 
@@ -360,8 +356,8 @@ namespace xstd::format
 	//
 	inline static std::string offset( int64_t value )
 	{
-		if ( value >= 0 ) return str( XSTD_ESTR( "+ 0x%llx" ), value );
-		else              return str( XSTD_ESTR( "- 0x%llx" ), -value );
+		if ( value >= 0 ) return str( XSTD_CSTR( "+ 0x%llx" ), value );
+		else              return str( XSTD_CSTR( "- 0x%llx" ), -value );
 	}
 };
 #undef HAS_RTTI

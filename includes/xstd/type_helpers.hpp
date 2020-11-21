@@ -46,7 +46,40 @@ namespace xstd
 	// Type tag.
 	//
 	template<typename T>
-	struct type_tag { using type = T; };
+	struct type_tag 
+	{ 
+		using type = T; 
+
+		template<typename vvvv__identifier__vvvv = T>
+		static constexpr std::string_view name()
+		{
+			std::string_view sig = FUNCTION_NAME;
+			auto [begin, delta, end] = std::tuple{
+#if MS_COMPILER
+				std::string_view{ "<" },                      0,  ">"
+#else
+				std::string_view{ "vvvv__identifier__vvvv" }, +3, "];"
+#endif
+			};
+
+			// Find the beginning of the name.
+			//
+			size_t f = sig.size();
+			while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
+				if ( f == 0 ) return "";
+			f += begin.size() + delta;
+
+			// Find the end of the string.
+			//
+			auto l = sig.find_first_of( end, f );
+			if ( l == std::string::npos )
+				return "";
+
+			// Return the value.
+			//
+			return sig.substr( f, l - f );
+		}
+	};
 
 	// Constant tag.
 	//
