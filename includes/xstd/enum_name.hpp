@@ -55,7 +55,7 @@ namespace xstd
 		template<T Q>
 		static constexpr std::pair<std::string_view, bool> generate()
 		{
-			std::string_view name = const_tag<Q>::name();
+			std::string_view name = const_tag<Q>::to_string();
 			if ( name[ 0 ] == '(' || uint8_t( name[ 0 ] - '0' ) <= 9 )
 				return { "", false };
 			return { name, true };

@@ -51,7 +51,7 @@ namespace xstd
 		using type = T; 
 
 		template<typename vvvv__identifier__vvvv = T>
-		static constexpr std::string_view name()
+		static constexpr std::string_view to_string()
 		{
 			std::string_view sig = FUNCTION_NAME;
 			auto [begin, delta, end] = std::tuple{
@@ -89,7 +89,7 @@ namespace xstd
 		static constexpr auto value = v;
 
 		template<auto vvvv__identifier__vvvv = v>
-		static constexpr std::string_view name()
+		static constexpr std::string_view to_string()
 		{
 			std::string_view sig = FUNCTION_NAME;
 			auto [begin, delta, end] = std::tuple{
