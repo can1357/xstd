@@ -61,9 +61,9 @@ namespace xstd
 
 		// Allow copy/move construction and assignment, safety is left to the owner.
 		//
-		relaxed_mutex( relaxed_mutex&& o ) {}
+		relaxed_mutex( relaxed_mutex&& o ) noexcept {}
 		relaxed_mutex( const relaxed_mutex& o ) {}
-		relaxed_mutex& operator=( relaxed_mutex&& o ) { return *this; }
+		relaxed_mutex& operator=( relaxed_mutex&& o ) noexcept { return *this; }
 		relaxed_mutex& operator=( const relaxed_mutex& o ) { return *this; }
 	};
 	namespace impl

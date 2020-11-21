@@ -44,6 +44,7 @@
     <ClInclude Include="includes\xstd\range.hpp" />
     <ClInclude Include="includes\xstd\reducable.hpp" />
     <ClInclude Include="includes\xstd\relaxed_atomics.hpp" />
+    <ClInclude Include="includes\xstd\result.hpp" />
     <ClInclude Include="includes\xstd\reverse_iterator.hpp" />
     <ClInclude Include="includes\xstd\stack_containers.hpp" />
     <ClInclude Include="includes\xstd\static_warning.hpp" />

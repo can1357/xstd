@@ -72,9 +72,9 @@ namespace xstd
 		//
 		if ( condition )
 		{
-			// Throw exception if consteval, else invoke logger error.
+			// Throw exception if consteval, else throw runtime error.
 			//
-			if ( std::is_constant_evaluated() ) throw std::logic_error{ string };
+			if ( std::is_constant_evaluated() ) throw std::runtime_error{ string };
 			else                                error( XSTD_CSTR( "%s" ), string );
 		}
 	}
@@ -104,7 +104,7 @@ namespace xstd
 // Declare assertions, dassert is debug mode only, fassert is demo mode only, _s helpers 
 // have the same functionality but still evaluate the statement.
 //
-#if XSTD_ASSERT_LEVEL >= 2
+#if ( XSTD_ASSERT_LEVEL >= 2 || defined(__INTELLISENSE__) )
 	#define dassert(...)     xassert( __VA_ARGS__ )
 	#define dassert_s( ... ) xassert( __VA_ARGS__ )
 	#define fassert(...)     xassert( __VA_ARGS__ )

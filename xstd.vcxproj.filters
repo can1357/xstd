@@ -117,6 +117,9 @@
     <ClInclude Include="includes\xstd\narrow_cast.hpp">
       <Filter>Headers\Numeric</Filter>
     </ClInclude>
+    <ClInclude Include="includes\xstd\result.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />

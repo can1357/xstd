@@ -70,9 +70,9 @@ namespace xstd
 
 		// Default copy/move.
 		//
-		function_view( function_view&& ) = default;
+		function_view( function_view&& ) noexcept = default;
 		function_view( const function_view& ) = default;
-		function_view& operator=( function_view&& ) = default;
+		function_view& operator=( function_view&& ) noexcept = default;
 		function_view& operator=( const function_view& ) = default;
 
 		// Validity check via cast to bool.

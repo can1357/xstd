@@ -128,7 +128,7 @@ namespace xstd
 		//
 		template <typename T2>
 		stack_buffered_allocator( stack_buffered_allocator<T2, real_type>&& o ) 
-			: state( ( stack_buffer_state<T, real_type>* ) o.state ) {}
+			: state( ( stack_buffer_state<T, real_type>* ) o.state ) noexcept {}
 
 		// Allocators are only equivalent if the internal state references
 		// the same stack buffer.

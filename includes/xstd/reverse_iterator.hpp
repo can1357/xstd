@@ -53,9 +53,9 @@ namespace xstd
 
 		// Default copy/move.
 		//
-		constexpr reversed_iterator( reversed_iterator&& ) = default;
+		constexpr reversed_iterator( reversed_iterator&& ) noexcept = default;
 		constexpr reversed_iterator( const reversed_iterator& ) = default;
-		constexpr reversed_iterator& operator=( reversed_iterator&& ) = default;
+		constexpr reversed_iterator& operator=( reversed_iterator&& ) noexcept = default;
 		constexpr reversed_iterator& operator=( const reversed_iterator& ) = default;
 		
 		// Reverts back to a normal iterator.

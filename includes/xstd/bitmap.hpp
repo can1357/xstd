@@ -49,9 +49,9 @@ namespace xstd
 		// Default construction / copy / move.
 		//
 		constexpr bitmap() = default;
-		constexpr bitmap( bitmap&& ) = default;
+		constexpr bitmap( bitmap&& ) noexcept = default;
 		constexpr bitmap( const bitmap& ) = default;
-		constexpr bitmap& operator=( bitmap&& ) = default;
+		constexpr bitmap& operator=( bitmap&& ) noexcept = default;
 		constexpr bitmap& operator=( const bitmap& ) = default;
 
 		// Find any bit with the given value in the array.
