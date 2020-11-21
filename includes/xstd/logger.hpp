@@ -66,10 +66,10 @@
 #if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
 extern "C" 
 {
-	__declspec( dllimport ) int __stdcall SetConsoleOutputCP( uint32_t code_page_id );
-	__declspec( dllimport ) void* __stdcall GetStdHandle( uint32_t std_handle );
-	__declspec( dllimport ) int __stdcall GetConsoleMode( void* handle, uint32_t* mode );
-	__declspec( dllimport ) int __stdcall SetConsoleMode( void* handle, uint32_t mode );
+	__declspec( dllimport ) int __stdcall SetConsoleOutputCP( unsigned int code_page_id );
+	__declspec( dllimport ) void* __stdcall GetStdHandle( unsigned long std_handle );
+	__declspec( dllimport ) int __stdcall GetConsoleMode( void* handle, unsigned long* mode );
+	__declspec( dllimport ) int __stdcall SetConsoleMode( void* handle, unsigned long mode );
 };
 #endif
 
@@ -122,7 +122,7 @@ namespace xstd
 #endif
 #if ( WINDOWS_TARGET && !XSTD_CON_NO_COLORS )
 			constexpr uint32_t ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
-			uint32_t mode;
+			unsigned long mode;
 			GetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), &mode );
 			SetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING );
 #endif
@@ -214,15 +214,15 @@ namespace xstd
 #if !XSTD_CON_NO_COLORS
 			switch ( color )
 			{
-				case CON_BRG: return XSTD_ESTR( ANSI_ESCAPE( "1;37m" ) );
-				case CON_YLW: return XSTD_ESTR( ANSI_ESCAPE( "1;33m" ) );
-				case CON_PRP: return XSTD_ESTR( ANSI_ESCAPE( "1;35m" ) );
-				case CON_RED: return XSTD_ESTR( ANSI_ESCAPE( "1;31m" ) );
-				case CON_CYN: return XSTD_ESTR( ANSI_ESCAPE( "1;36m" ) );
-				case CON_GRN: return XSTD_ESTR( ANSI_ESCAPE( "1;32m" ) );
-				case CON_BLU: return XSTD_ESTR( ANSI_ESCAPE( "1;34m" ) );
+				case CON_BRG: return XSTD_CSTR( ANSI_ESCAPE( "1;37m" ) );
+				case CON_YLW: return XSTD_CSTR( ANSI_ESCAPE( "1;33m" ) );
+				case CON_PRP: return XSTD_CSTR( ANSI_ESCAPE( "1;35m" ) );
+				case CON_RED: return XSTD_CSTR( ANSI_ESCAPE( "1;31m" ) );
+				case CON_CYN: return XSTD_CSTR( ANSI_ESCAPE( "1;36m" ) );
+				case CON_GRN: return XSTD_CSTR( ANSI_ESCAPE( "1;32m" ) );
+				case CON_BLU: return XSTD_CSTR( ANSI_ESCAPE( "1;34m" ) );
 				case CON_DEF:
-				default:      return XSTD_ESTR( ANSI_ESCAPE( "0m" ) );
+				default:      return XSTD_CSTR( ANSI_ESCAPE( "0m" ) );
 			}
 #else
 			return "";
@@ -253,12 +253,12 @@ namespace xstd
 					{
 						if ( ( i + 1 ) == pad_by )
 						{
-							out_cnt += fprintf( dst, XSTD_ESTR( "%*c" ), log_padding_step - 1, ' ' );
+							out_cnt += fprintf( dst, XSTD_CSTR( "%*c" ), log_padding_step - 1, ' ' );
 							if ( fmt[ 0 ] == ' ' ) putchar( log_padding_c );
 						}
 						else
 						{
-							out_cnt += fprintf( dst, XSTD_ESTR( "%*c%c" ), log_padding_step - 1, ' ', log_padding_c );
+							out_cnt += fprintf( dst, XSTD_CSTR( "%*c%c" ), log_padding_step - 1, ' ', log_padding_c );
 						}
 					}
 				}
@@ -340,18 +340,17 @@ namespace xstd
 	template<typename... params>
 	static void error [[noreturn]] ( const char* fmt, params&&... ps )
 	{
+		// If there is an active hook, call into it, else add formatting and print.
+		//
+#ifdef XSTD_CON_ERROR_REDIRECT
+		XSTD_CON_ERROR_REDIRECT( fmt, std::forward<params>( ps )... );
+#else
 		// Format error message.
 		//
 		std::string message = format::str(
 			fmt,
 			std::forward<params>( ps )...
 		);
-
-		// If there is an active hook, call into it, else add formatting and print.
-		//
-#ifdef XSTD_CON_ERROR_REDIRECT
-		XSTD_CON_ERROR_REDIRECT( message );
-#else
 		message = XSTD_STR( "\n" ) + impl::translate_color( CON_RED ) + XSTD_STR( "[*] Error:" ) + std::move( message ) + '\n';
 
 		// Try acquiring the lock and print the error, if properly locked skiped the first newline.
