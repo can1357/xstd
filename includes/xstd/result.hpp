@@ -137,10 +137,10 @@ namespace xstd
 		std::string to_string() const
 		{
 			if ( fail() ) 
-				return format::str( XSTD_CSTR( "{ Failure: '%s' }" ), message() );
+				return format::str( XSTD_CSTR( "(Fail='%s')" ), message() );
 
-			if constexpr ( StringConvertible<Val> ) return format::str( XSTD_CSTR( "{ Result: %s }" ), value() );
-			else                                    return XSTD_CSTR( "{ Success }" );
+			if constexpr ( StringConvertible<Val> ) return format::str( XSTD_CSTR( "(Result=%s)" ), value() );
+			else                                    return XSTD_CSTR( "(Success)" );
 		}
 
 		// For accessing the value, replicate the std::optional interface.
