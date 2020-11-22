@@ -45,8 +45,10 @@
 // XSTD_CON_ENFORCE_UTF8_WINDOWS: If set, will enforce the command-line to output UTF8 on Windows platform.
 // XSTD_CON_NO_COLORS: If set, disables colors.
 // XSTD_CON_NO_WARNINGS: If set, disables warnings.
-// XSTD_CON_ERROR_REDIRECT: If set, redirects errors to the set name. [Prototype: extern "C" void [[noreturn]] ( const std::string& )]
-//
+// XSTD_CON_NO_LOGS: If set, disables logs.
+// XSTD_CON_ERROR_REDIRECT: If set, redirects errors to the set name. [Prototype: extern "C" void __cdecl [[noreturn]] ( const std::string& )]
+// XSTD_CON_ERROR_NOMSG: If set, changes the redirect prototype to extern "C" void __cdecl [[noreturn]] ();
+
 #ifndef XSTD_CON_THREAD_LOCAL
 	#define XSTD_CON_THREAD_LOCAL 1
 #endif
@@ -59,8 +61,18 @@
 #ifndef XSTD_CON_NO_WARNINGS
 	#define XSTD_CON_NO_WARNINGS 0
 #endif
+#ifndef XSTD_CON_NO_LOGS
+	#define XSTD_CON_NO_LOGS 0
+#endif
+#ifndef XSTD_CON_ERROR_NOMSG
+	#define XSTD_CON_ERROR_NOMSG 0
+#endif
 #ifdef XSTD_CON_ERROR_REDIRECT
-	extern "C" void [[noreturn]] XSTD_CON_ERROR_REDIRECT ( const std::string& );
+	#if XSTD_CON_ERROR_NOMSG
+		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ();
+	#else
+		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ( const std::string& );
+	#endif
 #endif
 
 #if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
@@ -301,14 +313,22 @@ namespace xstd
 	template<typename... Tx>
 	static int log( console_color color, const char* fmt, Tx&&... ps )
 	{
+#if !XSTD_CON_NO_LOGS
 		auto buf = format::create_string_buffer_for<Tx...>();
 		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt, format::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+#else
+		return 0;
+#endif
 	}
 	template<console_color color = CON_DEF, typename... Tx>
 	static int log( const char* fmt, Tx&&... ps )
 	{
+#if !XSTD_CON_NO_LOGS
 		auto buf = format::create_string_buffer_for<Tx...>();
 		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt, format::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+#else
+		return 0;
+#endif
 	}
 
 	// Prints a warning message.
@@ -343,7 +363,11 @@ namespace xstd
 		// If there is an active hook, call into it, else add formatting and print.
 		//
 #ifdef XSTD_CON_ERROR_REDIRECT
-		XSTD_CON_ERROR_REDIRECT( fmt, std::forward<params>( ps )... );
+	#if XSTD_CON_ERROR_NOMSG
+		XSTD_CON_ERROR_REDIRECT();
+	#else
+		XSTD_CON_ERROR_REDIRECT( format::str( fmt, std::forward<params>( ps )... ) );
+	#endif
 #else
 		// Format error message.
 		//
@@ -361,6 +385,7 @@ namespace xstd
 		// Break the program, leave the logger locked since we'll break anyways.
 		//
 		unreachable();
+		__debugbreak();
 #endif
 	}
 };
