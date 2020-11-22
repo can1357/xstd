@@ -1,0 +1,44 @@
+# This file is not an exact fit yet because of the lack of C++20 concept support.
+#
+#
+BasedOnStyle: Google
+ColumnLimit: '240'
+IndentWidth: '4'
+TabWidth: '4'
+UseTab: ForContinuationAndIndentation
+NamespaceIndentation: All
+SpaceAfterTemplateKeyword: 'false'
+SpacesInParentheses: 'true'
+SpacesInSquareBrackets: 'true'
+SpacesInCStyleCastParentheses: 'true'
+SpaceAfterCStyleCast: 'true'
+BraceWrapping:
+  AfterClass:      true
+  AfterControlStatement: true
+  AfterEnum:       true
+  AfterFunction:   true
+  AfterNamespace:  true
+  AfterObjCDeclaration: true
+  AfterStruct:     true
+  AfterUnion:      true
+  BeforeCatch:     true
+  BeforeElse:      true
+  IndentBraces:    false
+  SplitEmptyFunction: false
+BreakBeforeBraces: Custom
+FixNamespaceComments: false
+IncludeBlocks: Preserve
+AllowShortFunctionsOnASingleLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortLambdasOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: false
+AllowAllConstructorInitializersOnNextLine: true
+AlignConsecutiveMacros: true
+AlignEscapedNewlines: true
+AlignOperands: true
+AlignTrailingComments: true
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+IndentPPDirectives: BeforeHash
