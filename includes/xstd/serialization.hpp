@@ -384,10 +384,10 @@ namespace xstd
         if ( !no_header )
         {
             fassert( length > 5 && !memcmp( data, XSTD_CSTR( "XSTD" ), 4 ) );
-            if ( bool ptr_table_used = data[ 4 ] )
+            data += 4;
+            length -= 4;
+            if ( bool ptr_table_used = *data++ )
             {
-                data += 5;
-                length -= 5;
                 serialization subctx = load( data, length, true );
                 deserialize( ctx.pointers, subctx );
                 data += subctx.offset;
