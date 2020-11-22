@@ -99,7 +99,7 @@ namespace xstd
 
 // Declare main assert macro.
 //
-#define xassert(...) xstd::assert_that(!bool(__VA_ARGS__), XSTD_ASSERT_MESSAGE( xstringify( __VA_ARGS__ ), __FILE__, xstringify( __LINE__ ) ) )
+#define xassert(...) xstd::assert_that(bool(__VA_ARGS__), XSTD_ASSERT_MESSAGE( xstringify( __VA_ARGS__ ), __FILE__, xstringify( __LINE__ ) ) )
 
 // Declare assertions, dassert is debug mode only, fassert is demo mode only, _s helpers 
 // have the same functionality but still evaluate the statement.
