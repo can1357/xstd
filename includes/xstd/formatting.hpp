@@ -57,7 +57,7 @@
     #pragma GCC diagnostic ignored "-Wformat"
 #endif
 
-namespace xstd::format
+namespace xstd::fmt
 {
 	namespace impl
 	{

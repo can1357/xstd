@@ -36,7 +36,7 @@
 
 // Trivial types with useful explict formatting wrappers.
 //
-namespace xstd::format
+namespace xstd::fmt
 {
 	// Explicit integer formatting.
 	//

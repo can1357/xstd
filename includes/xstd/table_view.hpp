@@ -37,7 +37,7 @@
 
 // Declares a table data renderer.
 //
-namespace xstd::format
+namespace xstd::fmt
 {
 	// Table renderer configuration.
 	//
