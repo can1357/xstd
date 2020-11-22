@@ -91,15 +91,14 @@ namespace xstd
 
 		// Default value construction via tag.
 		//
-		template<auto C = 0> requires ( DefaultConstructable<Val> )
-		constexpr basic_result( default_result ) : result( Val{} ), status( { traits::success_value } ) {}
+		constexpr basic_result( default_result ) requires DefaultConstructable<Val> : result( Val{} ), status( Status{ traits::success_value } ) {}
 
 		// Consturction with value/state combination.
 		//
 		template<typename T> requires ( Constructable<Val, T> )
-		constexpr basic_result( T&& value ) : result( std::forward<T>( value ) ), status( { traits::success_value } ) {}
+		constexpr basic_result( T&& value ) : result( std::forward<T>( value ) ), status( Status{ traits::success_value } ) {}
 		template<typename S> requires ( Constructable<Status, S> && !Constructable<Val, S> )
-		explicit constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) {}
+		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) {}
 		template<typename T, typename S>  requires ( Constructable<Val, T> && Constructable<Status, S> )
 		constexpr basic_result( T&& value, S&& status ) : result( std::forward<T>( value ) ), status( std::forward<S>( status ) ) {}
 
@@ -166,10 +165,22 @@ namespace xstd
 
 		// Accessors.
 		//
-		constexpr Val* operator->() { return &value(); }
+		constexpr decltype(auto) operator->()
+		{ 
+			if constexpr ( PointerLike<Val> )
+				return value();
+			else
+				return &value(); 
+		}
 		constexpr Val& operator*() { return value(); }
 		constexpr const Val& operator*() const { return value(); }
-		constexpr const Val* operator->() const { return &value(); }
+		constexpr decltype( auto ) operator->() const
+		{
+			if constexpr ( PointerLike<Val> )
+				return value();
+			else
+				return &value();
+		}
 	};
 
 	template<typename T = no_value_t, typename S = bool>

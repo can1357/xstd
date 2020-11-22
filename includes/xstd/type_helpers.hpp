@@ -160,6 +160,10 @@ namespace xstd
 	concept Enum = std::is_enum_v<T>;
 	template<typename T>
 	concept Tuple = is_specialization_v<std::tuple, T> || is_specialization_v<std::pair, T>;
+	template<typename T>
+	concept Pointer = std::is_pointer_v<T>;
+	template<typename T>
+	concept PointerLike = Pointer<T> || requires( T && x ) { x.operator->(); };
 
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
