@@ -18,6 +18,7 @@
     <ClInclude Include="includes\xstd\deferred_value.hpp" />
     <ClInclude Include="includes\xstd\enum_name.hpp" />
     <ClInclude Include="includes\xstd\file.hpp" />
+    <ClInclude Include="includes\xstd\file_view.hpp" />
     <ClInclude Include="includes\xstd\finally.hpp" />
     <ClInclude Include="includes\xstd\fnv64.hpp" />
     <ClInclude Include="includes\xstd\formatting.hpp" />
