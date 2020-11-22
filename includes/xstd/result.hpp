@@ -137,9 +137,9 @@ namespace xstd
 		std::string to_string() const
 		{
 			if ( fail() ) 
-				return format::str( XSTD_CSTR( "(Fail='%s')" ), message() );
+				return fmt::str( XSTD_CSTR( "(Fail='%s')" ), message() );
 
-			if constexpr ( StringConvertible<Val> ) return format::str( XSTD_CSTR( "(Result=%s)" ), value() );
+			if constexpr ( StringConvertible<Val> ) return fmt::str( XSTD_CSTR( "(Result=%s)" ), value() );
 			else                                    return XSTD_CSTR( "(Success)" );
 		}
 

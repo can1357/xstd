@@ -194,7 +194,7 @@ namespace xstd::fmt
 					begl();
 					write( config.vertical_delimiter, ' ' );
 
-					std::string indicator = format::str( XSTD_CSTR( "... (%d more)" ), entry_count - string_entries.size() );
+					std::string indicator = fmt::str( XSTD_CSTR( "... (%d more)" ), entry_count - string_entries.size() );
 					if ( indicator.size() > ( line_length - 4 ) )
 						indicator.resize( line_length - 4 );
 					write_n( indicator );

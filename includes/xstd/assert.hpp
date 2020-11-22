@@ -82,15 +82,15 @@ namespace xstd
 	// A helper to throw formatted error messages.
 	//
 	template<typename... params>
-	__forceinline static void throw_fmt [[noreturn]] ( const char* fmt, params&&... ps )
+	__forceinline static void throw_fmt [[noreturn]] ( const char* fmt_str, params&&... ps )
 	{
 		// Format error message.
 		//
 #if XSTD_NO_EXCEPTIONS
-		error( fmt, std::forward<params>( ps )... );
+		error( fmt_str, std::forward<params>( ps )... );
 #else
-		throw std::runtime_error( format::str(
-			fmt,
+		throw std::runtime_error( fmt::str(
+			fmt_str,
 			std::forward<params>( ps )...
 		) );
 #endif

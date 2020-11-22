@@ -64,7 +64,7 @@ namespace xstd::fmt
 
 		std::string to_string() const
 		{
-			return format::hex( value );
+			return fmt::hex( value );
 		}
 	};
 

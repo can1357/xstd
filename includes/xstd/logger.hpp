@@ -242,7 +242,7 @@ namespace xstd
 		}
 
 		template<bool has_args>
-		static int log_w( FILE* dst, console_color color, const char* fmt, ... )
+		static int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
 		{
 			// Hold the lock for the critical section guarding ::log.
 			//
@@ -266,7 +266,7 @@ namespace xstd
 						if ( ( i + 1 ) == pad_by )
 						{
 							out_cnt += fprintf( dst, XSTD_CSTR( "%*c" ), log_padding_step - 1, ' ' );
-							if ( fmt[ 0 ] == ' ' ) putchar( log_padding_c );
+							if ( fmt_str[ 0 ] == ' ' ) putchar( log_padding_c );
 						}
 						else
 						{
@@ -277,7 +277,7 @@ namespace xstd
 
 				// Set or clear the carry for next.
 				//
-				if ( fmt[ strlen( fmt ) - 1 ] == '\n' )
+				if ( fmt_str[ strlen( fmt_str ) - 1 ] == '\n' )
 					logger_state.padding_carry = 0;
 				else
 					logger_state.padding_carry = logger_state.padding;
@@ -293,13 +293,13 @@ namespace xstd
 			if ( has_args )
 			{
 				va_list args;
-				va_start( args, fmt );
-				out_cnt += vfprintf( dst, fmt, args );
+				va_start( args, fmt_str );
+				out_cnt += vfprintf( dst, fmt_str, args );
 				va_end( args );
 			}
 			else
 			{
-				out_cnt += fputs( fmt, dst );
+				out_cnt += fputs( fmt_str, dst );
 			}
 
 			// Reset to defualt color.
@@ -311,21 +311,21 @@ namespace xstd
 	};
 
 	template<typename... Tx>
-	static int log( console_color color, const char* fmt, Tx&&... ps )
+	static int log( console_color color, const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_LOGS
-		auto buf = format::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt, format::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		auto buf = fmt::create_string_buffer_for<Tx...>();
+		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
 #else
 		return 0;
 #endif
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	static int log( const char* fmt, Tx&&... ps )
+	static int log( const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_LOGS
-		auto buf = format::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt, format::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		auto buf = fmt::create_string_buffer_for<Tx...>();
+		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
 #else
 		return 0;
 #endif
@@ -334,13 +334,13 @@ namespace xstd
 	// Prints a warning message.
 	//
 	template<typename... params>
-	static void warning( const char* fmt, params&&... ps )
+	static void warning( const char* fmt_str, params&&... ps )
 	{
 #if !XSTD_CON_NO_WARNINGS
 		// Format warning message.
 		//
-		std::string message = XSTD_STR( "\n" ) + impl::translate_color( CON_YLW ) + XSTD_STR( "[!] Warning: " ) + format::str(
-			fmt,
+		std::string message = XSTD_STR( "\n" ) + impl::translate_color( CON_YLW ) + XSTD_STR( "[!] Warning: " ) + fmt::str(
+			fmt_str,
 			std::forward<params>( ps )...
 		) + '\n';
 
@@ -358,7 +358,7 @@ namespace xstd
 	// Prints an error message and breaks the execution.
 	//
 	template<typename... params>
-	static void error [[noreturn]] ( const char* fmt, params&&... ps )
+	static void error [[noreturn]] ( const char* fmt_str, params&&... ps )
 	{
 		// If there is an active hook, call into it, else add formatting and print.
 		//
@@ -366,13 +366,13 @@ namespace xstd
 	#if XSTD_CON_ERROR_NOMSG
 		XSTD_CON_ERROR_REDIRECT();
 	#else
-		XSTD_CON_ERROR_REDIRECT( format::str( fmt, std::forward<params>( ps )... ) );
+		XSTD_CON_ERROR_REDIRECT( fmt::str( fmt_str, std::forward<params>( ps )... ) );
 	#endif
 #else
 		// Format error message.
 		//
-		std::string message = format::str(
-			fmt,
+		std::string message = fmt::str(
+			fmt_str,
 			std::forward<params>( ps )...
 		);
 		message = XSTD_STR( "\n" ) + impl::translate_color( CON_RED ) + XSTD_STR( "[*] Error:" ) + std::move( message ) + '\n';

@@ -322,18 +322,18 @@ namespace xstd::fmt
 	// Returns formatted string according to <fms>.
 	//
 	template<typename... Tx>
-	static std::string str( const char* fmt, Tx&&... ps )
+	static std::string str( const char* fmt_str, Tx&&... ps )
 	{
-		auto print_to_buffer = [ ] ( const char* fmt, auto&&... args )
+		auto print_to_buffer = [ ] ( const char* fmt_str, auto&&... args )
 		{
 			std::string buffer( 128, ' ' );
-			buffer.resize( snprintf( buffer.data(), buffer.size() + 1, fmt, args... ) );
+			buffer.resize( snprintf( buffer.data(), buffer.size() + 1, fmt_str, args... ) );
 			if ( buffer.size() >= 128 )
-				snprintf( buffer.data(), buffer.size() + 1, fmt, args... );
+				snprintf( buffer.data(), buffer.size() + 1, fmt_str, args... );
 			return buffer;
 		};
 		auto buf = create_string_buffer_for<Tx...>();
-		return print_to_buffer( fmt, fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		return print_to_buffer( fmt_str, fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
 	}
 
 	// Formats the integer into a signed hexadecimal.
@@ -366,7 +366,7 @@ namespace xstd::fmt
 //
 namespace xstd
 {
-	using format::CustomStringConvertible;
-	using format::StdStringConvertible;
-	using format::StringConvertible;
+	using fmt::CustomStringConvertible;
+	using fmt::StdStringConvertible;
+	using fmt::StringConvertible;
 };
