@@ -115,7 +115,8 @@ namespace xstd::fmt
 #if HAS_RTTI
 		static const std::string value = impl::fix_type_name( compiler_demangle_type_name( typeid( T ) ) );
 #else
-		static const std::string value = std::string{ type_tag<T>::to_string() };
+		static constexpr auto str = type_tag<T>::to_string();
+		static const std::string value = std::string{ str };
 #endif
 		return value;
 	}

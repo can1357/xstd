@@ -123,6 +123,9 @@
     <ClInclude Include="includes\xstd\file_view.hpp">
       <Filter>Headers\I/O</Filter>
     </ClInclude>
+    <ClInclude Include="includes\xstd\serialization.hpp">
+      <Filter>Headers\I/O</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />

@@ -53,7 +53,7 @@ namespace xstd
 		template<typename vvvv__identifier__vvvv = T>
 		static constexpr std::string_view to_string()
 		{
-			std::string_view sig = FUNCTION_NAME;
+			std::string_view sig = XSTD_CSTR( FUNCTION_NAME );
 			auto [begin, delta, end] = std::tuple{
 #if MS_COMPILER
 				std::string_view{ "<" },                      0,  ">"
@@ -91,7 +91,7 @@ namespace xstd
 		template<auto vvvv__identifier__vvvv = v>
 		static constexpr std::string_view to_string()
 		{
-			std::string_view sig = FUNCTION_NAME;
+			std::string_view sig = XSTD_CSTR( FUNCTION_NAME );
 			auto [begin, delta, end] = std::tuple{
 #if MS_COMPILER
 				std::string_view{ "<" },                      0,  ">"
@@ -163,7 +163,11 @@ namespace xstd
 	template<typename T>
 	concept Pointer = std::is_pointer_v<T>;
 	template<typename T>
+	concept Optional = is_specialization_v<std::optional, T>;
+	template<typename T>
 	concept PointerLike = Pointer<T> || requires( T && x ) { x.operator->(); };
+	template<typename T>
+	concept Final = std::is_final_v<T>;
 
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;

@@ -61,9 +61,9 @@ namespace xstd
 		using unit_t =       nanoseconds;
 
 		using basic_units =                          std::tuple< nanoseconds,               milliseconds,               seconds,               minutes,               hours               >;
-		inline const std::array basic_unit_names =             { XSTD_STR( "nanoseconds" ), XSTD_STR( "milliseconds" ), XSTD_STR( "seconds" ), XSTD_STR( "minutes" ), XSTD_STR( "hours" ) };
-		inline const std::array basic_unit_abbreviations =     { XSTD_STR( "ns" ),          XSTD_STR( "ms" ),           XSTD_STR( "sec" ),     XSTD_STR( "min" ),     XSTD_STR( "hrs" )   };
-		inline const std::array basic_unit_durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
+		static const std::array basic_unit_names =             { XSTD_STR( "nanoseconds" ), XSTD_STR( "milliseconds" ), XSTD_STR( "seconds" ), XSTD_STR( "minutes" ), XSTD_STR( "hours" ) };
+		static const std::array basic_unit_abbreviations =     { XSTD_STR( "ns" ),          XSTD_STR( "ms" ),           XSTD_STR( "sec" ),     XSTD_STR( "min" ),     XSTD_STR( "hrs" )   };
+		static const std::array basic_unit_durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
 		{
 			return std::chrono::duration_cast<unit_t>( std::tuple_element_t<decltype(x)::value, basic_units>( 1 ) );
 		} );
