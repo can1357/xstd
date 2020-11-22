@@ -13,5 +13,4 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unused-value)       # RNG discarding index.
     target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unused-function)    # Static helpers
     target_compile_options(${PROJECT_NAME} PUBLIC -Wno-format-security)    # Custom logger
-    target_compile_options(${PROJECT_NAME} PUBLIC -Wno-unknown-attributes) # [[likely]] [[unlikely]]
 endif()
