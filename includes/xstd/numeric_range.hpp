@@ -54,8 +54,8 @@ namespace xstd
 			//
 			constexpr iterator& operator++() { at++; return *this; }
 			constexpr iterator& operator--() { at--; return *this; }
-			constexpr iterator operator++( int ) const { auto s = *this; operator++(); return s; }
-			constexpr iterator operator--( int ) const { auto s = *this; operator--(); return s; }
+			constexpr iterator operator++( int ) { auto s = *this; operator++(); return s; }
+			constexpr iterator operator--( int ) { auto s = *this; operator--(); return s; }
 			constexpr iterator& operator+=( difference_type d ) { at += d; return *this; }
 			constexpr iterator& operator-=( difference_type d ) { at -= d; return *this; }
 			constexpr iterator operator+( difference_type d ) const { auto s = *this; operator+=( d ); return s; }

@@ -285,8 +285,7 @@ namespace xstd
 
 			// Set to requested color and redirect to printf.
 			//
-			if ( color != CON_DEF )
-				fputs( translate_color( color ), dst );
+			fputs( translate_color( color ), dst );
 
 			// If string literal with no parameters, use puts instead.
 			//
