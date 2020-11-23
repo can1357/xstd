@@ -40,6 +40,7 @@
     <ClInclude Include="includes\xstd\static_warning.hpp" />
     <ClInclude Include="includes\xstd\strong_formatting.hpp" />
     <ClInclude Include="includes\xstd\table_view.hpp" />
+    <ClInclude Include="includes\xstd\text.hpp" />
     <ClInclude Include="includes\xstd\time.hpp" />
     <ClInclude Include="includes\xstd\transform.hpp" />
     <ClInclude Include="includes\xstd\type_helpers.hpp" />
