@@ -37,6 +37,7 @@
 #include <vector>
 #include <chrono>
 #include <utility>
+#include <variant>
 #include <string_view>
 #include <initializer_list>
 #include "intrinsics.hpp"
@@ -168,6 +169,8 @@ namespace xstd
 	concept PointerLike = Pointer<T> || requires( T && x ) { x.operator->(); };
 	template<typename T>
 	concept Final = std::is_final_v<T>;
+	template<typename T>
+	concept Variant = is_specialization_v<std::variant, T>;
 
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;

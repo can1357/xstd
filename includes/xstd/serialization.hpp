@@ -138,7 +138,7 @@ namespace xstd
         static serialization load( const uint8_t* data, size_t length, bool no_header = false );
     };
 
-    // Implement it for trivials, iterables, tuples and optionals.
+    // Implement it for trivials, atomics, iterables, tuples, variants and optionals.
     //
     template<Trivial T>
     struct serializer<T>
@@ -155,6 +155,18 @@ namespace xstd
             memcpy( &value, ctx.raw_data.data() + ctx.offset, sizeof( T ) );
             ctx.offset += sizeof( T );
             return value;
+        }
+    };
+    template<Atomic T>
+    struct serializer<T>
+    {
+        static inline void apply( serialization& ctx, const T& value )
+        {
+            return serialize( ctx, value.load() );
+        }
+        static inline T reflect( serialization& ctx )
+        {
+            return T{ deserialize<typename T::value_type>( ctx ) };
         }
     };
     template<Iterable T>
@@ -195,6 +207,34 @@ namespace xstd
             {
                 return T( deserialize<std::tuple_element_t<N, T>>( ctx )... );
             }( std::make_index_sequence<std::tuple_size_v<T>>{} );
+        }
+    };
+    template<Variant T>
+    struct serializer<T>
+    {
+        static inline void apply( serialization& ctx, const T& value )
+        {
+            serialize<uint32_t>( ctx, value.index() );
+            std::visit( [ & ] ( const auto& ref )
+            {
+                serialize( ctx, ref );
+            }, value );
+        }
+        static inline T reflect( serialization& ctx )
+        {
+            uint32_t idx = deserialize<uint32_t>( ctx );
+            auto resolve = [&] <uint32_t N> ( auto&& self, const_tag<N> )
+            {
+                if constexpr ( N != std::variant_size_v<T> )
+                {
+                    if ( idx == N )
+                        return T( deserialize<std::variant_alternative_t<N, T>>( ctx ) );
+                    else
+                        self( self, const_tag<N + >{} );
+                }
+                return T{};
+            };
+            return resolve( const_tag<0> );
         }
     };
     template<Optional T>
