@@ -90,8 +90,8 @@ namespace xstd
 		constexpr iterator end() const   { return { max_value }; }
 		constexpr T operator[]( size_t n ) const { return min_value + n; }
 	};
-	template<Integral T> numeric_range( T a )      -> numeric_range<T>;
-	template<Integral T> numeric_range( T a, T b ) -> numeric_range<T>;
+	template<typename T>               numeric_range( T )      -> numeric_range<integral_max_t<T, T>>;  // Max'd to enforce the concept, intellisense does not like concepts here.
+	template<typename T1, typename T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;
 
 	// Simple range creation wrapper.
 	//

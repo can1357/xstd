@@ -108,6 +108,8 @@ namespace xstd::file
 		//
 		virtual ~view() = default;
 	};
+	template<Trivial T = uint8_t>
+	using shared_view = std::shared_ptr<view<T>>;
 
 	template<Trivial T = uint8_t>
 	struct native_view : view<T>
@@ -143,9 +145,6 @@ namespace xstd::file
 #endif
 		}
 	};
-
-	template<Trivial T = uint8_t>
-	using shared_view = std::shared_ptr<view<T>>;
 
 	template<Trivial T = uint8_t>
 	static inline io_result<shared_view<T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
