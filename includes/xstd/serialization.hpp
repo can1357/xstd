@@ -187,7 +187,11 @@ namespace xstd
             entries.reserve( cnt );
             for ( size_t n = 0; n != cnt; n++ )
                 entries.emplace_back( deserialize<iterator_value_type_t<T>>( ctx ) );
-            return T{ entries.begin(), entries.end() };
+
+            return T{
+                std::make_move_iterator( entries.begin() ),
+                std::make_move_iterator( entries.end() )
+            };
         }
     };
     template<Tuple T>

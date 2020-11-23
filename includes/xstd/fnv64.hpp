@@ -32,6 +32,7 @@
 #include <functional>
 #include <cstring>
 #include "intrinsics.hpp"
+#include "type_helpers.hpp"
 
 namespace xstd
 {
@@ -61,7 +62,6 @@ namespace xstd
 		{
 			using array_t = std::array<uint8_t, sizeof( T )>;
 
-#ifndef __INTELLISENSE__
 			if ( std::is_constant_evaluated() && !std::is_same_v<array_t, T> )
 			{
 				if constexpr ( Bitcastable<T> )
@@ -77,7 +77,6 @@ namespace xstd
 				}
 				unreachable();
 			}
-#endif
 			for ( size_t n = 0; n != sizeof( T ); n++ )
 			{
 				value ^= ( ( const uint8_t* ) &data )[ n ];

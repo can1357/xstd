@@ -66,7 +66,7 @@ namespace xstd
 {
 	// Aborts if the given condition is not met.
 	//
-	__forceinline static constexpr void assert_that( bool condition, const char* string )
+	__forceinline static constexpr void assert_that( bool condition, const char* string = "" )
 	{
 		// If condition met:
 		//

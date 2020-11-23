@@ -145,7 +145,10 @@ namespace xstd::file
 	};
 
 	template<Trivial T = uint8_t>
-	static inline io_result<std::shared_ptr<view<T>>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
+	using shared_view = std::shared_ptr<view<T>>;
+
+	template<Trivial T = uint8_t>
+	static inline io_result<shared_view<T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
 	{
 		// Get file size and validate it.
 		//
