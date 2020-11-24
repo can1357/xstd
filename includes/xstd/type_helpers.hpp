@@ -128,15 +128,21 @@ namespace xstd
 		static constexpr bool is_specialization_v = false;
 		template <template<typename...> typename Tmp, typename... Tx>
 		static constexpr bool is_specialization_v<Tmp, Tmp<Tx...>> = true;
+
+		template<typename T, typename = void> struct is_std_array { static constexpr bool value = false; };
+		template<typename T, size_t N> struct is_std_array<std::array<T, N>, void> { static constexpr bool value = true; };
 	};
 	template <template<typename...> typename Tmp, typename T>
 	static constexpr bool is_specialization_v = impl::is_specialization_v<Tmp, std::remove_cvref_t<T>>;
+	template <typename T>
+	static constexpr bool is_std_array_v = impl::is_std_array<T>::value;
 
 	// Check whether data is stored contiguously in the iterable.
 	//
 	template<typename T>
 	static constexpr bool is_contiguous_iterable_v = 
 	(
+		is_std_array_v<T> ||
 		is_specialization_v<std::vector, T> ||
 		is_specialization_v<std::basic_string, T> ||
 		is_specialization_v<std::initializer_list, T> ||

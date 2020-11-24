@@ -41,7 +41,7 @@ namespace xstd
 	template<Enum T, typename = void>
 	struct enum_name
 	{
-		static constexpr int iteration_limit = 64;
+		static constexpr size_t iteration_limit = 256;
 
 		// Type characteristics.
 		//

@@ -207,17 +207,17 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 //
 #if GNU_COMPILER
     #define FORCE_INLINE __attribute__((always_inline))
-    #define NOINLINE     __attribute__((noinline))
+    #define NO_INLINE    __attribute__((noinline))
 #else
     #define FORCE_INLINE __forceinline
-    #define NOINLINE     __declspec(noinline)
+    #define NO_INLINE    __declspec(noinline)
 #endif
 
 #ifndef RINLINE
     #if RELEASE_BUILD
         #define RINLINE     FORCE_INLINE
     #else
-        #define RINLINE     NOINLINE
+        #define RINLINE     NO_INLINE
     #endif
 #endif
 

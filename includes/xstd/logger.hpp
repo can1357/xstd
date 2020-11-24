@@ -289,7 +289,7 @@ namespace xstd
 
 			// If string literal with no parameters, use puts instead.
 			//
-			if ( has_args )
+			if constexpr ( has_args )
 			{
 				va_list args;
 				va_start( args, fmt_str );

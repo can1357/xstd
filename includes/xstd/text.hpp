@@ -69,30 +69,6 @@ namespace xstd::text
 		}
 	};
 
-#if ( defined(__INTELLISENSE__) || !GNU_COMPILER )
-	#define MAKE_HASHER( op, fn )                                        \
-	_CONSTEVAL hash_t operator"" op( const char* str, size_t n )         \
-	{                                                                    \
-		return fn<std::basic_string_view<char>>{}( { str, n } );         \
-	}                                                                    \
-	_CONSTEVAL hash_t operator"" op( const wchar_t* str, size_t n )      \
-	{                                                                    \
-		return fn<std::basic_string_view<wchar_t>>{}( { str, n } );      \
-	}                                                                    
-#else
-	#define MAKE_HASHER( op, fn )                                                                  \
-	template<typename T, T... chars>                                                               \
-	_CONSTEVAL auto operator"" op()                                                                \
-	{                                                                                              \
-		constexpr T str[] = { chars... };                                                          \
-		constexpr hash_t hash = fn<std::basic_string_view<T>>{}( { str, sizeof...( chars ) } );    \
-		return hash_t{ const_tag<hash.as64()>::value };                                            \
-	}
-#endif
-	MAKE_HASHER( _ihash, ihash );
-	MAKE_HASHER( _xhash, xhash );
-#undef MAKE_HASHER
-
 	// Case insensitive string comparison.
 	//
 	template<String S1, String S2>
@@ -135,3 +111,29 @@ namespace xstd::text
 		return istrcmp( av, bv ) == 0;
 	}
 };
+
+
+
+#if ( defined(__INTELLISENSE__) || !GNU_COMPILER )
+	#define MAKE_HASHER( op, fn )                                         \
+	constexpr xstd::hash_t operator"" op( const char* str, size_t n )     \
+	{                                                                     \
+		return fn<std::basic_string_view<char>>{}( { str, n } );          \
+	}                                                                     \
+	constexpr xstd::hash_t operator"" op( const wchar_t* str, size_t n )  \
+	{                                                                     \
+		return fn<std::basic_string_view<wchar_t>>{}( { str, n } );       \
+	}                                                                    
+#else
+	#define MAKE_HASHER( op, fn )                                                                        \
+	template<typename T, T... chars>                                                                     \
+	constexpr xstd::hash_t operator"" op()                                                              \
+	{                                                                                                    \
+		constexpr T str[] = { chars... };                                                                \
+		constexpr xstd::hash_t hash = fn<std::basic_string_view<T>>{}( { str, sizeof...( chars ) } );    \
+		return xstd::hash_t{ xstd::const_tag<hash.as64()>::value };                                      \
+	}
+#endif
+	MAKE_HASHER( _ihash, xstd::text::ihash );
+	MAKE_HASHER( _xhash, xstd::text::xhash );
+#undef MAKE_HASHER
