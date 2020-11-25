@@ -67,6 +67,12 @@
 #ifndef XSTD_CON_ERROR_NOMSG
 	#define XSTD_CON_ERROR_NOMSG 0
 #endif
+#ifndef XSTD_CON_ERR_DST
+	#define XSTD_CON_ERR_DST stderr
+#endif
+#ifndef XSTD_CON_MSG_DST
+	#define XSTD_CON_MSG_DST stdout
+#endif
 #ifdef XSTD_CON_ERROR_REDIRECT
 	#if XSTD_CON_ERROR_NOMSG
 		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ();
@@ -314,7 +320,7 @@ namespace xstd
 	{
 #if !XSTD_CON_NO_LOGS
 		auto buf = fmt::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
 #else
 		return 0;
 #endif
@@ -324,7 +330,7 @@ namespace xstd
 	{
 #if !XSTD_CON_NO_LOGS
 		auto buf = fmt::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( stdout, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
 #else
 		return 0;
 #endif
@@ -346,7 +352,7 @@ namespace xstd
 		// Try acquiring the lock and print the warning, if properly locked skiped the first newline.
 		//
 		bool locked = logger_state.try_lock( 10s );
-		fputs( message.c_str() + locked, stderr );
+		fputs( message.c_str() + locked, XSTD_CON_ERR_DST );
 
 		// Unlock if previously locked.
 		//
@@ -379,7 +385,7 @@ namespace xstd
 		// Try acquiring the lock and print the error, if properly locked skiped the first newline.
 		//
 		bool locked = logger_state.try_lock( 100ms );
-		fputs( message.c_str() + locked, stderr );
+		fputs( message.c_str() + locked, XSTD_CON_ERR_DST );
 
 		// Break the program, leave the logger locked since we'll break anyways.
 		//
