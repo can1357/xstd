@@ -48,6 +48,10 @@
 // XSTD_CON_NO_LOGS: If set, disables logs.
 // XSTD_CON_ERROR_REDIRECT: If set, redirects errors to the set name. [Prototype: extern "C" void __cdecl [[noreturn]] ( const std::string& )]
 // XSTD_CON_ERROR_NOMSG: If set, changes the redirect prototype to extern "C" void __cdecl [[noreturn]] ();
+// XSTD_CON_ERR_DST: If set, changes the error/warning logging destination from stderr to the given FILE*.
+// XSTD_CON_MSG_DST: If set, changes the generic logging destination from stdout to the given FILE*.
+// XSTD_CON_IFLUSH: If set, instantaneously flushes the file after every message.
+//
 
 #ifndef XSTD_CON_THREAD_LOCAL
 	#define XSTD_CON_THREAD_LOCAL 1
@@ -72,6 +76,9 @@
 #endif
 #ifndef XSTD_CON_MSG_DST
 	#define XSTD_CON_MSG_DST stdout
+#endif
+#ifndef XSTD_CON_IFLUSH
+	#define XSTD_CON_IFLUSH 0
 #endif
 #ifdef XSTD_CON_ERROR_REDIRECT
 	#if XSTD_CON_ERROR_NOMSG
@@ -311,6 +318,12 @@ namespace xstd
 			//
 			if ( color != CON_DEF )
 				fputs( translate_color( CON_DEF ), dst );
+			
+			// Flush the file if requested so.
+			//
+#if XSTD_CON_IFLUSH
+			fflush( dst );
+#endif
 			return out_cnt;
 		}
 	};
@@ -354,6 +367,12 @@ namespace xstd
 		bool locked = logger_state.try_lock( 10s );
 		fputs( message.c_str() + locked, XSTD_CON_ERR_DST );
 
+		// Flush the file if requested so.
+		//
+#if XSTD_CON_IFLUSH
+		fflush( XSTD_CON_ERR_DST );
+#endif
+
 		// Unlock if previously locked.
 		//
 		if ( locked ) logger_state.unlock();
@@ -386,6 +405,12 @@ namespace xstd
 		//
 		bool locked = logger_state.try_lock( 100ms );
 		fputs( message.c_str() + locked, XSTD_CON_ERR_DST );
+
+		// Flush the file if requested so.
+		//
+#if XSTD_CON_IFLUSH
+		fflush( XSTD_CON_ERR_DST );
+#endif
 
 		// Break the program, leave the logger locked since we'll break anyways.
 		//
