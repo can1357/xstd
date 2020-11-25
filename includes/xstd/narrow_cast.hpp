@@ -30,6 +30,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include <numeric>
+#include "assert.hpp"
 #include "type_helpers.hpp"
 
 namespace xstd

@@ -36,6 +36,9 @@ namespace xstd
 {
 	namespace impl
 	{
+		template<typename T>
+		concept RandomIterable = std::is_base_of_v<std::random_access_iterator_tag, T>;
+
 		struct no_transform 
 		{
 			template<typename T> __forceinline T operator()( T&& x ) const noexcept { return x; }
@@ -64,12 +67,16 @@ namespace xstd
 				const F& transform;
 				constexpr iterator( const base_iterator& i, const F& transform ) : at( i ), transform( transform ) {}
 
-				// Support bidirectional iteration.
+				// Support bidirectional/random iteration.
 				//
 				constexpr iterator& operator++() { at++; return *this; }
 				constexpr iterator& operator--() { at--; return *this; }
 				constexpr iterator operator++( int ) { auto s = *this; operator++(); return s; }
 				constexpr iterator operator--( int ) { auto s = *this; operator--(); return s; }
+				constexpr iterator& operator+=( difference_type d ) requires RandomIterable<iterator_category> { at += d; return *this; }
+				constexpr iterator& operator-=( difference_type d ) requires RandomIterable<iterator_category> { at -= d; return *this; }
+				constexpr iterator operator+( difference_type d ) const requires RandomIterable<iterator_category> { auto s = *this; operator+=( d ); return s; }
+				constexpr iterator operator-( difference_type d ) const requires RandomIterable<iterator_category> { auto s = *this; operator-=( d ); return s; }
 
 				// Equality check against another iterator.
 				//
@@ -97,22 +104,26 @@ namespace xstd
 		};
 	};
 
-	template<typename It, typename Fn>
-	static constexpr auto make_range( It&& begin, It&& end, Fn&& f )
+	template<typename It1, typename It2, typename Fn>
+	static constexpr auto make_range( It1&& begin, It2&& end, Fn&& f )
 	{
+		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
+
 		return impl::range_proxy<It, Fn>{
 			std::forward<Fn>( f ),
-			std::forward<It>( begin ), 
-			std::forward<It>( end ) 
+			std::forward<It1>( begin ), 
+			std::forward<It2>( end ) 
 		};
 	}
-	template<typename It>
-	static constexpr auto make_range( It&& begin, It&& end )
+	template<typename It1, typename It2>
+	static constexpr auto make_range( It1&& begin, It2&& end )
 	{
+		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
+
 		return impl::range_proxy<It, impl::no_transform>{
 			impl::no_transform{},
-			std::forward<It>( begin ), 
-			std::forward<It>( end ) 
+			std::forward<It1>( begin ),
+			std::forward<It2>( end )
 		};
 	}
 	template<Iterable C, typename Fn>

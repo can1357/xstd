@@ -227,7 +227,7 @@ namespace xstd
         static inline T reflect( serialization& ctx )
         {
             uint32_t idx = deserialize<uint32_t>( ctx );
-            auto resolve = [&] <uint32_t N> ( auto&& self, const_tag<N> )
+            auto resolve = [ & ] <uint32_t N> ( auto&& self, const_tag<N> )
             {
                 if constexpr ( N != std::variant_size_v<T> )
                 {
