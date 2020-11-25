@@ -193,10 +193,7 @@ namespace xstd::file
 		std::basic_ifstream<C> file( path );
 		if ( !file.good() )
 			return { io_state::bad_file };
-
-		// Read the whole file and return.
-		//
-		return { std::istreambuf_iterator<C>( file ), {} };
+		return { std::basic_string<C>( std::istreambuf_iterator<C>( file ), std::istreambuf_iterator<C>() ) };
 	}
 
 	template<Iterable C = std::initializer_list<std::string_view>> requires( String<iterator_value_type_t<C>> )
