@@ -59,14 +59,7 @@ namespace xstd
 		using milliseconds = std::chrono::milliseconds;
 		using nanoseconds =  std::chrono::nanoseconds;
 		using unit_t =       nanoseconds;
-
-		using basic_units =                          std::tuple< nanoseconds,               milliseconds,               seconds,               minutes,               hours               >;
-		inline const std::array basic_unit_names =             { XSTD_STR( "nanoseconds" ), XSTD_STR( "milliseconds" ), XSTD_STR( "seconds" ), XSTD_STR( "minutes" ), XSTD_STR( "hours" ) };
-		inline const std::array basic_unit_abbreviations =     { XSTD_STR( "ns" ),          XSTD_STR( "ms" ),           XSTD_STR( "sec" ),     XSTD_STR( "min" ),     XSTD_STR( "hrs" )   };
-		inline const std::array basic_unit_durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
-		{
-			return std::chrono::duration_cast<unit_t>( std::tuple_element_t<decltype(x)::value, basic_units>( 1 ) );
-		} );
+		using basic_units =  std::tuple<nanoseconds, milliseconds, seconds, minutes, hours>;
 
 		// Declare prefered clock and units.
 		//
@@ -82,17 +75,24 @@ namespace xstd
 		template<Duration T>
 		static std::string to_string( T duration )
 		{
+			static const std::array basic_unit_abbreviations = { XSTD_STR( "ns" ),          XSTD_STR( "ms" ),           XSTD_STR( "sec" ),     XSTD_STR( "min" ),     XSTD_STR( "hrs" ) };
+			static const std::array basic_unit_names =         { XSTD_STR( "nanoseconds" ), XSTD_STR( "milliseconds" ), XSTD_STR( "seconds" ), XSTD_STR( "minutes" ), XSTD_STR( "hours" ) };
+			static const std::array basic_unit_durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
+			{
+				return std::chrono::duration_cast< unit_t >( std::tuple_element_t<decltype( x )::value, basic_units>( 1 ) );
+			} );
+
 			// Convert to unit time.
 			//
 			unit_t t = std::chrono::duration_cast<unit_t>( duration );
 			
 			// Iterate duration list in descending order.
 			//
-			for ( auto [duration, abbrv] : backwards( zip( time::basic_unit_durations, time::basic_unit_abbreviations ) ) )
+			for ( auto [duration, abbrv] : backwards( zip( basic_unit_durations, basic_unit_abbreviations ) ) )
 			{
 				// If time is larger than the duration given or if we're at the last duration:
 				//
-				if ( t >= duration || duration == *std::begin( time::basic_unit_durations ) )
+				if ( t >= duration || duration == *std::begin( basic_unit_durations ) )
 				{
 					// Convert float to string.
 					//
