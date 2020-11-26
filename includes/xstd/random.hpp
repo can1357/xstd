@@ -53,9 +53,9 @@
 namespace xstd
 {
 #if XSTD_RANDOM_THREAD_LOCAL
-	#define _XSTD_RANDOM_RNG_QUALIFIERS static thread_local
+	#define _XSTD_RANDOM_RNG_QUALIFIERS thread_local
 #else
-	#define _XSTD_RANDOM_RNG_QUALIFIERS inline
+	#define _XSTD_RANDOM_RNG_QUALIFIERS 
 #endif
 
 	namespace impl
@@ -73,21 +73,21 @@ namespace xstd
 
 		// Declare a random engine state per thread.
 		//
-		_XSTD_RANDOM_RNG_QUALIFIERS std::default_random_engine local_rng( std::random_device{}( ) );
+		inline auto& get_runtime_rng()
+		{
+			static _XSTD_RANDOM_RNG_QUALIFIERS std::default_random_engine local_rng( std::random_device{}( ) );
+			return local_rng;
+		}
 #else
 		// Declare both random generators with a fixed seed.
 		//
-		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED;
-		_XSTD_RANDOM_RNG_QUALIFIERS std::default_random_engine local_rng( XSTD_RANDOM_FIXED_SEED );
-#endif
-
-		// Linear congruential generator using the constants from Numerical Recipes.
-		//
-		static constexpr uint64_t lce_64( uint64_t& value )
+		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
+		inline auto& get_runtime_rng()
 		{
-			return ( value = 1664525 * value + 1013904223 );
+			static _XSTD_RANDOM_RNG_QUALIFIERS std::default_random_engine local_rng( XSTD_RANDOM_FIXED_SEED );
+			return local_rng;
 		}
-
+#endif
 		// Constexpr uniform integer distribution.
 		//
 		template<Integral T>
@@ -100,25 +100,40 @@ namespace xstd
 		}
 	};
 
+	// Linear congruential generator using the constants from Numerical Recipes.
+	//
+	static constexpr uint64_t lce_64( uint64_t& value )
+	{
+		return ( value = 1664525 * value + 1013904223 );
+	}
+
+	// Changes the random seed.
+	// - If XSTD_RANDOM_THREAD_LOCAL is set, will be a thread-local change, else global.
+	//
+	static void seed_rng( size_t n ) 
+	{ 
+		impl::get_runtime_rng().seed( n ); 
+	}
+
 	// Generates a single random number.
 	//
 	template<Integral T>
 	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		using V = std::conditional_t<sizeof( T ) < 4, int32_t, T>;
-		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::local_rng );
+		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}
 	template<FloatingPoint T>
 	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		return std::uniform_real_distribution<T>{ min, max }( impl::local_rng );
+		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
 	}
 	template<Integral T>
 	static constexpr T make_crandom( size_t offset, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		uint64_t value = impl::crandom_default_seed;
-		while ( offset-- != 0 ) impl::lce_64( value );
-		return impl::uniform_eval( impl::lce_64( value ), min, max );
+		while ( offset-- != 0 ) lce_64( value );
+		return impl::uniform_eval( lce_64( value ), min, max );
 	}
 
 	// Generates an array of random numbers.
@@ -132,8 +147,8 @@ namespace xstd
 	static constexpr std::array<T, sizeof...( I )> make_crandom_n( size_t offset, T min, T max, std::index_sequence<I...> )
 	{
 		uint64_t value = impl::crandom_default_seed;
-		while ( offset-- != 0 ) impl::lce_64( value );
-		return { impl::uniform_eval( impl::lce_64( ( I, value ) ), min, max )... };
+		while ( offset-- != 0 ) lce_64( value );
+		return { impl::uniform_eval( lce_64( ( I, value ) ), min, max )... };
 	}
 	template<typename T, size_t N>
 	static std::array<T, N> make_random_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
@@ -170,5 +185,43 @@ namespace xstd
 	{
 		auto size = std::size( source );
 		return *std::next( std::begin( source ), make_crandom<size_t>( offset, 0, size - 1 ) );
+	}
+
+	// Shuffles a container in a random manner.
+	//
+	template<Iterable T>
+	static void shuffle_random( T& source )
+	{
+		if ( std::size( source ) <= 1 )
+			return;
+
+		size_t n = 1;
+		auto beg = std::begin( source );
+		auto end = std::end( source );
+		for ( auto it = std::next( beg ); it != end; ++n, ++it )
+		{
+			size_t off = make_random<size_t>( 0, n );
+			if ( off != n )
+				std::iter_swap( it, std::next( beg, off ) );
+		}
+	}
+	template<Iterable T>
+	static constexpr void shuffle_crandom( size_t offset, T& source )
+	{
+		if ( std::size( source ) <= 1 )
+			return;
+
+		uint64_t value = impl::crandom_default_seed;
+		while ( offset-- != 0 ) lce_64( value );
+
+		size_t n = 1;
+		auto beg = std::begin( source );
+		auto end = std::end( source );
+		for ( auto it = std::next( beg ); it != end; ++n, ++it )
+		{
+			size_t off = lce_64( value ) % ( n + 1 );
+			if ( off != n )
+				std::iter_swap( it, std::next( beg, off ) );
+		}
 	}
 };
