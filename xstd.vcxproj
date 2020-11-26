@@ -23,6 +23,7 @@
     <ClInclude Include="includes\xstd\fnv64.hpp" />
     <ClInclude Include="includes\xstd\formatting.hpp" />
     <ClInclude Include="includes\xstd\function_view.hpp" />
+    <ClInclude Include="includes\xstd\gzip.hpp" />
     <ClInclude Include="includes\xstd\hashable.hpp" />
     <ClInclude Include="includes\xstd\intrinsics.hpp" />
     <ClInclude Include="includes\xstd\logger.hpp" />

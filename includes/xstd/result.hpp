@@ -185,4 +185,7 @@ namespace xstd
 
 	template<typename T = no_value_t, typename S = bool>
 	using result = basic_result<T, S>;
+
+	template<typename T = no_value_t>
+	using string_result = basic_result<T, std::string>;
 };

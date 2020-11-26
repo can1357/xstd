@@ -22,6 +22,9 @@
     <Filter Include="Headers\Misc">
       <UniqueIdentifier>{e4b12102-ba84-4791-87d6-9693f3c4c95c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Headers\Protocols">
+      <UniqueIdentifier>{7640bd5f-c9d0-483e-b222-82ae1a8d35f0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="includes\xstd\intrinsics.hpp">
@@ -128,6 +131,9 @@
     </ClInclude>
     <ClInclude Include="includes\xstd\text.hpp">
       <Filter>Headers\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\gzip.hpp">
+      <Filter>Headers\Protocols</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
