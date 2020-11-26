@@ -38,10 +38,14 @@ namespace xstd
 {
 	// Used to generate names for enum types.
 	//
-	template<Enum T, typename = void>
+	template<typename T, typename = void> requires Enum<T>
 	struct enum_name
 	{
+#ifdef __INTELLISENSE__
+		static constexpr size_t iteration_limit = 1;
+#else
 		static constexpr size_t iteration_limit = 256;
+#endif
 
 		// Type characteristics.
 		//
