@@ -139,8 +139,8 @@ namespace xstd::fmt
 		
 		// Additional constructor for ratio.
 		//
-		template<Integral I>
-		constexpr percentage( I a, I b ) : value( T(a)/T(b) ) {}
+		template<Integral I1, Integral I2>
+		constexpr percentage( I1 a, I2 b ) : value( T(a)/T(b) ) {}
 
 		std::string to_string() const
 		{
