@@ -67,6 +67,15 @@ namespace xstd::math
 #endif
 			return 64 - n;
 		}
+
+		static constexpr auto bit_reverse_lookup_table = make_constant_series<0x100>( [] <int N> ( const_tag<N> )
+		{
+			uint8_t value = 0;
+			for ( size_t n = 0; n != 8; n++ )
+				if ( N & ( 1 << n ) )
+					value |= 1 << ( 7 - n );
+			return value;
+		} );
 	};
 
 	// Implement platform-indepdenent bitwise operations.
@@ -162,6 +171,18 @@ namespace xstd::math
 		bool is_set = value & mask;
 		value &= ~mask;
 		return is_set;
+	}
+	template<Integral I>
+	__forceinline static constexpr I bit_reverse( I value )
+	{
+		std::make_unsigned_t<I> u = 0;
+		for ( size_t n = 0; n != sizeof( I ); n++ )
+		{
+			u <<= 8;
+			u |= impl::bit_reverse_lookup_table[ value & 0xFF ];
+			value >>= 8;
+		}
+		return ( I ) u;
 	}
 
 	// Used to find a bit with a specific value in a linear memory region.
