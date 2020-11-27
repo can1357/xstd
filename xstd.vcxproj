@@ -12,6 +12,7 @@
   <ItemGroup>
     <ClInclude Include="includes\xstd\algorithm.hpp" />
     <ClInclude Include="includes\xstd\assert.hpp" />
+    <ClInclude Include="includes\xstd\base_n.hpp" />
     <ClInclude Include="includes\xstd\bitmap.hpp" />
     <ClInclude Include="includes\xstd\bitwise.hpp" />
     <ClInclude Include="includes\xstd\conditional_lock.hpp" />

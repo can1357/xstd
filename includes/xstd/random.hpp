@@ -75,7 +75,7 @@ namespace xstd
 		//
 		inline auto& get_runtime_rng()
 		{
-			static _XSTD_RANDOM_RNG_QUALIFIERS std::default_random_engine local_rng( std::random_device{}( ) );
+			static _XSTD_RANDOM_RNG_QUALIFIERS std::mt19937_64 local_rng( std::random_device{}( ) );
 			return local_rng;
 		}
 #else
