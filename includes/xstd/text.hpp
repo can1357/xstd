@@ -91,6 +91,18 @@ namespace xstd::text
 		return istrcmp<S1, S2>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0; 
 	}
 	template<String S1, String S2>
+	static constexpr size_t ifind( S1&& in, S2&& v )
+	{
+		string_view_t<S1> inv = { in };
+		string_view_t<S2> sv = { v };
+		
+		ptrdiff_t diff = inv.length() - sv.length();
+		for ( ptrdiff_t n = 0; n <= diff; n++ )
+			if ( !istrcmp( inv.substr( n, sv.length() ), sv ) )
+				return ( size_t ) n;
+		return std::string::npos;
+	}
+	template<String S1, String S2>
 	static constexpr bool istarts_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };

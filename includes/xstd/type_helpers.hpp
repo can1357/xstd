@@ -172,11 +172,15 @@ namespace xstd
 	template<typename T>
 	concept Optional = is_specialization_v<std::optional, T>;
 	template<typename T>
-	concept PointerLike = Pointer<T> || requires( T && x ) { x.operator->(); };
-	template<typename T>
 	concept Final = std::is_final_v<T>;
 	template<typename T>
 	concept Variant = is_specialization_v<std::variant, T>;
+	template<typename T>
+	concept Dereferencable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator*(); };
+	template<typename T>
+	concept MemberPointable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator->(); };
+	template<typename T>
+	concept PointerLike = MemberPointable<T> && Dereferencable<T>;
 
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
@@ -252,9 +256,11 @@ namespace xstd
 	template<typename T>
 	concept ReverseIterable = requires( T v ) { std::rbegin( v ); std::rend( v ); };
 
-	template<Iterable T> 
-	using iterator_reference_type_t = decltype( *std::begin( std::declval<T>() ) );
-	template<Iterable T> 
+	template<Iterable T>
+	using iterator_type_t = decltype( std::begin( std::declval<T>() ) );
+	template<Iterable T>
+	using iterator_reference_type_t = decltype( *std::declval<iterator_type_t<T>>() );
+	template<Iterable T>
 	using iterator_value_type_t = typename std::remove_cvref_t<iterator_reference_type_t<T>>;
 
 	template<typename V, typename T>

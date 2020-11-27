@@ -10,6 +10,7 @@
     <None Include="xstd.licenseheader" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="includes\xstd\algorithm.hpp" />
     <ClInclude Include="includes\xstd\assert.hpp" />
     <ClInclude Include="includes\xstd\bitmap.hpp" />
     <ClInclude Include="includes\xstd\bitwise.hpp" />

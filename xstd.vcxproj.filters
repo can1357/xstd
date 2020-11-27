@@ -135,6 +135,9 @@
     <ClInclude Include="includes\xstd\gzip.hpp">
       <Filter>Headers\Protocols</Filter>
     </ClInclude>
+    <ClInclude Include="includes\xstd\algorithm.hpp">
+      <Filter>Headers\Ranges</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />
