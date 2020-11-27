@@ -141,6 +141,9 @@
     <ClInclude Include="includes\xstd\base_n.hpp">
       <Filter>Headers\Protocols</Filter>
     </ClInclude>
+    <ClInclude Include="includes\xstd\environment.hpp">
+      <Filter>Headers\Misc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />

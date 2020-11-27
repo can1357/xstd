@@ -19,6 +19,7 @@
     <ClInclude Include="includes\xstd\datalen.hpp" />
     <ClInclude Include="includes\xstd\deferred_value.hpp" />
     <ClInclude Include="includes\xstd\enum_name.hpp" />
+    <ClInclude Include="includes\xstd\environment.hpp" />
     <ClInclude Include="includes\xstd\file.hpp" />
     <ClInclude Include="includes\xstd\file_view.hpp" />
     <ClInclude Include="includes\xstd\finally.hpp" />

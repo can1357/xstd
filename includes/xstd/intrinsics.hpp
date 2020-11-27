@@ -221,10 +221,13 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
     #endif
 #endif
 
-// Stringification helper.
+// Stringification helpers.
+// - ix implies no macro expansion where as x does.
 //
 #define ixstringify(x) #x
 #define xstringify(x)  ixstringify(x)
+#define ixstrcat(x,y)  x##y
+#define xstrcat(x,y)   ixstrcat(x,y)
 
 // Make sure all users link to the same version.
 //
