@@ -43,7 +43,7 @@ namespace xstd::encode
         {
             std::array<int, 0x100> res = { -1 };
             for ( size_t n = 0; n != N; n++ )
-                res[ v[ n ] ] = n;
+                res[ v[ n ] ] = ( int ) n;
             return res;
         }
         template<size_t N>
@@ -69,7 +69,7 @@ namespace xstd::encode
         //
         static constexpr bitcnt_t _group_size_out = [ ] ()
         {
-            for ( size_t n = 1; n <= 8; n++ )
+            for ( bitcnt_t n = 1; n <= 8; n++ )
                 if ( !( ( n * _bits_per_char ) % 8 ) )
                     return n;
         }();
@@ -112,8 +112,8 @@ namespace xstd::encode
     //
     namespace impl
     {
-        template<size_t N, typename C = char, bool bit_rev = true>
-        static std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const dictionary<N>& dictionary )
+        template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
+        static std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const Dc& dictionary )
         {
             fassert( ( str.length() % dictionary.group_size_out() ) == 0 );
 
@@ -131,7 +131,7 @@ namespace xstd::encode
             {
                 if ( c != dictionary.fill() )
                 {
-                    uint16_t v = dictionary.decode( c );
+                    uint16_t v = dictionary.decode( ( char ) c );
                     if constexpr ( bit_rev )
                     {
                         v <<= 8 - dictionary.bits_per_char();
@@ -161,16 +161,16 @@ namespace xstd::encode
             return result;
         }
     };
-    template<size_t N, String S, bool bit_rev = true>
-    static std::vector<uint8_t> rbase_n( S&& str, const dictionary<N>& dictionary )
+    template<String S, bool bit_rev = true, typename Dc = dictionary<64>>
+    static std::vector<uint8_t> rbase_n( S&& str, const Dc& dictionary )
     {
         return impl::rbase_n( string_view_t<S>{ str }, dictionary );
     }
 
     // Encodes data using a dictionary.
     //
-    template<size_t N, typename C = char, bool bit_rev = true>
-    static std::basic_string<C> base_n( const void* data, size_t length, const dictionary<N>& dictionary )
+    template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
+    static std::basic_string<C> base_n( const void* data, size_t length, const Dc& dictionary )
     {
         // Calculate the group count and reserve the output.
         //
@@ -206,8 +206,8 @@ namespace xstd::encode
                         if ( ( in + 1 ) != end )
                             value |= uint16_t( math::bit_reverse( in[ 1 ] ) ) << 8;
                         value >>= offset % 8;
-                        value = math::bit_reverse<uint8_t>( value & dictionary.mask() ) >> ( 8 - dictionary.bits_per_char() );
-                        *rit++ = dictionary.encode( value );
+                        value = math::bit_reverse( uint8_t( value & dictionary.mask() ) ) >> ( 8 - dictionary.bits_per_char() );
+                        *rit++ = dictionary.encode( ( char ) value );
                     }
                     else
                     {
@@ -216,13 +216,20 @@ namespace xstd::encode
                             value |= uint16_t( in[ 1 ] ) << 8;
                         value >>= offset % 8;
                         value &= dictionary.mask();
-                        *rit++ = dictionary.encode( value );
+                        *rit++ = dictionary.encode( ( char ) value );
                     }
                 }
             }
         }
         result.resize( rit - result.data() );
         return result;
+    }
+
+    template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>, Iterable T = const std::initializer_list<uint8_t>&> 
+    requires is_contiguous_iterable_v<T>
+    static std::basic_string<C> base_n( T&& c, const Dc& dictionary )
+    {
+        return base_n<C, bit_rev, Dc>( &*std::begin( c ), std::size( c ) * sizeof( iterator_value_type_t<T> ), dictionary );
     }
 
     // Dictionary defined for base64.

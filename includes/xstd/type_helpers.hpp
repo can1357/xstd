@@ -145,6 +145,7 @@ namespace xstd
 		is_std_array_v<T> ||
 		is_specialization_v<std::vector, T> ||
 		is_specialization_v<std::basic_string, T> ||
+		is_specialization_v<std::basic_string_view, T> ||
 		is_specialization_v<std::initializer_list, T> ||
 		std::is_array_v<T&>
 	);
