@@ -36,14 +36,22 @@ namespace xstd::encode
 {
     namespace impl
     {
-        // Helper to create a reverse dictionary.
+        // Helper to create dictionaries.
         //
         template<size_t N>
-        static constexpr std::array<char, 0x100> reverse_dictionary( const char( &v )[ N ] )
+        static constexpr std::array<int, 0x100> reverse_dictionary( const char( &v )[ N ] )
         {
-            std::array<char, 0x100> res = { -1 };
+            std::array<int, 0x100> res = { -1 };
             for ( size_t n = 0; n != N; n++ )
                 res[ v[ n ] ] = n;
+            return res;
+        }
+        template<size_t N>
+        static constexpr std::array<int, 0x100> forward_dictionary( const char( &v )[ N ] )
+        {
+            std::array<int, 0x100> res = { -1 };
+            for ( size_t n = 0; n != N; n++ )
+                res[ n ] = v[ n ];
             return res;
         }
     };
@@ -73,20 +81,20 @@ namespace xstd::encode
 
         // Forward and reverse dictionaries.
         //
-        std::array<char, N + 2> lookup;
-        std::array<char, 0x100> rlookup;
-        constexpr dictionary( const char( &v )[ N + 2 ] ) : lookup( std::to_array( v ) ), rlookup( impl::reverse_dictionary( v ) ) {}
+        std::array<int, 0x100> lookup;
+        std::array<int, 0x100> rlookup;
+        constexpr dictionary( const char( &v )[ N + 2 ] ) : lookup( impl::forward_dictionary( v ) ), rlookup( impl::reverse_dictionary( v ) ) {}
 
         // Helper methods.
         //
         constexpr char encode( char n ) const
         {
             dassert( n < N );
-            return lookup[ n ];
+            return ( char ) lookup[ n ];
         }
         constexpr char decode( char n ) const
         {
-            char r = rlookup[ n ];
+            char r = ( char ) rlookup[ n ];
             dassert( 0 <= r && r <= N );
             return r;
         }
