@@ -30,8 +30,10 @@
 #include "type_helpers.hpp"
 #include "hashable.hpp"
 
-namespace xstd::text
+namespace xstd
 {
+	// Constexpr implementations of cstring functions.
+	//
 	constexpr static uint32_t cxlower( uint32_t v )
 	{
 		if ( 'A' <= v && v <= 'Z' )
@@ -39,12 +41,18 @@ namespace xstd::text
 		return v;
 	}
 
+	template<String T>
+	constexpr static size_t strlen( T&& str )
+	{
+		return string_view_t<T>{ str }.size();
+	}
+
 	// Case/Width insensitive hasher.
 	//
 	template<String T>
 	struct ihash
 	{
-		constexpr auto operator()( const T& value ) const noexcept
+		constexpr hash_t operator()( const T& value ) const noexcept
 		{
 			string_view_t<T> view = { value };
 			hash_t h = {};
@@ -53,13 +61,14 @@ namespace xstd::text
 			return h;
 		}
 	};
+	template<String T> static constexpr hash_t make_ihash( const T& value ) noexcept { return ihash<T>{}( value ); }
 
 	// Width insensitive hasher.
 	//
 	template<String T>
 	struct xhash
 	{
-		constexpr auto operator()( const T& value ) const noexcept
+		constexpr hash_t operator()( const T& value ) const noexcept
 		{
 			string_view_t<T> view = { value };
 			hash_t h = {};
@@ -68,6 +77,7 @@ namespace xstd::text
 			return h;
 		}
 	};
+	template<String T> static constexpr hash_t make_xhash( const T& value ) noexcept { return xhash<T>{}( value ); }
 
 	// Case insensitive string comparison.
 	//
@@ -146,6 +156,6 @@ namespace xstd::text
 		return xstd::hash_t{ xstd::const_tag<hash.as64()>::value };                                      \
 	}
 #endif
-	MAKE_HASHER( _ihash, xstd::text::ihash );
-	MAKE_HASHER( _xhash, xstd::text::xhash );
+	MAKE_HASHER( _ihash, xstd::ihash );
+	MAKE_HASHER( _xhash, xstd::xhash );
 #undef MAKE_HASHER

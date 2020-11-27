@@ -106,6 +106,12 @@ namespace xstd
 	{
 		return ( value = 1664525 * value + 1013904223 );
 	}
+	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset )
+	{
+		while ( offset-- )
+			lce_64( value );
+		return value;
+	}
 
 	// Changes the random seed.
 	// - If XSTD_RANDOM_THREAD_LOCAL is set, will be a thread-local change, else global.
