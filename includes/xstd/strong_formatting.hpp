@@ -33,6 +33,7 @@
 #include "reverse_iterator.hpp"
 #include "formatting.hpp"
 #include "type_helpers.hpp"
+#include "numeric_range.hpp"
 
 // Trivial types with useful explict formatting wrappers.
 //
@@ -40,6 +41,26 @@ namespace xstd::fmt
 {
 	// Explicit integer formatting.
 	//
+	template<size_t N = 0, Integral T = uint64_t>
+	struct binary
+	{
+		static constexpr size_t _N = N ? N : sizeof( T ) * 8;
+
+
+		T value = 0;
+		constexpr binary() {}
+		constexpr binary( T value ) : value( value ) {}
+		constexpr operator T&() { return value; }
+		constexpr operator const T&() const { return value; }
+		std::string to_string() const
+		{
+			std::string result( _N, '0' );
+			for ( size_t i = 0; i != _N; i++ )
+				if ( ( uint64_t( value ) >> i ) & 1 )
+					result[ _N - ( i + 1 ) ] = '1';
+			return result;
+		}
+	};
 	template<Integral T>
 	struct decimal
 	{
@@ -73,7 +94,11 @@ namespace xstd::fmt
 	template<Integral T = size_t>
 	struct byte_count
 	{
-		inline static const std::array unit_abbrv = { XSTD_STR( "b" ), XSTD_STR( "kb" ), XSTD_STR( "mb" ), XSTD_STR( "gb" ), XSTD_STR( "tb" ) };
+		inline static const std::array unit_abbrv = {
+			XSTD_STR( "b" ),  XSTD_STR( "kb" ),
+			XSTD_STR( "mb" ), XSTD_STR( "gb" ),
+			XSTD_STR( "tb" ), XSTD_STR( "pb" )
+		};
 
 		T value = 0;
 		constexpr byte_count() {}
