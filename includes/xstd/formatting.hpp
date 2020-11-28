@@ -281,9 +281,7 @@ namespace xstd::fmt
 	template<typename T, typename... Tx>
 	__forceinline static auto as_string( const T& f, const Tx&... r )
 	{
-		std::string result = as_string( f ) + ", " + as_string( r... );
-		result.erase( result.end() - 2, result.end() );
-		return result;
+		return as_string( f ) + ", " + as_string( r... );
 	}
 
 	// Used to allow use of any type in combination with "%(l)s".
