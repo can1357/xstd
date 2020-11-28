@@ -70,8 +70,8 @@ namespace xstd
 				//
 				It at;
 				It end;
-				const F& predicate;
-				constexpr iterator( It at, It end, const F& predicate ) : at( std::move( at ) ), end( std::move( end ) ), predicate( predicate ) 
+				F predicate;
+				constexpr iterator( It at, It end, F predicate ) : at( std::move( at ) ), end( std::move( end ) ), predicate( std::move( predicate ) )
 				{ 
 					if ( at != end ) 
 						next(); 
@@ -86,7 +86,7 @@ namespace xstd
 				//
 				constexpr iterator& next()
 				{
-					while ( at != end && !predicate( *at ) )
+					while ( at != end && !predicate( at ) )
 						++at;
 					return *this;
 				}
@@ -160,6 +160,28 @@ namespace xstd
 		return { std::find( std::begin( container ), std::end( container ), std::forward<V>( value ) ), std::end( container ) };
 	}
 
+	// Binary search implemented similary to find.
+	//
+	template<Iterable T, typename V>
+	static constexpr auto bsearch( T&& container, V&& value ) -> impl::result_iterator<iterator_type_t<T>>
+	{
+		auto beg = std::begin( container );
+		auto end = std::end( container );
+		auto it = std::lower_bound( beg, end, value );
+		if ( it != end && *it == value )
+			return { it, end };
+		else
+			return { end, end };
+	}
+
+	// Invokes into custom searching logic implemented by container.
+	//
+	template<Iterable T, typename V>
+	static constexpr auto find_spec( T&& container, V&& value ) -> impl::result_iterator<iterator_type_t<T>>
+	{
+		return { container.find( std::forward<V>( value ) ), std::end( container ) };
+	}
+
 	// Counts the number of times a matching value is in the container.
 	//
 	template<Iterable T, typename Pr>
@@ -171,23 +193,42 @@ namespace xstd
 				++n;
 		return n;
 	}
+	template<Iterable T, typename Pr>
+	static constexpr size_t contains_if( T&& container, Pr&& predicate )
+	{
+		for ( auto&& other : container )
+			if ( predicate( other ) )
+				return true;
+		return false;
+	}
 	template<Iterable T, typename V>
 	static constexpr size_t count( T&& container, V&& value )
 	{
-		return count_if( std::forward<T>( container ), [ & ] ( auto&& v ) { return v == value; } );
+		return count_if( container, [ & ] ( auto&& v ) { return v == value; } );
+	}
+	template<Iterable T, typename V>
+	static constexpr bool contains( T&& container, V&& value )
+	{
+		return contains_if( container, [ & ] ( auto&& v ) { return v == value; } );
 	}
 
 	// Returns a range containing only the values that pass the predicate. Collect does the 
-	// same thing except it has copying behaviour whereas filter is returning a proxy.
+	// same thing except it has copying behaviour whereas filter is returning a proxy. _i prefix
+	// implies predicate takes an iterator instead.
 	//
 	template<Iterable T, typename Pr>
-	static constexpr auto filter( T&& container, Pr&& predicate )
+	static constexpr auto filter_i( T&& container, Pr&& predicate )
 	{
 		return impl::skip_range<iterator_type_t<T>, Pr>{
 			std::begin( container ),
 			std::end( container ),
 			std::forward<Pr>( predicate )
 		};
+	}
+	template<Iterable T, typename Pr>
+	static constexpr auto filter( T&& container, Pr&& predicate )
+	{
+		return filter_i( container, [ p = std::forward<Pr>( predicate ) ] ( auto&& at ) { return p( *at ); } );
 	}
 	template<Iterable T, typename Pr>
 	static auto collect( T&& container, Pr&& predicate )
@@ -198,5 +239,19 @@ namespace xstd
 			if ( predicate( other ) )
 				result.emplace_back( other );
 		return result;
+	}
+
+	// Filters the stream into unique values.
+	//
+	template<Iterable T>
+	static constexpr auto unique( T&& container )
+	{
+		return filter_i( container, [ bg = std::begin( container ) ] ( auto&& cur )
+		{
+			for ( auto it = bg; it != cur; ++it )
+				if ( *it == *cur )
+					return false;
+			return true;
+		} );
 	}
 };
