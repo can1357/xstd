@@ -253,9 +253,9 @@ namespace xstd
 	// Container traits.
 	//
 	template<typename T>
-	concept Iterable = requires( T v ) { std::begin( v ); std::end( v ); };
+	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
 	template<typename T>
-	concept ReverseIterable = requires( T v ) { std::rbegin( v ); std::rend( v ); };
+	concept ReverseIterable = requires( T&& v ) { std::rbegin( v ); std::rend( v ); };
 
 	template<Iterable T>
 	using iterator_type_t = decltype( std::begin( std::declval<T>() ) );
@@ -268,9 +268,9 @@ namespace xstd
 	concept TypedIterable = Iterable<T> && Same<std::decay_t<iterator_value_type_t<T>>, std::decay_t<V>>;
 
 	template<typename T>
-	concept DefaultRandomAccessible = requires( T v ) { make_const( v )[ 0 ]; std::size( v ); };
+	concept DefaultRandomAccessible = requires( const T& v ) { v[ 0 ]; std::size( v ); };
 	template<typename T>
-	concept CustomRandomAccessible = requires( T v ) { make_const( v )[ 0 ]; v.size(); };
+	concept CustomRandomAccessible = requires( const T& v ) { v[ 0 ]; v.size(); };
 	template<typename T>
 	concept RandomAccessible = DefaultRandomAccessible<T> || CustomRandomAccessible<T>;
 
