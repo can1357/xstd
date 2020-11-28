@@ -89,7 +89,7 @@ namespace xstd
 			};
 			using const_iterator = iterator;
 
-			// Holds transformation begin an end.
+			// Holds transformation and the limits.
 			//
 			F transform;
 			base_iterator ibegin;
@@ -100,6 +100,7 @@ namespace xstd
 			constexpr iterator begin() const { return { ibegin, transform }; }
 			constexpr iterator end() const   { return { iend, transform }; }
 			constexpr size_t size() const    { return ( size_t ) std::distance( ibegin, iend ); }
+			constexpr bool empty() const     { return ibegin == iend; }
 			constexpr decltype( auto ) operator[]( size_t n ) const { return transform( *std::next( ibegin, n ) ); }
 		};
 	};
@@ -129,7 +130,7 @@ namespace xstd
 	template<Iterable C, typename Fn>
 	static constexpr auto make_view( C&& container, Fn&& f )
 	{
-		return impl::range_proxy<decltype( std::begin( container ) ), Fn>{
+		return impl::range_proxy<iterator_type_t<C>, Fn>{
 			std::forward<Fn>( f ),
 			std::begin( container ),
 			std::end( container )

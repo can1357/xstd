@@ -35,29 +35,137 @@ namespace xstd
 {
 	namespace impl
 	{
+		// Boolean convertible iterator wrapper.
+		//
 		template<typename T>
 		struct result_iterator
 		{
 			T it, end;
-			
 			constexpr operator bool() const { return it != end; }
 			constexpr decltype( auto ) operator->() const requires MemberPointable<const T&> { return std::to_address( it ); }
 			constexpr decltype( auto ) operator*() const requires Dereferencable<const T&> { return *it; }
 			constexpr decltype( auto ) operator->() requires MemberPointable<T&> { return std::to_address( it ); }
 			constexpr decltype( auto ) operator*() requires Dereferencable<T&> { return *it; }
 		};
+
+		// Declare a proxying filter container.
+		//
+		template<typename It, typename F>
+		struct filter_proxy
+		{
+			// Declare proxying iterator.
+			//
+			struct iterator
+			{
+				// Define iterator traits.
+				//
+				using iterator_category = typename std::forward_iterator_tag;
+				using difference_type =   typename std::iterator_traits<std::remove_cvref_t<It>>::difference_type;
+				using reference =         decltype( *std::declval<It>() );
+				using value_type =        std::remove_reference_t<reference>;
+				using pointer =           value_type*;
+				
+				// Constructed by the original iterator a limit and a reference to predicate.
+				//
+				It at;
+				It end;
+				const F& predicate;
+				constexpr iterator( const It& at, const It& end, const F& predicate ) : at( at ), end( end ), predicate( predicate ) 
+				{
+					if ( at != end && !predicate( *at ) )
+						operator++();
+				}
+
+				// Support bidirectional/random iteration.
+				//
+				constexpr iterator& operator++() 
+				{ 
+					++at;
+					while ( at != end && !predicate( *at ) )
+						++at;
+					return *this; 
+				}
+				constexpr iterator operator++( int ) { auto s = *this; operator++(); return s; }
+
+				// Equality check against another iterator.
+				//
+				constexpr bool operator==( const iterator& other ) const { return at == other.at; }
+				constexpr bool operator!=( const iterator& other ) const { return at != other.at; }
+
+				// Default accessors as is.
+				//
+				constexpr reference operator*() const { return *at; }
+				constexpr pointer operator->() const requires MemberPointable<const It&> { return std::to_address( at ); }
+			};
+			using const_iterator = iterator;
+
+			// Holds the predicate and the limits.
+			//
+			F predicate;
+			It ibegin;
+			It iend;
+
+			// Declare basic container interface.
+			//
+			constexpr iterator begin() const { return { ibegin, iend, predicate }; }
+			constexpr iterator end() const   { return { iend, iend, predicate }; }
+			constexpr size_t size() const    { return ( size_t ) std::distance( begin(), end() ); } // O(N) warning!
+			constexpr bool empty() const     { return begin() == end(); } // O(1)
+			constexpr decltype( auto ) operator[]( size_t n ) const { return *std::next( begin(), n ); } // O(N) warning!
+		};
 	};
 
 	// Find if variants taking containers instead of iterators and returning bool convertible iterators.
 	//
 	template<Iterable T, typename V>
-	static constexpr auto find( T&& c, V&& value ) -> impl::result_iterator<iterator_type_t<T>>
+	static constexpr auto find( T&& container, V&& value ) -> impl::result_iterator<iterator_type_t<T>>
 	{
-		return { std::find( std::begin( c ), std::end( c ), std::forward<V>( value ) ), std::end( c ) };
+		return { std::find( std::begin( container ), std::end( container ), std::forward<V>( value ) ), std::end( container ) };
 	}
 	template<Iterable T, typename Pr>
-	static constexpr auto find_if( T&& c, Pr&& predicate ) -> impl::result_iterator<iterator_type_t<T>>
+	static constexpr auto find_if( T&& container, Pr&& predicate ) -> impl::result_iterator<iterator_type_t<T>>
 	{
-		return { std::find_if( std::begin( c ), std::end( c ), std::forward<Pr>( predicate ) ), std::end( c ) };
+		return { std::find_if( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) ), std::end( container ) };
+	}
+
+	// Counts the number of times a matching value is in the container.
+	//
+	template<Iterable T, typename Pr>
+	static constexpr size_t count_if( T&& container, Pr&& predicate )
+	{
+		size_t n = 0;
+		for ( auto&& other : container )
+			if ( predicate( other ) )
+				++n;
+		return n;
+	}
+	template<Iterable T, typename V>
+	static constexpr size_t count( T&& container, V&& value )
+	{
+		return count_if( std::forward<T>( container ), [ & ] ( auto&& v ) { return v == value; } );
+	}
+
+	// Returns a range containing only the values that pass the predicate. Collect does the 
+	// same thing except it has copying behaviour whereas filter is returning a proxy.
+	//
+	template<Iterable T, typename Pr>
+	static constexpr auto filter( T&& container, Pr&& predicate )
+	{
+		return impl::filter_proxy<iterator_type_t<T>, Pr>{
+			std::forward<Pr>( predicate ),
+			std::begin( container ),
+			std::end( container )
+		};
+	}
+	template<Iterable T, typename Pr>
+	static auto collect( T&& container, Pr&& predicate )
+	{
+		std::vector<iterator_value_type_t<T>> result;
+		result.reserve( std::size( c ) );
+
+		for ( auto&& other : c )
+			if ( predicate( other ) )
+				result.emplace_back( other );
+		return result;
 	}
 };
