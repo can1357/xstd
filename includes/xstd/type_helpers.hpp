@@ -274,6 +274,15 @@ namespace xstd
 	template<typename T>
 	concept RandomAccessible = DefaultRandomAccessible<T> || CustomRandomAccessible<T>;
 
+	// Iterator traits.
+	//
+	template<typename T> 
+	concept ForwardIterable = std::is_base_of_v<std::forward_iterator_tag, T>;
+	template<typename T> 
+	concept BidirectionalIterable = std::is_base_of_v<std::bidirectional_iterator_tag, T>;
+	template<typename T> 
+	concept RandomIterable = std::is_base_of_v<std::random_access_iterator_tag, T>;
+
 	// String traits.
 	//
 	template<typename T>
@@ -412,10 +421,27 @@ namespace xstd
 
 	// Function pointer helpers.
 	//
-	template<typename C, typename R, typename... A>
+	template<typename R, typename... A>
 	using static_function_t = R(*)(A...);
 	template<typename C, typename R, typename... A>
 	using member_function_t = R(C::*)(A...);
+
+	// Concept versions of the traits above.
+	//
+	namespace impl
+	{
+		template<typename T, typename = void> struct is_member_reference { static constexpr bool value = false; };
+		template<typename C, typename M> struct is_member_reference<member_reference_t<C, M>, void> { static constexpr bool value = true; };
+
+		template<typename T, typename = void> struct is_member_function { static constexpr bool value = false; };
+		template<typename C, typename R, typename... A> struct is_member_function<member_function_t<C, R, A...>, void> { static constexpr bool value = true; };
+
+		template<typename T, typename = void> struct is_static_function { static constexpr bool value = false; };
+		template<typename R, typename... A> struct is_static_function<static_function_t<R, A...>, void> { static constexpr bool value = true; };
+	};
+	template<typename T> concept MemberReference = impl::is_member_reference<T>::value;
+	template<typename T> concept MemberFunction = impl::is_member_function<T>::value;
+	template<typename T> concept StaticFunction = impl::is_static_function<T>::value;
 
 	// Helper used to replace types within parameter packs.
 	//

@@ -30,6 +30,7 @@
 #include <iterator>
 #include <limits>
 #include "type_helpers.hpp"
+#include "range.hpp"
 
 namespace xstd
 {
@@ -51,7 +52,7 @@ namespace xstd
 		// Declare a proxying filter container.
 		//
 		template<typename It, typename F>
-		struct filter_proxy
+		struct skip_range
 		{
 			// Declare proxying iterator.
 			//
@@ -70,27 +71,33 @@ namespace xstd
 				It at;
 				It end;
 				const F& predicate;
-				constexpr iterator( const It& at, const It& end, const F& predicate ) : at( at ), end( end ), predicate( predicate ) 
-				{
-					if ( at != end && !predicate( *at ) )
-						operator++();
+				constexpr iterator( It at, It end, const F& predicate ) : at( std::move( at ) ), end( std::move( end ) ), predicate( predicate ) 
+				{ 
+					if ( at != end ) 
+						next(); 
 				}
 
-				// Support bidirectional/random iteration.
+				// Default copy/move.
 				//
-				constexpr iterator& operator++() 
-				{ 
-					++at;
+				constexpr iterator( iterator&& ) noexcept = default;
+				constexpr iterator( const iterator& ) = default;
+
+				// Support forward iteration.
+				//
+				constexpr iterator& next()
+				{
 					while ( at != end && !predicate( *at ) )
 						++at;
-					return *this; 
+					return *this;
 				}
+				constexpr iterator& operator++() { ++at; next(); return *this; }
 				constexpr iterator operator++( int ) { auto s = *this; operator++(); return s; }
 
-				// Equality check against another iterator.
+				// Equality check against another iterator and difference.
 				//
 				constexpr bool operator==( const iterator& other ) const { return at == other.at; }
 				constexpr bool operator!=( const iterator& other ) const { return at != other.at; }
+				constexpr difference_type operator-( const iterator& other ) const requires Subtractable<It, It> { return at - other.at; }
 
 				// Default accessors as is.
 				//
@@ -101,9 +108,27 @@ namespace xstd
 
 			// Holds the predicate and the limits.
 			//
-			F predicate;
 			It ibegin;
 			It iend;
+			F predicate;
+
+			// Construct by beginning, end, and predicate.
+			//
+			constexpr skip_range( It begin, It end, F predicate )
+				: ibegin( std::move( begin ) ), iend( std::move( end ) ), predicate( std::move( predicate ) ) {}
+
+			// Construct by container and predicate.
+			//
+			template<Iterable C>
+			constexpr skip_range( const C& container, F predicate )
+				: ibegin( std::begin( container ) ), iend( std::end( container ) ), predicate( std::move( predicate ) ) {}
+
+			// Default copy and move.
+			//
+			constexpr skip_range( skip_range&& ) noexcept = default;
+			constexpr skip_range( const skip_range& ) = default;
+			constexpr skip_range& operator=( skip_range&& ) noexcept = default;
+			constexpr skip_range& operator=( const skip_range& ) = default;
 
 			// Declare basic container interface.
 			//
@@ -113,19 +138,26 @@ namespace xstd
 			constexpr bool empty() const     { return begin() == end(); } // O(1)
 			constexpr decltype( auto ) operator[]( size_t n ) const { return *std::next( begin(), n ); } // O(N) warning!
 		};
+
+		// Declare the deduction guides.
+		//
+		template<typename It1, typename It2, typename Fn>
+		skip_range( It1, It2, Fn )->skip_range<It1, Fn>;
+		template<typename C, typename Fn> requires Iterable<C>
+		skip_range( C, Fn )->skip_range<iterator_type_t<C>, Fn>;
 	};
 
 	// Find if variants taking containers instead of iterators and returning bool convertible iterators.
 	//
-	template<Iterable T, typename V>
-	static constexpr auto find( T&& container, V&& value ) -> impl::result_iterator<iterator_type_t<T>>
-	{
-		return { std::find( std::begin( container ), std::end( container ), std::forward<V>( value ) ), std::end( container ) };
-	}
 	template<Iterable T, typename Pr>
 	static constexpr auto find_if( T&& container, Pr&& predicate ) -> impl::result_iterator<iterator_type_t<T>>
 	{
 		return { std::find_if( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) ), std::end( container ) };
+	}
+	template<Iterable T, typename V>
+	static constexpr auto find( T&& container, V&& value ) -> impl::result_iterator<iterator_type_t<T>>
+	{
+		return { std::find( std::begin( container ), std::end( container ), std::forward<V>( value ) ), std::end( container ) };
 	}
 
 	// Counts the number of times a matching value is in the container.
@@ -151,10 +183,10 @@ namespace xstd
 	template<Iterable T, typename Pr>
 	static constexpr auto filter( T&& container, Pr&& predicate )
 	{
-		return impl::filter_proxy<iterator_type_t<T>, Pr>{
-			std::forward<Pr>( predicate ),
+		return impl::skip_range<iterator_type_t<T>, Pr>{
 			std::begin( container ),
-			std::end( container )
+			std::end( container ),
+			std::forward<Pr>( predicate )
 		};
 	}
 	template<Iterable T, typename Pr>

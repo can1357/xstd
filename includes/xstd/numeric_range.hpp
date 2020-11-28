@@ -78,10 +78,16 @@ namespace xstd
 		//
 		T min_value;
 		T max_value;
-
 		constexpr numeric_range( T min_value = std::numeric_limits<T>::min(),
 					             T max_value = std::numeric_limits<T>::max() ) 
 			: min_value( min_value ), max_value( max_value ) {}
+
+		// Default copy/move.
+		//
+		constexpr numeric_range( numeric_range&& ) noexcept = default;
+		constexpr numeric_range( const numeric_range& ) = default;
+		constexpr numeric_range& operator=( numeric_range&& ) noexcept = default;
+		constexpr numeric_range& operator=( const numeric_range& ) = default;
 
 		// Generic container helpers.
 		//
