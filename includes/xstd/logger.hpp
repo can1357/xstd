@@ -62,11 +62,11 @@
 #ifndef XSTD_CON_NO_COLORS
 	#define XSTD_CON_NO_COLORS 0
 #endif
-#ifndef XSTD_CON_NO_WARNINGS
-	#define XSTD_CON_NO_WARNINGS 0
-#endif
 #ifndef XSTD_CON_NO_LOGS
 	#define XSTD_CON_NO_LOGS 0
+#endif
+#ifndef XSTD_CON_NO_WARNINGS
+	#define XSTD_CON_NO_WARNINGS XSTD_CON_NO_LOGS
 #endif
 #ifndef XSTD_CON_ERROR_NOMSG
 	#define XSTD_CON_ERROR_NOMSG 0
@@ -254,17 +254,8 @@ namespace xstd
 #endif
 		}
 
-		template<bool has_args>
-		static int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
+		static int handle_padding( FILE* dst, const char* cstr )
 		{
-			// Hold the lock for the critical section guarding ::log.
-			//
-			std::lock_guard g( logger_state );
-
-			// Do not execute if logs are disabled.
-			//
-			if ( logger_state.mute ) return 0;
-
 			// If we should pad this output:
 			//
 			int out_cnt = 0;
@@ -279,7 +270,7 @@ namespace xstd
 						if ( ( i + 1 ) == pad_by )
 						{
 							out_cnt += fprintf( dst, XSTD_CSTR( "%*c" ), log_padding_step - 1, ' ' );
-							if ( fmt_str[ 0 ] == ' ' ) putchar( log_padding_c );
+							if ( cstr[ 0 ] == ' ' ) putchar( log_padding_c );
 						}
 						else
 						{
@@ -290,11 +281,28 @@ namespace xstd
 
 				// Set or clear the carry for next.
 				//
-				if ( fmt_str[ strlen( fmt_str ) - 1 ] == '\n' )
+				if ( cstr[ strlen( cstr ) - 1 ] == '\n' )
 					logger_state.padding_carry = 0;
 				else
 					logger_state.padding_carry = logger_state.padding;
 			}
+			return out_cnt;
+		}
+
+		template<bool has_args>
+		static int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
+		{
+			// Hold the lock for the critical section guarding ::log.
+			//
+			std::lock_guard g( logger_state );
+
+			// Do not execute if logs are disabled.
+			//
+			if ( logger_state.mute ) return 0;
+
+			// If we should pad this output:
+			//
+			int out_cnt = handle_padding( dst, fmt_str );
 
 			// Set to requested color and redirect to printf.
 			//
@@ -344,6 +352,29 @@ namespace xstd
 #if !XSTD_CON_NO_LOGS
 		auto buf = fmt::create_string_buffer_for<Tx...>();
 		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+#else
+		return 0;
+#endif
+	}
+
+	// Logs the object given as is instead of using any other formatting specifier.
+	//
+	template<typename... Tx>
+	static int inspect( console_color color, Tx&&... objects )
+	{
+#if !XSTD_CON_NO_LOGS
+		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
+		return impl::log_w<false>( XSTD_CON_MSG_DST, color, result.c_str() );
+#else
+		return 0;
+#endif
+	}
+	template<console_color color = CON_DEF, typename... Tx>
+	static int inspect( Tx&&... objects )
+	{
+#if !XSTD_CON_NO_LOGS
+		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
+		return impl::log_w<false>( XSTD_CON_MSG_DST, color, result.c_str() );
 #else
 		return 0;
 #endif

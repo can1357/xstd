@@ -161,9 +161,8 @@ namespace xstd
 	static auto collect( T&& container, Pr&& predicate )
 	{
 		std::vector<iterator_value_type_t<T>> result;
-		result.reserve( std::size( c ) );
-
-		for ( auto&& other : c )
+		result.reserve( std::size( container ) );
+		for ( auto&& other : container )
 			if ( predicate( other ) )
 				result.emplace_back( other );
 		return result;
