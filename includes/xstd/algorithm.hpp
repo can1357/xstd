@@ -147,6 +147,14 @@ namespace xstd
 		skip_range( C, Fn )->skip_range<iterator_type_t<C>, Fn>;
 	};
 
+	// Sort redirect taking container instead of iterator.
+	//
+	template<Iterable T, typename Pr>
+	static constexpr auto sort( T& container, Pr&& predicate )
+	{
+		std::sort( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) );
+	}
+
 	// Find if variants taking containers instead of iterators and returning bool convertible iterators.
 	//
 	template<Iterable T, typename Pr>

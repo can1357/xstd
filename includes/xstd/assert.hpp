@@ -78,6 +78,19 @@ namespace xstd
 			else                                error( XSTD_CSTR( "%s" ), string );
 		}
 	}
+	template<typename... Params>
+	__forceinline static constexpr void assert_that( bool condition, const char* fmt_str, Params&&... ps )
+	{
+		// If condition met:
+		//
+		if ( !condition ) [[unlikely]]
+		{
+			// Throw exception if consteval, else throw runtime error.
+			//
+			if ( std::is_constant_evaluated() ) throw std::runtime_error{ fmt::str( fmt_str, std::forward<Params>( ps )... ) };
+			else                                error( fmt_str, std::forward<Params>( ps )... );
+		}
+	}
 
 	// A helper to throw formatted error messages.
 	//
