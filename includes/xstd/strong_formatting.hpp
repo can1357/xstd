@@ -167,6 +167,10 @@ namespace xstd::fmt
 		template<Integral I1, Integral I2>
 		constexpr percentage( I1 a, I2 b ) : value( T(a)/T(b) ) {}
 
+		// Negatable.
+		//
+		constexpr percentage operator-() const { return { 1.0f - value }; }
+
 		std::string to_string() const
 		{
 			char buffer[ 32 ];
