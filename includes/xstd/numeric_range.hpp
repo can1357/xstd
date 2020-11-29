@@ -29,6 +29,7 @@
 #pragma once
 #include <iterator>
 #include <limits>
+#include <string>
 #include "type_helpers.hpp"
 
 namespace xstd
@@ -95,6 +96,13 @@ namespace xstd
 		constexpr iterator begin() const { return { min_value }; }
 		constexpr iterator end() const   { return { max_value }; }
 		constexpr T operator[]( size_t n ) const { return min_value + n; }
+
+		// String conversion.
+		//
+		std::string to_string() const
+		{
+			return XSTD_CSTR( "[" ) + std::to_string( min_value ) + XSTD_CSTR( ", " ) + std::to_string( max_value ) + XSTD_CSTR( ")" );
+		}
 	};
 	template<typename T>               numeric_range( T )      -> numeric_range<integral_max_t<T, T>>;  // Max'd to enforce the concept, intellisense does not like concepts here.
 	template<typename T1, typename T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;
