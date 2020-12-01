@@ -29,6 +29,7 @@
 #pragma once
 #include <iterator>
 #include <limits>
+#include <optional>
 #include "type_helpers.hpp"
 #include "range.hpp"
 
@@ -70,8 +71,8 @@ namespace xstd
 				//
 				It at;
 				It end;
-				F predicate;
-				constexpr iterator( It at, It end, F predicate ) : at( std::move( at ) ), end( std::move( end ) ), predicate( std::move( predicate ) )
+				const F* predicate;
+				constexpr iterator( It at, It end, const F* predicate ) : at( std::move( at ) ), end( std::move( end ) ), predicate( predicate )
 				{ 
 					if ( at != end ) 
 						next(); 
@@ -81,12 +82,14 @@ namespace xstd
 				//
 				constexpr iterator( iterator&& ) noexcept = default;
 				constexpr iterator( const iterator& ) = default;
+				constexpr iterator& operator=( iterator&& ) noexcept = default;
+				constexpr iterator& operator=( const iterator& ) = default;
 
 				// Support forward iteration.
 				//
 				constexpr iterator& next()
 				{
-					while ( at != end && !predicate( at ) )
+					while ( at != end && !(*predicate)( at ) )
 						++at;
 					return *this;
 				}
@@ -132,8 +135,8 @@ namespace xstd
 
 			// Declare basic container interface.
 			//
-			constexpr iterator begin() const { return { ibegin, iend, predicate }; }
-			constexpr iterator end() const   { return { iend, iend, predicate }; }
+			constexpr iterator begin() const { return { ibegin, iend, &predicate }; }
+			constexpr iterator end() const   { return { iend, iend, &predicate }; }
 			constexpr size_t size() const    { return ( size_t ) std::distance( begin(), end() ); } // O(N) warning!
 			constexpr bool empty() const     { return begin() == end(); } // O(1)
 			constexpr decltype( auto ) operator[]( size_t n ) const { return *std::next( begin(), n ); } // O(N) warning!
@@ -147,12 +150,28 @@ namespace xstd
 		skip_range( C, Fn )->skip_range<iterator_type_t<C>, Fn>;
 	};
 
-	// Sort redirect taking container instead of iterator.
+	// Sort/min_element/max_element redirect taking container instead of iterator.
 	//
 	template<Iterable T, typename Pr>
 	static constexpr auto sort( T& container, Pr&& predicate )
 	{
 		std::sort( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) );
+	}
+	template<Iterable T, typename Pr = std::less<>>
+	static constexpr auto min_element( T&& container, Pr&& predicate = {} ) -> std::optional<iterator_value_type_t<T>>
+	{
+		if ( auto it = std::min_element( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) ); it != std::end( container ) )
+			return { *it };
+		else
+			return std::nullopt;
+	}
+	template<Iterable T, typename Pr = std::less<>>
+	static constexpr auto max_element( T&& container, Pr&& predicate = {} ) -> std::optional<iterator_value_type_t<T>>
+	{
+		if ( auto it = std::max_element( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) ); it != std::end( container ) )
+			return { *it };
+		else
+			return std::nullopt;
 	}
 
 	// Find if variants taking containers instead of iterators and returning bool convertible iterators.

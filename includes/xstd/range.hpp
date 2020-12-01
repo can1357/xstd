@@ -60,8 +60,8 @@ namespace xstd
 		// Constructed by the original iterator and a reference to transformation function.
 		//
 		It at;
-		const F& transform;
-		constexpr range_iterator( It i, const F& transform ) : at( std::move( i ) ), transform( transform ) {}
+		const F* transform;
+		constexpr range_iterator( It i, const F* transform ) : at( std::move( i ) ), transform( transform ) {}
 
 		// Default copy/move.
 		//
@@ -87,8 +87,8 @@ namespace xstd
 
 		// Override accessor to apply transformations where relevant.
 		//
-		constexpr reference operator*() const { return transform( *at ); }
-		constexpr decltype( auto ) operator->() const requires MemberPointable<reference> { return transform( *at ); }
+		constexpr reference operator*() const { return (*transform)( *at ); }
+		constexpr decltype( auto ) operator->() const requires MemberPointable<reference> { return (*transform)( *at ); }
 
 		// Getter of the origin without transformations.
 		//
@@ -135,8 +135,8 @@ namespace xstd
 
 		// Declare basic container interface.
 		//
-		constexpr iterator begin() const  { return { ibegin, transform }; }
-		constexpr iterator end() const { return { iend, transform }; }
+		constexpr iterator begin() const  { return { ibegin, &transform }; }
+		constexpr iterator end() const { return { iend, &transform }; }
 		constexpr size_t size() const { return ( size_t ) std::distance( ibegin, iend ); }
 		constexpr bool empty() const { return ibegin == iend; }
 		constexpr decltype( auto ) operator[]( size_t n ) const { return transform( *std::next( ibegin, n ) ); }
