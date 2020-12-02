@@ -38,9 +38,9 @@ namespace xstd
 	{
 		// Dummy transformation.
 		//
-		struct no_transform 
+		struct no_transform
 		{
-			template<typename T> __forceinline decltype( auto ) operator()( T&& x ) const noexcept { return x; }
+			template<typename T> __forceinline decltype( auto ) operator()( T&& x ) const noexcept { return std::forward<T>( x ); }
 		};
 	};
 
@@ -70,9 +70,9 @@ namespace xstd
 
 		// Support bidirectional/random iteration.
 		//
-		constexpr range_iterator& operator++() { at++; return *this; }
+		constexpr range_iterator& operator++() { ++at; return *this; }
 		constexpr range_iterator operator++( int ) { auto s = *this; operator++(); return s; }
-		constexpr range_iterator& operator--() requires BidirectionalIterable<iterator_category> { at--; return *this; }
+		constexpr range_iterator& operator--() requires BidirectionalIterable<iterator_category> { --at; return *this; }
 		constexpr range_iterator operator--( int ) requires BidirectionalIterable<iterator_category> { auto s = *this; operator--(); return s; }
 		constexpr range_iterator& operator+=( difference_type d ) requires RandomIterable<iterator_category> { at += d; return *this; }
 		constexpr range_iterator& operator-=( difference_type d ) requires RandomIterable<iterator_category> { at -= d; return *this; }
@@ -198,6 +198,18 @@ namespace xstd
 				std::begin( container ),
 				std::end( container ),
 				std::move( fn )
+		};
+	}
+
+	// Returns a reversed container.
+	//
+	template<Iterable C>
+	static constexpr auto backwards( C&& container )
+	{
+		return range<std::reverse_iterator<iterator_type_t<C>>, impl::no_transform>{
+			std::reverse_iterator( std::end( container ) ),
+			std::reverse_iterator( std::begin( container ) ),
+			impl::no_transform{}
 		};
 	}
 };

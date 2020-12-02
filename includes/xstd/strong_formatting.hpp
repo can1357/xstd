@@ -30,7 +30,7 @@
 #include <math.h>
 #include <string>
 #include "zip.hpp"
-#include "reverse_iterator.hpp"
+#include "algorithm.hpp"
 #include "formatting.hpp"
 #include "type_helpers.hpp"
 #include "numeric_range.hpp"

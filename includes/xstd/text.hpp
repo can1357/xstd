@@ -81,6 +81,15 @@ namespace xstd
 
 	// Case insensitive string comparison.
 	//
+	template<String S>
+	static inline std::basic_string<string_unit_t<S>> to_lower( S&& str )
+	{
+		std::basic_string<string_unit_t<S>> result{ string_view_t<S>{str} };
+		for ( auto& c : result )
+			c = cxlower( c );
+		return result;
+	}
+
 	template<String S1, String S2>
 	static constexpr int istrcmp( S1&& a, S2&& b )
 	{

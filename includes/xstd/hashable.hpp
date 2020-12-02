@@ -36,11 +36,16 @@
 #include "formatting.hpp"
 #include "fnv64.hpp"
 
+// [[Configuration]]
+// XSTD_DEFAULT_HASHER: If set, changes the type of default hash_t.
+//
+#ifndef XSTD_DEFAULT_HASHER
+	#define XSTD_DEFAULT_HASHER xstd::fnv64_hash_t
+#endif
+
 namespace xstd
 {
-	// Declare hash type.
-	//
-	using hash_t = fnv64_hash_t;
+	using hash_t = XSTD_DEFAULT_HASHER;
 
 	// XSTD hashable types implement [hash_t T::hash() const];
 	//

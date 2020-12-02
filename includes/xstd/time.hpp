@@ -35,7 +35,7 @@
 #include <atomic>
 #include "type_helpers.hpp"
 #include "zip.hpp"
-#include "reverse_iterator.hpp"
+#include "algorithm.hpp"
 
 // [Configuration]
 // XSTD_DEFAULT_CLOCK: Changes the default high-accuracy clock.
