@@ -38,6 +38,12 @@
 
 namespace xstd
 {
+    namespace impl
+    {
+        template<typename T>
+        concept SafeObj = !std::is_void_v<T> && ( Trivial<T> || Final<T> );
+    };
+
     // Declare serialization interface.
     //
     struct serialization;
@@ -64,8 +70,8 @@ namespace xstd
         struct rpointer_record
         {
             std::vector<uint8_t> raw_data = {};
-            bool is_lifted = false;
             std::shared_ptr<void> deserialized = {};
+            bool is_lifted = false;
         };
 
         // Shared raw data.
@@ -75,7 +81,6 @@ namespace xstd
         // Fields used during serialization.
         //
         size_t offset = 0;
-        uint32_t next_pointer = 1;
         std::unordered_map<uintptr_t, pointer_record> pointers;
         
         // Fields used during deserialization.
@@ -84,7 +89,7 @@ namespace xstd
 
         // Pointer serialization helpers.
         //
-        template<typename T>
+        template<impl::SafeObj T>
         void serialize_pointer( const T* value )
         {
             if ( !value ) return serialize<uint32_t>( *this, 0 );
@@ -92,7 +97,7 @@ namespace xstd
             auto& rec = pointers[ ( uintptr_t ) value ];
             if ( !rec.index )
             {
-                rec.index = next_pointer++;
+                rec.index = pointers.size();
                 rec.is_shared = true;
                 rec.raw_data = std::exchange( raw_data, {} );
                 serialize( *this, *value );
@@ -100,10 +105,9 @@ namespace xstd
             }
             serialize<uint32_t>( *this, rec.index );
         }
-        template<typename T>
+        template<impl::SafeObj T>
         std::shared_ptr<T> deserialize_pointer( bool release )
         {
-
             uint32_t index = deserialize<uint32_t>( *this );
             if ( !index ) return nullptr;
 
@@ -138,7 +142,7 @@ namespace xstd
         static serialization load( const uint8_t* data, size_t length, bool no_header = false );
     };
 
-    // Implement it for trivials, atomics, iterables, tuples, variants and optionals.
+    // Implement it for trivials, atomics, iterables, tuples, variants, hash type and optionals.
     //
     template<Trivial T>
     struct serializer<T>
@@ -234,7 +238,7 @@ namespace xstd
                     if ( idx == N )
                         return T( deserialize<std::variant_alternative_t<N, T>>( ctx ) );
                     else
-                        self( self, const_tag<N + >{} );
+                        self( self, const_tag<N + 1>{} );
                 }
                 return T{};
             };
@@ -264,14 +268,26 @@ namespace xstd
                 return std::nullopt;
         }
     };
+    template<>
+    struct serializer<hash_t>
+    {
+        static inline void apply( serialization& ctx, const hash_t& value )
+        {
+            ctx.raw_data.insert( ctx.raw_data.end(), ( uint8_t* ) ( &value ), ( uint8_t* ) ( &value + 1 ) );
+        }
+        static inline hash_t reflect( serialization& ctx )
+        {
+            fassert( ctx.raw_data.size() >= ( sizeof( hash_t ) + ctx.offset ) );
+
+            hash_t value;
+            memcpy( &value, ctx.raw_data.data() + ctx.offset, sizeof( hash_t ) );
+            ctx.offset += sizeof( hash_t );
+            return value;
+        }
+    };
 
     // Implement it for shared_ptr and weak_ptr where the type is final.
     //
-    namespace impl
-    {
-        template<typename T>
-        concept SafeObj = !std::is_void_v<T> && ( Trivial<T> || Final<T> );
-    };
     template<impl::SafeObj T>
     struct serializer<std::shared_ptr<T>>
     {
