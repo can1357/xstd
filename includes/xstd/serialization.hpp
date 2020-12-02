@@ -106,7 +106,28 @@ namespace xstd
             serialize<uint32_t>( *this, rec.index );
         }
         template<impl::SafeObj T>
-        std::shared_ptr<T> deserialize_pointer( bool release )
+        std::unique_ptr<T> deserialize_pointer_u()
+        {
+            uint32_t index = deserialize<uint32_t>( *this );
+            if ( !index ) return nullptr;
+
+            auto& rec = rpointers.at( index );
+            if ( !rec.is_lifted )
+            {
+                auto result = std::unique_ptr<T>( std::allocator<T>{}.allocate( 1 ) );
+                rec.is_lifted = true;
+                std::swap( raw_data, rec.raw_data );
+
+                size_t su = std::exchange( offset, 0 );
+                new ( result.get() ) T( deserialize<T>( *this ) );
+                raw_data = std::move( rec.raw_data );
+                offset = su;
+                return result;
+            }
+            unreachable();
+        }
+        template<impl::SafeObj T>
+        std::shared_ptr<T> deserialize_pointer()
         {
             uint32_t index = deserialize<uint32_t>( *this );
             if ( !index ) return nullptr;
@@ -123,7 +144,7 @@ namespace xstd
                 raw_data = std::move( rec.raw_data );
                 offset = su;
             }
-            return release ? std::reinterpret_pointer_cast<T>( std::move( rec.deserialized ) ) : std::reinterpret_pointer_cast<T>( rec.deserialized );
+            return std::reinterpret_pointer_cast<T>( rec.deserialized );
         }
 
         // Swapping context type.
@@ -187,15 +208,27 @@ namespace xstd
             fassert( ( ctx.raw_data.size() - ctx.offset ) >= sizeof( uint32_t ) );
             uint32_t cnt = deserialize<uint32_t>( ctx );
 
-            std::vector<iterator_value_type_t<T>> entries;
-            entries.reserve( cnt );
-            for ( size_t n = 0; n != cnt; n++ )
-                entries.emplace_back( deserialize<iterator_value_type_t<T>>( ctx ) );
+            if constexpr ( is_std_array_v<T> )
+            {
+                return xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <auto V> ( const_tag<V> _ )
+                {
+                    return deserialize<iterator_value_type_t<T>>( ctx );
+                } );
+            }
+            else
+            {
+                std::vector<iterator_value_type_t<T>> entries;
+                entries.reserve( cnt );
+                for ( size_t n = 0; n != cnt; n++ )
+                    entries.emplace_back( deserialize<iterator_value_type_t<T>>( ctx ) );
 
-            return T{
-                std::make_move_iterator( entries.begin() ),
-                std::make_move_iterator( entries.end() )
-            };
+                return T{
+                    std::make_move_iterator( entries.begin() ),
+                    std::make_move_iterator( entries.end() )
+                };
+            }
+
+            
         }
     };
     template<Tuple T>
@@ -297,7 +330,7 @@ namespace xstd
         }
         static inline std::shared_ptr<T> reflect( serialization& ctx )
         {
-            return ctx.deserialize_pointer<T>( false );
+            return ctx.deserialize_pointer<T>();
         }
     };
     template<impl::SafeObj T>
@@ -309,7 +342,7 @@ namespace xstd
         }
         static inline std::weak_ptr<T> reflect( serialization& ctx )
         {
-            return ctx.deserialize_pointer<T>( false );
+            return ctx.deserialize_pointer<T>();
         }
     };
     template<impl::SafeObj T>
@@ -321,7 +354,7 @@ namespace xstd
         }
         static inline std::unique_ptr<T> reflect( serialization& ctx )
         {
-            return std::unique_ptr<T>{ ctx.deserialize_pointer<T>( true ).release() };
+            return ctx.deserialize_pointer_u<T>();
         }
     };
 
@@ -388,6 +421,11 @@ namespace xstd
     }
     template<typename T>
     static inline T deserialize( serialization& ctx )
+    {
+        return serializer<T>::reflect( ctx );
+    }
+    template<typename T>
+    static inline T deserialize( serialization&& ctx )
     {
         return serializer<T>::reflect( ctx );
     }
