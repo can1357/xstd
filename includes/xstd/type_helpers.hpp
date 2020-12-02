@@ -171,6 +171,12 @@ namespace xstd
 	template<typename T>
 	concept Pointer = std::is_pointer_v<T>;
 	template<typename T>
+	concept LvReference = std::is_lvalue_reference_v<T>;
+	template<typename T>
+	concept RvReference = std::is_rvalue_reference_v<T>;
+	template<typename T>
+	concept Reference = std::is_reference_v<T>;
+	template<typename T>
 	concept Optional = is_specialization_v<std::optional, T>;
 	template<typename T>
 	concept Final = std::is_final_v<T>;

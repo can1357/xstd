@@ -54,9 +54,6 @@
     <ClInclude Include="includes\xstd\range.hpp">
       <Filter>Headers\Ranges</Filter>
     </ClInclude>
-    <ClInclude Include="includes\xstd\reverse_iterator.hpp">
-      <Filter>Headers\Ranges</Filter>
-    </ClInclude>
     <ClInclude Include="includes\xstd\zip.hpp">
       <Filter>Headers\Ranges</Filter>
     </ClInclude>
@@ -143,6 +140,9 @@
     </ClInclude>
     <ClInclude Include="includes\xstd\environment.hpp">
       <Filter>Headers\Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\nested_range.hpp">
+      <Filter>Headers\Ranges</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

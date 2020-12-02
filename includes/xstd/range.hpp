@@ -40,7 +40,7 @@ namespace xstd
 		//
 		struct no_transform
 		{
-			template<typename T> __forceinline decltype( auto ) operator()( T&& x ) const noexcept { return std::forward<T>( x ); }
+			template<typename T> __forceinline T operator()( T&& x ) const noexcept { return x; }
 		};
 	};
 

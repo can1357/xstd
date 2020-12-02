@@ -48,9 +48,9 @@ namespace xstd
 			//
 			using iterator_category = std::bidirectional_iterator_tag;
 			using difference_type =   int64_t;
-			using pointer =           void*;
-			using value_type =        reference_array;
 			using reference =         reference_array;
+			using value_type =        reference_array;
+			using pointer =           reference_array*;
 
 			// Iterators.
 			//

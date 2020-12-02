@@ -36,7 +36,7 @@
 #include "formatting.hpp"
 #include "fnv64.hpp"
 
-// [[Configuration]]
+// [Configuration]
 // XSTD_DEFAULT_HASHER: If set, changes the type of default hash_t.
 //
 #ifndef XSTD_DEFAULT_HASHER

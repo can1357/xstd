@@ -32,13 +32,13 @@
     <ClInclude Include="includes\xstd\logger.hpp" />
     <ClInclude Include="includes\xstd\lt_typeid.hpp" />
     <ClInclude Include="includes\xstd\narrow_cast.hpp" />
+    <ClInclude Include="includes\xstd\nested_range.hpp" />
     <ClInclude Include="includes\xstd\numeric_range.hpp" />
     <ClInclude Include="includes\xstd\random.hpp" />
     <ClInclude Include="includes\xstd\range.hpp" />
     <ClInclude Include="includes\xstd\reducable.hpp" />
     <ClInclude Include="includes\xstd\relaxed_atomics.hpp" />
     <ClInclude Include="includes\xstd\result.hpp" />
-    <ClInclude Include="includes\xstd\reverse_iterator.hpp" />
     <ClInclude Include="includes\xstd\serialization.hpp" />
     <ClInclude Include="includes\xstd\stack_containers.hpp" />
     <ClInclude Include="includes\xstd\static_warning.hpp" />
