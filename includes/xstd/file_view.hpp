@@ -56,7 +56,7 @@ extern "C"
 	__declspec( dllimport ) void* __stdcall CreateFileW( const wchar_t* lpFileName, unsigned long dwDesiredAccess, unsigned long dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, unsigned long dwCreationDisposition, unsigned long dwFlagsAndAttributes, void* hTemplateFile );
 	__declspec( dllimport ) void* __stdcall CreateFileMappingFromApp( void* hFile, PSECURITY_ATTRIBUTES SecurityAttributes, unsigned long PageProtection, unsigned long long MaximumSize, const wchar_t* Name );
 	__declspec( dllimport ) void* __stdcall MapViewOfFileFromApp( void* hFileMappingObject, unsigned long DesiredAccess, unsigned long long FileOffset, size_t NumberOfBytesToMap );
-	__declspec( dllimport ) int __stdcall UnmapViewOfFile( void* BaseAddress );
+	__declspec( dllimport ) int __stdcall UnmapViewOfFile( const void* BaseAddress );
 	__declspec( dllimport ) int __stdcall CloseHandle( void* hObject );
 };
 #else

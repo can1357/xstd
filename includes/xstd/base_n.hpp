@@ -58,12 +58,12 @@ namespace xstd::encode
 
     // Declare a basic dictionary with encoding and decoding traits.
     //
-    template<size_t N> requires ( N < 0x100 && math::popcnt( N ) == 1 )
+    template<size_t N> requires ( N < 0x100 && popcnt( N ) == 1 )
     struct dictionary
     {
         // Number of bits encoded per character, e.g. base64 => 6.
         //
-        static constexpr bitcnt_t _bits_per_char = math::lsb( N );
+        static constexpr bitcnt_t _bits_per_char = lsb( N );
 
         // Calculates the group size we encode on each step, e.g. base64 => { 4 out, 3 in }.
         //
@@ -77,7 +77,7 @@ namespace xstd::encode
 
         // Bit mask.
         //
-        static constexpr uint64_t _mask = math::fill( _bits_per_char );
+        static constexpr uint64_t _mask = fill_bits( _bits_per_char );
 
         // Forward and reverse dictionaries.
         //
@@ -135,11 +135,11 @@ namespace xstd::encode
                     if constexpr ( bit_rev )
                     {
                         v <<= 8 - dictionary.bits_per_char();
-                        v = math::bit_reverse<uint8_t>( v );
+                        v = bit_reverse<uint8_t>( v );
                         v &= dictionary.mask();
 
-                        rit[ 0 ] |= math::bit_reverse<uint8_t>( v << offset );
-                        rit[ 1 ] |= math::bit_reverse<uint8_t>( v >> ( 8 - offset ) );
+                        rit[ 0 ] |= bit_reverse<uint8_t>( v << offset );
+                        rit[ 1 ] |= bit_reverse<uint8_t>( v >> ( 8 - offset ) );
                     }
                     else
                     {
@@ -202,11 +202,11 @@ namespace xstd::encode
                 {
                     if constexpr ( bit_rev )
                     {
-                        uint16_t value = uint16_t( math::bit_reverse( in[ 0 ] ) );
+                        uint16_t value = uint16_t( bit_reverse( in[ 0 ] ) );
                         if ( ( in + 1 ) != end )
-                            value |= uint16_t( math::bit_reverse( in[ 1 ] ) ) << 8;
+                            value |= uint16_t( bit_reverse( in[ 1 ] ) ) << 8;
                         value >>= offset % 8;
-                        value = math::bit_reverse( uint8_t( value & dictionary.mask() ) ) >> ( 8 - dictionary.bits_per_char() );
+                        value = bit_reverse( uint8_t( value & dictionary.mask() ) ) >> ( 8 - dictionary.bits_per_char() );
                         *rit++ = dictionary.encode( ( char ) value );
                     }
                     else

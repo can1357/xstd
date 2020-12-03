@@ -36,15 +36,52 @@
 #include "intrinsics.hpp"
 #include "assert.hpp"
 
-// Declare the type we will used for bit lenghts of data.
-// - We are using int instead of char since most operations will end up casting
-//   this value to an integer anyway and since char does not provide us any intrinsic
-//   safety either this only hurts us in terms of performance.
-//
 using bitcnt_t = int;
 
-namespace xstd::math
+namespace xstd
 {
+	// Alignment helper.
+	//
+	template<typename T>
+	__forceinline static constexpr T align_up( T value, size_t alignment )
+	{
+		using I = convert_int_t<T>;
+		using U = convert_uint_t<T>;
+		dassert( alignment != 0 );
+
+		if ( std::is_constant_evaluated() )
+		{
+			U uval = bit_cast<U>( value );
+			uval += U( ( -I( uval ) ) % alignment );
+			return bit_cast<T>( uval  );
+		}
+		else
+		{
+			U uval = ( U ) ( value );
+			uval += U( ( -I( uval ) ) % alignment );
+			return ( T ) ( uval );
+		}
+	}
+	template<typename T>
+	__forceinline static constexpr T align_down( T value, size_t alignment )
+	{
+		using U = convert_uint_t<T>;
+		dassert( alignment != 0 );
+
+		if ( std::is_constant_evaluated() )
+		{
+			U uval = bit_cast<U>( value );
+			uval -= uval % alignment;
+			return bit_cast<T>( uval  );
+		}
+		else
+		{
+			U uval = ( U ) ( value );
+			uval -= uval % alignment;
+			return ( T ) ( uval );
+		}
+	}
+
 	// Extracts the sign bit from the given value.
 	//
 	template<Integral T>
@@ -68,7 +105,7 @@ namespace xstd::math
 			return 64 - n;
 		}
 
-		static constexpr auto bit_reverse_lookup_table = make_constant_series<0x100>( [] <int N> ( const_tag<N> )
+		static constexpr auto bit_reverse_lookup_table = xstd::make_constant_series<0x100>( [] <int N> ( const_tag<N> )
 		{
 			uint8_t value = 0;
 			for ( size_t n = 0; n != 8; n++ )
@@ -239,7 +276,7 @@ namespace xstd::math
 
 	// Generate a mask for the given variable size and offset.
 	//
-	__forceinline static constexpr uint64_t fill( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
+	__forceinline static constexpr uint64_t fill_bits( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
 	{
 		dassert( bit_count <= 64 );
 

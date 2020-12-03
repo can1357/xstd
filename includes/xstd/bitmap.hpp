@@ -39,7 +39,7 @@ namespace xstd
 	{
 		// Declare invalid iterator and block count.
 		//
-		static constexpr size_t npos = math::bit_npos;
+		static constexpr size_t npos = bit_npos;
 		static constexpr size_t block_count = ( N + 63 ) / 64;
 
 		// Store the bits, initialized to zero.
@@ -60,14 +60,14 @@ namespace xstd
 		{
 			// Invoke find bit.
 			//
-			size_t idx = math::bit_find( std::begin( blocks ), std::end( blocks ), value );
+			size_t idx = bit_find( std::begin( blocks ), std::end( blocks ), value );
 			
 			// If block has leftovers, adjust for overflow.
 			//
 			if constexpr ( ( block_count * 64 ) != N )
 			{
 				if ( idx > N )
-					idx = math::bit_npos;
+					idx = bit_npos;
 			}
 
 			// Return the index.
@@ -80,7 +80,7 @@ namespace xstd
 		constexpr bool get( size_t n ) const
 		{
 			dassert( n < N );
-			return math::bit_test( blocks[ n / 64 ], n & 63 );
+			return bit_test( blocks[ n / 64 ], n & 63 );
 		}
 
 		// Sets the value of the Nth bit.
@@ -88,8 +88,8 @@ namespace xstd
 		constexpr bool set( size_t n, bool v )
 		{
 			dassert( n < N );
-			if ( v ) return math::bit_set( blocks[ n / 64 ], n & 63 );
-			else     return math::bit_reset( blocks[ n / 64 ], n & 63 );
+			if ( v ) return bit_set( blocks[ n / 64 ], n & 63 );
+			else     return bit_reset( blocks[ n / 64 ], n & 63 );
 		}
 	};
 };

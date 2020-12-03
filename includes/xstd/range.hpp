@@ -67,6 +67,8 @@ namespace xstd
 		//
 		constexpr range_iterator( range_iterator&& ) noexcept = default;
 		constexpr range_iterator( const range_iterator& ) = default;
+		constexpr range_iterator& operator=( range_iterator&& ) noexcept = default;
+		constexpr range_iterator& operator=( const range_iterator& ) = default;
 
 		// Support bidirectional/random iteration.
 		//

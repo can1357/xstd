@@ -84,7 +84,6 @@ namespace xstd
 		constexpr nested_iterator& operator=( nested_iterator&& ) noexcept = default;
 		constexpr nested_iterator& operator=( const nested_iterator& ) = default;
 
-
 		// Support forward/bidirectional iteration.
 		//
 		constexpr auto& container() { return std::to_address( top_iterator )->*field; }
