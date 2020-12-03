@@ -153,7 +153,7 @@ namespace xstd
 	// Sort/min_element/max_element redirect taking container instead of iterator.
 	//
 	template<Iterable T, typename Pr>
-	static constexpr auto sort( T& container, Pr&& predicate )
+	static constexpr void sort( T& container, Pr&& predicate )
 	{
 		std::sort( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) );
 	}
@@ -231,12 +231,12 @@ namespace xstd
 	template<Iterable T, typename V>
 	static constexpr size_t count( T&& container, V&& value )
 	{
-		return count_if( container, [ & ] ( auto&& v ) { return v == value; } );
+		return count_if( std::forward<T>( container ), [ & ] ( const auto& v ) { return v == value; } );
 	}
 	template<Iterable T, typename V>
 	static constexpr bool contains( T&& container, V&& value )
 	{
-		return contains_if( container, [ & ] ( auto&& v ) { return v == value; } );
+		return contains_if( std::forward<T>( container ), [ & ] ( const auto& v ) { return v == value; } );
 	}
 
 	// Returns a range containing only the values that pass the predicate. Collect does the 
@@ -255,7 +255,7 @@ namespace xstd
 	template<Iterable T, typename Pr>
 	static constexpr auto filter( T&& container, Pr&& predicate )
 	{
-		return filter_i( container, [ p = std::forward<Pr>( predicate ) ] ( auto&& at ) { return p( *at ); } );
+		return filter_i( std::forward<T>( container ), [ p = std::forward<Pr>( predicate ) ] ( const auto& at ) { return p( *at ); } );
 	}
 	template<Iterable T, typename Pr>
 	static auto collect( T&& container, Pr&& predicate )
@@ -273,7 +273,7 @@ namespace xstd
 	template<Iterable T>
 	static constexpr auto unique( T&& container )
 	{
-		return filter_i( container, [ bg = std::begin( container ) ] ( auto&& cur )
+		return filter_i( std::forward<T>( container ), [ bg = std::begin( container ) ] ( const auto& cur )
 		{
 			for ( auto it = bg; it != cur; ++it )
 				if ( *it == *cur )
