@@ -33,6 +33,7 @@
 #include <cstring>
 #include "result.hpp"
 #include "type_helpers.hpp"
+#include "narrow_cast.hpp"
 
 namespace xstd::gzip
 {
@@ -46,14 +47,14 @@ namespace xstd::gzip
 		if ( deflateInit2( &stream, level, Z_DEFLATED, 16 + MAX_WBITS, 8, strategy ) != Z_OK )
 			return {};
 		stream.next_in = ( uint8_t* ) data;
-		stream.avail_in = len;
+		stream.avail_in = narrow_cast<uInt>( len );
 
 		std::vector<uint8_t> result = {};
 		do
 		{
 			size_t extension_space = 256 + result.size() / 2;
 			result.resize( result.size() + extension_space );
-			stream.avail_out = extension_space;
+			stream.avail_out = narrow_cast<uInt>( extension_space );
 			stream.next_out = result.data() + result.size() - extension_space;
 
 			int state = deflate( &stream, Z_FINISH );
@@ -86,14 +87,14 @@ namespace xstd::gzip
 		if ( inflateInit2( &stream, 32 + MAX_WBITS ) != Z_OK )
 			return {};
 		stream.next_in = ( uint8_t* ) data;
-		stream.avail_in = len;
+		stream.avail_in = narrow_cast<uInt>( len );
 		
 		std::vector<uint8_t> result = {};
 		do
 		{
 			size_t extension_space = 256 + result.size() * 2;
 			result.resize( result.size() + extension_space );
-			stream.avail_out = extension_space;
+			stream.avail_out = narrow_cast<uInt>( extension_space );
 			stream.next_out = result.data() + result.size() - extension_space;
 
 			int state = inflate( &stream, Z_FINISH );
@@ -109,5 +110,10 @@ namespace xstd::gzip
 
 		result.resize( result.size() - stream.avail_out );
 		return result;
+	}
+	template<Iterable T> requires is_contiguous_iterable_v<T>
+	inline static string_result<std::vector<uint8_t>> decompress( T&& cont )
+	{
+		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterator_value_type_t<T> ) );
 	}
 };

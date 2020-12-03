@@ -35,6 +35,8 @@
 #include "assert.hpp"
 #include "type_helpers.hpp"
 #include "logger.hpp"
+#include "hashable.hpp"
+#include "narrow_cast.hpp"
 
 namespace xstd
 {
@@ -97,7 +99,7 @@ namespace xstd
             auto& rec = pointers[ ( uintptr_t ) value ];
             if ( !rec.index )
             {
-                rec.index = pointers.size();
+                rec.index = narrow_cast<uint32_t>( pointers.size() );
                 rec.is_shared = true;
                 rec.raw_data = std::exchange( raw_data, {} );
                 serialize( *this, *value );
@@ -199,7 +201,7 @@ namespace xstd
     {
         static inline void apply( serialization& ctx, const T& value )
         {
-            serialize<uint32_t>( ctx, std::size( value ) );
+            serialize<uint32_t>( ctx, narrow_cast<uint32_t>( std::size( value ) ) );
             for ( auto& entry : value )
                 serialize( ctx, entry );
         }
