@@ -66,6 +66,9 @@ namespace xstd
             uint32_t index = 0;
             uint8_t is_shared = false;
             std::vector<uint8_t> raw_data = {};
+            
+            bool is_backed = false; // Not serialized, temporary.
+
             auto tie() { return std::tie( index, is_shared, raw_data ); }
         };
 
@@ -92,7 +95,7 @@ namespace xstd
         // Pointer serialization helpers.
         //
         template<impl::SafeObj T>
-        void serialize_pointer( const T* value )
+        void serialize_pointer( const T* value, bool owning = false )
         {
             if ( !value ) return serialize<uint32_t>( *this, 0 );
 
@@ -105,6 +108,7 @@ namespace xstd
                 serialize( *this, *value );
                 std::swap( rec.raw_data, raw_data );
             }
+            rec.is_backed |= owning;
             serialize<uint32_t>( *this, rec.index );
         }
         template<impl::SafeObj T>
@@ -149,6 +153,15 @@ namespace xstd
             return std::reinterpret_pointer_cast<T>( rec.deserialized );
         }
 
+        // Validates the ownership of stored pointers.
+        //
+        void validate_pointers() const
+        {
+            for ( auto& ptr : pointers )
+                if ( ptr.second.index && !ptr.second.is_backed )
+                    xstd::error( "Dangling pointer serialized!" );
+        }
+
         // Swapping context type.
         //
         void swap_type()
@@ -160,9 +173,9 @@ namespace xstd
 
         // Helpers to dump into a vector of bytes and load from it.
         //
-        std::vector<uint8_t> dump( bool no_header = false ) const;
-        static serialization load( const std::vector<uint8_t>&, bool no_header = false );
-        static serialization load( const uint8_t* data, size_t length, bool no_header = false );
+        std::vector<uint8_t> dump() const;
+        static serialization load( const std::vector<uint8_t>& );
+        static serialization load( const uint8_t* data, size_t length );
     };
 
     // Implement it for trivials, atomics, iterables, tuples, variants, hash type and optionals.
@@ -229,8 +242,6 @@ namespace xstd
                     std::make_move_iterator( entries.end() )
                 };
             }
-
-            
         }
     };
     template<Tuple T>
@@ -328,7 +339,7 @@ namespace xstd
     {
         static inline void apply( serialization& ctx, const std::shared_ptr<T>& value )
         {
-            ctx.serialize_pointer( value.get() );
+            ctx.serialize_pointer( value.get(), true );
         }
         static inline std::shared_ptr<T> reflect( serialization& ctx )
         {
@@ -336,11 +347,35 @@ namespace xstd
         }
     };
     template<impl::SafeObj T>
+    struct serializer<T*>
+    {
+        static inline void apply( serialization& ctx, T* value )
+        {
+            ctx.serialize_pointer( value, false );
+        }
+        static inline T* reflect( serialization& ctx )
+        {
+            return ctx.deserialize_pointer<T>().get();
+        }
+    };
+    template<impl::SafeObj T>
+    struct serializer<const T*>
+    {
+        static inline void apply( serialization& ctx, const T* value )
+        {
+            ctx.serialize_pointer( value, false );
+        }
+        static inline const T* reflect( serialization& ctx )
+        {
+            return ctx.deserialize_pointer<T>().get();
+        }
+    };
+    template<impl::SafeObj T>
     struct serializer<std::weak_ptr<T>>
     {
         static inline void apply( serialization& ctx, const std::weak_ptr<T>& value )
         {
-            ctx.serialize_pointer( value.lock().get() );
+            ctx.serialize_pointer( value.lock().get(), false );
         }
         static inline std::weak_ptr<T> reflect( serialization& ctx )
         {
@@ -352,7 +387,7 @@ namespace xstd
     {
         static inline void apply( serialization& ctx, const std::unique_ptr<T>& value )
         {
-            ctx.serialize_pointer( value.get() );
+            ctx.serialize_pointer( value.get(), true );
         }
         static inline std::unique_ptr<T> reflect( serialization& ctx )
         {
@@ -446,20 +481,15 @@ namespace xstd
 
     // Implement the final steps.
     //
-    inline std::vector<uint8_t> serialization::dump( bool no_header ) const
+    inline std::vector<uint8_t> serialization::dump() const
     {
-        // Emit the serialization header.
+        // Validate pointer ownership.
         //
-        // struct xstd_hdr_t {
-        //   uint8_t magic[4] = { 'X', 'S', 'T', 'D' };
-        //   uint8_t ptr_table_used;
-        // }
+        validate_pointers();
+
+        // Emit the serialization flag declaring whether or not there is a pointer table following.
         //
-        std::vector<uint8_t> result;
-        if ( !no_header )
-            result = { 'X', 'S', 'T', 'D', ( uint8_t ) !pointers.empty() };
-        else
-            fassert( pointers.empty() );
+        std::vector<uint8_t> result  = { ( uint8_t ) !pointers.empty() };
 
         // Emit the pointer table if relevant.
         //
@@ -476,27 +506,25 @@ namespace xstd
         result.insert( result.end(), raw_data.begin(), raw_data.end() );
         return result;
     }
-    inline serialization serialization::load( const uint8_t* data, size_t length, bool no_header )
+    inline serialization serialization::load( const uint8_t* data, size_t length )
     {
-        // Read the header if requested.
+        // Return empty if no data.
         //
         serialization ctx = {};
-        if ( !no_header )
+        if ( !length-- ) return {};
+
+        // If using pointer tables, recurse:
+        //
+        if ( *data++ )
         {
-            fassert( length > 5 && !memcmp( data, XSTD_CSTR( "XSTD" ), 4 ) );
-            data += 4;
-            length -= 4;
-            if ( bool ptr_table_used = *data++ )
-            {
-                serialization subctx = load( data, length, true );
-                deserialize( ctx.pointers, subctx );
-                data += subctx.offset;
-                length -= subctx.offset;
-            }
+            ctx.raw_data = { data, data + length };
+            deserialize( ctx.pointers, ctx );
         }
-        ctx.raw_data = { data, data + length };
+
+        // Read the data and swap pointer table type.
+        //
         ctx.swap_type();
         return ctx;
     }
-    inline serialization serialization::load( const std::vector<uint8_t>& data, bool no_header ) { return load( data.data(), data.size(), no_header ); }
+    inline serialization serialization::load( const std::vector<uint8_t>& data ) { return load( data.data(), data.size() ); }
 };

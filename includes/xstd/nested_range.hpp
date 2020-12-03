@@ -38,10 +38,10 @@ namespace xstd
 {
 	// Declare a proxying nested iterator.
 	//
-	template<typename It, MemberReference F>
+	template<typename It, typename F>
 	struct nested_iterator
 	{
-		using Sit =               decltype( std::begin( std::to_address( std::declval<It>() )->*std::declval<F>() ) );
+		using Sit =               decltype( std::begin( std::declval<F>()( *std::declval<It>() ) ) );
 
 		// Define iterator traits.
 		//
@@ -52,15 +52,15 @@ namespace xstd
 		using value_type =        std::remove_reference_t<reference>;
 		using pointer =           value_type*;
 
-		// Holds the range, two levels of iterators and the field.
+		// Holds the range, two levels of iterators and the accessor.
 		//
 		const range<It>* top_range;
 		It top_iterator;
 		std::optional<Sit> sub_iterator;
-		F field;
+		const F* accessor;
 
-		constexpr nested_iterator( const range<It>* top_range, F field, bool at_end )
-			: top_range( top_range ), field( std::move( field ) )
+		constexpr nested_iterator( const range<It>* top_range, const F* accessor, bool at_end )
+			: top_range( top_range ), accessor( accessor )
 		{
 			if ( !at_end )
 			{
@@ -86,8 +86,8 @@ namespace xstd
 
 		// Support forward/bidirectional iteration.
 		//
-		constexpr auto& container() { return std::to_address( top_iterator )->*field; }
-		constexpr auto& container() const { return std::to_address( top_iterator )->*field; }
+		constexpr auto& container() { return ( *accessor )( *top_iterator ); }
+		constexpr auto& container() const { return ( *accessor )( *top_iterator ); }
 
 		constexpr nested_iterator& operator++()
 		{ 
@@ -120,7 +120,7 @@ namespace xstd
 			{
 				while( true )
 				{
-					auto& c = std::to_address( --top_iterator )->*field;
+					auto& c = ( *accessor )( *--top_iterator );
 					sub_iterator = std::end( c );
 					if ( *sub_iterator != std::begin( c ) )
 					{
@@ -146,21 +146,21 @@ namespace xstd
 
 	// Declare a proxying nested range container.
 	//
-	template<typename It, MemberReference F>
+	template<typename It, typename F>
 	struct nested_range
 	{
 		using iterator =       nested_iterator<It, F>;
 		using const_iterator = nested_iterator<It, F>;
 		using value_type =     typename iterator::value_type;
 
-		// Constructed by the origin limits and the field.
+		// Constructed by the origin limits and the accessor.
 		//
 		range<It> range;
-		F field;
+		F accessor;
 
 		template<Iterable C>
-		constexpr nested_range( const C& container, F field )
-			: range{ std::begin( container ), std::end( container ) }, field( std::move( field ) ) {}
+		constexpr nested_range( const C& container, F accessor )
+			: range{ std::begin( container ), std::end( container ) }, accessor( std::move( accessor ) ) {}
 
 		// Default copy and move.
 		//
@@ -171,8 +171,8 @@ namespace xstd
 
 		// Declare basic container interface.
 		//
-		constexpr iterator begin() const  { return { &range, field, false }; }
-		constexpr iterator end() const { return { &range, field, true }; }
+		constexpr iterator begin() const  { return { &range, &accessor, false }; }
+		constexpr iterator end() const { return { &range, &accessor, true }; }
 		constexpr size_t size() const { return ( size_t ) std::distance( begin(), end() ); }
 		constexpr bool empty() const { return size() == 0; }
 		constexpr decltype( auto ) operator[]( size_t n ) const { return *std::next( begin(), n ); }
@@ -180,6 +180,6 @@ namespace xstd
 
 	// Declare the deduction guide.
 	//
-	template<typename C, typename F> requires (Iterable<C> && MemberReference<F>)
+	template<typename C, typename F> requires Iterable<C>
 	nested_range( C, F )->nested_range<iterator_type_t<C>, F>;
 };
