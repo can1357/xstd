@@ -304,18 +304,27 @@ namespace xstd
     {
         static inline void apply( serialization& ctx, const T& value )
         {
-            std::apply( [ & ] ( const auto&... refs )
+            xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
             {
-                auto discard = [ ] ( ... ) {};
-                discard( ( serialize( ctx, refs ), 1 )... );
-            }, value );
+                serialize( ctx, std::get<N>( value ) );
+            } );
         }
         static inline T reflect( serialization& ctx )
         {
-            return [ & ] <size_t... N> ( std::index_sequence<N...> )
+            if constexpr ( is_specialization_v<std::pair, T> )
             {
-                return T( deserialize<std::tuple_element_t<N, T>>( ctx )... );
-            }( std::make_index_sequence<std::tuple_size_v<T>>{} );
+                return xstd::make_tuple_series<std::tuple_size_v<T>, std::pair>( [ & ] <size_t N> ( xstd::const_tag<N> )
+                {
+                    return deserialize<std::tuple_element_t<N, T>>( ctx );
+                } );
+            }
+            else
+            {
+                return xstd::make_tuple_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
+                {
+                    return deserialize<std::tuple_element_t<N, T>>( ctx );
+                } );
+            }
         }
     };
     template<Variant T>
@@ -468,21 +477,21 @@ namespace xstd
 
         static inline void apply( serialization& ctx, const O& value )
         {
-            std::apply( [ & ] ( const auto&... refs )
+            auto&& tied = const_cast<O&>( value ).tie();
+            xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
             {
-                auto discard = [ ] ( ... ) {};
-                discard( ( serialize( ctx, refs ), 1 )... );
-            }, const_cast<O&>( value ).tie() );
+                serialize( ctx, std::get<N>( tied ) );
+            } );
         }
         static inline O reflect( serialization& ctx )
         {
             O value = {};
             auto&& tied = value.tie();
-            [ & ] <size_t... N> ( std::index_sequence<N...> )
+            xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
             {
-                auto discard = [ ] ( ... ) {};
-                discard( ( std::get<N>( tied ) = deserialize<std::remove_reference_t<decltype( std::get<N>( tied ) )>>( ctx ), 1 )... );
-            }( std::make_index_sequence<std::tuple_size_v<T>>{} );
+                auto& value = std::get<N>( tied );
+                value = deserialize<std::remove_reference_t<decltype( value )>>( ctx );
+            } );
             return value;
         }
     };

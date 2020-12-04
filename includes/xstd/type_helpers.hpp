@@ -458,24 +458,14 @@ namespace xstd
 	//
 	namespace impl
 	{
-		template<typename Ti, typename T, Ti... I>
-		static constexpr auto make_expanded_series( T&& f, std::integer_sequence<Ti, I...> )
+		template<typename Ti, template<typename...> typename Tr, typename T, Ti... I>
+		static constexpr auto make_tuple_series( T&& f, std::integer_sequence<Ti, I...> )
 		{
-			if constexpr ( std::is_void_v<decltype( f( (Ti)0 ) )> )
-				( ( f( I ) ), ... );
+			if constexpr ( std::is_void_v<decltype( f( const_tag<(Ti)0>{} ) )> )
+				( ( f( const_tag<I>{} ) ), ... );
 			else
-				return std::array{ f( I )... };
+				return Tr{ f( const_tag<I>{} )... };
 		}
-
-		template<typename Ti, template<auto> typename Tr, typename T, Ti... I>
-		static constexpr auto make_visitor_series( T&& f, std::integer_sequence<Ti, I...> )
-		{
-			if constexpr ( std::is_void_v<decltype( f( type_tag<Tr<(Ti)0>>{} ) )> )
-				( ( f( type_tag<Tr<I>>{} ) ), ... );
-			else
-				return std::array{ f( type_tag<Tr<I>>{} )... };
-		}
-
 		template<typename Ti, typename T, Ti... I>
 		static constexpr auto make_constant_series( T&& f, std::integer_sequence<Ti, I...> )
 		{
@@ -485,15 +475,10 @@ namespace xstd
 				return std::array{ f( const_tag<I>{} )... };
 		}
 	};
-	template<auto N, typename T>
-	static constexpr auto make_expanded_series( T&& f )
+	template<auto N, template<typename...> typename Tr = std::tuple, typename T>
+	static constexpr auto make_tuple_series( T&& f )
 	{
-		return impl::make_expanded_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
-	}
-	template<auto N, template<auto> typename Tr, typename T>
-	static constexpr auto make_visitor_series( T&& f )
-	{
-		return impl::make_visitor_series<decltype( N ), Tr, T>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
+		return impl::make_tuple_series<decltype( N ), Tr>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
 	}
 	template<auto N, typename T>
 	static constexpr auto make_constant_series( T&& f )
