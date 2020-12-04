@@ -50,9 +50,25 @@ namespace xstd
     //
     struct serialization;
     template<typename T> struct serializer;
-    template<typename T> static inline T deserialize( serialization& ctx );
-    template<typename T> static inline void serialize( serialization& ctx, const T& value );
 
+    // Declare the contract for custom serializables.
+    // => void T::serialize( ctx ) const
+    // => static T T::deserialize( ctx )
+    //
+    template<typename T> concept CustomSerializable = requires( const T & x ) { x.serialize( std::declval<serialization&>() ); };
+    template<typename T> concept CustomDeserializable = requires { T::deserialize( std::declval<serialization&>() ); };
+
+    // Implement auto serializable types.
+    // => std::tuple<&...> T::tie()
+    //
+    template<typename T> concept AutoSerializable = requires( T & x ) { x.tie(); };
+
+    // If none fits, type is considered default serialized.
+    //
+    template<typename T> concept DefaultSerialized = !( AutoSerializable<T> || CustomSerializable<T> || CustomDeserializable<T> );
+
+    // Serialization context.
+    //
     struct serialization
     {
         struct pointer_record
@@ -129,23 +145,10 @@ namespace xstd
             return *this;
         }
 
-        // Override stream operator and provide templated member helper for convenience.
+        // Provide templated member helper for convenience.
         //
         template<typename T> T read();
         template<typename T> void write( const T& );
-
-        template<typename T> 
-        serialization& operator>>( T& v ) 
-        { 
-            v = read<T>(); 
-            return *this; 
-        }
-        template<typename T> 
-        serialization& operator<<( const T& v ) 
-        {
-            write( v ); 
-            return *this; 
-        }
 
         // Pointer serialization helpers.
         //
@@ -261,7 +264,7 @@ namespace xstd
             return T{ deserialize<typename T::value_type>( ctx ) };
         }
     };
-    template<Iterable T>
+    template<Iterable T> requires DefaultSerialized<T>
     struct serializer<T>
     {
         static inline void apply( serialization& ctx, const T& value )
@@ -446,16 +449,6 @@ namespace xstd
             return ctx.deserialize_pointer_u<T>();
         }
     };
-
-    // Implement custom serializable types.
-    // => void T::serialize( ctx ) const
-    // => static T T::deserialize( ctx )
-    //
-    template<typename T>
-    concept CustomSerializable = requires( const T & x ) { x.serialize( std::declval<serialization&>() ); };
-    template<typename T>
-    concept CustomDeserializable = requires( const T & x ) { T::deserialize( std::declval<serialization&>() ); };
-
     template<typename T> requires ( CustomSerializable<T> || CustomDeserializable<T> )
     struct serializer<T>
     {
@@ -468,13 +461,6 @@ namespace xstd
             return T::deserialize( ctx );
         }
     };
-
-    // Implement auto serializable types.
-    // => std::tuple<&...> T::tie()
-    //
-    template<typename T>
-    concept AutoSerializable = requires( T& x ) { x.tie(); };
-
     template<AutoSerializable O>
     struct serializer<O>
     {
@@ -562,4 +548,33 @@ namespace xstd
     }
     template<typename T> inline T serialization::read() { return serializer<T>::reflect( *this ); }
     template<typename T> inline void serialization::write( const T& value ) { serializer<T>::apply( *this, value ); }
+
+
 };
+
+// Overload streaming operators.
+//
+template<typename T>
+inline static xstd::serialization& operator>>( xstd::serialization& self, T& v )
+{
+    v = self.read<T>();
+    return self;
+}
+template<typename T>
+inline static xstd::serialization& operator<<( T& v, xstd::serialization& self )
+{
+    v = self.read<T>();
+    return self;
+}
+template<typename T>
+inline static xstd::serialization& operator>>( const T& v, xstd::serialization& self )
+{
+    self.write( v );
+    return self;
+}
+template<typename T>
+inline static xstd::serialization& operator<<( xstd::serialization& self, const T& v )
+{
+    self.write( v );
+    return self;
+}
