@@ -29,6 +29,7 @@
     <ClInclude Include="includes\xstd\gzip.hpp" />
     <ClInclude Include="includes\xstd\hashable.hpp" />
     <ClInclude Include="includes\xstd\intrinsics.hpp" />
+    <ClInclude Include="includes\xstd\leb128.hpp" />
     <ClInclude Include="includes\xstd\logger.hpp" />
     <ClInclude Include="includes\xstd\lt_typeid.hpp" />
     <ClInclude Include="includes\xstd\narrow_cast.hpp" />

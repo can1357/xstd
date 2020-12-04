@@ -144,6 +144,9 @@
     <ClInclude Include="includes\xstd\nested_range.hpp">
       <Filter>Headers\Ranges</Filter>
     </ClInclude>
+    <ClInclude Include="includes\xstd\leb128.hpp">
+      <Filter>Headers\Protocols</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="CMakeLists.txt" />

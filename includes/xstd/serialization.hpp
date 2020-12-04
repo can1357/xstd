@@ -55,20 +55,12 @@ namespace xstd
 
     struct serialization
     {
-        enum class pointer_type
-        {
-            shared = 0,
-            unique = 1,
-        };
-
         struct pointer_record
         {
             uint32_t index = 0;
             uint8_t is_shared = false;
             std::vector<uint8_t> raw_data = {};
-            
             bool is_backed = false; // Not serialized, temporary.
-
             auto tie() { return std::tie( index, is_shared, raw_data ); }
         };
 
@@ -91,6 +83,69 @@ namespace xstd
         // Fields used during deserialization.
         //
         std::unordered_map<uint32_t, rpointer_record> rpointers;
+
+        // Constructed from an optional byte array.
+        //
+        serialization() {}
+        template<Iterable T> requires ( is_contiguous_iterable_v<T>&& Trivial<iterator_value_type_t<T>> )
+        serialization( T&& container, bool no_header = false ) { load( std::forward<T>( container ), no_header ); }
+        serialization( const void* data, size_t length, bool no_header = false ) { load( data, length, no_header ); }
+        
+        // Default move, no copy.
+        //
+        serialization( serialization&& ) noexcept = default;
+        serialization& operator=( serialization&& ) noexcept = default;
+
+        // Helpers to load from a byte vector and dump into one.
+        //
+        std::vector<uint8_t> dump() const;
+        serialization& load( const void* data, size_t length, bool no_header = false );
+        template<Iterable T> requires ( is_contiguous_iterable_v<T> && Trivial<iterator_value_type_t<T>> )
+        serialization& load( T&& container, bool no_header = false ) 
+        {
+            return load( ( const uint8_t* ) std::to_address( std::begin( container ) ), std::size( container ) * sizeof( iterator_value_type_t<T> ), no_header );
+        }
+
+        // Raw data read write.
+        //
+        serialization& read( void* dst, size_t length )
+        {
+            if ( raw_data.size() < ( offset + length ) )
+                xstd::error( "Reading out of stream boundaries." );
+            memcpy( dst, raw_data.data() + offset, length );
+            offset += length;
+            return *this;
+        }
+        serialization& skip( size_t n )
+        {
+            if ( raw_data.size() < ( offset + n ) )
+                xstd::error( "Skipping out of stream boundaries." );
+            offset += n;
+            return *this;
+        }
+        serialization& write( const void* src, size_t length )
+        {
+            raw_data.insert( raw_data.end(), ( uint8_t* ) src, ( ( uint8_t* ) src ) + length );
+            return *this;
+        }
+
+        // Override stream operator and provide templated member helper for convenience.
+        //
+        template<typename T> T read();
+        template<typename T> void write( const T& );
+
+        template<typename T> 
+        serialization& operator>>( T& v ) 
+        { 
+            v = read<T>(); 
+            return *this; 
+        }
+        template<typename T> 
+        serialization& operator<<( const T& v ) 
+        {
+            write( v ); 
+            return *this; 
+        }
 
         // Pointer serialization helpers.
         //
@@ -153,29 +208,29 @@ namespace xstd
             return std::reinterpret_pointer_cast<T>( rec.deserialized );
         }
 
-        // Validates the ownership of stored pointers.
+        // Helpers for readers.
         //
-        void validate_pointers() const
-        {
-            for ( auto& ptr : pointers )
-                if ( ptr.second.index && !ptr.second.is_backed )
-                    xstd::error( "Dangling pointer serialized!" );
-        }
+        bool empty() const { return length() == 0; }
+        size_t length() const { return raw_data.size() - offset; }
 
-        // Swapping context type.
+        // Swaps the pointer table type.
         //
-        void swap_type()
+        serialization& flush_pointers()
         {
             for ( auto& rec : pointers )
                 rpointers[ rec.second.index ] = { std::move( rec.second.raw_data ) };
             pointers.clear();
+            return *this;
         }
 
-        // Helpers to dump into a vector of bytes and load from it.
+        // Flushes the stream by shifting the buffer clearing the read partition.
         //
-        std::vector<uint8_t> dump() const;
-        static serialization load( const std::vector<uint8_t>& );
-        static serialization load( const uint8_t* data, size_t length );
+        serialization& flush() 
+        { 
+            raw_data.erase( raw_data.begin(), raw_data.begin() + offset ); 
+            offset = 0;
+            return *this;
+        }
     };
 
     // Implement it for trivials, atomics, iterables, tuples, variants, hash type and optionals.
@@ -185,15 +240,12 @@ namespace xstd
     {
         static inline void apply( serialization& ctx, const T& value )
         {
-            ctx.raw_data.insert( ctx.raw_data.end(), ( uint8_t* ) ( &value ), ( uint8_t* ) ( &value + 1 ) );
+            ctx.write( &value, sizeof( T ) );
         }
         static inline T reflect( serialization& ctx )
         {
-            fassert( ctx.raw_data.size() >= ( sizeof( T ) + ctx.offset ) );
-
             std::remove_const_t<T> value;
-            memcpy( &value, ctx.raw_data.data() + ctx.offset, sizeof( T ) );
-            ctx.offset += sizeof( T );
+            ctx.read( &value, sizeof( T ) );
             return value;
         }
     };
@@ -400,19 +452,18 @@ namespace xstd
     // => static T T::deserialize( ctx )
     //
     template<typename T>
-    concept CustomSerializable = requires( const T& x )
-    {
-        x.serialize( std::declval<serialization&>() );
-        T::deserialize( std::declval<serialization&>() );
-    };
-    template<CustomSerializable T>
+    concept CustomSerializable = requires( const T & x ) { x.serialize( std::declval<serialization&>() ); };
+    template<typename T>
+    concept CustomDeserializable = requires( const T & x ) { T::deserialize( std::declval<serialization&>() ); };
+
+    template<typename T> requires ( CustomSerializable<T> || CustomDeserializable<T> )
     struct serializer<T>
     {
-        static inline void apply( serialization& ctx, const T& value )
+        static inline void apply( serialization& ctx, const T& value ) requires CustomSerializable<T>
         {
             value.serialize( ctx );
         }
-        static inline T reflect( serialization& ctx )
+        static inline T reflect( serialization& ctx ) requires CustomDeserializable<T>
         {
             return T::deserialize( ctx );
         }
@@ -423,6 +474,7 @@ namespace xstd
     //
     template<typename T>
     concept AutoSerializable = requires( T& x ) { x.tie(); };
+
     template<AutoSerializable O>
     struct serializer<O>
     {
@@ -452,32 +504,17 @@ namespace xstd
     // Implement the simple interface.
     //
     template<typename T>
-    static inline void serialize( serialization& ctx, const T& value )
-    {
-        serializer<T>::apply( ctx, value );
-    }
-    template<typename T>
-    static inline T deserialize( serialization& ctx )
-    {
-        return serializer<T>::reflect( ctx );
-    }
-    template<typename T>
-    static inline T deserialize( serialization&& ctx )
-    {
-        return serializer<T>::reflect( ctx );
-    }
-    template<typename T>
-    static inline serialization serialize( const T& value )
+    static inline std::vector<uint8_t> serialize( const T& value )
     {
         serialization ctx = {};
-        serialize( ctx, value );
-        return ctx;
+        serializer<T>::apply( ctx, value );
+        return ctx.dump();
     }
-    template<typename T>
-    static inline void deserialize( T& out, serialization& ctx )
-    {
-        out = deserialize<T>( ctx );
-    }
+    template<typename T> static inline void serialize( serialization& ctx, const T& value ) { serializer<T>::apply( ctx, value ); }
+    template<typename T> static inline T deserialize( serialization& ctx ) { return serializer<T>::reflect( ctx ); }
+    template<typename T> static inline T deserialize( serialization&& ctx ) { return serializer<T>::reflect( ctx ); }
+    template<typename T> static inline void deserialize( T& out, serialization& ctx ) { out = serializer<T>::reflect( ctx ); }
+    template<typename T> static inline void deserialize( T& out, serialization&& ctx ) { out = serializer<T>::reflect( ctx ); }
 
     // Implement the final steps.
     //
@@ -485,11 +522,13 @@ namespace xstd
     {
         // Validate pointer ownership.
         //
-        validate_pointers();
+        for ( auto& ptr : pointers )
+            if ( ptr.second.index && !ptr.second.is_backed )
+                xstd::error( "Dangling pointer serialized!" );
 
         // Emit the serialization flag declaring whether or not there is a pointer table following.
         //
-        std::vector<uint8_t> result  = { ( uint8_t ) !pointers.empty() };
+        std::vector<uint8_t> result = { ( uint8_t ) !pointers.empty() };
 
         // Emit the pointer table if relevant.
         //
@@ -506,25 +545,21 @@ namespace xstd
         result.insert( result.end(), raw_data.begin(), raw_data.end() );
         return result;
     }
-    inline serialization serialization::load( const uint8_t* data, size_t length )
+    inline serialization& serialization::load( const void* data, size_t length, bool no_header )
     {
-        // Return empty if no data.
+        // Assign over the vector type.
         //
-        serialization ctx = {};
-        if ( !length-- ) return {};
+        raw_data.assign( ( const uint8_t* ) data, ( const uint8_t* ) data + length );
 
-        // If using pointer tables, recurse:
+        // If using pointer tables, read the mappings and flush the pointers.
         //
-        if ( *data++ )
+        if ( !no_header && read<uint8_t>() )
         {
-            ctx.raw_data = { data, data + length };
-            deserialize( ctx.pointers, ctx );
+            deserialize( pointers, *this );
+            flush_pointers();
         }
-
-        // Read the data and swap pointer table type.
-        //
-        ctx.swap_type();
-        return ctx;
+        return *this;
     }
-    inline serialization serialization::load( const std::vector<uint8_t>& data ) { return load( data.data(), data.size() ); }
+    template<typename T> inline T serialization::read() { return serializer<T>::reflect( *this ); }
+    template<typename T> inline void serialization::write( const T& value ) { serializer<T>::apply( *this, value ); }
 };
