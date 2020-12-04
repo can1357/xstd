@@ -51,8 +51,10 @@ namespace xstd
 		//
 		using value_type = std::underlying_type_t<T>;
 		static constexpr bool is_signed = std::is_signed_v<value_type>;
-		static constexpr int min_value = is_signed ? -( iteration_limit / 2 ) : 0;
-		static constexpr int max_value = is_signed ? +( iteration_limit / 2 ) : ( iteration_limit );
+		using ex_value_type = std::conditional_t<is_signed, int64_t, uint64_t>;
+
+		static constexpr int min_value = is_signed ? -(int)( iteration_limit / 2 ) : 0;
+		static constexpr int max_value = is_signed ? +(int)( iteration_limit / 2 ) : (int)( iteration_limit );
 		
 		// Generates the name for the given enum.
 		//
@@ -69,7 +71,7 @@ namespace xstd
 		//
 		static std::string resolve( T v )
 		{
-			value_type value = ( value_type ) v;
+			ex_value_type value = ( ex_value_type ) v;
 
 			// If value within iteration range, try the linear list:
 			//
@@ -78,8 +80,8 @@ namespace xstd
 				static constexpr auto linear_series = make_constant_series<iteration_limit>(
 					[ ] ( auto tag ) { return generate<T( decltype( tag )::value + min_value )>(); }
 				);
-				value_type adjusted = value - min_value;
-				if ( value_type( 0 ) <= adjusted && adjusted < value_type( iteration_limit ) )
+				ex_value_type adjusted = value - min_value;
+				if ( ex_value_type( 0 ) <= adjusted && adjusted < ex_value_type( iteration_limit ) )
 				{
 					auto& [str, valid] = linear_series[ adjusted ];
 					if ( valid ) return std::string{ str.begin(), str.end() };

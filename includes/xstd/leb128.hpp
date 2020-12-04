@@ -31,6 +31,7 @@
 #include "result.hpp"
 #include "bitwise.hpp"
 #include "type_helpers.hpp"
+#include "formatting.hpp"
 #include "serialization.hpp"
 
 namespace xstd::encode
@@ -169,8 +170,12 @@ namespace xstd::encode
         constexpr operator T&() { return value; }
         constexpr operator const T&() const { return value; }
 
-        // Serialization and deserialization.
+        // Serialization, deserialization and string conversion.
         //
+        std::string to_string() const
+        {
+            return fmt::as_string( value );
+        }
         void serialize( serialization& ctx ) const
         {
             leb128<underlying_type>( ctx.raw_data, ( underlying_type ) value );

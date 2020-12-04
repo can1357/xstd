@@ -238,7 +238,7 @@ namespace xstd
 
     // Implement it for trivials, atomics, iterables, tuples, variants, hash type and optionals.
     //
-    template<Trivial T>
+    template<Trivial T> requires DefaultSerialized<T>
     struct serializer<T>
     {
         static inline void apply( serialization& ctx, const T& value )
