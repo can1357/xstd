@@ -150,9 +150,14 @@ namespace xstd::encode
 
     // Wrapper for serialization helper.
     //
-    template<Integral T>
+    template<typename T> requires ( Integral<T> || Enum<T> )
     struct leb128_t
     {
+        template<typename Ty> struct _underlying_type;
+        template<Integral Ty> struct _underlying_type<Ty> { using type = Ty; };
+        template<Enum Ty>     struct _underlying_type<Ty> { using type = std::underlying_type_t<Ty>; };
+        using underlying_type = typename _underlying_type<T>::type;
+
         // Thin wrapping around an integer type.
         //
         T value;
@@ -168,19 +173,18 @@ namespace xstd::encode
         //
         void serialize( serialization& ctx ) const
         {
-            leb128<T>( ctx.raw_data, value );
+            leb128<underlying_type>( ctx.raw_data, ( underlying_type ) value );
         }
         static leb128_t deserialize( serialization& ctx )
         {
             const uint8_t* beg = ctx.raw_data.data() + ctx.offset;
             const uint8_t* it = beg;
-            leb128_t value = { *rleb128<T>( it, ctx.raw_data.data() + ctx.raw_data.size() ) };
+            leb128_t value = { ( T ) *rleb128<underlying_type>( it, ctx.raw_data.data() + ctx.raw_data.size() ) };
             ctx.offset += it - beg;
             return value;
         }
     };
-    template<Signed T = int64_t>
-    using sleb128_t = leb128_t<T>;
-    template<Unsigned T = uint64_t>
-    using uleb128_t = leb128_t<T>;
+
+    using sleb128_t = leb128_t<int64_t>;
+    using uleb128_t = leb128_t<uint64_t>;
 };

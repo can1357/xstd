@@ -242,7 +242,7 @@ namespace xstd
 	template<typename T, typename O> concept Andable = requires( T&& x, O&& y ) { x & y; };
 	template<typename T, typename O> concept Orable = requires( T&& x, O&& y ) { x | y; };
 	template<typename T, typename O> concept Xorable = requires( T&& x, O&& y ) { x ^ y; };
-	template<typename T> concept Signed = std::is_signed_v<T>;
+	template<typename T> concept Signed =   std::is_signed_v<T>;
 	template<typename T> concept Unsigned = std::is_unsigned_v<T>;
 	template<Integral T1, Integral T2> requires ( Signed<T1> == Signed<T2> )
 	using integral_max_t = std::conditional_t<( sizeof( T1 ) > sizeof( T2 ) ), T1, T2>;
