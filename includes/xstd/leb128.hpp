@@ -82,7 +82,7 @@ namespace xstd::encode
     
             // Make sure we did not overflow out of the range.
             //
-            if ( ( value >> bitcnt ) != ( segment & 0x7F ) )
+            if ( bitcnt > ( sizeof( T ) * 8 ) && ( value >> bitcnt ) != ( segment & 0x7F ) )
                 return std::nullopt;
     
             // If stream is terminated, return the value.
