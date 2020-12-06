@@ -477,7 +477,7 @@ namespace xstd
 
         static inline void apply( serialization& ctx, const O& value )
         {
-            auto&& tied = const_cast<O&>( value ).tie();
+            auto tied = const_cast<O&>( value ).tie();
             xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
             {
                 serialize( ctx, std::get<N>( tied ) );
@@ -486,7 +486,7 @@ namespace xstd
         static inline O reflect( serialization& ctx )
         {
             O value = {};
-            auto&& tied = value.tie();
+            auto tied = value.tie();
             xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
             {
                 auto& value = std::get<N>( tied );

@@ -64,6 +64,9 @@ namespace xstd
 			std::string_view name = const_tag<Q>::to_string();
 			if ( name[ 0 ] == '(' || uint8_t( name[ 0 ] - '0' ) <= 9 )
 				return { "", false };
+			size_t n = name.rfind( ':' );
+			if ( n != std::string::npos )
+				name.remove_prefix( n + 1 );
 			return { name, true };
 		}
 

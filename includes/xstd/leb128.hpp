@@ -90,7 +90,7 @@ namespace xstd::encode
             if ( !( segment & 0x80 ) )
             {
                 if constexpr ( Signed<T> )
-                    return ( T ) sign_extend( uint64_t( value ), bitcnt + 7 );
+                    return ( T ) sign_extend( uint64_t( value ), std::min<size_t>( 64, bitcnt + 7 ) );
                 return { value };
             }
         }
