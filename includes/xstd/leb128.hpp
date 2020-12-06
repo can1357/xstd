@@ -143,7 +143,7 @@ namespace xstd::encode
         leb128( result, value );
         return result;
     }
-    template<Integral T, Iterable C>
+    template<Integral T, Iterable C = std::initializer_list<uint8_t>>
     inline static result<T> rleb128( C&& container )
     {
         return rleb128<T>( std::begin( container ), std::end( container ) );
@@ -170,8 +170,12 @@ namespace xstd::encode
         constexpr operator T&() { return value; }
         constexpr operator const T&() const { return value; }
 
-        // Serialization, deserialization and string conversion.
+        // Serialization, deserialization, string conversion and hashing.
         //
+        hash_t hash() const 
+        { 
+            return make_hash( value ); 
+        }
         std::string to_string() const
         {
             return fmt::as_string( value );
@@ -183,8 +187,9 @@ namespace xstd::encode
         static leb128_t deserialize( serialization& ctx )
         {
             const uint8_t* beg = ctx.raw_data.data() + ctx.offset;
+            const uint8_t* end = ctx.raw_data.data() + ctx.raw_data.size();
             const uint8_t* it = beg;
-            leb128_t value = { ( T ) *rleb128<underlying_type>( it, ctx.raw_data.data() + ctx.raw_data.size() ) };
+            leb128_t value = { ( T ) *rleb128<underlying_type>( it, end ) };
             ctx.offset += it - beg;
             return value;
         }
