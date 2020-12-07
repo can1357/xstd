@@ -59,17 +59,6 @@ namespace xstd
 		// Declare basic traits.
 		//
 		constexpr static inline bool is_success( io_state v ) { return v == io_state::success; }
-		constexpr static inline const char* message( io_state v ) 
-		{
-			switch ( v )
-			{
-				case io_state::success:            return XSTD_ESTR( "Unknown error." );
-				case io_state::bad_file:           return XSTD_ESTR( "Bad file." );
-				case io_state::invalid_alignment:  return XSTD_ESTR( "File has invalid alignment for type being read." );
-				case io_state::reading_beyond_end: return XSTD_ESTR( "Reading beyond end of file." );
-				default:                           return XSTD_ESTR( "Unknown error." );
-			}
-		}
 	};
 
 	template<typename T = no_value_t>

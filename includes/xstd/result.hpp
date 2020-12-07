@@ -52,7 +52,6 @@ namespace xstd
 		// Declare basic traits.
 		//
 		constexpr static inline bool is_success( bool v ) { return v; }
-		constexpr static inline const char* message( bool v ) { return v ? XSTD_CSTR( "success" ): XSTD_CSTR( "fail" ); }
 	};
 
 	template<>
@@ -66,7 +65,6 @@ namespace xstd
 		// Declare basic traits.
 		//
 		static inline bool is_success( const std::string& v ) { return v.empty(); }
-		static inline const char* message( const std::string& v ) { return v.empty() ? XSTD_CSTR( "success" ): v.c_str(); }
 	};
 
 
@@ -129,7 +127,13 @@ namespace xstd
 		constexpr bool success() const { return traits::is_success( status ); }
 		constexpr bool fail() const { return !traits::is_success( status ); }
 		constexpr explicit operator bool() const { return success(); }
-		constexpr const char* message() const { return traits::message( status ); }
+		auto message() const
+		{
+			if constexpr ( StringConvertible<Status> )
+				return fmt::as_string( status );
+			else
+				return success() ? XSTD_ESTR( "Success" ) : XSTD_ESTR( "Unknown error" );
+		}
 
 		// String conversion.
 		//
@@ -138,7 +142,7 @@ namespace xstd
 			if ( fail() ) 
 				return fmt::str( XSTD_CSTR( "(Fail='%s')" ), message() );
 
-			if constexpr ( StringConvertible<Val> ) return fmt::str( XSTD_CSTR( "(Result=%s)" ), fmt::as_string( value() ) );
+			if constexpr ( StringConvertible<Val> ) return fmt::str( XSTD_CSTR( "(Result=%s)" ), message() );
 			else                                    return XSTD_CSTR( "(Success)" );
 		}
 
