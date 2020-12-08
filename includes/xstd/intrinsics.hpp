@@ -76,7 +76,7 @@
     #if defined(RELEASE_BUILD)
         static_assert( DEBUG_BUILD == !RELEASE_BUILD, "Invalid configuration." );
     #endif
-    #define RELEASE_BULD   !DEBUG_BUILD
+    #define RELEASE_BUILD  !DEBUG_BUILD
 #elif defined(RELEASE_BUILD)
     #if defined(DEBUG_BUILD)
         static_assert( DEBUG_BUILD == !RELEASE_BUILD, "Invalid configuration." );
@@ -217,7 +217,7 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
     #if RELEASE_BUILD
         #define RINLINE     FORCE_INLINE
     #else
-        #define RINLINE     NO_INLINE
+        #define RINLINE     
     #endif
 #endif
 

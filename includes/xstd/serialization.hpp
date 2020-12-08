@@ -127,7 +127,7 @@ namespace xstd
         serialization& read( void* dst, size_t length )
         {
             if ( raw_data.size() < ( offset + length ) )
-                xstd::error( "Reading out of stream boundaries." );
+                xstd::error( XSTD_ESTR( "Reading out of stream boundaries." ) );
             memcpy( dst, raw_data.data() + offset, length );
             offset += length;
             return *this;
@@ -135,7 +135,7 @@ namespace xstd
         serialization& skip( size_t n )
         {
             if ( raw_data.size() < ( offset + n ) )
-                xstd::error( "Skipping out of stream boundaries." );
+                xstd::error( XSTD_ESTR( "Skipping out of stream boundaries." ) );
             offset += n;
             return *this;
         }
@@ -519,7 +519,7 @@ namespace xstd
         //
         for ( auto& ptr : pointers )
             if ( ptr.second.index && !ptr.second.is_backed )
-                xstd::error( "Dangling pointer serialized!" );
+                xstd::error( XSTD_ESTR( "Dangling pointer serialized!" ) );
 
         // Emit the serialization flag declaring whether or not there is a pointer table following.
         //
