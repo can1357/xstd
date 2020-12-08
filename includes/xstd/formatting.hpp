@@ -33,6 +33,8 @@
 #include <type_traits>
 #include <exception>
 #include <optional>
+#include <tuple>
+#include <variant>
 #include <filesystem>
 #include <numeric>
 #include <string_view>
@@ -204,6 +206,10 @@ namespace xstd::fmt
 		{
 			return x.path().string();
 		}
+		else if constexpr ( std::is_same_v<base_type, std::monostate> )
+		{
+			return XSTD_STR( "null" );
+		}
 		else if constexpr ( std::is_same_v<base_type, std::filesystem::path> )
 		{
 			return x.string();
@@ -234,16 +240,44 @@ namespace xstd::fmt
 					} );
 				}
 				return cvtable;
-			}();
+			}( );
 
 			if constexpr ( std::tuple_size_v<base_type> == 0 )
 				return XSTD_STR( "{}" );
 			else if constexpr ( is_tuple_str_cvtable )
 			{
-				std::string res = std::apply( [ ] ( auto&&... args ) {
+				std::string res = std::apply( [ ] ( auto&&... args )
+				{
 					return ( ( as_string( args ) + ", " ) + ... );
 				}, x );
-				return '{' + res.substr(0, res.length() - 2) + '}';
+				return '{' + res.substr( 0, res.length() - 2 ) + '}';
+			}
+			else return type_tag<T>{};
+		}
+		else if constexpr ( is_specialization_v<std::variant, base_type> )
+		{
+			constexpr bool is_variant_str_cvtable = [ ] ()
+			{
+				bool cvtable = true;
+				if constexpr ( std::variant_size_v<base_type> > 0 )
+				{
+					make_constant_series<std::variant_size_v<base_type>>( [ & ] ( auto tag )
+					{
+						if constexpr ( !StringConvertible<std::variant_alternative_t<decltype( tag )::value, base_type>> )
+							cvtable = false;
+					} );
+				}
+				return cvtable;
+			}();
+
+			if constexpr ( std::variant_size_v<base_type> == 0 )
+				return XSTD_STR( "{}" );
+			else if constexpr ( is_variant_str_cvtable )
+			{
+				return "{" + std::visit( [ ] ( auto&& arg )
+				{
+					return as_string( arg );
+				}, x ) + "}";
 			}
 			else return type_tag<T>{};
 		}
