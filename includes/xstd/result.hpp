@@ -31,6 +31,8 @@
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
+#undef assert // If cassert hijacks the name, undefine.
+
 namespace xstd
 {
 	struct no_value_t {};
@@ -96,7 +98,12 @@ namespace xstd
 		template<typename T> requires ( Constructable<Val, T> )
 		constexpr basic_result( T&& value ) : result( std::forward<T>( value ) ), status( Status{ traits::success_value } ) {}
 		template<typename S> requires ( Constructable<Status, S> && !Constructable<Val, S> )
-		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) {}
+		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
+		{
+			if ( traits::is_success( this->status ) )
+				if constexpr ( DefaultConstructable<Val> )
+					result.emplace();
+		}
 		template<typename T, typename S>  requires ( Constructable<Val, T> && Constructable<Status, S> )
 		constexpr basic_result( T&& value, S&& status ) : result( std::forward<T>( value ) ), status( std::forward<S>( status ) ) {}
 
@@ -134,6 +141,11 @@ namespace xstd
 			else
 				return success() ? XSTD_ESTR( "Success" ) : XSTD_ESTR( "Unknown error" );
 		}
+		constexpr void assert() const
+		{
+			if ( !success() ) [[unlikely]]
+				xstd::error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
+		}
 
 		// String conversion.
 		//
@@ -150,20 +162,17 @@ namespace xstd
 		//
 		constexpr const Val& value() const &
 		{
-			if ( !success() ) [[unlikely]]
-				xstd::error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
+			assert();
 			return result.value();
 		}
 		constexpr Val& value() &
 		{
-			if ( !success() ) [[unlikely]]
-				xstd::error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
+			assert();
 			return result.value();
 		}
 		constexpr Val&& value() &&
 		{
-			if ( !success() ) [[unlikely]]
-				xstd::error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
+			assert();
 			return std::move( result ).value();
 		}
 
