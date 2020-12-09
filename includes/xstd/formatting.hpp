@@ -383,7 +383,7 @@ namespace xstd::fmt
 	{
 		if constexpr ( !std::is_signed_v<T> )
 		{
-			return str( XSTD_STR( "0x%llx" ), value );
+			return str( XSTD_CSTR( "0x%llx" ), value );
 		}
 		else
 		{
