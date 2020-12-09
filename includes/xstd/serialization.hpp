@@ -348,7 +348,7 @@ namespace xstd
                     if ( idx == N )
                         return T( deserialize<std::variant_alternative_t<N, T>>( ctx ) );
                     else
-                        self( self, const_tag<N + 1>{} );
+                        return self( self, const_tag<N + 1>{} );
                 }
                 return T{};
             };
