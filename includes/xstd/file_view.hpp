@@ -40,6 +40,8 @@
 // Required imports.
 //
 #if WINDOWS_TARGET
+#pragma warning( push )
+#pragma warning( disable: 4005)
 #define INVALID_HANDLE_VALUE ((void*)(long long)-1)
 #define OPEN_EXISTING                   3
 #define GENERIC_READ                    0x80000000L
@@ -50,6 +52,7 @@
 #define INVALID_FILE_SIZE               0xFFFFFFFFu
 #define PAGE_READONLY                   0x02
 #define SECTION_MAP_READ                0x0004
+#pragma warning( pop )
 extern "C"
 {
 	typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, * PSECURITY_ATTRIBUTES, * LPSECURITY_ATTRIBUTES;

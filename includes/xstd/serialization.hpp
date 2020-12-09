@@ -127,7 +127,7 @@ namespace xstd
         serialization& read( void* dst, size_t length )
         {
             if ( raw_data.size() < ( offset + length ) )
-                xstd::error( XSTD_ESTR( "Reading out of stream boundaries." ) );
+                error( XSTD_ESTR( "Reading out of stream boundaries." ) );
             memcpy( dst, raw_data.data() + offset, length );
             offset += length;
             return *this;
@@ -135,7 +135,7 @@ namespace xstd
         serialization& skip( size_t n )
         {
             if ( raw_data.size() < ( offset + n ) )
-                xstd::error( XSTD_ESTR( "Skipping out of stream boundaries." ) );
+                error( XSTD_ESTR( "Skipping out of stream boundaries." ) );
             offset += n;
             return *this;
         }
@@ -280,7 +280,7 @@ namespace xstd
 
             if constexpr ( is_std_array_v<T> )
             {
-                return xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <auto V> ( const_tag<V> _ )
+                return make_constant_series<std::tuple_size_v<T>>( [ & ] <auto V> ( const_tag<V> _ )
                 {
                     return deserialize<iterator_value_type_t<T>>( ctx );
                 } );
@@ -304,7 +304,7 @@ namespace xstd
     {
         static inline void apply( serialization& ctx, const T& value )
         {
-            xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
+            make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
             {
                 serialize( ctx, std::get<N>( value ) );
             } );
@@ -313,14 +313,14 @@ namespace xstd
         {
             if constexpr ( is_specialization_v<std::pair, T> )
             {
-                return xstd::make_tuple_series<std::tuple_size_v<T>, std::pair>( [ & ] <size_t N> ( xstd::const_tag<N> )
+                return make_tuple_series<std::tuple_size_v<T>, std::pair>( [ & ] <auto N> ( const_tag<N> )
                 {
                     return deserialize<std::tuple_element_t<N, T>>( ctx );
                 } );
             }
             else
             {
-                return xstd::make_tuple_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
+                return make_tuple_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
                 {
                     return deserialize<std::tuple_element_t<N, T>>( ctx );
                 } );
@@ -341,7 +341,7 @@ namespace xstd
         static inline T reflect( serialization& ctx )
         {
             uint32_t idx = deserialize<uint32_t>( ctx );
-            auto resolve = [ & ] <uint32_t N> ( auto&& self, const_tag<N> )
+            auto resolve = [ & ] <auto N> ( auto&& self, const_tag<N> )
             {
                 if constexpr ( N != std::variant_size_v<T> )
                 {
@@ -352,7 +352,7 @@ namespace xstd
                 }
                 return T{};
             };
-            return resolve( const_tag<0> );
+            return resolve( resolve, const_tag<0>{} );
         }
     };
     template<Optional T>
@@ -478,7 +478,7 @@ namespace xstd
         static inline void apply( serialization& ctx, const O& value )
         {
             auto tied = const_cast<O&>( value ).tie();
-            xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
+            make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
             {
                 serialize( ctx, std::get<N>( tied ) );
             } );
@@ -487,13 +487,19 @@ namespace xstd
         {
             O value = {};
             auto tied = value.tie();
-            xstd::make_constant_series<std::tuple_size_v<T>>( [ & ] <size_t N> ( xstd::const_tag<N> )
+            make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
             {
                 auto& value = std::get<N>( tied );
                 value = deserialize<std::remove_reference_t<decltype( value )>>( ctx );
             } );
             return value;
         }
+    };
+    template<>
+    struct serializer<std::monostate>
+    {
+        static inline void apply( serialization& ctx, const std::monostate& value ) {}
+        static inline std::monostate reflect( serialization& ctx ) {}
     };
 
     // Implement the simple interface.
@@ -519,7 +525,7 @@ namespace xstd
         //
         for ( auto& ptr : pointers )
             if ( ptr.second.index && !ptr.second.is_backed )
-                xstd::error( XSTD_ESTR( "Dangling pointer serialized!" ) );
+                error( XSTD_ESTR( "Dangling pointer serialized!" ) );
 
         // Emit the serialization flag declaring whether or not there is a pointer table following.
         //
@@ -557,8 +563,6 @@ namespace xstd
     }
     template<typename T> inline T serialization::read() { return serializer<T>::reflect( *this ); }
     template<typename T> inline void serialization::write( const T& value ) { serializer<T>::apply( *this, value ); }
-
-
 };
 
 // Overload streaming operators.

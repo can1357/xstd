@@ -142,7 +142,7 @@ namespace xstd
 			if ( fail() ) 
 				return fmt::str( XSTD_CSTR( "(Fail='%s')" ), message() );
 
-			if constexpr ( StringConvertible<Val> ) return fmt::str( XSTD_CSTR( "(Result=%s)" ), message() );
+			if constexpr ( StringConvertible<Val> ) return fmt::str( XSTD_CSTR( "(Result=%s)" ), xstd::fmt::as_string( result ) );
 			else                                    return XSTD_CSTR( "(Success)" );
 		}
 
