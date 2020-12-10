@@ -61,8 +61,8 @@ namespace xstd
 	{
 		// Generic success and failure values.
 		//
-		static constexpr const char* success_value = XSTD_CSTR( "" );
-		static constexpr const char* failure_value = XSTD_ESTR( "?" );
+		static constexpr char success_value[] = "";
+		static constexpr char failure_value[] = "?";
 
 		// Declare basic traits.
 		//
@@ -174,6 +174,10 @@ namespace xstd
 		{
 			assert();
 			return std::move( result ).value();
+		}
+		constexpr Val value_or( const Val& o ) const
+		{
+			return success() ? result.value() : o;
 		}
 
 		// Accessors.

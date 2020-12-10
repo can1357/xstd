@@ -42,11 +42,7 @@
 //  - 0: All asserts are ignored.
 //
 #ifndef XSTD_ASSERT_MESSAGE
-	#if DEBUG_BUILD
-		#define XSTD_ASSERT_MESSAGE( cc, file, line ) XSTD_ESTR( "Assertion failure, condition {" cc "} at " file ":" line )
-	#else
-		#define XSTD_ASSERT_MESSAGE( cc, file, line ) XSTD_ESTR( "Assertion failure." )
-	#endif
+	#define XSTD_ASSERT_MESSAGE( cc, file, line ) XSTD_ESTR( "Assertion failure, condition {" cc "} at " file ":" line )
 #endif
 #ifndef XSTD_ASSERT_NO_TRACE
 	#define XSTD_ASSERT_NO_TRACE !DEBUG_BUILD

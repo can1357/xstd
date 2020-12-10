@@ -106,7 +106,7 @@ namespace xstd
 	{
 		return ( value = 1664525 * value + 1013904223 );
 	}
-	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset )
+	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( offset-- )
 			lce_64( value );
@@ -123,23 +123,38 @@ namespace xstd
 
 	// Generates a single random number.
 	//
-	template<Integral T>
+	template<Integral T = uint64_t>
 	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		using V = std::conditional_t<sizeof( T ) < 4, int32_t, T>;
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}
-	template<FloatingPoint T>
+	template<FloatingPoint T = float>
 	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
 	}
-	template<Integral T>
-	static constexpr T make_crandom( size_t offset, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	template<Integral T = uint64_t>
+	static constexpr T make_crandom( size_t offset = 1, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		uint64_t value = impl::crandom_default_seed;
 		while ( offset-- != 0 ) lce_64( value );
 		return impl::uniform_eval( lce_64( value ), min, max );
+	}
+
+	// Enum equivalents.
+	//
+	template<Enum T>
+	static T make_random( T min, T max )
+	{
+		using V = std::underlying_type_t<T>;
+		return ( T ) make_random<V>( V( min ), V( max ) );
+	}
+	template<Enum T>
+	static constexpr T make_crandom( size_t offset, T min, T max )
+	{
+		using V = std::underlying_type_t<T>;
+		return ( T ) make_crandom<V>( offset, V( min ), V( max ) );
 	}
 
 	// Generates an array of random numbers.
@@ -162,7 +177,7 @@ namespace xstd
 		return make_random_n<T>( min, max, std::make_index_sequence<N>{} );
 	}
 	template<typename T, size_t N>
-	static constexpr std::array<T, N> make_crandom_n( size_t offset, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static constexpr std::array<T, N> make_crandom_n( size_t offset = 1, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return make_crandom_n<T>( offset, min, max, std::make_index_sequence<N>{} );
 	}

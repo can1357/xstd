@@ -42,6 +42,7 @@ namespace xstd
 		finally( T&& fn ) : functor( std::forward<T>( fn ) ) {}
 		finally( finally&& o ) noexcept : functor( o.functor ), set( std::exchange( o.set, false ) ) {}
 		finally( const finally& ) = delete;
+		void cancel() { set = false; }
 		~finally() { if( set ) functor(); }
 	};
 
@@ -53,6 +54,6 @@ namespace xstd
 		T& ref;
 		counter_guard( T& ref ) : ref( ref ) { ++ref; }
 		counter_guard( const counter_guard& ) = delete;
-		~counter_guard() { ++ref; }
+		~counter_guard() { --ref; }
 	};
 };

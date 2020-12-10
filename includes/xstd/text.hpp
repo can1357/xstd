@@ -258,8 +258,11 @@ namespace xstd
 };
 
 
-
-#if ( defined(__INTELLISENSE__) || !GNU_COMPILER )
+#ifdef __INTELLISENSE__
+	#define MAKE_HASHER( op, fn )                                         \
+	constexpr xstd::hash_t operator"" op( const char* str, size_t n );    \
+	constexpr xstd::hash_t operator"" op( const wchar_t* str, size_t n );
+#elif !GNU_COMPILER
 	#define MAKE_HASHER( op, fn )                                         \
 	constexpr xstd::hash_t operator"" op( const char* str, size_t n )     \
 	{                                                                     \

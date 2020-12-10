@@ -549,4 +549,32 @@ namespace xstd
 	template<typename T> using convert_uint_t = typename trivial_converter<sizeof( T )>::integral_unsigned;
 	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
 	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
+
+	// Simple void pointer implementation with arithmetic and free casts, comes useful
+	// when you can't infer the type of an argument pointer or if you want to const initialize
+	// an architecture specific pointer.
+	//
+	struct any_ptr
+	{
+		uint64_t address;
+
+		inline constexpr any_ptr( std::nullptr_t = {} ) : address( 0 ) {}
+		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
+		inline any_ptr( const void* address ) : address( ( uint64_t ) ( address ) ) {}
+		inline any_ptr( const volatile void* address ) : address( ( uint64_t ) ( address ) ) {}
+
+		constexpr any_ptr( any_ptr&& ) noexcept = default;
+		constexpr any_ptr( const any_ptr& ) = default;
+		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
+		constexpr any_ptr& operator=( const any_ptr& ) = default;
+
+		template<typename T>
+		inline operator T* () const { return ( T* )( address ); }
+		inline operator uint64_t() const { return address; }
+
+		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
+		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
+		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
+		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
+	};
 };
