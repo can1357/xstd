@@ -28,18 +28,7 @@
 //
 #pragma once
 #include <stdint.h>
-#include <math.h>
-#include <optional>
-#include <type_traits>
-#include <numeric>
-#include "type_helpers.hpp"
-
-// [Configuration]
-// XSTD_NO_LITERALS: If set, disables the exporting of the literals to global namespace.
-//
-#ifndef XSTD_NO_LITERALS
-	#define XSTD_NO_LITERALS 0
-#endif
+#include <chrono>
 
 namespace xstd::literals
 {
@@ -48,7 +37,5 @@ namespace xstd::literals
 	constexpr inline size_t operator ""_gb( size_t n ) { return n * 1024ull * 1024ull * 1024ull; }
 	constexpr inline size_t operator ""_tb( size_t n ) { return n * 1024ull * 1024ull * 1024ull * 1024ull; }
 };
-
-#if !XSTD_NO_LITERALS
-	using namespace xstd::literals;
-#endif
+using namespace std::literals;
+using namespace xstd::literals;

@@ -111,9 +111,6 @@
     <ClInclude Include="includes\xstd\time.hpp">
       <Filter>Headers\Misc</Filter>
     </ClInclude>
-    <ClInclude Include="includes\xstd\datalen.hpp">
-      <Filter>Headers\Numeric</Filter>
-    </ClInclude>
     <ClInclude Include="includes\xstd\narrow_cast.hpp">
       <Filter>Headers\Numeric</Filter>
     </ClInclude>
@@ -146,6 +143,9 @@
     </ClInclude>
     <ClInclude Include="includes\xstd\leb128.hpp">
       <Filter>Headers\Protocols</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\xstd\literals.hpp">
+      <Filter>Headers\Numeric</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

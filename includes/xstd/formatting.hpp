@@ -332,9 +332,9 @@ namespace xstd::fmt
 		{
 			return x;
 		}
-		// If it is a basic string:
+		// If it is a basic ASCII string:
 		//
-		else if constexpr ( CppString<base_type> )
+		else if constexpr ( std::is_same_v<std::string, base_type> )
 		{
 			return x.data();
 		}

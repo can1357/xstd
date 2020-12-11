@@ -38,12 +38,14 @@ namespace xstd
 	struct finally
 	{
 		T functor;
-		bool set = true;
-		finally( T&& fn ) : functor( std::forward<T>( fn ) ) {}
-		finally( finally&& o ) noexcept : functor( o.functor ), set( std::exchange( o.set, false ) ) {}
-		finally( const finally& ) = delete;
-		void cancel() { set = false; }
-		~finally() { if( set ) functor(); }
+		bool set = false;
+		
+		constexpr finally( T&& fn ) : functor( std::forward<T>( fn ) ), set( true ) {}
+		constexpr finally( finally&& o ) noexcept : functor( o.functor ), set( std::exchange( o.set, false ) ) {}
+		constexpr finally( const finally& ) = delete;
+		constexpr void cancel() { set = false; }
+		constexpr void apply() { if ( set ) functor(); set = false; }
+		constexpr ~finally() { apply(); }
 	};
 
 	// Commonly used guard for the counter increment/decrement.
