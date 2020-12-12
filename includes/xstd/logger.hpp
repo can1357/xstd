@@ -336,25 +336,20 @@ namespace xstd
 		}
 	};
 
+#if !XSTD_CON_NO_LOGS
+	// Generic logger.
+	//
 	template<typename... Tx>
 	static int log( console_color color, const char* fmt_str, Tx&&... ps )
 	{
-#if !XSTD_CON_NO_LOGS
 		auto buf = fmt::create_string_buffer_for<Tx...>();
 		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
-#else
-		return 0;
-#endif
 	}
 	template<console_color color = CON_DEF, typename... Tx>
 	static int log( const char* fmt_str, Tx&&... ps )
 	{
-#if !XSTD_CON_NO_LOGS
 		auto buf = fmt::create_string_buffer_for<Tx...>();
 		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
-#else
-		return 0;
-#endif
 	}
 
 	// Logs the object given as is instead of using any other formatting specifier.
@@ -362,23 +357,23 @@ namespace xstd
 	template<typename... Tx>
 	static int inspect( console_color color, Tx&&... objects )
 	{
-#if !XSTD_CON_NO_LOGS
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
 		return impl::log_w<false>( XSTD_CON_MSG_DST, color, result.c_str() );
-#else
-		return 0;
-#endif
 	}
 	template<console_color color = CON_DEF, typename... Tx>
 	static int inspect( Tx&&... objects )
 	{
-#if !XSTD_CON_NO_LOGS
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
 		return impl::log_w<false>( XSTD_CON_MSG_DST, color, result.c_str() );
-#else
-		return 0;
-#endif
 	}
+#else
+	template<typename... Tx> FORCE_INLINE FORCE_INLINE static int log( console_color, Tx... ) { return 0; }
+	template<console_color color = CON_DEF, typename... Tx> FORCE_INLINE static int log( Tx... ) { return 0; }
+
+	template<typename... Tx> FORCE_INLINE FORCE_INLINE static int inspect( console_color, Tx... ) { return 0; }
+	template<console_color color = CON_DEF, typename... Tx> FORCE_INLINE static int inspect( Tx... ) { return 0; }
+#endif
+
 
 	// Prints a warning message.
 	//
