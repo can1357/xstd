@@ -309,6 +309,8 @@ namespace xstd
 	using string_unit_t = typename std::remove_cvref_t<decltype( std::declval<T>()[ 0 ] )>;
 	template<String T>
 	using string_view_t = typename std::basic_string_view<string_unit_t<T>>;
+	template<String T>
+	using cppstring_t =   typename std::basic_string<string_unit_t<T>>;
 
 	// Atomicity-related traits.
 	//

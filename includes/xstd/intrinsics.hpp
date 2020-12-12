@@ -231,10 +231,12 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 
 // Make sure all users link to the same version.
 //
-#if HAS_MS_EXTENSIONS
-    #define MUST_MATCH(x) __pragma(comment(linker, "/failifmismatch:\"" #x "=" xstringify(x) "\""))
-#else
-    #define MUST_MATCH(x)
+#ifndef MUST_MATCH
+    #if HAS_MS_EXTENSIONS
+        #define MUST_MATCH(x) __pragma(comment(linker, "/failifmismatch:\"" #x "=" xstringify(x) "\""))
+    #else
+        #define MUST_MATCH(x)
+    #endif
 #endif
 MUST_MATCH( DEBUG_BUILD );
 

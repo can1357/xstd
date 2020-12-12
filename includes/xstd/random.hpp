@@ -106,7 +106,7 @@ namespace xstd
 	{
 		return ( value = 1664525 * value + 1013904223 );
 	}
-	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 1 )
+	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
 	{
 		while ( offset-- )
 			lce_64( value );
@@ -135,11 +135,28 @@ namespace xstd
 		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
 	}
 	template<Integral T = uint64_t>
-	static constexpr T make_crandom( size_t offset = 1, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static constexpr T make_crandom( size_t offset = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		uint64_t value = impl::crandom_default_seed;
 		while ( offset-- != 0 ) lce_64( value );
 		return impl::uniform_eval( lce_64( value ), min, max );
+	}
+
+	// Fills the given range with randoms.
+	//
+	template<Iterable It, Integral T = iterator_value_type_t<It>>
+	static void fill_random( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	{
+		for( auto& v : cnt )
+			v = make_random<T>( min, max );
+	}
+	template<Iterable It, Integral T = iterator_value_type_t<It>>
+	static constexpr void fill_crandom( It&& cnt, size_t offset = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	{
+		uint64_t value = impl::crandom_default_seed;
+		while ( offset-- != 0 ) lce_64( value );
+		for ( auto& v : cnt )
+			v = impl::uniform_eval<T>( lce_64( value ), min, max );
 	}
 
 	// Enum equivalents.
@@ -177,7 +194,7 @@ namespace xstd
 		return make_random_n<T>( min, max, std::make_index_sequence<N>{} );
 	}
 	template<typename T, size_t N>
-	static constexpr std::array<T, N> make_crandom_n( size_t offset = 1, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static constexpr std::array<T, N> make_crandom_n( size_t offset = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return make_crandom_n<T>( offset, min, max, std::make_index_sequence<N>{} );
 	}

@@ -144,7 +144,7 @@ namespace xstd
 	// Text splitting.
 	//
 	template<typename C = char, String R = std::basic_string_view<C>>
-	static std::vector<R> split_string( std::basic_string_view<C> in, char by )
+	static std::vector<R> split_string( std::basic_string_view<C> in, C by )
 	{
 		std::vector<R> result;
 		while ( !in.empty() )
@@ -160,6 +160,7 @@ namespace xstd
 		}
 		return result;
 	}
+
 	template<typename C = char, String R = std::basic_string_view<C>>
 	static std::vector<R> split_lines( std::basic_string_view<C> in )
 	{
