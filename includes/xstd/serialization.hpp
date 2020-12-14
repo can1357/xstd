@@ -501,6 +501,8 @@ namespace xstd
         static inline void apply( serialization& ctx, const std::monostate& value ) {}
         static inline std::monostate reflect( serialization& ctx ) {}
     };
+    template<typename T>
+    using serializer_t = serializer<std::remove_cvref_t<T>>;
 
     // Implement the simple interface.
     //
@@ -508,14 +510,14 @@ namespace xstd
     static inline std::vector<uint8_t> serialize( const T& value )
     {
         serialization ctx = {};
-        serializer<T>::apply( ctx, value );
+        serializer_t<T>::apply( ctx, value );
         return ctx.dump();
     }
-    template<typename T> static inline void serialize( serialization& ctx, const T& value ) { serializer<T>::apply( ctx, value ); }
-    template<typename T> static inline T deserialize( serialization& ctx ) { return serializer<T>::reflect( ctx ); }
-    template<typename T> static inline T deserialize( serialization&& ctx ) { return serializer<T>::reflect( ctx ); }
-    template<typename T> static inline void deserialize( T& out, serialization& ctx ) { out = serializer<T>::reflect( ctx ); }
-    template<typename T> static inline void deserialize( T& out, serialization&& ctx ) { out = serializer<T>::reflect( ctx ); }
+    template<typename T> static inline void serialize( serialization& ctx, const T& value ) { serializer_t<T>::apply( ctx, value ); }
+    template<typename T> static inline T deserialize( serialization& ctx ) { return serializer_t<T>::reflect( ctx ); }
+    template<typename T> static inline T deserialize( serialization&& ctx ) { return serializer_t<T>::reflect( ctx ); }
+    template<typename T> static inline void deserialize( T& out, serialization& ctx ) { out = serializer_t<T>::reflect( ctx ); }
+    template<typename T> static inline void deserialize( T& out, serialization&& ctx ) { out = serializer_t<T>::reflect( ctx ); }
 
     // Implement the final steps.
     //
@@ -561,8 +563,8 @@ namespace xstd
         }
         return *this;
     }
-    template<typename T> inline T serialization::read() { return serializer<T>::reflect( *this ); }
-    template<typename T> inline void serialization::write( const T& value ) { serializer<T>::apply( *this, value ); }
+    template<typename T> inline T serialization::read() { return serializer_t<T>::reflect( *this ); }
+    template<typename T> inline void serialization::write( const T& value ) { serializer_t<T>::apply( *this, value ); }
 };
 
 // Overload streaming operators.
