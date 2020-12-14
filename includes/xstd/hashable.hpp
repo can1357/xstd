@@ -148,7 +148,7 @@ namespace xstd
 			}
 			// If pointer, use a special hasher.
 			//
-			else if constexpr ( std::is_pointer_v<T> )
+			else if constexpr ( std::is_pointer_v<T> || std::is_same_v<T, any_ptr> )
 			{
 				uint64_t identifier = ( ( uint64_t ) value ) & ( ( 1ull << 48 ) - 1 );
 				return hash_t{ ( identifier << 16 ) ^ ( identifier ) };

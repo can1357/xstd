@@ -33,6 +33,12 @@
 #include <type_traits>
 #include <typeinfo>
 
+#ifdef __has_include
+    #if __has_include(<xstd/options.hpp>)
+        #include <xstd/options.hpp>
+    #endif
+#endif
+
 #ifndef __has_builtin
 	#define __has_builtin(x) 0
 #endif

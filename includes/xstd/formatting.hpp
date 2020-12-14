@@ -214,7 +214,7 @@ namespace xstd::fmt
 		{
 			return x.string();
 		}
-		else if constexpr ( std::is_pointer_v<base_type> )
+		else if constexpr ( std::is_pointer_v<base_type> || std::is_same_v<any_ptr, base_type> )
 		{
 			char buffer[ 17 ];
 			snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
@@ -328,9 +328,13 @@ namespace xstd::fmt
 		// If fundamental type, return as is.
 		//
 		if constexpr ( std::is_fundamental_v<base_type> || std::is_enum_v<base_type> || 
-					   std::is_pointer_v<base_type> || std::is_array_v<base_type> )
+					   std::is_pointer_v<base_type> || std::is_array_v<base_type>  )
 		{
 			return x;
+		}
+		else if constexpr ( std::is_same_v<any_ptr, base_type> )
+		{
+			return x.address;
 		}
 		// If it is a basic ASCII string:
 		//
