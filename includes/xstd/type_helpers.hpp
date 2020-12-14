@@ -572,7 +572,7 @@ namespace xstd
 
 		template<typename T>
 		inline operator T* () const { return ( T* )( address ); }
-		inline operator uint64_t() const { return address; }
+		inline constexpr operator uint64_t() const { return address; }
 
 		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
 		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
