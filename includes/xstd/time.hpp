@@ -148,7 +148,7 @@ namespace xstd
 		{
 
 			timestamp_t t0 = time::now();
-			result_t res = f();
+			result_t res = f( std::forward<Tx>( args )... );
 			timestamp_t t1 = time::now();
 			return std::make_pair( res, t1 - t0 );
 		}

@@ -401,11 +401,21 @@ namespace xstd
 	//
 	template<typename B, typename T> using carry_const_t = std::conditional_t<is_const_underlying_v<B>, make_const_t<T>, make_mutable_t<T>>;
 	template<typename B, typename T> static constexpr carry_const_t<B, T> carry_const( B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
-
+	
+	// Creates an std::atomic version of the given pointer to value.
+	//
+	template<typename T> __forceinline static auto* make_atomic( T* value ) 
+	{ 
+		if constexpr( std::is_const_v<T> )
+			return ( const std::atomic<std::remove_cv_t<T>>* ) value;
+		else
+			return ( std::atomic<std::remove_cv_t<T>>* ) value;
+	}
+	
 	// Creates a copy of the given value.
 	//
 	template<typename T> __forceinline static constexpr T make_copy( const T& x ) { return x; }
-
+	
 	// Makes a null pointer to type.
 	//
 	template<typename T> static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
@@ -414,13 +424,41 @@ namespace xstd
 	//
 	template<typename V, typename C> 
 	static constexpr int64_t make_offset( V C::* ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
+	
+	// Simple void pointer implementation with arithmetic and free casts, comes useful
+	// when you can't infer the type of an argument pointer or if you want to const initialize
+	// an architecture specific pointer.
+	//
+	struct any_ptr
+	{
+		uint64_t address;
+
+		inline constexpr any_ptr( std::nullptr_t = {} ) : address( 0 ) {}
+		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
+		inline any_ptr( const void* address ) : address( ( uint64_t ) ( address ) ) {}
+		inline any_ptr( const volatile void* address ) : address( ( uint64_t ) ( address ) ) {}
+
+		constexpr any_ptr( any_ptr&& ) noexcept = default;
+		constexpr any_ptr( const any_ptr& ) = default;
+		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
+		constexpr any_ptr& operator=( const any_ptr& ) = default;
+
+		template<typename T>
+		inline operator T* () const { return ( T* )( address ); }
+		inline constexpr operator uint64_t() const { return address; }
+
+		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
+		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
+		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
+		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
+	};
 
 	// Gets the type at the given offset.
 	//
-	template<typename T = void, typename B>
-	static auto* ptr_at( B* base, int64_t off ) noexcept { return carry_const( base, ( T* ) ( ( ( uint64_t ) base ) + off ) ); }
-	template<typename T, typename B>
-	static auto& ref_at( B* base, int64_t off ) noexcept { return *ptr_at<T>(base, off); }
+	template<typename T = void>
+	static auto* ptr_at( any_ptr base, int64_t off ) noexcept { return carry_const( base, ( T* ) ( base + off ) ); }
+	template<typename T>
+	static auto& ref_at( any_ptr base, int64_t off ) noexcept { return *ptr_at<T>(base, off); }
 
 	// Member reference helper.
 	//
@@ -551,32 +589,4 @@ namespace xstd
 	template<typename T> using convert_uint_t = typename trivial_converter<sizeof( T )>::integral_unsigned;
 	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
 	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
-
-	// Simple void pointer implementation with arithmetic and free casts, comes useful
-	// when you can't infer the type of an argument pointer or if you want to const initialize
-	// an architecture specific pointer.
-	//
-	struct any_ptr
-	{
-		uint64_t address;
-
-		inline constexpr any_ptr( std::nullptr_t = {} ) : address( 0 ) {}
-		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
-		inline any_ptr( const void* address ) : address( ( uint64_t ) ( address ) ) {}
-		inline any_ptr( const volatile void* address ) : address( ( uint64_t ) ( address ) ) {}
-
-		constexpr any_ptr( any_ptr&& ) noexcept = default;
-		constexpr any_ptr( const any_ptr& ) = default;
-		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
-		constexpr any_ptr& operator=( const any_ptr& ) = default;
-
-		template<typename T>
-		inline operator T* () const { return ( T* )( address ); }
-		inline constexpr operator uint64_t() const { return address; }
-
-		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
-		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
-		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
-		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
-	};
 };

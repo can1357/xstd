@@ -193,6 +193,7 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 #ifdef __INTELLISENSE__
     #undef _CONSTINIT
     #define _CONSTINIT
+    #define register
     #define is_constant_evaluated() true_type::value
 #endif
 
