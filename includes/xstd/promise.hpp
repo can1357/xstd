@@ -35,41 +35,33 @@
 #include <mutex>
 #include <shared_mutex>
 #include <optional>
-#include <exception>
+#include <stdexcept>
 #include <functional>
 #include <list>
 
 namespace xstd
 {
-	namespace impl
-	{
-#if XSTD_NO_EXCEPTIONS
-		using default_exception_type = std::monostate;
-#else
-		using default_exception_type = std::exception;
-#endif
-	};
-
 	// Declare the forwarded types.
 	//
-	template<typename T = void, typename E = impl::default_exception_type>
+	template<typename T = void>
 	struct promise_base;
-	template<typename T = void, typename E = impl::default_exception_type>
-	using promise = std::shared_ptr<promise_base<T, E>>;
+	template<typename T = void>
+	using promise = std::shared_ptr<promise_base<T>>;
 
 	// Declare the storage of promises.
 	//
-	template<typename T, typename E>
-	struct promise_base : std::enable_shared_from_this<promise_base<T, E>>
+	template<typename T>
+	struct promise_base : std::enable_shared_from_this<promise_base<T>>
 	{
 		// Value traits.
 		//
 		static constexpr bool has_value =     !std::is_void_v<T>;
-		static constexpr bool has_exception = !std::is_void_v<E>;
-
 		using value_type =     std::conditional_t<has_value,     T, std::monostate>;
-		using exception_type = std::conditional_t<has_exception, E, std::monostate>;
-		using store_type =     std::variant<value_type, exception_type>;
+		using store_type =     std::variant<value_type, std::exception>;
+
+		// If relevant, reference to parent.
+		//
+		std::shared_ptr<void> parent;
 
 		// Lock guarding the value, stays locked until the promise is resolved/rejected.
 		//
@@ -83,7 +75,7 @@ namespace xstd
 		//
 		std::mutex callback_lock;
 		std::list<std::function<void( const value_type& )>> success_callbacks;
-		std::list<std::function<void( const exception_type& )>> fail_callbacks;
+		std::list<std::function<void( const std::exception& )>> fail_callbacks;
 
 		// Lock the promise on pending value construction.
 		//
@@ -140,8 +132,7 @@ namespace xstd
 			for ( auto& cb : list )
 				cb( ref );
 		}
-		template<typename... Tx>
-		void reject( Tx&&... result )
+		void reject( std::exception ex )
 		{
 			// Make sure the value is not set.
 			//
@@ -149,8 +140,8 @@ namespace xstd
 
 			// Emplace the exception and unlock the mutex.
 			//
-			value.emplace( store_type( std::in_place_index_t<1>{}, std::forward<Tx>( result )... ) );
-			const exception_type& ref = std::get<1>( value.value() );
+			value.emplace( store_type( std::in_place_index_t<1>{}, std::move( ex ) ) );
+			const std::exception& ref = std::get<1>( value.value() );
 			value_lock.unlock();
 
 			// Swap the chain of interest with empty list and clear the other.
@@ -165,12 +156,14 @@ namespace xstd
 			for ( auto& cb : list )
 				cb( ref );
 		}
+		void reject( const std::string& str = XSTD_ESTR( "Dropped promise." ) ) { reject( std::runtime_error{ str } ); }
+		template<typename... Tx> void reject( const char* fmt, Tx&&... params ) { reject( fmt::str( fmt, std::forward<Tx>( params )... ) ); }
 
 		// Exposes information on the promise state.
 		//
 		bool waiting() const { return !value.has_value(); }
 		bool finished() const { return value.has_value(); }
-		bool fullfilled() const
+		bool fulfilled() const
 		{
 			if ( finished() )
 			{
@@ -190,38 +183,35 @@ namespace xstd
 			}
 			return false;
 		}
-		const value_type& get_value() const
-		{
-			fassert_s( fullfilled() );
-			return std::get<0>( *ref );
-		}
-		const exception_type& get_exception() const
-		{
-			fassert_s( failed() );
-			return std::get<1>( *ref );
-		}
 
-		// Waits for the value and returns the result, throws if an error occurred.
+		// Waits for the completion of the promise.
 		//
-		const value_type& await() const
+		auto await()
 		{
 			value_lock.lock_shared();
 			value_lock.unlock_shared();
-			const auto& ref = *value;
+			return this;
+		}
+		auto await() const
+		{
+			value_lock.lock_shared();
+			value_lock.unlock_shared();
+			return this;
+		}
 
-			if ( ref.index() == 0 )
-			{
-				return std::get<0>( ref );
-			}
-			else
-			{
-#if XSTD_NO_EXCEPTIONS
-				error( XSTD_ESTR( "Awaiting on rejected promise: %s" ), std::get<1>( ref ) );
-#else
-				throw std::get<1>( ref );
-#endif
-			}
-			unreachable();
+		// Waits for the value / exception and returns the result, throws if an unexpected result is found.
+		//
+		const value_type& get_value() const
+		{
+			await();
+			dassert( fulfilled() );
+			return std::get<0>( *value );
+		}
+		const std::exception& get_exception() const
+		{
+			await();
+			dassert( failed() );
+			return std::get<1>( *value );
 		}
 
 		// Chaining of promise types.
@@ -229,13 +219,14 @@ namespace xstd
 		template<typename F, bool S>
 		auto chain_promise( F&& functor )
 		{
-			auto& cb_list = [ & ] () -> auto& {
+			auto&& [cb_list, rcb_list] = [ & ] () {
 				if constexpr ( S )
-					return success_callbacks;
+					return std::pair{ &success_callbacks, &fail_callbacks };
 				else
-					return fail_callbacks;
+					return std::pair{ &fail_callbacks, &success_callbacks };
 			}();
-			using ref_type = std::conditional_t<S, const value_type&, const exception_type&>;
+
+			using ref_type = std::conditional_t<S, const value_type&, const std::exception&>;
 			constexpr size_t store_index = S ? 0 : 1;
 
 			// If function can be invoked with void type:
@@ -247,12 +238,13 @@ namespace xstd
 				// Create another promise.
 				//
 				auto chain = std::make_shared<promise_base<ret_t>>();
+				chain->parent = this->shared_from_this();
 
-				// Declare the callback type.
+				// Declare the callback types.
 				//
-				auto cb = [ chain, fn = std::move( functor ), ref = this->shared_from_this() ]( ref_type val )
+				auto cb = [ weak = std::weak_ptr{ chain }, fn = std::move( functor ) ]( ref_type val )
 				{
-					auto resolver = [ & ] ()
+					if ( auto chain = weak.lock() )
 					{
 						if constexpr ( std::is_void_v<ret_t> )
 						{
@@ -263,20 +255,17 @@ namespace xstd
 						{
 							chain->resolve( fn() );
 						}
-					};
-
-#if XSTD_NO_EXCEPTIONS
-					resolver();
-#else
-					try
-					{
-						resolver();
 					}
-					catch ( std::exception ex )
+				};
+				auto rcb = [ weak = std::weak_ptr{ chain } ]( auto&& ex )
+				{
+					if ( auto chain = weak.lock() )
 					{
-						chain->reject( ex );
+						if constexpr ( S )
+							chain->reject( ex );
+						else
+							chain->reject();
 					}
-#endif
 				};
 
 				// If value is already resolved, immediately invoke or discard the callback.
@@ -285,15 +274,19 @@ namespace xstd
 				{
 					value_lock.lock_shared();
 					value_lock.unlock_shared();
-					if ( const auto* ptr = std::get_if<store_index>( &*value ) )
+					auto& ref = *value;
+					if ( const auto* ptr = std::get_if<store_index>( &ref ) )
 						cb( *ptr );
+					else
+						rcb( std::get<1 - store_index>( ref ) );
 				}
 				// Otherwise insert into the callbacks list.
 				//
 				else
 				{
 					callback_lock.lock();
-					cb_list.emplace_back( std::move( cb ) );
+					cb_list->emplace_back( std::move( cb ) );
+					rcb_list->emplace_back( std::move( rcb ) );
 					callback_lock.unlock();
 				}
 
@@ -310,12 +303,13 @@ namespace xstd
 				// Create another promise.
 				//
 				auto chain = std::make_shared<promise_base<ret_t>>();
+				chain->parent = this->shared_from_this();
 
-				// Declare the callback type.
+				// Declare the callback types.
 				//
-				auto cb = [ chain, fn = std::move( functor ), ref = this->shared_from_this() ]( ref_type val )
+				auto cb = [ weak = std::weak_ptr{ chain }, fn = std::move( functor ) ]( ref_type val )
 				{
-					auto resolver = [ & ] ()
+					if ( auto chain = weak.lock() )
 					{
 						if constexpr ( std::is_void_v<ret_t> )
 						{
@@ -326,20 +320,17 @@ namespace xstd
 						{
 							chain->resolve( fn( val ) );
 						}
-					};
-
-#if XSTD_NO_EXCEPTIONS
-					resolver();
-#else
-					try
-					{
-						resolver();
 					}
-					catch ( std::exception ex )
+				};
+				auto rcb = [ weak = std::weak_ptr{ chain } ]( auto&& ex )
+				{
+					if ( auto chain = weak.lock() )
 					{
-						chain->reject( ex );
+						if constexpr ( S )
+							chain->reject( ex );
+						else
+							chain->reject();
 					}
-#endif
 				};
 
 				// If value is already resolved, immediately invoke or discard the callback.
@@ -348,15 +339,19 @@ namespace xstd
 				{
 					value_lock.lock_shared();
 					value_lock.unlock_shared();
-					if( const auto* ptr = std::get_if<store_index>( &*value ) )
+					auto& ref = *value;
+					if ( const auto* ptr = std::get_if<store_index>( &ref ) )
 						cb( *ptr );
+					else
+						rcb( std::get<1 - store_index>( ref ) );
 				}
 				// Otherwise insert into the callbacks list.
 				//
 				else
 				{
 					callback_lock.lock();
-					cb_list.emplace_back( std::move( cb ) );
+					cb_list->emplace_back( std::move( cb ) );
+					rcb_list->emplace_back( std::move( rcb ) );
 					callback_lock.unlock();
 				}
 
@@ -373,19 +368,19 @@ namespace xstd
 		std::string to_string() const
 		{
 			if ( waiting() )
-				return XSTD_STR( "Pending" );
-			else if ( fullfilled() )
-				return xstd::fmt::as_string( get_value() );
+				return XSTD_STR( "(Pending)" );
+			else if ( fulfilled() )
+				return fmt::str( XSTD_CSTR( "(Fulfilled='%s')" ), get_value() );
 			else
-				return xstd::fmt::str( XSTD_STR( "Failed: %s" ), get_exception() );
+				return fmt::str( XSTD_CSTR( "(Rejected='%s')" ), get_exception() );
 		}
 	};
 
 	// Declare the promise creation wrapper.
 	//
-	template<typename T = void, typename E = impl::default_exception_type, typename... Tx>
-	inline promise<T, E> make_promise( Tx&&... args )
+	template<typename T = void, typename... Tx>
+	inline promise<T> make_promise( Tx&&... args )
 	{
-		return std::make_shared<promise_base<T, E>>( std::forward<Tx>( args )... );
+		return std::make_shared<promise_base<T>>( std::forward<Tx>( args )... );
 	}
 };
