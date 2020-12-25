@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{022e6794-287f-4800-9932-7bfbbbeed679}</ItemsProjectGuid>
+    <ItemsProjectName>xstd</ItemsProjectName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)includes</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="xstd.licenseheader" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\base_n.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitwise.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\literals.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\enum_name.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\file.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\file_view.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\finally.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\formatting.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\gzip.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hashable.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\leb128.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\logger.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\lt_typeid.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\narrow_cast.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\nested_range.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\random.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\reducable.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stack_containers.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\static_warning.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\strong_formatting.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\text.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\time.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zip.hpp" />
+  </ItemGroup>
+</Project>

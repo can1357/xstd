@@ -70,7 +70,7 @@ namespace xstd
 		{
 			// Throw exception if consteval, else throw runtime error.
 			//
-			if ( std::is_constant_evaluated() ) throw std::runtime_error{ string };
+			if ( std::is_constant_evaluated() ) unreachable();
 			else                                error( XSTD_CSTR( "%s" ), string );
 		}
 	}
@@ -83,7 +83,7 @@ namespace xstd
 		{
 			// Throw exception if consteval, else throw runtime error.
 			//
-			if ( std::is_constant_evaluated() ) throw std::runtime_error{ fmt::str( fmt_str, std::forward<Params>( ps )... ) };
+			if ( std::is_constant_evaluated() ) unreachable();
 			else                                error( fmt_str, std::forward<Params>( ps )... );
 		}
 	}

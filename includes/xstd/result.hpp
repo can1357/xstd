@@ -81,8 +81,8 @@ namespace xstd
 
 		// Status code and the value itself.
 		//
-		Status status = Status{ traits::failure_value };
 		std::optional<Val> result = std::nullopt;
+		Status status = Status{ traits::failure_value };
 
 		// Invalid value construction.
 		//

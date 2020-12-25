@@ -36,6 +36,8 @@
 #ifdef __has_include
     #if __has_include(<xstd/options.hpp>)
         #include <xstd/options.hpp>
+    #elif __has_include("xstd_options.hpp")
+        #include "xstd_options.hpp"
     #endif
 #endif
 
