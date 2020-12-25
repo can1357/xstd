@@ -29,12 +29,14 @@
 #pragma once
 #include <string>
 #include <cstring>
+#include <ctype.h>
 #include <cstdio>
 #include <type_traits>
 #include <exception>
 #include <optional>
 #include <tuple>
 #include <variant>
+#include <memory>
 #include <filesystem>
 #include <numeric>
 #include <string_view>
@@ -154,17 +156,30 @@ namespace xstd::fmt
 	{
 		using base_type = std::decay_t<T>;
 		
+		// String and langauge primitives:
+		//
 		if constexpr ( CustomStringConvertible<T> )
 		{
 			return x.to_string();
 		}
+		else if constexpr ( std::is_same_v<std::string, base_type> )
+		{
+			return x;
+		}
+		else if constexpr ( CppString<base_type> || CppStringView<base_type> )
+		{
+			return std::string{ x.begin(), x.end() };
+		}
+		else if constexpr ( CString<base_type> )
+		{
+			return std::string{
+				x,
+				x + std::char_traits<string_unit_t<base_type>>::length( x )
+			};
+		}
 		else if constexpr ( Enum<T> )
 		{
 			return enum_name<T>::resolve( x );
-		}
-		else if constexpr ( Duration<T> )
-		{
-			return time::to_string( x );
 		}
 		else if constexpr ( std::is_same_v<base_type, int64_t> || std::is_same_v<base_type, uint64_t> )
 		{
@@ -183,24 +198,52 @@ namespace xstd::fmt
 		{
 			return x ? XSTD_STR( "true" ) : XSTD_STR( "false" );
 		}
+		else if constexpr ( std::is_same_v<base_type, char> )
+		{
+			char buffer[ 6 ];
+			snprintf( buffer, 6, isgraph( x ) ? XSTD_CSTR( "'%c'" ) : XSTD_CSTR( "'\\%02x'" ), x );
+			return std::string{ buffer };
+		}
 		else if constexpr ( StdStringConvertible<T> )
 		{
 			return std::to_string( x );
 		}
+		// Pointers:
+		//
+		else if constexpr ( is_specialization_v<std::shared_ptr, base_type> || is_specialization_v<std::unique_ptr, base_type> || std::is_pointer_v<base_type> )
+		{
+			if constexpr ( StringConvertible<decltype( *x )> )
+			{
+				if ( x ) return as_string( *x );
+				else     return XSTD_STR( "nullptr" );
+			}
+			else if constexpr ( std::is_pointer_v<base_type> )
+			{
+				char buffer[ 17 ];
+				snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
+				return std::string{ buffer };
+			}
+			else return type_tag<T>{};
+		}
+		else if constexpr ( is_specialization_v<std::weak_ptr, base_type> )
+		{
+			return as_string( x.lock() );
+		}
+		else if constexpr ( std::is_same_v<any_ptr, base_type> )
+		{
+			char buffer[ 17 ];
+			snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
+			return std::string{ buffer };
+		}
+		// Misc types:
+		//
+		else if constexpr ( Duration<T> )
+		{
+			return time::to_string( x );
+		}
 		else if constexpr ( std::is_base_of_v<std::exception, T> )
 		{
 			return std::string{ x.what() };
-		}
-		else if constexpr ( CppString<base_type> || CppStringView<base_type> )
-		{
-			return std::string{ x.begin(), x.end() };
-		}
-		else if constexpr ( CString<base_type> )
-		{
-			return std::string{
-				x,
-				x + std::char_traits<string_unit_t<base_type>>::length( x )
-			};
 		}
 		else if constexpr ( std::is_same_v<base_type, std::filesystem::directory_entry> )
 		{
@@ -214,12 +257,8 @@ namespace xstd::fmt
 		{
 			return x.string();
 		}
-		else if constexpr ( std::is_pointer_v<base_type> || std::is_same_v<any_ptr, base_type> )
-		{
-			char buffer[ 17 ];
-			snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
-			return std::string{ buffer };
-		}
+		// Containers:
+		//
 		else if constexpr ( is_specialization_v<std::pair, base_type> )
 		{
 			if constexpr ( StringConvertible<decltype( x.first )> && StringConvertible<decltype( x.second )> )
