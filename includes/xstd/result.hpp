@@ -95,16 +95,16 @@ namespace xstd
 
 		// Consturction with value/state combination.
 		//
-		template<typename T> requires ( Constructable<Val, T> )
+		template<typename T> requires ( Constructable<Val, T&&> )
 		constexpr basic_result( T&& value ) : result( std::forward<T>( value ) ), status( Status{ traits::success_value } ) {}
-		template<typename S> requires ( Constructable<Status, S> && !Constructable<Val, S> )
+		template<typename S> requires ( Constructable<Status, S&&> && !Constructable<Val, S&&> )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
 			if ( traits::is_success( this->status ) )
 				if constexpr ( DefaultConstructable<Val> )
 					result.emplace();
 		}
-		template<typename T, typename S>  requires ( Constructable<Val, T> && Constructable<Status, S> )
+		template<typename T, typename S>  requires ( Constructable<Val, T&&> && Constructable<Status, S&&> )
 		constexpr basic_result( T&& value, S&& status ) : result( std::forward<T>( value ) ), status( std::forward<S>( status ) ) {}
 
 		// Default copy and move.

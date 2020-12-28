@@ -212,9 +212,9 @@ namespace xstd
 	template <template<typename...> typename Tmp, typename T>
 	concept Specialization = is_specialization_v<Tmp, T>;
 	template<typename T, typename... Args>
-	concept Constructable = requires( Args&&... a ) { T( a... ); };
+	concept Constructable = requires( Args&&... a ) { T( std::forward<Args>( a )... ); };
 	template<typename T, typename X>
-	concept Assignable = requires( T r, X v ) { r = v; };
+	concept Assignable = requires( T r, X && v ) { r = std::forward<X>( v ); };
 
 	// Comparison traits.
 	//
