@@ -62,18 +62,6 @@ namespace xstd
 {
 	// Aborts if the given condition is not met.
 	//
-	__forceinline static constexpr void assert_that( bool condition, const char* string = "" )
-	{
-		// If condition met:
-		//
-		if ( !condition ) [[unlikely]]
-		{
-			// Throw exception if consteval, else throw runtime error.
-			//
-			if ( std::is_constant_evaluated() ) unreachable();
-			else                                error( XSTD_CSTR( "%s" ), string );
-		}
-	}
 	template<typename... Params>
 	__forceinline static constexpr void assert_that( bool condition, const char* fmt_str, Params&&... ps )
 	{
@@ -86,6 +74,20 @@ namespace xstd
 			if ( std::is_constant_evaluated() ) unreachable();
 			else                                error( fmt_str, std::forward<Params>( ps )... );
 		}
+	}
+	__forceinline static constexpr void assert_that( bool condition, const char* string = "" )
+	{
+		return assert_that( condition, XSTD_CSTR( "%s" ), string );
+	}
+
+	// Same as the one above but takes the format string as a lambda to avoid failure where the the string
+	// cannot be converted to const char* during constexpr evaluation.
+	//
+	template<typename F>
+	__forceinline static constexpr void xassert_helper( bool condition, F&& getter )
+	{
+		if ( std::is_constant_evaluated() ) assert_that( condition, "" );
+		else                                assert_that( condition, getter() );
 	}
 
 	// A helper to throw formatted error messages.
@@ -108,7 +110,7 @@ namespace xstd
 
 // Declare main assert macro.
 //
-#define xassert(...) xstd::assert_that((bool)(__VA_ARGS__), XSTD_ASSERT_MESSAGE( xstringify( __VA_ARGS__ ), __FILE__, xstringify( __LINE__ ) ) )
+#define xassert(...) xstd::xassert_helper((bool)(__VA_ARGS__), []{ return XSTD_ASSERT_MESSAGE( xstringify( __VA_ARGS__ ), __FILE__, xstringify( __LINE__ ) ); } )
 
 // Declare assertions, dassert is debug mode only, fassert is demo mode only, _s helpers 
 // have the same functionality but still evaluate the statement.

@@ -72,6 +72,7 @@ namespace xstd::encode
             for ( bitcnt_t n = 1; n <= 8; n++ )
                 if ( !( ( n * _bits_per_char ) % 8 ) )
                     return n;
+            unreachable();
         }();
         static constexpr bitcnt_t _group_size_in = ( _group_size_out * _bits_per_char ) / 8;
 
