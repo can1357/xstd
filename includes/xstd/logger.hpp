@@ -140,15 +140,15 @@ namespace xstd
 		logger_state_t()
 		{
 #if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
-			constexpr uint32_t CP_UTF8 = 65001;
-			SetConsoleOutputCP( CP_UTF8 );
+			constexpr uint32_t _CP_UTF8 = 65001;
+			SetConsoleOutputCP( _CP_UTF8 );
 #endif
 #if ( WINDOWS_TARGET && !XSTD_CON_NO_COLORS )
-			constexpr uint32_t ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
-			constexpr uint32_t STD_OUTPUT_HANDLE = ( uint32_t ) -11;
+			constexpr uint32_t _ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
+			constexpr uint32_t _STD_OUTPUT_HANDLE = ( uint32_t ) -11;
 			unsigned long mode;
-			GetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), &mode );
-			SetConsoleMode( GetStdHandle( STD_OUTPUT_HANDLE ), mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING );
+			GetConsoleMode( GetStdHandle( _STD_OUTPUT_HANDLE ), &mode );
+			SetConsoleMode( GetStdHandle( _STD_OUTPUT_HANDLE ), mode | _ENABLE_VIRTUAL_TERMINAL_PROCESSING );
 #endif
 		}
 

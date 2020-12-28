@@ -182,13 +182,12 @@ namespace xstd
 
 	// Simple number to string conversation, no input validation.
 	//  - Format => {0o 0x <>} (+/-) + [0-9] + '.' + [0-9]
+	//  - _v version takes a reference to a string view and erases the relevant part.
 	//
-	template<typename T = uint64_t, String S1 = std::string_view> requires ( Integral<T> || FloatingPoint<T> )
-	static constexpr T parse_number( S1&& str, int default_base = 10 )
+	template<typename T = uint64_t, typename C> requires ( Integral<T> || FloatingPoint<T> )
+	static constexpr T parse_number_v( std::basic_string_view<C>& view, int default_base = 10 )
 	{
 		using I = std::conditional_t<Unsigned<T>, convert_int_t<T>, T>;
-		
-		string_view_t<S1> view{ str };
 		if ( view.empty() ) return 0;
 		
 		// Parse the sign.
@@ -255,6 +254,12 @@ namespace xstd
 			view.remove_prefix( 1 );
 		}
 		return value * sign;
+	}
+	template<typename T = uint64_t, String S1 = std::string_view> requires ( Integral<T> || FloatingPoint<T> )
+	static constexpr T parse_number( S1&& str, int default_base = 10 )
+	{
+		string_view_t<S1> view{ str };
+		return parse_number_v<T, string_unit_t<S1>>( view, default_base );
 	}
 };
 

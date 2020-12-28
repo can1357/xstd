@@ -97,6 +97,13 @@ namespace xstd
 			value.emplace( store_type( std::in_place_index_t<1>, std::forward<Tx>( result )... ) );
 		}
 
+		// No copy allowed, default move.
+		//
+		promise_base( promise_base&& ) noexcept = default;
+		promise_base& operator=( promise_base&& ) noexcept = default;
+		promise_base( const promise_base& ) = delete;
+		promise_base& operator=( const promise_base& ) = delete;
+		
 		// Unlock the promise on deconstruction if not completed.
 		//
 		~promise_base()
@@ -382,5 +389,15 @@ namespace xstd
 	inline promise<T> make_promise( Tx&&... args )
 	{
 		return std::make_shared<promise_base<T>>( std::forward<Tx>( args )... );
+	}
+
+	// Short-hand for creating a failed promise.
+	//
+	template<typename T = void, typename... Tx>
+	inline promise<T> make_rejected_promise( Tx&&... args )
+	{
+		promise<T> pr = make_promise<T>();
+		pr->reject( std::forward<Tx>( args )... );
+		return pr;
 	}
 };
