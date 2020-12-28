@@ -212,14 +212,22 @@ namespace xstd
 	template<Integral I>
 	__forceinline static constexpr I bit_reverse( I value )
 	{
-		std::make_unsigned_t<I> u = 0;
-		for ( size_t n = 0; n != sizeof( I ); n++ )
+		if constexpr ( sizeof( I ) == 1 )
 		{
-			u <<= 8;
-			u |= impl::bit_reverse_lookup_table[ value & 0xFF ];
-			value >>= 8;
+			return ( I ) impl::bit_reverse_lookup_table[ uint8_t( value ) ];
 		}
-		return ( I ) u;
+		else
+		{
+			std::make_unsigned_t<I> u = 0;
+			for ( size_t n = 0; n != sizeof( I ); n++ )
+			{
+				u <<= 8;
+				u |= impl::bit_reverse_lookup_table[ value & 0xFF ];
+				value >>= 8;
+			}
+			return ( I ) u;
+		}
+
 	}
 
 	// Used to find a bit with a specific value in a linear memory region.
