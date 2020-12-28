@@ -248,6 +248,8 @@ namespace xstd
 				}
 				break;
 			}
+			else if ( view.front() == ' ' )
+				break;
 
 			value *= base;
 			value += parse_digit( view.front() );
