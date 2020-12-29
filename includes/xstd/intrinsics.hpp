@@ -253,6 +253,7 @@ MUST_MATCH( DEBUG_BUILD );
 //
 #if GNU_COMPILER
     #pragma GCC diagnostic ignored "-Wunused-function"
+    #pragma GCC diagnostic ignored "-Wmicrosoft-cast"
 #endif
 
 #if HAS_MS_EXTENSIONS

@@ -460,6 +460,10 @@ namespace xstd
 	template<typename T>
 	static auto& ref_at( any_ptr base, int64_t off ) noexcept { return *ptr_at<T>(base, off); }
 
+	// Byte distance between two pointers.
+	//
+	static constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
+
 	// Member reference helper.
 	//
 	template<typename C, typename M>
