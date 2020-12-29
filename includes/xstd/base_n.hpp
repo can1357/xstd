@@ -154,7 +154,7 @@ namespace xstd::encode
                 }
                 else
                 {
-                    rit += offset != 0;
+                    rit += *rit != 0;
                     break;
                 }
             }
