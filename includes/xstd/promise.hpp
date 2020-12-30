@@ -39,6 +39,12 @@
 #include <functional>
 #include <list>
 
+// [[Configuration]]
+// XSTD_NO_AWAIT: If set disables the macro-based await keyword.
+//
+#ifndef XSTD_NO_AWAIT
+	#define XSTD_NO_AWAIT 0
+#endif
 namespace xstd
 {
 	// Declare the forwarded types.
@@ -193,13 +199,13 @@ namespace xstd
 
 		// Waits for the completion of the promise.
 		//
-		auto await()
+		auto wait()
 		{
 			value_lock.lock_shared();
 			value_lock.unlock_shared();
 			return this;
 		}
-		auto await() const
+		auto wait() const
 		{
 			value_lock.lock_shared();
 			value_lock.unlock_shared();
@@ -210,13 +216,17 @@ namespace xstd
 		//
 		const value_type& get_value() const
 		{
-			await();
+			wait();
+#if !XSTD_NO_EXCEPTIONS
+			if ( value->index() == 1 )
+				throw std::get<1>( *value );
+#endif
 			dassert( fulfilled() );
 			return std::get<0>( *value );
 		}
 		const std::exception& get_exception() const
 		{
-			await();
+			wait();
 			dassert( failed() );
 			return std::get<1>( *value );
 		}
@@ -389,3 +399,15 @@ namespace xstd
 		return pr;
 	}
 };
+#if !XSTD_NO_AWAIT
+	struct __async_await_t
+	{
+		template<typename T>
+		decltype( auto ) operator<<( const xstd::promise<T>& pr ) const
+		{
+			pr->wait();
+			return pr->get_value();
+		}
+	};
+	#define await __async_await_t{} <<
+#endif
