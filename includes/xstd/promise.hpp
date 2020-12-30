@@ -61,43 +61,37 @@ namespace xstd
 	template<typename T>
 	struct promise_store : std::enable_shared_from_this<promise_store<T>>
 	{
-		// Value traits.
+		// Promise traits.
 		//
 		static constexpr bool has_value = !std::is_void_v<T>;
-		using value_type =                std::conditional_t<has_value, T, std::monostate>;
-		using store_type =                std::variant<value_type, std::exception>;
+		using value_type =   std::conditional_t<has_value, T, std::monostate>;
+		using store_type =   std::variant<value_type, std::exception>;
+		using fn_success =   std::function<void( const value_type& )>;
+		using fn_failure =   std::function<void( const std::exception& )>;
+		using cb_pair_type = std::pair<fn_success, fn_failure>;
 
 		// If relevant, reference to parent.
 		//
 		std::weak_ptr<void> parent;
 
-		// Lock guarding the value, stays locked until the promise is resolved/rejected.
-		//
-		mutable std::shared_mutex value_lock;
-
-		// Resulting value or the exception.
-		//
-		std::optional<store_type> value;
-
 		// List of callbacks guarded by another mutex.
 		//
 		std::mutex callback_lock;
-		std::list<std::function<void( const value_type& )>> success_callbacks;
-		std::list<std::function<void( const std::exception& )>> fail_callbacks;
+		std::vector<cb_pair_type> callbacks;
+
+		// Resulting value or the exception, constant after flag is set.
+		//
+		std::atomic<bool> value_flag = false;
+		std::optional<store_type> value;
 
 		// A special trigger event guarded by an atomic flag, gets invoked upon any await/::wait use.
 		//
-		std::atomic<bool> trigger_flag = false;
-		promise_trigger<T> trigger = {};
+		mutable std::atomic<bool> trigger_flag = true;
+		mutable promise_trigger<T> trigger = {};
 
-		// Lock the promise on pending value construction.
+		// Construction of pending or deferred values.
 		//
-		promise_store( promise_trigger<T> trigger = {} ) : trigger( std::move( trigger ) )
-		{ 
-			if ( this->trigger )
-				trigger_flag = true;
-			value_lock.lock(); 
-		}
+		promise_store( promise_trigger<T> trigger = {} ) : trigger( std::move( trigger ) ) {}
 
 		// Construction of immediate values.
 		//
@@ -119,12 +113,13 @@ namespace xstd
 		promise_store( const promise_store& ) = delete;
 		promise_store& operator=( const promise_store& ) = delete;
 		
-		// Unlock the promise on deconstruction if not completed.
+		// Reject the promise on deconstruction if not completed.
 		//
 		~promise_store()
 		{
+			signal();
 			if ( !value.has_value() )
-				value_lock.unlock();
+				reject();
 		}
 
 		// Resolution of the promise value.
@@ -136,22 +131,22 @@ namespace xstd
 			//
 			fassert( !value.has_value() );
 
-			// Emplace the value and unlock the mutex.
+			// Emplace the value and set the flag.
 			//
 			value.emplace( store_type( std::in_place_index_t<0>{}, std::forward<Tx>( result )... ) );
 			const value_type& ref = std::get<0>( value.value() );
-			value_lock.unlock();
+			if( value_flag.exchange( true ) )
+				xstd::error( XSTD_ESTR( "Promise resolved multiple times." ) );
 
-			// Swap the chain of interest with empty list and clear the other.
+			// Swap the callback-list with an empty one within a lock.
 			//
 			callback_lock.lock();
-			auto list = std::exchange( success_callbacks, {} );
-			fail_callbacks.clear();
+			auto list = std::exchange( callbacks, {} );
 			callback_lock.unlock();
 			
 			// Invoke all callbacks.
 			//
-			for ( auto& cb : list )
+			for ( auto& [cb, _] : list )
 				cb( ref );
 		}
 		void reject( std::exception ex )
@@ -160,67 +155,62 @@ namespace xstd
 			//
 			fassert( !value.has_value() );
 
-			// Emplace the exception and unlock the mutex.
+			// Emplace the exception and set the flag.
 			//
 			value.emplace( store_type( std::in_place_index_t<1>{}, std::move( ex ) ) );
 			const std::exception& ref = std::get<1>( value.value() );
-			value_lock.unlock();
+			if ( value_flag.exchange( true ) )
+				xstd::error( XSTD_ESTR( "Promise resolved multiple times." ) );
 
-			// Swap the chain of interest with empty list and clear the other.
+			// Swap the callback-list with an empty one within a lock.
 			//
 			callback_lock.lock();
-			auto list = std::exchange( fail_callbacks, {} );
-			success_callbacks.clear();
+			auto list = std::exchange( callbacks, {} );
 			callback_lock.unlock();
 			
 			// Invoke all callbacks.
 			//
-			for ( auto& cb : list )
+			for ( auto& [_, cb] : list )
 				cb( ref );
 		}
 		void reject( const std::string& str = XSTD_ESTR( "Dropped promise." ) ) { reject( std::runtime_error{ str } ); }
 		template<typename... Tx> void reject( const char* fmt, Tx&&... params ) { reject( fmt::str( fmt, std::forward<Tx>( params )... ) ); }
 
-		// Exposes information on the promise state.
+		// Waits for the value flag to be lifted assuming that value is already not std::nullopt, waiting for the full construction.
 		//
-		bool waiting() const { return !value.has_value(); }
-		bool finished() const { return value.has_value(); }
-		bool fulfilled() const
+		const store_type& poll() const
 		{
-			if ( finished() )
-			{
-				value_lock.lock_shared();
-				value_lock.unlock_shared();
-				return value->index() == 0;
-			}
-			return false;
-		}
-		bool failed() const
-		{
-			if ( finished() )
-			{
-				value_lock.lock_shared();
-				value_lock.unlock_shared();
-				return value->index() == 1;
-			}
-			return false;
+			while ( !value_flag.load() )
+				yield_cpu();
+			return *value;
 		}
 
-		// Waits for the completion of the promise.
+		// When a user needs to query the state of the promise, trigger gets called to invoke the deferred routine.
 		//
-		auto wait()
+		void signal() const
 		{
 			if ( trigger_flag.exchange( false ) )
 			{
-				auto&& fn = std::move( trigger );
-				dassert( fn );
-				fn( this );
+				if ( auto fn = std::move( trigger ) )
+					fn( make_mutable( this ) );
 			}
-			value_lock.lock_shared();
-			value_lock.unlock_shared();
+		}
+
+		// Exposes information on the promise state.
+		//
+		bool waiting() const { return !value_flag.load(); }
+		bool finished() const { return value_flag.load(); }
+		bool fulfilled() const { return finished() && poll().index() == 0; }
+		bool failed() const { return finished() && poll().index() == 1; }
+
+		// Waits for the completion of the promise.
+		//
+		auto wait() const
+		{
+			signal();
+			poll();
 			return this;
 		}
-		decltype( auto ) wait() const { return make_mutable( this )->wait(); }
 
 		// Waits for the value / exception and returns the result, throws if an unexpected result is found.
 		//
@@ -246,15 +236,30 @@ namespace xstd
 		template<typename F, bool S>
 		auto chain_promise( F&& functor )
 		{
-			auto&& [cb_list, rcb_list] = [ & ] () {
-				if constexpr ( S )
-					return std::pair{ &success_callbacks, &fail_callbacks };
-				else
-					return std::pair{ &fail_callbacks, &success_callbacks };
-			}();
-
 			using ref_type = std::conditional_t<S, const value_type&, const std::exception&>;
 			constexpr size_t store_index = S ? 0 : 1;
+			auto add_cb = [ & ] <typename Ts, typename Tf> ( Ts&& s, Tf&& f )
+			{
+				callback_lock.lock();
+				if ( value_flag.load() )
+				{
+					callback_lock.unlock();
+
+					auto& ref = *value;
+					if ( const auto* ptr = std::get_if<store_index>( &ref ) )
+						s( *ptr );
+					else
+						f( std::get<1 - store_index>( ref ) );
+				}
+				else
+				{
+					if constexpr ( S )
+						callbacks.emplace_back( std::forward<Ts>( s ), std::forward<Tf>( f ) );
+					else
+						callbacks.emplace_back( std::forward<Tf>( f ), std::forward<Ts>( s ) );
+					callback_lock.unlock();
+				}
+			};
 
 			// If function can be invoked with void type:
 			//
@@ -267,7 +272,7 @@ namespace xstd
 				auto chain = std::make_shared<promise_store<ret_t>>();
 				chain->parent = this->weak_from_this();
 
-				// Declare the callback types.
+				// Declare the callback types and add the pair to the list.
 				//
 				auto cb = [ =, fn = std::move( functor ) ]( ref_type val )
 				{
@@ -288,28 +293,7 @@ namespace xstd
 					else
 						chain->reject();
 				};
-
-				// If value is already resolved, immediately invoke or discard the callback.
-				//
-				if ( value.has_value() )
-				{
-					value_lock.lock_shared();
-					value_lock.unlock_shared();
-					auto& ref = *value;
-					if ( const auto* ptr = std::get_if<store_index>( &ref ) )
-						cb( *ptr );
-					else
-						rcb( std::get<1 - store_index>( ref ) );
-				}
-				// Otherwise insert into the callbacks list.
-				//
-				else
-				{
-					callback_lock.lock();
-					cb_list->emplace_back( std::move( cb ) );
-					rcb_list->emplace_back( std::move( rcb ) );
-					callback_lock.unlock();
-				}
+				add_cb( std::move( cb ), std::move( rcb ) );
 
 				// Return the chain promise.
 				//
@@ -326,7 +310,7 @@ namespace xstd
 				auto chain = std::make_shared<promise_store<ret_t>>();
 				chain->parent = this->weak_from_this();
 
-				// Declare the callback types.
+				// Declare the callback types and add the pair to the list.
 				//
 				auto cb = [ =, fn = std::move( functor ) ]( ref_type val )
 				{
@@ -347,28 +331,7 @@ namespace xstd
 					else
 						chain->reject();
 				};
-
-				// If value is already resolved, immediately invoke or discard the callback.
-				//
-				if ( value.has_value() )
-				{
-					value_lock.lock_shared();
-					value_lock.unlock_shared();
-					auto& ref = *value;
-					if ( const auto* ptr = std::get_if<store_index>( &ref ) )
-						cb( *ptr );
-					else
-						rcb( std::get<1 - store_index>( ref ) );
-				}
-				// Otherwise insert into the callbacks list.
-				//
-				else
-				{
-					callback_lock.lock();
-					cb_list->emplace_back( std::move( cb ) );
-					rcb_list->emplace_back( std::move( rcb ) );
-					callback_lock.unlock();
-				}
+				add_cb( std::move( cb ), std::move( rcb ) );
 
 				// Return the chain promise.
 				//
