@@ -47,6 +47,54 @@
 #endif
 namespace xstd
 {
+	namespace impl
+	{
+		// Wraps a callback so that it can:
+		// - 1) Be invoked with arguments even if it accepts none.
+		// - 2) Return a value (std::monostate) even if it originally returned void.
+		//
+		template<typename Fx, typename... Args>
+		static constexpr auto wrap_callback( Fx&& fn )
+		{
+			if constexpr ( InvocableWith<Fx, Args...> )
+			{
+				if constexpr ( std::is_void_v<decltype( fn( std::declval<Args>()... ) )> )
+				{
+					return [ fn = std::forward<Fx>( fn ) ] <typename... Tx> ( Tx&&... args )
+					{
+						fn( std::forward<Tx>( args )... );
+						return std::monostate{};
+					};
+				}
+				else
+				{
+					return [ fn = std::forward<Fx>( fn ) ] <typename... Tx> ( Tx&&... args )
+					{
+						return fn( std::forward<Tx>( args )... );
+					};
+				}
+			}
+			else
+			{
+				if constexpr ( std::is_void_v<decltype( fn() )> )
+				{
+					return [ fn = std::forward<Fx>( fn ) ] ( auto&&... )
+					{
+						fn();
+						return std::monostate{};
+					};
+				}
+				else
+				{
+					return [ fn = std::forward<Fx>( fn ) ] ( auto&&... )
+					{
+						return fn();
+					};
+				}
+			}
+		}
+	};
+
 	// Declare the forwarded types.
 	//
 	template<typename T = void>
@@ -236,6 +284,8 @@ namespace xstd
 		template<typename F, bool S>
 		auto chain_promise( F&& functor )
 		{
+			// Declare helpers.
+			//
 			using ref_type = std::conditional_t<S, const value_type&, const std::exception&>;
 			constexpr size_t store_index = S ? 0 : 1;
 			auto add_cb = [ & ] <typename Ts, typename Tf> ( Ts&& s, Tf&& f )
@@ -261,82 +311,31 @@ namespace xstd
 				}
 			};
 
-			// If function can be invoked with void type:
+			// Create another promise.
 			//
-			if constexpr ( InvocableWith<F> )
-			{
-				using ret_t = decltype( functor() );
+			auto wrapped = impl::wrap_callback<F, ref_type>( std::forward<F>( functor ) );
+			using ret_t = decltype( wrapped( std::declval<ref_type>() ) );
+			auto chain = std::make_shared<promise_store<ret_t>>();
+			chain->parent = this->weak_from_this();
 
-				// Create another promise.
-				//
-				auto chain = std::make_shared<promise_store<ret_t>>();
-				chain->parent = this->weak_from_this();
-
-				// Declare the callback types and add the pair to the list.
-				//
-				auto cb = [ =, fn = std::move( functor ) ]( ref_type val )
-				{
-					if constexpr ( std::is_void_v<ret_t> )
-					{
-						fn();
-						chain->resolve();
-					}
-					else
-					{
-						chain->resolve( fn() );
-					}
-				};
-				auto rcb = [ = ]( auto&& ex )
-				{
-					if constexpr ( S )
-						chain->reject( ex );
-					else
-						chain->reject();
-				};
-				add_cb( std::move( cb ), std::move( rcb ) );
-
-				// Return the chain promise.
-				//
-				return chain;
-			}
-			// If function takes the result as an argument:
+			// Declare the callback types and add the pair to the list (or immediately invoke picked instance).
 			//
-			else
+			auto cb = [ =, fn = std::move( wrapped ) ]( ref_type val )
 			{
-				using ret_t = decltype( functor( std::declval<ref_type>() ) );
+				chain->resolve( fn( val ) );
+			};
+			auto rcb = [ chain = chain.get() ] ( auto&& ex ) // Holds raw pointer, cb will reference for us anyway.
+			{
+				if constexpr ( S )
+					chain->reject( ex );
+				else
+					chain->reject();
+			};
+			add_cb( std::move( cb ), std::move( rcb ) );
 
-				// Create another promise.
-				//
-				auto chain = std::make_shared<promise_store<ret_t>>();
-				chain->parent = this->weak_from_this();
-
-				// Declare the callback types and add the pair to the list.
-				//
-				auto cb = [ =, fn = std::move( functor ) ]( ref_type val )
-				{
-					if constexpr ( std::is_void_v<ret_t> )
-					{
-						fn( val );
-						chain->resolve();
-					}
-					else
-					{
-						chain->resolve( fn( val ) );
-					}
-				};
-				auto rcb = [ = ]( auto&& ex )
-				{
-					if constexpr ( S )
-						chain->reject( ex );
-					else
-						chain->reject();
-				};
-				add_cb( std::move( cb ), std::move( rcb ) );
-
-				// Return the chain promise.
-				//
-				return chain;
-			}
+			// Return the chain promise.
+			//
+			return chain;
 		}
 		template<typename F> auto then( F&& functor ) { return chain_promise<F, true>( std::forward<F>( functor ) ); }
 		template<typename F> auto except( F&& functor ) { return std::pair{ this->shared_from_this(), chain_promise<F, false>( std::forward<F>( functor ) ) }; }
@@ -405,11 +404,23 @@ namespace xstd
 	struct __async_await_t
 	{
 		template<typename T>
-		decltype( auto ) operator<<( const xstd::promise<T>& pr ) const
+		auto operator<<( const xstd::promise<T>& pr ) const ->
+			std::add_const_t<typename xstd::promise_store<T>::value_type>&
 		{
 			pr->wait();
 			return pr->get_value();
 		}
+		template<typename T>
+		auto operator<( const xstd::promise<T>& pr ) const ->
+			std::add_const_t<typename xstd::promise_store<T>::value_type>*
+		{
+			pr->wait();
+			if ( pr->fulfilled() )
+				return &pr->get_value();
+			else
+				return nullptr;
+		}
 	};
-	#define await __async_await_t{} <<
+	#define await      __async_await_t{} <<  // const T& || => exception
+	#define opt_await  __async_await_t{} <   // const T* || nullptr
 #endif
