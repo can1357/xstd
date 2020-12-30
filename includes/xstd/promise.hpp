@@ -61,7 +61,7 @@ namespace xstd
 
 		// If relevant, reference to parent.
 		//
-		std::shared_ptr<void> parent;
+		std::weak_ptr<void> parent;
 
 		// Lock guarding the value, stays locked until the promise is resolved/rejected.
 		//
@@ -245,34 +245,28 @@ namespace xstd
 				// Create another promise.
 				//
 				auto chain = std::make_shared<promise_base<ret_t>>();
-				chain->parent = this->shared_from_this();
+				chain->parent = this->weak_from_this();
 
 				// Declare the callback types.
 				//
-				auto cb = [ weak = std::weak_ptr{ chain }, fn = std::move( functor ) ]( ref_type val )
+				auto cb = [ =, fn = std::move( functor ) ]( ref_type val )
 				{
-					if ( auto chain = weak.lock() )
+					if constexpr ( std::is_void_v<ret_t> )
 					{
-						if constexpr ( std::is_void_v<ret_t> )
-						{
-							fn();
-							chain->resolve();
-						}
-						else
-						{
-							chain->resolve( fn() );
-						}
+						fn();
+						chain->resolve();
+					}
+					else
+					{
+						chain->resolve( fn() );
 					}
 				};
-				auto rcb = [ weak = std::weak_ptr{ chain } ]( auto&& ex )
+				auto rcb = [ = ]( auto&& ex )
 				{
-					if ( auto chain = weak.lock() )
-					{
-						if constexpr ( S )
-							chain->reject( ex );
-						else
-							chain->reject();
-					}
+					if constexpr ( S )
+						chain->reject( ex );
+					else
+						chain->reject();
 				};
 
 				// If value is already resolved, immediately invoke or discard the callback.
@@ -310,34 +304,28 @@ namespace xstd
 				// Create another promise.
 				//
 				auto chain = std::make_shared<promise_base<ret_t>>();
-				chain->parent = this->shared_from_this();
+				chain->parent = this->weak_from_this();
 
 				// Declare the callback types.
 				//
-				auto cb = [ weak = std::weak_ptr{ chain }, fn = std::move( functor ) ]( ref_type val )
+				auto cb = [ =, fn = std::move( functor ) ]( ref_type val )
 				{
-					if ( auto chain = weak.lock() )
+					if constexpr ( std::is_void_v<ret_t> )
 					{
-						if constexpr ( std::is_void_v<ret_t> )
-						{
-							fn( val );
-							chain->resolve();
-						}
-						else
-						{
-							chain->resolve( fn( val ) );
-						}
+						fn( val );
+						chain->resolve();
+					}
+					else
+					{
+						chain->resolve( fn( val ) );
 					}
 				};
-				auto rcb = [ weak = std::weak_ptr{ chain } ]( auto&& ex )
+				auto rcb = [ = ]( auto&& ex )
 				{
-					if ( auto chain = weak.lock() )
-					{
-						if constexpr ( S )
-							chain->reject( ex );
-						else
-							chain->reject();
-					}
+					if constexpr ( S )
+						chain->reject( ex );
+					else
+						chain->reject();
 				};
 
 				// If value is already resolved, immediately invoke or discard the callback.
