@@ -369,6 +369,9 @@ namespace xstd
 	}
 
 	// Promise combination:
+	// - All rejects the whole chain if one fails or returns const T&.
+	// - Any resolves as much as possible and returns const T*, possibly null if an exception was involved.
+	//
 	// - Note: Unlike chained ->then | ->catch promises, these instances will be storing dangling values as soon 
 	//         as the parent is freed since value is propagated by reference.
 	//
@@ -399,7 +402,25 @@ namespace xstd
 				result->resolve( Tr{ promises->get_value()... } );
 		} );
 	}
-
+	template<typename... Tp>
+	inline auto any( const promise<Tp>&... promises )
+	{
+		// Declare the resulting tuple's type.
+		//
+		using Tr = std::tuple<std::add_const_t<typename promise_store<Tp>::value_type>*...>;
+		
+		// Create a promise.
+		//
+		return make_promise<Tr>( [ = ] ( promise_store<Tr>* result )
+		{
+			auto wait_for = [ & ] ( auto& pr )
+			{
+				pr->wait();
+				return pr->fulfilled() ? &promises->get_value() : nullptr;
+			};
+			result->resolve( Tr{ wait_for( promises )... } );
+		} );
+	}
 
 	// If void promise, can chain using operator+= / operator+.
 	//
