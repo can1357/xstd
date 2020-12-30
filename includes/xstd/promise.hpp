@@ -53,6 +53,8 @@ namespace xstd
 	struct promise_store;
 	template<typename T = void>
 	using promise = std::shared_ptr<promise_store<T>>;
+	template<typename T = void>
+	using promise_trigger = std::function<void( promise_store<T>* )>;
 
 	// Declare the storage of promises.
 	//
@@ -86,11 +88,11 @@ namespace xstd
 		// A special trigger event guarded by an atomic flag, gets invoked upon any await/::wait use.
 		//
 		std::atomic<bool> trigger_flag = false;
-		std::function<void( promise_store<T>* )> trigger = {};
+		promise_trigger<T> trigger = {};
 
 		// Lock the promise on pending value construction.
 		//
-		promise_store( std::function<void( promise_store<T>* )> trigger = {} ) : trigger( std::move( trigger ) )
+		promise_store( promise_trigger<T> trigger = {} ) : trigger( std::move( trigger ) )
 		{ 
 			if ( this->trigger )
 				trigger_flag = true;
