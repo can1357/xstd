@@ -142,6 +142,8 @@
       <Filter>Numeric</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
+      <Filter>Misc</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -50,20 +50,20 @@ namespace xstd
 	// Declare the forwarded types.
 	//
 	template<typename T = void>
-	struct promise_base;
+	struct promise_store;
 	template<typename T = void>
-	using promise = std::shared_ptr<promise_base<T>>;
+	using promise = std::shared_ptr<promise_store<T>>;
 
 	// Declare the storage of promises.
 	//
 	template<typename T>
-	struct promise_base : std::enable_shared_from_this<promise_base<T>>
+	struct promise_store : std::enable_shared_from_this<promise_store<T>>
 	{
 		// Value traits.
 		//
-		static constexpr bool has_value =     !std::is_void_v<T>;
-		using value_type =     std::conditional_t<has_value,     T, std::monostate>;
-		using store_type =     std::variant<value_type, std::exception>;
+		static constexpr bool has_value = !std::is_void_v<T>;
+		using value_type =                std::conditional_t<has_value, T, std::monostate>;
+		using store_type =                std::variant<value_type, std::exception>;
 
 		// If relevant, reference to parent.
 		//
@@ -83,36 +83,43 @@ namespace xstd
 		std::list<std::function<void( const value_type& )>> success_callbacks;
 		std::list<std::function<void( const std::exception& )>> fail_callbacks;
 
+		// A special trigger event guarded by an atomic flag, gets invoked upon any await/::wait use.
+		//
+		std::atomic<bool> trigger_flag = false;
+		std::function<void( promise_store<T>* )> trigger = {};
+
 		// Lock the promise on pending value construction.
 		//
-		promise_base() 
+		promise_store( std::function<void( promise_store<T>* )> trigger = {} ) : trigger( std::move( trigger ) )
 		{ 
+			if ( this->trigger )
+				trigger_flag = true;
 			value_lock.lock(); 
 		}
 
 		// Construction of immediate values.
 		//
 		template<typename... Tx>
-		promise_base( Tx&&... params, std::true_type = {} )
+		promise_store( Tx&&... params, std::true_type = {} )
 		{
 			value.emplace( store_type( std::in_place_index_t<0>, std::forward<Tx>( result )... ) );
 		}
 		template<typename... Tx>
-		promise_base( Tx&&... params, std::false_type = {} )
+		promise_store( Tx&&... params, std::false_type = {} )
 		{
 			value.emplace( store_type( std::in_place_index_t<1>, std::forward<Tx>( result )... ) );
 		}
 
 		// No copy allowed, default move.
 		//
-		promise_base( promise_base&& ) noexcept = default;
-		promise_base& operator=( promise_base&& ) noexcept = default;
-		promise_base( const promise_base& ) = delete;
-		promise_base& operator=( const promise_base& ) = delete;
+		promise_store( promise_store&& ) noexcept = default;
+		promise_store& operator=( promise_store&& ) noexcept = default;
+		promise_store( const promise_store& ) = delete;
+		promise_store& operator=( const promise_store& ) = delete;
 		
 		// Unlock the promise on deconstruction if not completed.
 		//
-		~promise_base()
+		~promise_store()
 		{
 			if ( !value.has_value() )
 				value_lock.unlock();
@@ -201,16 +208,17 @@ namespace xstd
 		//
 		auto wait()
 		{
+			if ( trigger_flag.exchange( false ) )
+			{
+				auto&& fn = std::move( trigger );
+				dassert( fn );
+				fn( this );
+			}
 			value_lock.lock_shared();
 			value_lock.unlock_shared();
 			return this;
 		}
-		auto wait() const
-		{
-			value_lock.lock_shared();
-			value_lock.unlock_shared();
-			return this;
-		}
+		decltype( auto ) wait() const { return make_mutable( this )->wait(); }
 
 		// Waits for the value / exception and returns the result, throws if an unexpected result is found.
 		//
@@ -254,7 +262,7 @@ namespace xstd
 
 				// Create another promise.
 				//
-				auto chain = std::make_shared<promise_base<ret_t>>();
+				auto chain = std::make_shared<promise_store<ret_t>>();
 				chain->parent = this->weak_from_this();
 
 				// Declare the callback types.
@@ -313,7 +321,7 @@ namespace xstd
 
 				// Create another promise.
 				//
-				auto chain = std::make_shared<promise_base<ret_t>>();
+				auto chain = std::make_shared<promise_store<ret_t>>();
 				chain->parent = this->weak_from_this();
 
 				// Declare the callback types.
@@ -381,22 +389,51 @@ namespace xstd
 		}
 	};
 
-	// Declare the promise creation wrapper.
+	// Declare the promise creation wrappers.
 	//
 	template<typename T = void, typename... Tx>
-	inline promise<T> make_promise( Tx&&... args )
+	inline promise<T> make_promise( Tx&&... trigger )
 	{
-		return std::make_shared<promise_base<T>>( std::forward<Tx>( args )... );
+		return std::make_shared<promise_store<T>>( std::forward<Tx>( trigger )... );
 	}
-
-	// Short-hand for creating a failed promise.
-	//
 	template<typename T = void, typename... Tx>
-	inline promise<T> make_rejected_promise( Tx&&... args )
+	inline promise<T> make_rejected_promise( Tx&&... exception )
 	{
 		promise<T> pr = make_promise<T>();
-		pr->reject( std::forward<Tx>( args )... );
+		pr->reject( std::forward<Tx>( exception )... );
 		return pr;
+	}
+
+	// Promise combination:
+	// - Note: Unlike chained ->then | ->catch promises, these instances will be storing dangling values as soon 
+	//         as the parent is freed since value is propagated by reference.
+	//
+	template<typename... Tp>
+	inline auto all( const promise<Tp>&... promises )
+	{
+		// Declare the resulting tuple's type.
+		//
+		using Tr = std::tuple<std::add_const_t<typename promise_store<Tp>::value_type>&...>;
+		
+		// Create a promise.
+		//
+		return make_promise<Tr>( [ = ] ( promise_store<Tr>* result )
+		{
+			auto wait_for = [ & ] ( auto& pr )
+			{
+				pr->wait();
+				if ( pr->failed() )
+				{
+					result->reject( pr->get_exception() );
+					return false;
+				}
+				return true;
+			};
+
+			bool has_result = ( wait_for( promises ) && ... );
+			if ( has_result )
+				result->resolve( Tr{ promises->get_value()... } );
+		} );
 	}
 };
 #if !XSTD_NO_AWAIT
