@@ -399,6 +399,32 @@ namespace xstd
 				result->resolve( Tr{ promises->get_value()... } );
 		} );
 	}
+
+
+	// If void promise, can chain using operator+= / operator+.
+	//
+	inline promise<> operator+( promise<> a, promise<> b )
+	{
+		return make_promise( [ a = std::move( a ), b = std::move( b ) ] ( promise_store<>* result )
+		{
+			auto wait_for = [ & ] ( auto& pr )
+			{
+				pr->wait();
+				if ( pr->failed() )
+				{
+					result->reject( pr->get_exception() );
+					return false;
+				}
+				return true;
+			};
+			if ( wait_for( a ) && wait_for( b ) )
+				result->resolve();
+		} );
+	}
+	inline promise<>& operator+=( promise<>& a, promise<> b )
+	{
+		return a = operator+( std::move( a ), std::move( b ) );
+	}
 };
 #if !XSTD_NO_AWAIT
 	struct __async_await_t
