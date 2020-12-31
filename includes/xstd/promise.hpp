@@ -416,7 +416,7 @@ namespace xstd
 			auto wait_for = [ & ] ( auto& pr )
 			{
 				pr->wait();
-				return pr->fulfilled() ? &promises->get_value() : nullptr;
+				return pr->fulfilled() ? &pr->get_value() : nullptr;
 			};
 			result->resolve( Tr{ wait_for( promises )... } );
 		} );
