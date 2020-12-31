@@ -464,6 +464,18 @@ namespace xstd
 	//
 	static constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
 
+	// Wrapper around assume aligned builtin.
+	//
+    template<size_t N, typename T> requires ( Pointer<T> || Same<T, any_ptr> )
+	__forceinline static constexpr T assume_aligned( T ptr )
+    {
+#if __has_builtin(__builtin_assume_aligned)
+        if ( !std::is_constant_evaluated() )
+			return T( __builtin_assume_aligned( ( const void* ) ptr, N ) );
+#endif
+        return ptr;
+    }
+
 	// Member reference helper.
 	//
 	template<typename C, typename M>

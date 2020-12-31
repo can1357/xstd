@@ -81,6 +81,17 @@ namespace xstd
 			return ( T ) ( uval );
 		}
 	}
+	template<typename T>
+	__forceinline static constexpr bool is_aligned( T value, size_t alignment )
+	{		
+		using U = convert_uint_t<T>;
+		dassert( alignment != 0 );
+
+		if ( std::is_constant_evaluated() )
+			return !( bit_cast<U>( value ) % alignment );
+		else
+			return !( U( value ) % alignment );
+	}
 
 	// Extracts the sign bit from the given value.
 	//
