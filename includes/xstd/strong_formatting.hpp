@@ -125,7 +125,7 @@ namespace xstd::fmt
 					// Convert float to string.
 					//
 					char buffer[ 32 ];
-					snprintf( buffer, 32, XSTD_CSTR( "%.1lf%s" ), fvalue / limit, abbrv );
+					snprintf( buffer, 32, XSTD_CSTR( "%.1lf%s" ), fvalue / limit, abbrv.c_str() );
 					return buffer;
 				}
 			}
