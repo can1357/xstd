@@ -606,3 +606,15 @@ namespace xstd
 	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
 	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
 };
+
+// Expose literals.
+//
+namespace xstd::literals
+{
+	constexpr inline size_t operator ""_kb( size_t n ) { return n * 1024ull; }
+	constexpr inline size_t operator ""_mb( size_t n ) { return n * 1024ull * 1024ull; }
+	constexpr inline size_t operator ""_gb( size_t n ) { return n * 1024ull * 1024ull * 1024ull; }
+	constexpr inline size_t operator ""_tb( size_t n ) { return n * 1024ull * 1024ull * 1024ull * 1024ull; }
+};
+using namespace std::literals;
+using namespace xstd::literals;

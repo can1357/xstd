@@ -138,12 +138,10 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\leb128.hpp">
       <Filter>Protocols</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\literals.hpp">
-      <Filter>Numeric</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\literals.hpp" />
   </ItemGroup>
 </Project>
