@@ -142,6 +142,5 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\literals.hpp" />
   </ItemGroup>
 </Project>
