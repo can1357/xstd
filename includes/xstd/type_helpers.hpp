@@ -420,10 +420,12 @@ namespace xstd
 	//
 	template<typename T> static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
 
-	// Returns the offset of given member reference.
+	// Returns the offset/size of given member reference.
 	//
 	template<typename V, typename C> 
 	static constexpr int64_t make_offset( V C::* ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
+	template<typename V, typename C>
+	static constexpr size_t member_size( V C::* ref ) noexcept { return sizeof( V ); }
 	
 	// Simple void pointer implementation with arithmetic and free casts, comes useful
 	// when you can't infer the type of an argument pointer or if you want to const initialize

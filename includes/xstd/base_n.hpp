@@ -116,7 +116,8 @@ namespace xstd::encode
         template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
         static std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const Dc& dictionary )
         {
-            fassert( ( str.length() % dictionary.group_size_out() ) == 0 );
+            if ( ( str.length() % dictionary.group_size_out() ) != 0 )
+                return {};
 
             // Calculate the group count and reserve the output.
             //
