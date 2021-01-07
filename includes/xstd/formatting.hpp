@@ -218,7 +218,7 @@ namespace xstd::fmt
 		//
 		else if constexpr ( is_specialization_v<std::shared_ptr, base_type> || is_specialization_v<std::unique_ptr, base_type> || std::is_pointer_v<base_type> )
 		{
-			if constexpr ( StringConvertible<decltype( *x )> )
+			if constexpr ( StringConvertible<typename std::pointer_traits<base_type>::element_type> )
 			{
 				if ( x ) return as_string( *x );
 				else     return XSTD_STR( "nullptr" );
