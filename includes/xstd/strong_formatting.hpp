@@ -50,8 +50,6 @@ namespace xstd::fmt
 		T value = 0;
 		constexpr binary() {}
 		constexpr binary( T value ) : value( value ) {}
-		constexpr operator T&() { return value; }
-		constexpr operator const T&() const { return value; }
 		std::string to_string() const
 		{
 			std::string result( _N, '0' );
@@ -67,8 +65,6 @@ namespace xstd::fmt
 		T value = 0;
 		constexpr decimal() {}
 		constexpr decimal( T value ) : value( value ) {}
-		constexpr operator T& ( ) { return value; }
-		constexpr operator const T& ( ) const { return value; }
 		std::string to_string() const
 		{
 			return std::to_string( value );
@@ -80,8 +76,6 @@ namespace xstd::fmt
 		T value = 0;
 		constexpr hexadecimal() {}
 		constexpr hexadecimal( T value ) : value( value ) {}
-		constexpr operator T& ( ) { return value; }
-		constexpr operator const T& ( ) const { return value; }
 
 		std::string to_string() const
 		{
@@ -99,12 +93,18 @@ namespace xstd::fmt
 			XSTD_STR( "mb" ), XSTD_STR( "gb" ),
 			XSTD_STR( "tb" ), XSTD_STR( "pb" )
 		};
+		inline static const std::array unit_size = xstd::make_constant_series<std::size( unit_abbrv )>( [ ] ( auto n )
+		{
+			size_t r = 1;
+			for( size_t i = 0; i != n.value; i++ )
+				r *= 1024;
+			return r;
+		} );
+
 
 		T value = 0;
 		constexpr byte_count() {}
 		constexpr byte_count( T value ) : value( value ) {}
-		constexpr operator T& ( ) { return value; }
-		constexpr operator const T& ( ) const { return value; }
 
 		std::string to_string() const
 		{
@@ -114,10 +114,8 @@ namespace xstd::fmt
 
 			// Iterate unit list in descending order.
 			//
-			for ( auto [abbrv, i] : backwards( zip( unit_abbrv, iindices ) ) )
+			for ( auto&& [abbrv, limit] : backwards( zip( unit_abbrv, unit_size ) ) )
 			{
-				double limit = pow( 1024.0, i );
-
 				// If value is larger than the unit given or if we're at the last unit:
 				//
 				if ( std::abs( fvalue ) >= limit || abbrv == *std::begin( unit_abbrv ) )
@@ -141,8 +139,6 @@ namespace xstd::fmt
 		T value = '\x0';
 		constexpr character() {}
 		constexpr character( T value ) : value( value ) {}
-		constexpr operator T& ( ) { return value; }
-		constexpr operator const T& ( ) const { return value; }
 
 		std::string to_string() const
 		{
@@ -159,8 +155,6 @@ namespace xstd::fmt
 		T value = 0.0f;
 		constexpr percentage() {}
 		constexpr percentage( T value ) : value( value ) {}
-		constexpr operator T& ( ) { return value; }
-		constexpr operator const T& ( ) const { return value; }
 		
 		// Additional constructor for ratio.
 		//
@@ -187,8 +181,6 @@ namespace xstd::fmt
 		T value = {};
 		constexpr named_enum() {}
 		constexpr named_enum( T value ) : value( value ) {}
-		constexpr operator T& ( ) { return value; }
-		constexpr operator const T& ( ) const { return value; }
 
 		std::string to_string() const
 		{

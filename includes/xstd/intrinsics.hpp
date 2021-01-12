@@ -279,23 +279,6 @@ MUST_MATCH( DEBUG_BUILD );
         unreachable();
     }
 
-    // Declare rotlq | rotrq
-    //
-    __forceinline static constexpr uint64_t rotlq( uint64_t value, int count )
-    {
-        if ( !std::is_constant_evaluated() )
-            return _rotl64( value, count );
-        count %= 64;
-        return ( value << count ) | ( value >> ( 64 - count ) );
-    }
-    __forceinline static constexpr uint64_t rotrq( uint64_t value, int count )
-    {
-        if ( !std::is_constant_evaluated() )
-            return _rotr64( value, count );
-        count %= 64;
-        return ( value >> count ) | ( value << ( 64 - count ) );
-    }
-
     // No-op demangle.
     //
     __forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
@@ -355,27 +338,6 @@ MUST_MATCH( DEBUG_BUILD );
         #define yield_cpu() std::atomic_thread_fence( std::memory_order_release );
     #endif
 
-    // Declare rotlq | rotrq
-    //
-    __forceinline static constexpr uint64_t rotlq( uint64_t value, int count )
-    {
-#if __has_builtin(__builtin_rotateleft64)
-        if ( !std::is_constant_evaluated() )
-            return __builtin_rotateleft64( value, ( uint64_t ) count );
-#endif
-        count %= 64;
-        return ( value << count ) | ( value >> ( 64 - count ) );
-    }
-    __forceinline static constexpr uint64_t rotrq( uint64_t value, int count )
-    {
-#if __has_builtin(__builtin_rotateright64)
-        if ( !std::is_constant_evaluated() )
-            return __builtin_rotateright64( value, ( uint64_t ) count );
-#endif
-        count %= 64;
-        return ( value >> count ) | ( value << ( 64 - count ) );
-    }
-
     // Declare _?mul128
     //
     using int128_t =  __int128;
@@ -427,3 +389,151 @@ MUST_MATCH( DEBUG_BUILD );
         __forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
     #endif
 #endif
+
+// Declare rotation.
+//
+__forceinline static constexpr uint64_t rotlq( uint64_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateleft64)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateleft64( value, ( uint64_t ) count );
+#endif
+    count %= 64;
+    return ( value << count ) | ( value >> ( 64 - count ) );
+}
+__forceinline static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateright64)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateright64( value, ( uint64_t ) count );
+#endif
+    count %= 64;
+    return ( value >> count ) | ( value << ( 64 - count ) );
+}
+__forceinline static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateleft32)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateleft32( value, ( uint32_t ) count );
+#endif
+    count %= 32;
+    return ( value << count ) | ( value >> ( 32 - count ) );
+}
+__forceinline static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateright32)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateright32( value, ( uint32_t ) count );
+#endif
+    count %= 32;
+    return ( value >> count ) | ( value << ( 32 - count ) );
+}
+__forceinline static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateleft16)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateleft16( value, ( uint16_t ) count );
+#endif
+    count %= 16;
+    return ( value << count ) | ( value >> ( 16 - count ) );
+}
+__forceinline static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateright16)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateright16( value, ( uint16_t ) count );
+#endif
+    count %= 16;
+    return ( value >> count ) | ( value << ( 16 - count ) );
+}
+__forceinline static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateleft8)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateleft8( value, ( uint8_t ) count );
+#endif
+    count %= 8;
+    return ( value << count ) | ( value >> ( 8 - count ) );
+}
+__forceinline static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
+{
+#if __has_builtin(__builtin_rotateright8)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_rotateright8( value, ( uint8_t ) count );
+#endif
+    count %= 8;
+    return ( value >> count ) | ( value << ( 8 - count ) );
+}
+template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
+__forceinline static constexpr T rotl( T value, int count ) noexcept
+{
+    if constexpr ( sizeof( T ) == 8 )
+        return ( T ) rotlq( ( uint64_t ) value, count );
+    else if constexpr ( sizeof( T ) == 4 )
+        return ( T ) rotld( ( uint32_t ) value, count );
+    else if constexpr ( sizeof( T ) == 2 )
+        return ( T ) rotlw( ( uint16_t ) value, count );
+    else if constexpr ( sizeof( T ) == 1 )
+        return ( T ) rotlb( ( uint8_t ) value, count );
+    else
+        unreachable();
+}
+template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
+__forceinline static constexpr T rotr( T value, int count ) noexcept
+{
+    if constexpr ( sizeof( T ) == 8 )
+        return ( T ) rotrq( ( uint64_t ) value, count );
+    else if constexpr ( sizeof( T ) == 4 )
+        return ( T ) rotrd( ( uint32_t ) value, count );
+    else if constexpr ( sizeof( T ) == 2 )
+        return ( T ) rotrw( ( uint16_t ) value, count );
+    else if constexpr ( sizeof( T ) == 1 )
+        return ( T ) rotrb( ( uint8_t ) value, count );
+    else
+        unreachable();
+}
+
+// Declare bswap.
+//
+__forceinline static constexpr uint16_t bswapw( uint16_t value ) noexcept
+{
+#if __has_builtin(__builtin_bswap16)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_bswap16( value );
+#endif
+    return ( ( value & 0xFF ) << 8 ) | ( ( value & 0xFF00 ) >> 8 );
+}
+__forceinline static constexpr uint32_t bswapd( uint32_t value ) noexcept
+{
+#if __has_builtin(__builtin_bswap32)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_bswap32( value );
+#endif
+    return
+        ( uint32_t( bswapw( uint16_t( ( value << 16 ) >> 16 ) ) ) << 16 ) |
+        ( uint32_t( bswapw( uint16_t( ( value >> 16 ) ) ) ) );
+}
+__forceinline static constexpr uint64_t bswapq( uint64_t value ) noexcept
+{
+#if __has_builtin(__builtin_bswap64)
+    if ( !std::is_constant_evaluated() )
+        return __builtin_bswap64( value );
+#endif
+    return
+        ( uint64_t( bswapd( uint32_t( ( value << 32 ) >> 32 ) ) ) << 32 ) |
+        ( uint64_t( bswapd( uint32_t( ( value >> 32 ) ) ) ) );
+}
+template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
+__forceinline static constexpr T bswap( T value ) noexcept
+{
+    if constexpr ( sizeof( T ) == 8 )
+        return ( T ) bswapq( ( uint64_t ) value );
+    else if constexpr ( sizeof( T ) == 4 )
+        return ( T ) bswapd( ( uint32_t ) value );
+    else if constexpr ( sizeof( T ) == 2 )
+        return ( T ) bswapw( ( uint16_t ) value );
+    else if constexpr ( sizeof( T ) == 1 )
+        return value;
+    else
+        unreachable();
+}

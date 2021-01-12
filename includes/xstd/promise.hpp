@@ -315,7 +315,7 @@ namespace xstd
 			//
 			auto wrapped = impl::wrap_callback<F, ref_type>( std::forward<F>( functor ) );
 			using ret_t = decltype( wrapped( std::declval<ref_type>() ) );
-			auto chain = std::make_shared<promise_store<ret_t>>();
+			auto chain = std::make_shared<promise_store<std::conditional_t<std::is_same_v<std::monostate, ret_t>, void, ret_t>>>();
 			chain->parent = this->weak_from_this();
 
 			// Declare the callback types and add the pair to the list (or immediately invoke picked instance).
