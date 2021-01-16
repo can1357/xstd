@@ -235,6 +235,33 @@ namespace xstd
 		}
 	};
 
+	// Overload for STL smart pointers.
+	//
+	template<typename T>
+	struct hasher<std::shared_ptr<T>>
+	{
+		__forceinline constexpr hash_t operator()( const std::shared_ptr<T>& value ) const noexcept
+		{
+			return make_hash( value.get() );
+		}
+	};
+	template<typename T>
+	struct hasher<std::weak_ptr<T>>
+	{
+		__forceinline constexpr hash_t operator()( const std::weak_ptr<T>& value ) const noexcept
+		{
+			return make_hash( value.get() );
+		}
+	};
+	template<typename T, typename Dx>
+	struct hasher<std::unique_ptr<T, Dx>>
+	{
+		__forceinline constexpr hash_t operator()( const std::unique_ptr<T, Dx>& value ) const noexcept
+		{
+			return make_hash( value.get() );
+		}
+	};
+
 	// Overload for std::pair / std::tuple.
 	//
 	template<Tuple T>
