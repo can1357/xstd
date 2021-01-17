@@ -61,7 +61,7 @@ namespace xstd
 		constexpr static inline bool is_success( io_state v ) { return v == io_state::success; }
 	};
 
-	template<typename T = no_value_t>
+	template<typename T = std::monostate>
 	using io_result = result<T, io_state>;
 };
 

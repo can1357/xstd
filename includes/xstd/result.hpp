@@ -35,7 +35,6 @@
 
 namespace xstd
 {
-	struct no_value_t {};
 	struct default_result {};
 
 	// Status traits.
@@ -72,16 +71,16 @@ namespace xstd
 
 	// Declares a light-weight object wrapping a result type with a status code.
 	//
-	template <typename Val, typename Status>
+	template <typename Value, typename Status>
 	struct basic_result
 	{
-		using value_type =     Val;
+		using value_type =     Value;
 		using status_type =    Status;
 		using traits =         status_traits<Status>;
 
 		// Status code and the value itself.
 		//
-		std::optional<Val> result = std::nullopt;
+		std::optional<Value> result = std::nullopt;
 		Status status = Status{ traits::failure_value };
 
 		// Invalid value construction.
@@ -91,20 +90,20 @@ namespace xstd
 
 		// Default value construction via tag.
 		//
-		constexpr basic_result( default_result ) requires DefaultConstructable<Val> : result( Val{} ), status( Status{ traits::success_value } ) {}
+		constexpr basic_result( default_result ) requires DefaultConstructable<Value> : result( Value{} ), status( Status{ traits::success_value } ) {}
 
 		// Consturction with value/state combination.
 		//
-		template<typename T> requires ( Constructable<Val, T&&> )
+		template<typename T> requires ( Constructable<Value, T&&> && ( !Constructable<Status, T&&> || Same<std::decay_t<T>, Value> ) )
 		constexpr basic_result( T&& value ) : result( std::forward<T>( value ) ), status( Status{ traits::success_value } ) {}
-		template<typename S> requires ( Constructable<Status, S&&> && !Constructable<Val, S&&> )
+		template<typename S> requires ( Constructable<Status, S&&> && ( !Constructable<Value, S&&> || Same<std::decay_t<S>, Status> ) )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
 			if ( traits::is_success( this->status ) )
-				if constexpr ( DefaultConstructable<Val> )
+				if constexpr ( DefaultConstructable<Value> )
 					result.emplace();
 		}
-		template<typename T, typename S>  requires ( Constructable<Val, T&&> && Constructable<Status, S&&> )
+		template<typename T, typename S>  requires ( Constructable<Value, T&&> && Constructable<Status, S&&> )
 		constexpr basic_result( T&& value, S&& status ) : result( std::forward<T>( value ) ), status( std::forward<S>( status ) ) {}
 
 		// Default copy and move.
@@ -122,7 +121,7 @@ namespace xstd
 			status = std::forward<S>( _status );
 		}
 		template<typename T, typename S>
-		constexpr Val& emplace( T&& value, S&& _status )
+		constexpr Value& emplace( T&& value, S&& _status )
 		{
 			auto& v = result.emplace( std::forward<T>( value ) );
 			status = std::forward<S>( _status );
@@ -153,29 +152,30 @@ namespace xstd
 		{
 			if ( fail() ) 
 				return fmt::str( XSTD_CSTR( "(Fail='%s')" ), message() );
-
-			if constexpr ( StringConvertible<Val> ) return fmt::str( XSTD_CSTR( "(Result=%s)" ), xstd::fmt::as_string( result ) );
-			else                                    return XSTD_CSTR( "(Success)" );
+			if constexpr ( StringConvertible<Value> ) 
+				return fmt::str( XSTD_CSTR( "(Result='%s')" ), xstd::fmt::as_string( result ) );
+			else                                    
+				return XSTD_CSTR( "(Success)" );
 		}
 
 		// For accessing the value, replicate the std::optional interface.
 		//
-		constexpr const Val& value() const &
+		constexpr const Value& value() const &
 		{
 			assert();
 			return result.value();
 		}
-		constexpr Val& value() &
+		constexpr Value& value() &
 		{
 			assert();
 			return result.value();
 		}
-		constexpr Val&& value() &&
+		constexpr Value&& value() &&
 		{
 			assert();
 			return std::move( result ).value();
 		}
-		constexpr Val value_or( const Val& o ) const
+		constexpr Value value_or( const Value& o ) const
 		{
 			return success() ? result.value() : o;
 		}
@@ -184,25 +184,25 @@ namespace xstd
 		//
 		constexpr decltype(auto) operator->()
 		{ 
-			if constexpr ( PointerLike<Val> )
+			if constexpr ( PointerLike<Value> )
 				return value();
 			else
 				return &value(); 
 		}
-		constexpr Val& operator*() { return value(); }
-		constexpr const Val& operator*() const { return value(); }
+		constexpr Value& operator*() { return value(); }
+		constexpr const Value& operator*() const { return value(); }
 		constexpr decltype( auto ) operator->() const
 		{
-			if constexpr ( PointerLike<Val> )
+			if constexpr ( PointerLike<Value> )
 				return value();
 			else
 				return &value();
 		}
 	};
 
-	template<typename T = no_value_t, typename S = bool>
+	template<typename T = std::monostate, typename S = bool>
 	using result = basic_result<T, S>;
 
-	template<typename T = no_value_t>
+	template<typename T = std::monostate>
 	using string_result = basic_result<T, std::string>;
 };
