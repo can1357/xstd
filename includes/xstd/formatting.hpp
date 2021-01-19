@@ -214,6 +214,12 @@ namespace xstd::fmt
 		{
 			return std::to_string( x );
 		}
+		else if constexpr ( Atomic<base_type> )
+		{
+			if constexpr ( StringConvertible<typename base_type::value_type> )
+				return as_string( x.load() );
+			else return type_tag<T>{};
+		}
 		// Pointers:
 		//
 		else if constexpr ( is_specialization_v<std::shared_ptr, base_type> || is_specialization_v<std::unique_ptr, base_type> || std::is_pointer_v<base_type> )
@@ -370,6 +376,10 @@ namespace xstd::fmt
 					   std::is_pointer_v<base_type> || std::is_array_v<base_type>  )
 		{
 			return x;
+		}
+		else if constexpr ( Atomic<std::decay_t<T>> )
+		{
+			return fix_parameter( buffer, x.load() );
 		}
 		else if constexpr ( std::is_same_v<any_ptr, base_type> )
 		{
