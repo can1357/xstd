@@ -3,6 +3,8 @@
 #include <string>
 #include <string_view>
 #include <optional>
+#include "time.hpp"
+#include "random.hpp"
 #include "tcp.hpp"
 #include "type_helpers.hpp"
 #include "assert.hpp"
@@ -123,6 +125,8 @@ namespace xstd::ws
 			return status_protocol_error;
 		if ( hdr.is_control_frame() && !hdr.finished )
 			return status_protocol_error;
+		if ( hdr.is_control_frame() && hdr.length >= length_extend_u16 )
+			return status_protocol_error;
 
 		// Read the extended length if relevant.
 		//
@@ -172,6 +176,9 @@ namespace xstd::ws
 		// Create the networked header and write it including extended size if relevant.
 		//
 		dassert( hdr.op < opcode::maximum );
+		dassert( !hdr.is_control_frame() || hdr.length < length_extend_u16 );
+		dassert( !hdr.is_control_frame() || hdr.finished );
+
 		net_header net = { .op = hdr.op, .rsvd = 0, .fin = hdr.finished, .masked = hdr.mask_key != 0 };
 		if ( hdr.length > UINT16_MAX )
 		{
@@ -206,6 +213,12 @@ namespace xstd::ws
 		//
 		status_code status = status_unknown;
 
+		// Status of our ping-pong requests.
+		//
+		uint32_t ping_key = make_random<uint32_t>();
+		timestamp_t last_ping = {};
+		timestamp_t last_pong = {};
+
 		// Receive buffer and the state of the fragmentation handlers.
 		//
 		std::optional<std::pair<header, std::vector<uint8_t>>> fragmented_packet;
@@ -238,7 +251,13 @@ namespace xstd::ws
 			}
 			else if ( hdr.op == opcode::pong )
 			{
-				// No operation.
+				// No operation, just update the timer if same key.
+				//
+				if ( ping_key && data.size() == 4 && ping_key == *( uint32_t* ) data.data() )
+				{
+					last_pong = time::now();
+					ping_key = 0;
+				}
 			}
 			// Call into application.
 			//
@@ -280,6 +299,17 @@ namespace xstd::ws
 			transport_layer::write( std::move( tx_buffer ) );
 		}
 		void send_packet( opcode op, std::string_view str ) { send_packet( op, str.data(), str.size() ); }
+
+		// Ping-pong helper, returns latest measured latency or zero.
+		//
+		timeunit_t ping()
+		{
+			auto t = last_pong - last_ping;
+			ping_key = make_random<uint32_t>();
+			last_ping = time::now();
+			send_packet( opcode::ping, &ping_key, sizeof( ping_key ) );
+			return t;
+		}
 
 		// Terminates the connection.
 		//
