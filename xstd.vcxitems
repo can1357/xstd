@@ -15,9 +15,6 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="xstd.licenseheader" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\base_n.hpp" />

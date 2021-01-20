@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <None Include="xstd.licenseheader" />
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="I/O">
       <UniqueIdentifier>{e4a065b8-2bbd-4630-b894-21ee9f90bd90}</UniqueIdentifier>
     </Filter>
