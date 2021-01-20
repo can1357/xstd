@@ -143,4 +143,9 @@
       <Filter>Protocols</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
+      <Filter>Protocols</Filter>
+    </None>
+  </ItemGroup>
 </Project>

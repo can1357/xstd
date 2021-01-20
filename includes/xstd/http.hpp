@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <string_view>
 #include <unordered_map>
 #include "text.hpp"
 #include "assert.hpp"
@@ -148,7 +149,7 @@ namespace xstd::http
 	struct request_header
 	{
 		method_id method = GET;
-		std::string path = {};
+		std::string path = { '/' };
 	};
 	struct request_header_view
 	{
@@ -417,28 +418,32 @@ namespace xstd::http
 			if ( header_only )
 				return result;
 
-			// Parse the body.
+			// Skip the newline.
 			//
 			if ( !input.starts_with( XSTD_CSTR( "\r\n" ) ) )
 				return std::nullopt;
 			input.remove_prefix( 2 );
 
+			// Get content length.
+			//
+			auto clen_it = result.headers.find( XSTD_CSTR( "Content-Length" ) );
+			result.content_length = SIZE_MAX;
+			if ( clen_it != result.headers.end() )
+				result.content_length = parse_number<size_t>( clen_it->second );
+
 			// Parse the body.
 			//
 			if ( !input.empty() )
 			{
-				// Get content length.
-				//
-				auto clen_it = result.headers.find( XSTD_CSTR( "Content-Length" ) );
-				result.content_length = SIZE_MAX;
-				if ( clen_it != result.headers.end() )
-					result.content_length = parse_number<size_t>( clen_it->second );
-
-				// If chunked encoding, handle it.
+				// Handle the transfer encodings and read the body. If not fully consumed or if size does not match, will fail. 
+				// This is a oneshot decoder, for more specialized use cases user should use the underlying details.
 				//
 				if ( auto it = result.headers.find( XSTD_CSTR( "Transfer-Encoding" ) ); it != result.headers.end() && !istrcmp( it->second, XSTD_CSTR( "chunked" ) ) )
 				{
-					if ( !decode_chunked( result.body, input ) )
+					
+					if ( !decode_chunked( result.body, input ) || input.empty() )
+						return std::nullopt;
+					if ( result.content_length != SIZE_MAX && result.body.size() != result.content_length )
 						return std::nullopt;
 				}
 				else
@@ -450,6 +455,11 @@ namespace xstd::http
 						result.body.assign( input.begin(), input.end() ), input = {};
 				}
 			}
+			else if ( result.content_length != SIZE_MAX )
+			{
+				return std::nullopt;
+			}
+
 			return result;
 		}
 	};

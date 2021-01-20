@@ -57,4 +57,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zip.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp" />
+  </ItemGroup>
 </Project>
