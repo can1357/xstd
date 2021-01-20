@@ -130,11 +130,13 @@ namespace xstd::ws
 		{
 			if ( !read( ( uint16_t& ) hdr.length ) )
 				return -1;
+			hdr.length = bswap( ( uint16_t& ) hdr.length );
 		}
 		else if ( hdr.length == length_extend_u64 )
 		{
 			if ( !read( ( uint64_t& ) hdr.length ) )
 				return -1;
+			hdr.length = bswap( ( uint64_t& ) hdr.length );
 			if ( hdr.length > INT64_MAX )
 				return status_protocol_error;
 		}
@@ -175,13 +177,13 @@ namespace xstd::ws
 		{
 			net.length = length_extend_u64;
 			write( net );
-			write( ( size_t ) hdr.length );
+			write( bswap( ( size_t ) hdr.length ) );
 		}
 		else if ( hdr.length >= length_extend_u16 )
 		{
 			net.length = length_extend_u16;
 			write( net );
-			write( ( uint16_t ) hdr.length );
+			write( bswap( ( uint16_t ) hdr.length ) );
 		}
 		else
 		{
