@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <optional>
+#include "tcp.hpp"
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
@@ -10,6 +11,7 @@ namespace xstd::ws
 {
 	static constexpr uint8_t length_extend_u16 = 126;
 	static constexpr uint8_t length_extend_u64 = 127;
+	static constexpr size_t length_limit = 64_mb;
 
 	// Websocket opcodes and the traits.
 	//
@@ -193,50 +195,28 @@ namespace xstd::ws
 			write( hdr.mask_key );
 	}
 
-	// Declare the prototype of the type passed to the client defined below.
-	//
-	//struct client_prototype
-	//{
-	//	// Writes the given buffer into the TCP socket.
-	//	// - Returns true if successful.
-	//	//
-	//	bool output( std::string );
-	//
-	//	// Gets invoked when the socket is closing.
-	//	//
-	//	void on_close( status_code status, bool server_close );
-	//
-	//	// Gets invoked when a websocket packet is received.
-	//	// - Returns true if handled.
-	//	//
-	//	bool on_receive( opcode op, std::string_view data );
-	//	
-	//	// Closes the TCP socket.
-	//	//
-	//	void close_connection();
-	//};
-
 	// Define the websocket client.
 	//
-	template<typename T, size_t length_limit = 64_mb>
-	struct client
+	template<typename transport_layer>
+	struct client : transport_layer
 	{
-		// Client state.
+		// Status of the WebSocket.
 		//
-		bool terminated = false;
+		status_code status = status_unknown;
 
 		// Receive buffer and the state of the fragmentation handlers.
 		//
-		size_t rx_buffer_offset = 0;
-		std::vector<uint8_t> rx_buffer;
 		std::optional<std::pair<header, std::vector<uint8_t>>> fragmented_packet;
+
+		// Implemented by the application layer.
+		//
+		virtual bool on_receive( opcode op, std::string_view data ) = 0;
 
 		// Handles an incoming websocket packet.
 		//
-		bool accept_packet( const header& hdr, std::string_view data )
+		void handle_packet( const header& hdr, std::string_view data )
 		{
-			if ( terminated ) return false;
-			if ( hdr.op == opcode::close ) terminated = true;
+			if ( transport_layer::closed ) return;
 
 			// Handle known control frames.
 			//
@@ -244,44 +224,33 @@ namespace xstd::ws
 			{
 				// Read the status code and invoke the callback.
 				//
-				status_code status = status_unknown;
 				if ( data.size() == 2 )
 					memcpy( &status, data.data(), sizeof( status_code ) );
-				( ( T* ) this )->on_close( status, true );
-				( ( T* ) this )->close_connection();
-				return false;
+				transport_layer::socket_close();
 			}
 			else if ( hdr.op == opcode::ping )
 			{
 				// Send a pong and continue.
 				//
 				send_packet( opcode::pong, data.data(), data.size() );
-				return true;
 			}
 			else if ( hdr.op == opcode::pong )
 			{
 				// No operation.
-				return true;
 			}
 			// Call into application.
 			//
-			else if ( ( ( T* ) this )->on_receive( hdr.op, data ) )
+			else if ( !on_receive( hdr.op, data ) )
 			{
-				return true;
+				close( status_unknown_operation );
 			}
-
-			// Close due to unknown opcode.
-			//
-			close( status_unknown_operation );
-			return false;
 		}
 
 		// Sends a websocket packet.
 		//
-		bool send_packet( opcode op, any_ptr data = {}, size_t length = 0 )
+		void send_packet( opcode op, any_ptr data = {}, size_t length = 0 )
 		{
-			if ( terminated ) return false;
-			if ( op == opcode::close ) terminated = true;
+			if ( transport_layer::closed ) return;
 
 			// Create the header.
 			//
@@ -296,7 +265,7 @@ namespace xstd::ws
 			// Serialize the header into the transmit buffer.
 			//
 			std::string tx_buffer = {};
-			write( tx_buffer, hdr );
+			ws::write( tx_buffer, hdr );
 
 			// Append the data as well and mask it.
 			//
@@ -306,134 +275,118 @@ namespace xstd::ws
 			
 			// Write to the TCP socket, close connection if it was opcode close, return the status.
 			//
-			bool state = ( ( T* ) this )->output( std::move( tx_buffer ) );
-			if ( op == opcode::close ) ( ( T* ) this )->close_connection();
-			return state;
+			transport_layer::write( std::move( tx_buffer ) );
 		}
-		bool send_packet( opcode op, std::string_view str )
-		{
-			return send_packet( op, str.data(), str.size() );
-		}
+		void send_packet( opcode op, std::string_view str ) { send_packet( op, str.data(), str.size() ); }
 
 		// Terminates the connection.
 		//
-		void close( status_code status = status_unknown )
+		void close( status_code status = status_unexpected_error )
 		{
-			if ( terminated ) return;
-
-			send_packet( opcode::close, &status, status == status_unknown ? 0 : sizeof( status_code ) );
-			( ( T* ) this )->on_close( status, false ); 
-			( ( T* ) this )->close_connection();
+			if ( status != status_unknown ) return;
+			this->status = status;
+			send_packet( opcode::close, &status, status );
+			transport_layer::socket_close();
 		}
 
-		// Accepts raw input from the TCP stream.
+		// Parses packets from the TCP stream.
 		//
-		void input( any_ptr data, size_t length )
+		size_t packet_parse( std::string_view data ) override
 		{
-			if ( terminated ) return;
+			if ( transport_layer::closed ) return 0;
+			const char* it_original = data.data();
 
-			// Append to the receive buffer.
+			// Read the headers:
 			//
-			rx_buffer.insert( rx_buffer.end(), ( char* ) data, ( char* ) data + length );
-
-			// Enter the consumption buffer.
-			//
-			size_t consumed = rx_buffer_offset;
-			while ( true )
+			header hdr = {};
+			int state = read( data, hdr );
+			// Propagate error.
+			if ( state > 0 )
 			{
-				std::string_view it = { ( char* ) rx_buffer.data() + consumed, ( char* ) rx_buffer.data() + rx_buffer.size() };
-
-				// Read the headers:
-				//
-				header hdr = {};
-				int state = read( it, hdr );
-				// Propagate error.
-				if ( state > 0 )
-					return close( ( status_code ) state );
-				// Pending header, break.
-				else if ( state < 0 )
-					break;
-				// Check for the length limit.
-				else if ( hdr.length > length_limit )
-					return close( status_data_too_large );
-				// Pending body, break.
-				else if ( it.size() < hdr.length )
-					break;
-
-				// Get the data buffer and mask it if relevant.
-				//
-				std::string_view data_buffer = it.substr( 0, hdr.length );
-				mask_buffer( data_buffer.data(), data_buffer.size(), hdr.mask_key );
-				it.remove_prefix( hdr.length );
-
-				// If control frame, handle ignoring continuation state:
-				//
-				if ( hdr.is_control_frame() )
-				{
-					if ( !accept_packet( hdr, data_buffer ) )
-						return;
-				}
-				// If continuation frame:
-				//
-				else if ( hdr.op == opcode::continuation )
-				{
-					// If no unfinished packet exists, terminate due to corrupt stream.
-					//
-					if ( !fragmented_packet )
-						return close( status_protocol_error );
-
-					// Append the data onto the streamed packet.
-					//
-					fragmented_packet->second.insert(
-						fragmented_packet->second.end(),
-						data_buffer.begin(),
-						data_buffer.end()
-					);
-
-					// If packet finishes on this frame, handle the packet and reset fragmented packet.
-					//
-					if ( hdr.finished )
-					{
-						std::string_view full_data = { ( char* ) fragmented_packet->second.data(), fragmented_packet->second.size() };
-						if ( !accept_packet( fragmented_packet->first, full_data ) )
-							return;
-						fragmented_packet.reset();
-					}
-				}
-				// If fragmented packet:
-				//
-				else if ( !hdr.finished )
-				{
-					// If there is already another fragmented packet, terminate due to corrupt stream.
-					//
-					if ( fragmented_packet )
-						return close();
-					
-					// Save the fragmented packet.
-					//
-					auto& buf = fragmented_packet.emplace( std::pair{ hdr, std::vector<uint8_t>{} } ).second;
-					buf.insert( buf.end(), data_buffer.begin(), data_buffer.end() );
-				}
-				// If any other packet fitting in one frame, handle it.
-				//
-				else
-				{
-					if ( !accept_packet( hdr, data_buffer ) )
-						return;
-				}
-				
-				// Update the consumed size.
-				//
-				consumed += it.data() - ( char* ) rx_buffer.data();
+				close( ( status_code ) state );
+				return 0;
 			}
-			
-			// If we finally consumed the entire buffer, reset it, otherwise add it 
-			// to the offset. This is done to avoid unnecessarily moving data.
+			// Pending header, break.
+			else if ( state < 0 )
+				return 0;
+			// Check for the length limit.
+			else if ( hdr.length > length_limit )
+			{
+				close( status_data_too_large );
+				return 0;
+			}
+			// Pending body, break.
+			else if ( data.size() < hdr.length )
+				return 0;;
+
+			// Get the data buffer and mask it if relevant.
 			//
-			if ( rx_buffer.size() == consumed )
-				rx_buffer.clear();
+			std::string_view data_buffer = data.substr( 0, hdr.length );
+			mask_buffer( data_buffer.data(), data_buffer.size(), hdr.mask_key );
+			data.remove_prefix( hdr.length );
+
+			// If control frame, handle ignoring continuation state:
+			//
+			if ( hdr.is_control_frame() )
+			{
+				handle_packet( hdr, data_buffer );
+			}
+			// If continuation frame:
+			//
+			else if ( hdr.op == opcode::continuation )
+			{
+				// If no unfinished packet exists, terminate due to corrupt stream.
+				//
+				if ( !fragmented_packet )
+				{
+					close( status_protocol_error );
+					return 0;
+				}
+
+				// Append the data onto the streamed packet.
+				//
+				fragmented_packet->second.insert(
+					fragmented_packet->second.end(),
+					data_buffer.begin(),
+					data_buffer.end()
+				);
+
+				// If packet finishes on this frame, handle the packet and reset fragmented packet.
+				//
+				if ( hdr.finished )
+				{
+					std::string_view full_data = { ( char* ) fragmented_packet->second.data(), fragmented_packet->second.size() };
+					handle_packet( fragmented_packet->first, full_data );
+					fragmented_packet.reset();
+				}
+			}
+			// If fragmented packet:
+			//
+			else if ( !hdr.finished )
+			{
+				// If there is already another fragmented packet, terminate due to corrupt stream.
+				//
+				if ( fragmented_packet )
+				{
+					close( status_protocol_error );
+					return 0;
+				}
+
+				// Save the fragmented packet.
+				//
+				auto& buf = fragmented_packet.emplace( std::pair{ hdr, std::vector<uint8_t>{} } ).second;
+				buf.insert( buf.end(), data_buffer.begin(), data_buffer.end() );
+			}
+			// If any other packet fitting in one frame, handle it.
+			//
 			else
-				rx_buffer_offset = consumed;
+			{
+				handle_packet( hdr, data_buffer );
+			}
+
+			// Return the consumed size.
+			//
+			return data.data() - it_original;
 		}
 
 		// Close the stream on destruction.

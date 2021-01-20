@@ -51,6 +51,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\static_warning.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\strong_formatting.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\text.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\time.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp" />
