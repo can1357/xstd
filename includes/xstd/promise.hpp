@@ -101,6 +101,7 @@ namespace xstd
 
 		// Resulting value or the exception, constant after flag is set.
 		//
+		std::atomic<bool> value_set_flag = false;
 		std::atomic<bool> value_flag = false;
 		std::optional<store_type> value;
 
@@ -147,9 +148,10 @@ namespace xstd
 		template<typename... Tx>
 		void resolve( Tx&&... result )
 		{
-			// Make sure the value is not set.
+			// Ignore if value is already decided.
 			//
-			fassert( !value.has_value() );
+			if ( value_set_flag.exchange( true ) )
+				return;
 
 			// Emplace the value and set the flag.
 			//
@@ -171,9 +173,10 @@ namespace xstd
 		}
 		void reject( std::exception ex )
 		{
-			// Make sure the value is not set.
+			// Ignore if value is already decided.
 			//
-			fassert( !value.has_value() );
+			if ( value_set_flag.exchange( true ) )
+				return;
 
 			// Emplace the exception and set the flag.
 			//

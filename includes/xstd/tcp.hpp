@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include "type_helpers.hpp"
+#include "promise.hpp"
 
 namespace xstd::tcp
 {
@@ -10,7 +11,7 @@ namespace xstd::tcp
 	{
 		// Socket state.
 		//
-		bool closed = false;
+		bool closed = true;
 
 		// Receive buffer.
 		//
@@ -30,10 +31,6 @@ namespace xstd::tcp
 		//
 		virtual size_t packet_parse( std::string_view data ) = 0;
 
-		// Implemented by application, gets called when the socket is closed by server.
-		//
-		virtual void on_close() = 0;
-
 		// Implemented by network layer, tries to send the data given over the socket, returns 
 		// non-zero size if data is (partially?) sent, else returns zero indicating error.
 		//
@@ -47,24 +44,13 @@ namespace xstd::tcp
 		//
 		virtual void socket_close() = 0;
 
-		// Invoked by application to write data to the socket.
+		// Implemented by network layer, starts the connection.
 		//
-		void write( std::string data )
-		{
-			if ( closed ) return;
-
-			// Append the data onto tx queue.
-			//
-			tx_queue.emplace_back( std::move( data ), 0 );
-
-			// Invoke socket timer to exhaust the queue.
-			//
-			on_socket_tmr();
-		}
+		virtual promise<> socket_connect( const char* hostname, uint16_t port ) = 0;
 
 		// Invoked by network layer to do periodic operations.
 		//
-		void on_socket_tmr()
+		virtual void on_timer()
 		{
 			if ( closed ) return;
 
@@ -94,6 +80,28 @@ namespace xstd::tcp
 			}
 		}
 
+		// Invoked by application to write data to the socket.
+		//
+		void write( std::string data )
+		{
+			if ( closed ) return;
+
+			// Append the data onto tx queue.
+			//
+			tx_queue.emplace_back( std::move( data ), 0 );
+
+			// Invoke socket timer to exhaust the queue.
+			//
+			client::on_timer();
+		}
+
+		// Invoked by network layer to indicate a connection was started.
+		//
+		void on_socket_connect()
+		{
+			closed = false;
+		}
+
 		// Invoked by network layer to indicate the target acknowledged a number of bytes from our output queue.
 		//
 		void on_socket_ack( size_t n )
@@ -117,13 +125,13 @@ namespace xstd::tcp
 		{
 			// Reset the buffers and invoke application layer callback if first time.
 			//
-			tx_queue = {};
-			rx_buffer = {};
+			tx_queue.clear();
+			ack_queue.clear();
+			rx_buffer.clear();
 			rx_buffer_offset = 0;
 			last_tx_id = 0;
 			last_ack_id = 0;
-			if ( !std::exchange( closed, true ) )
-				on_close();
+			closed = true;
 		}
 
 		// Invoked by network layer to indicate the socket received data.

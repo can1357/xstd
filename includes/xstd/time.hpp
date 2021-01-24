@@ -20,7 +20,6 @@
 namespace xstd
 {
 	using namespace std::literals::chrono_literals;
-
 	namespace time
 	{
 		// Declare basic units.
