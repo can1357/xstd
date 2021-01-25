@@ -175,27 +175,47 @@ namespace xstd
 	template<Iterable C> static constexpr auto mode( C&& c ) { return mode( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static constexpr auto variance( C&& c ) { return variance( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static auto stdev( C&& c ) { return stdev( std::begin( c ), std::end( c ) ); }
-	template<Iterable C> static auto sorted_clone( C&& c ) { return sorted_clone( std::begin( c ), std::end( c ) ); }
+	
+	template<Iterable C> requires ( !std::is_array_v<std::remove_cvref_t<C>> && !is_std_array_v<std::remove_cvref_t<C>> )
+	static auto sorted_clone( C&& c ) 
+	{ 
+		return sorted_clone( std::begin( c ), std::end( c ) ); 
+	}
+	template<typename T, size_t N>
+	static auto sorted_clone( T( &arr )[ N ] )
+	{
+		std::array<T, N> clone;
+		std::copy( arr, arr + N, clone.begin() );
+		std::sort( clone.begin(), clone.end() );
+		return clone;
+	}
+	template<typename T, size_t N>
+	static auto sorted_clone( const std::array<T, N>& arr )
+	{
+		std::array<T, N> clone = arr;
+		std::sort( clone.begin(), clone.end() );
+		return clone;
+	}
 
 	// Formats statistics about the given container:
 	//
 	namespace fmt
 	{
 		template<Iterable C>
-		inline std::string stats( C&& c )
+		inline std::string stats_sorted( C&& c )
 		{
-			std::vector vec = sorted_clone( std::forward<C>( c ) );
 			return str(
 				XSTD_CSTR( "{'%.2f, [%.2f], %.2f, [%.2f], %.2f' | E(x)=%.2f | var(x)=%.2f | mode(x)=%.2f}" ),
-				percentile<double>( vec, 0 ),
-				percentile<double>( vec, 0.25 ),
-				percentile<double>( vec, 0.5 ),
-				percentile<double>( vec, 0.75 ),
-				percentile<double>( vec, 1.0 ),
-				mean<double>( vec ),
-				variance( vec ),
-				( double ) mode( vec )
+				percentile<double>( c, 0 ),
+				percentile<double>( c, 0.25 ),
+				percentile<double>( c, 0.5 ),
+				percentile<double>( c, 0.75 ),
+				percentile<double>( c, 1.0 ),
+				mean<double>( c ),
+				variance( c ),
+				( double ) mode( c )
 			);
 		}
+		template<Iterable C> inline std::string stats( C&& c ) { return stats_sorted( sorted_clone( std::forward<C>( c ) ) ); }
 	};
 };
