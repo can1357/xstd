@@ -193,7 +193,7 @@ namespace xstd
 				percentile<double>( vec, 0.75 ),
 				percentile<double>( vec, 1.0 ),
 				mean<double>( vec ),
-				variance<double>( vec ),
+				variance( vec ),
 				( double ) mode( vec )
 			);
 		}
