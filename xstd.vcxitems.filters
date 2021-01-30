@@ -19,6 +19,12 @@
     <Filter Include="Types">
       <UniqueIdentifier>{47bd5405-b504-4d21-8120-06c21d432948}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Image">
+      <UniqueIdentifier>{62a685cc-cae9-4d3c-bda8-52ad2be215a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Network">
+      <UniqueIdentifier>{f9587024-8ecd-4557-a8de-49321b5bb1e8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp">
@@ -139,19 +145,25 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\http.hpp">
-      <Filter>Protocols</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp">
-      <Filter>Protocols</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\statistics.hpp">
       <Filter>Numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\http.hpp">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bmp.hpp">
+      <Filter>Image</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\color.hpp">
+      <Filter>Image</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
-      <Filter>Protocols</Filter>
+      <Filter>Network</Filter>
     </None>
   </ItemGroup>
 </Project>
