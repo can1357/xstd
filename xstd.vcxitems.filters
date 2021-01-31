@@ -160,6 +160,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\color.hpp">
       <Filter>Image</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\image_view.hpp">
+      <Filter>Image</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

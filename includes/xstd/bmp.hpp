@@ -5,6 +5,7 @@
 #include "serialization.hpp"
 #include "result.hpp"
 #include "narrow_cast.hpp"
+#include "image_view.hpp"
 
 namespace xstd
 {
@@ -55,15 +56,16 @@ namespace xstd
 
 	// Intermediate representation.
 	//
-	template<bool _alpha = false, bool _top_down = true>
+	template<bool bbp32 = false, bool store_top_down = true>
 	struct bmp_image
 	{
 		// Characteristics of the storage format.
 		//
-		static constexpr bool alpha =    _alpha;
-		static constexpr bool top_down = _top_down;
-		using element_type =             typename std::conditional_t<alpha, argb_t, rgb_t>;
-
+		static constexpr image_orientation orientation = store_top_down ? image_orientation::top_down : image_orientation::bottom_up;
+		static constexpr color_model       element_color_model = bbp32 ? color_model::xrgb : color_model::rgb;
+		using element_type = color<element_color_model>;
+		using view_type =    basic_image_view<element_color_model, orientation>;
+		
 		// The dimensions and the image itself.
 		//
 		size_t width = 0;
@@ -87,46 +89,20 @@ namespace xstd
 		
 		// Bitmap constructed from data source.
 		//
-		template<typename It>
-		bmp_image( size_t width, size_t height, const It& begin, bool reverse = false ) : width( width ), height( height )
+		template<color_model C, image_orientation O2>
+		bmp_image( const basic_image_view<C, O2>& view ) : width( view.width() ), height( view.height() )
 		{
-			size_t length = width * height;
-			auto end = std::next( begin, length );
-			
-			if ( reverse )
-			{
-				data.resize( length );
-				
-				size_t offset = 0;
-				auto it = end;
-				while ( it != begin )
-				{
-					it = std::prev( it, width );
-					std::copy_n( it, width, data.data() + offset );
-					offset += width;
-				}
-			}
-			else
-			{
-				data.assign( begin, end );
-			}
+			data.resize( view.width() * view.height() );
+			view.copy_to( to_view() );
 		}
+
+		// Creates a view.
+		//
+		view_type to_view() const { return view_type{ ( element_type* ) data.data(), width, height }; }
 
 		// Indexing of the pixels.
 		//
-		element_type& at( size_t x, size_t y )
-		{
-			if constexpr ( top_down )
-			{
-				size_t off = x + ( y * width );
-				return data[ off ];
-			}
-			else
-			{
-				size_t off = x + ( ( height - ( y + 1 ) ) * width );
-				return data[ off ];
-			}
-		}
+		element_type& at( size_t x, size_t y ) { return *address_pixel<orientation>( data, width, height, x, y ); }
 		const element_type& at( size_t x, size_t y ) const
 		{
 			return ( const_cast< bmp_image* >( this ) )->at( x, y );
@@ -168,8 +144,8 @@ namespace xstd
 
 			// Validate the size and read the image.
 			//
-			bool top_down_s = header->dib.height < 0;
-			size_t line_count = top_down_s ? -header->dib.height : header->dib.height;
+			bool top_down = header->dib.height < 0;
+			size_t line_count = top_down ? -header->dib.height : header->dib.height;
 			size_t stream_size = header->dib.width * line_count * (header->dib.bits_per_pixel / 8);
 			if ( ( header->offset_image + stream_size ) > header->file_size )
 				return false;
@@ -178,11 +154,23 @@ namespace xstd
 			//
 			switch ( header->dib.bits_per_pixel )
 			{
-				case 24: return bmp_image( header->dib.width, line_count, ( const rgb_t* ) begin, top_down != top_down_s );
-				case 32: return bmp_image( header->dib.width, line_count, ( const argb_t* ) begin, top_down != top_down_s );
-				default: unreachable();
+				case 24: 
+				{
+					if ( top_down )
+						return bmp_image( basic_image_view<color_model::rgb, image_orientation::top_down>{ ( rgb_t* ) begin, header->dib.width, line_count } );
+					else
+						return bmp_image( basic_image_view<color_model::rgb, image_orientation::bottom_up>{ ( rgb_t* ) begin, header->dib.width, line_count } );
+				}
+				case 32: 
+				{
+					if ( top_down )
+						return bmp_image( basic_image_view<color_model::argb, image_orientation::top_down>{ ( argb_t* ) begin, header->dib.width, line_count } );
+					else
+						return bmp_image( basic_image_view<color_model::argb, image_orientation::bottom_up>{ ( argb_t* ) begin, header->dib.width, line_count } );
+				}
+				default: 
+					unreachable();
 			}
-			return res;
 		}
 		static bmp_image deserialize( serialization& ss )
 		{
@@ -215,7 +203,7 @@ namespace xstd
 			//
 			hdr->dib.header_size = sizeof( dib_header_t );
 			hdr->dib.width = narrow_cast<int32_t>(width);
-			hdr->dib.height = top_down ? -narrow_cast<int32_t>(height) : narrow_cast<int32_t>(height);
+			hdr->dib.height = store_top_down ? -narrow_cast<int32_t>(height) : narrow_cast<int32_t>(height);
 			hdr->dib.planes = 1;
 			hdr->dib.bits_per_pixel = sizeof( element_type ) * 8;
 			hdr->dib.compression = 0;

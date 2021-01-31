@@ -123,36 +123,36 @@ namespace xstd
 	// Conversion to ARGB.
 	//
 	template<color_model M>
-	inline constexpr argb_t to_argb( const color<M>& src );
+	static constexpr argb_t to_argb( const color<M>& src );
 
 	template<>
-	inline constexpr argb_t to_argb<color_model::monochrome>( const monochrome_t& src )
+	FORCE_INLINE constexpr argb_t to_argb<color_model::monochrome>( const monochrome_t& src )
 	{
 		uint8_t x = src.white ? 255 : 0;
 		return { x, x, x, 255 };
 	}
 	template<>
-	inline constexpr argb_t to_argb<color_model::grayscale>( const grayscale_t& src )
+	FORCE_INLINE constexpr argb_t to_argb<color_model::grayscale>( const grayscale_t& src )
 	{
 		return { src.lightness, src.lightness, src.lightness, 255 };
 	}
 	template<>
-	inline constexpr argb_t to_argb<color_model::rgb>( const rgb_t& src )
+	FORCE_INLINE constexpr argb_t to_argb<color_model::rgb>( const rgb_t& src )
 	{
 		return { src.b, src.g, src.r, 255 };
 	}
 	template<>
-	inline constexpr argb_t to_argb<color_model::argb>( const argb_t& src )
+	FORCE_INLINE constexpr argb_t to_argb<color_model::argb>( const argb_t& src )
 	{
 		return src;
 	}
 	template<>
-	inline constexpr argb_t to_argb<color_model::xrgb>( const xrgb_t& src )
+	FORCE_INLINE constexpr argb_t to_argb<color_model::xrgb>( const xrgb_t& src )
 	{
 		return std::bit_cast<argb_t>( src );
 	}
 	template<>
-	inline constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
+	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
 	{
 		if ( !std::is_constant_evaluated() )
 		{
@@ -169,7 +169,7 @@ namespace xstd
 		unreachable();
 	}
 	template<>
-	inline constexpr argb_t to_argb<color_model::hsv>( const hsv_t& src )
+	FORCE_INLINE constexpr argb_t to_argb<color_model::hsv>( const hsv_t& src )
 	{
 		return to_argb<color_model::ahsv>( { src.h, src.s, src.v, 1.0 } );
 	}
@@ -177,37 +177,37 @@ namespace xstd
 	// Conversion from ARGB.
 	//
 	template<color_model M>
-	inline constexpr color<M> from_argb( const argb_t& src );
+	static constexpr color<M> from_argb( const argb_t& src );
 
 	template<>
-	inline constexpr monochrome_t from_argb<color_model::monochrome>( const argb_t& src )
+	FORCE_INLINE constexpr monochrome_t from_argb<color_model::monochrome>( const argb_t& src )
 	{
 		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
 		return { x >= 128 };
 	}
 	template<>
-	inline constexpr grayscale_t from_argb<color_model::grayscale>( const argb_t& src )
+	FORCE_INLINE constexpr grayscale_t from_argb<color_model::grayscale>( const argb_t& src )
 	{
 		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
 		return { x };
 	}
 	template<>
-	inline constexpr rgb_t from_argb<color_model::rgb>( const argb_t& src )
+	FORCE_INLINE constexpr rgb_t from_argb<color_model::rgb>( const argb_t& src )
 	{
 		return { src.b, src.g, src.r };
 	}
 	template<>
-	inline constexpr argb_t from_argb<color_model::argb>( const argb_t& src )
+	FORCE_INLINE constexpr argb_t from_argb<color_model::argb>( const argb_t& src )
 	{
 		return src;
 	}
 	template<>
-	inline constexpr xrgb_t from_argb<color_model::xrgb>( const argb_t& src )
+	FORCE_INLINE constexpr xrgb_t from_argb<color_model::xrgb>( const argb_t& src )
 	{
 		return std::bit_cast<xrgb_t>( src );
 	}
 	template<>
-	inline constexpr ahsv_t from_argb<color_model::ahsv>( const argb_t& src )
+	constexpr ahsv_t from_argb<color_model::ahsv>( const argb_t& src )
 	{
 		constexpr float sqrt3 = 1.732050807570f;
 
@@ -230,7 +230,7 @@ namespace xstd
 		unreachable();
 	}
 	template<>
-	inline constexpr hsv_t from_argb<color_model::hsv>( const argb_t& src )
+	FORCE_INLINE constexpr hsv_t from_argb<color_model::hsv>( const argb_t& src )
 	{
 		ahsv_t v = from_argb<color_model::ahsv>( src );
 		return { v.h, v.s, v.v };
@@ -239,5 +239,5 @@ namespace xstd
 	// Declare conversions between color models.
 	//
 	template<color_model dst, color_model src>
-	inline constexpr color<dst> cast_color( const color<src>& s ) { return from_argb<dst>( to_argb<src>( s ) ); }
+	FORCE_INLINE static constexpr color<dst> cast_color( const color<src>& s ) { return from_argb<dst>( to_argb<src>( s ) ); }
 };
