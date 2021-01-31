@@ -40,7 +40,6 @@ namespace xstd
 		static inline bool is_success( const std::string& v ) { return v.empty(); }
 	};
 
-
 	// Declares a light-weight object wrapping a result type with a status code.
 	//
 	template <typename Value, typename Status>

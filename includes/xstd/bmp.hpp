@@ -87,22 +87,23 @@ namespace xstd
 		
 		// Bitmap constructed from data source.
 		//
-		template<typename It1>
-		bmp_image( size_t width, size_t height, It1&& begin, bool reverse = false ) : width( width ), height( height )
+		template<typename It>
+		bmp_image( size_t width, size_t height, const It& begin, bool reverse = false ) : width( width ), height( height )
 		{
 			size_t length = width * height;
 			auto end = std::next( begin, length );
 			
 			if ( reverse )
 			{
-				data.reserve( length );
+				data.resize( length );
 				
+				size_t offset = 0;
 				auto it = end;
 				while ( it != begin )
 				{
-					auto it2 = std::prev( it, width );
-					data.insert( data.end(), it2, it );
-					it = std::move( it2 );
+					it = std::prev( it, width );
+					std::copy_n( it, width, data.data() + offset );
+					offset += width;
 				}
 			}
 			else
@@ -196,8 +197,12 @@ namespace xstd
 		//
 		std::vector<uint8_t> serialize() const
 		{
-			std::vector<uint8_t> out( sizeof( bmp_header_t ) + data.size() * sizeof( element_type ) );
-			
+			// Calculate and reserve the memory for output.
+			//
+			std::vector<uint8_t> out;
+			size_t raw_img_size = data.size() * sizeof( element_type );
+			out.resize( sizeof( bmp_header_t ) + raw_img_size );
+
 			// Write the base BMP header.
 			//
 			bmp_header_t* hdr = ( bmp_header_t* ) out.data();
@@ -208,20 +213,19 @@ namespace xstd
 			
 			// Write the DIB header.
 			//
-			auto* dib = &hdr->dib;
-			dib->header_size = sizeof( dib_header_t );
-			dib->width = narrow_cast<int32_t>(width);
-			dib->height = top_down ? -narrow_cast<int32_t>(height) : narrow_cast<int32_t>(height);
-			dib->planes = 1;
-			dib->bits_per_pixel = sizeof( element_type ) * 8;
-			dib->compression = 0;
-			dib->size_image = data.size() * sizeof( element_type );
-			dib->len_color_table = 0;
-			dib->num_color_table_important = 0;
+			hdr->dib.header_size = sizeof( dib_header_t );
+			hdr->dib.width = narrow_cast<int32_t>(width);
+			hdr->dib.height = top_down ? -narrow_cast<int32_t>(height) : narrow_cast<int32_t>(height);
+			hdr->dib.planes = 1;
+			hdr->dib.bits_per_pixel = sizeof( element_type ) * 8;
+			hdr->dib.compression = 0;
+			hdr->dib.size_image = raw_img_size;
+			hdr->dib.len_color_table = 0;
+			hdr->dib.num_color_table_important = 0;
 
 			// Write the image itself.
 			//
-			memcpy( dib + 1, data.data(), data.size() * sizeof( element_type ) );
+			memcpy( hdr + 1, data.data(), raw_img_size );
 			return out;
 		}
 		void serialize( serialization& ss ) const
