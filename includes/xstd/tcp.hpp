@@ -8,6 +8,7 @@
 
 namespace xstd::tcp
 {
+	template<bool has_ack = true>
 	struct client
 	{
 		// Socket state.
@@ -49,6 +50,10 @@ namespace xstd::tcp
 		//
 		virtual promise<> socket_connect( const std::array<uint8_t, 4>& ip, uint16_t port ) = 0;
 
+		// Enables or disables the nagle's algorithm.
+		//
+		virtual bool socket_set_nagle( bool state ) { return false; }
+
 		// Invoked by network layer to do periodic operations.
 		//
 		virtual void on_timer()
@@ -76,7 +81,8 @@ namespace xstd::tcp
 
 				// Move the data over to the acknowledgment queue and erase it from the current queue.
 				//
-				ack_queue.emplace_back( std::move( buffer ), last_tx_id );
+				if constexpr ( has_ack )
+					ack_queue.emplace_back( std::move( buffer ), last_tx_id );
 				it = tx_queue.erase( it );
 			}
 		}
