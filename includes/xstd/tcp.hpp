@@ -1,6 +1,7 @@
 #pragma once
 #include <list>
 #include <string>
+#include <array>
 #include <string_view>
 #include "type_helpers.hpp"
 #include "promise.hpp"
@@ -46,7 +47,7 @@ namespace xstd::tcp
 
 		// Implemented by network layer, starts the connection.
 		//
-		virtual promise<> socket_connect( const char* hostname, uint16_t port ) = 0;
+		virtual promise<> socket_connect( const std::array<uint8_t, 4>& ip, uint16_t port ) = 0;
 
 		// Invoked by network layer to do periodic operations.
 		//
