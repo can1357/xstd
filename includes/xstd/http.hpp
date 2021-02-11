@@ -427,14 +427,17 @@ namespace xstd::http
 			// Get content length.
 			//
 			auto clen_it = result.headers.find( XSTD_CSTR( "Content-Length" ) );
-			result.content_length = SIZE_MAX;
+			result.content_length = 0;
 			if ( clen_it != result.headers.end() )
 				result.content_length = parse_number<size_t>( clen_it->second );
 
 			// Parse the body.
 			//
-			if ( !input.empty() )
+			if ( result.content_length )
 			{
+				if ( input.empty() )
+					return std::nullopt;
+
 				// Handle the transfer encodings and read the body. If not fully consumed or if size does not match, will fail. 
 				// This is a oneshot decoder, for more specialized use cases user should use the underlying details.
 				//
@@ -443,23 +446,18 @@ namespace xstd::http
 					
 					if ( !decode_chunked( result.body, input ) || input.empty() )
 						return std::nullopt;
-					if ( result.content_length != SIZE_MAX && result.body.size() != result.content_length )
+					if ( result.body.size() != result.content_length )
 						return std::nullopt;
 				}
 				else
 				{
 
-					if ( result.content_length != SIZE_MAX )
+					if ( result.content_length > input.size() )
 						result.body.assign( input.begin(), input.begin() + result.content_length ), input.remove_prefix( result.content_length );
 					else
-						result.body.assign( input.begin(), input.end() ), input = {};
+						return std::nullopt;
 				}
 			}
-			else if ( result.content_length != SIZE_MAX )
-			{
-				return std::nullopt;
-			}
-
 			return result;
 		}
 	};
