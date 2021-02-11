@@ -345,7 +345,6 @@ namespace xstd
 	template<console_color color = CON_DEF, typename... Tx> FORCE_INLINE static int inspect( Tx... ) { return 0; }
 #endif
 
-
 	// Prints a warning message.
 	//
 	template<typename... params>
