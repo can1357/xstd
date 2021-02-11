@@ -325,7 +325,7 @@ namespace xstd
 
 	// Logs the object given as is instead of using any other formatting specifier.
 	//
-	template<typename... Tx>
+	template<typename... Tx> requires ( sizeof...( Tx ) != 0 )
 	static int inspect( console_color color, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
