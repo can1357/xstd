@@ -269,7 +269,7 @@ namespace xstd::ws
 
 		// Sends a websocket packet.
 		//
-		void send_packet( opcode op, any_ptr data = {}, size_t length = 0 )
+		void send_packet( opcode op, any_ptr data, size_t length )
 		{
 			if ( transport_layer::closed ) return;
 
@@ -298,7 +298,7 @@ namespace xstd::ws
 			//
 			transport_layer::write( std::move( tx_buffer ) );
 		}
-		void send_packet( opcode op, std::string_view str ) { send_packet( op, str.data(), str.size() ); }
+		void send_packet( opcode op, std::string_view str = {} ) { send_packet( op, str.data(), str.size() ); }
 
 		// Ping-pong helper, returns latest measured latency or zero.
 		//

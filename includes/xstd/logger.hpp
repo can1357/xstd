@@ -56,7 +56,7 @@
 	#if XSTD_CON_ERROR_NOMSG
 		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ();
 	#else
-		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ( const std::string& );
+		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ( const char* );
 	#endif
 #endif
 
@@ -387,7 +387,15 @@ namespace xstd
 	#if XSTD_CON_ERROR_NOMSG
 		XSTD_CON_ERROR_REDIRECT();
 	#else
-		XSTD_CON_ERROR_REDIRECT( fmt::str( fmt_str, std::forward<params>( ps )... ) );
+		if constexpr ( sizeof...( ps ) )
+		{
+			std::string buffer = fmt::str( fmt_str, std::forward<params>( ps )... );
+			XSTD_CON_ERROR_REDIRECT( buffer.c_str() );
+		}
+		else
+		{
+			XSTD_CON_ERROR_REDIRECT( fmt_str );
+		}
 	#endif
 #else
 		// Format error message.
