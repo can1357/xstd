@@ -36,6 +36,7 @@ namespace xstd::ws
 	//
 	enum status_code : uint16_t
 	{
+		status_none =              0,
 		status_shutdown =          1000,
 		status_going_away =        1001,
 		status_protocol_error =    1002,
@@ -211,7 +212,7 @@ namespace xstd::ws
 	{
 		// Status of the WebSocket.
 		//
-		status_code status = status_unknown;
+		status_code status = status_none;
 
 		// Status of our ping-pong requests.
 		//
@@ -239,8 +240,8 @@ namespace xstd::ws
 			{
 				// Read the status code and invoke the callback.
 				//
-				if ( data.size() == 2 )
-					memcpy( &status, data.data(), sizeof( status_code ) );
+				if ( data.size() >= 2 )
+					status = bswap( *( status_code* ) data.data() );
 				else
 					status = status_shutdown;
 				transport_layer::socket_close();
@@ -317,9 +318,12 @@ namespace xstd::ws
 		//
 		void close( status_code status = status_shutdown )
 		{
-			if ( this->status != status_unknown ) return;
+			if ( this->status != status_none ) return;
+			if ( status == status_none ) status = status_shutdown;
+			
 			this->status = status;
-			send_packet( opcode::close, &status, sizeof( status ) );
+			status_code sstatus = bswap( status );
+			send_packet( opcode::close, &sstatus, sizeof( sstatus ) );
 			transport_layer::socket_writeback();
 			transport_layer::socket_close();
 		}
