@@ -241,6 +241,8 @@ namespace xstd::ws
 				//
 				if ( data.size() == 2 )
 					memcpy( &status, data.data(), sizeof( status_code ) );
+				else
+					status = status_shutdown;
 				transport_layer::socket_close();
 			}
 			else if ( hdr.op == opcode::ping )
@@ -313,11 +315,12 @@ namespace xstd::ws
 
 		// Terminates the connection.
 		//
-		void close( status_code status = status_unexpected_error )
+		void close( status_code status = status_shutdown )
 		{
-			if ( status != status_unknown ) return;
+			if ( this->status != status_unknown ) return;
 			this->status = status;
-			send_packet( opcode::close, &status, status );
+			send_packet( opcode::close, &status, sizeof( status ) );
+			transport_layer::socket_writeback();
 			transport_layer::socket_close();
 		}
 
@@ -423,6 +426,6 @@ namespace xstd::ws
 
 		// Close the stream on destruction.
 		//
-		~client() { close( status_going_away ); }
+		~client() { close(); }
 	};
 };
