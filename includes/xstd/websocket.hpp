@@ -256,7 +256,7 @@ namespace xstd::ws
 			{
 				// No operation, just update the timer if same key.
 				//
-				if ( ping_key && data.size() == 4 && ping_key == *( uint32_t* ) data.data() )
+				if ( last_ping > last_pong && ping_key && data.size() == 4 && ping_key == *( uint32_t* ) data.data() )
 				{
 					last_pong = time::now();
 					ping_key = 0;
@@ -308,7 +308,7 @@ namespace xstd::ws
 		timeunit_t ping()
 		{
 			auto t = last_pong - last_ping;
-			ping_key = make_random<uint32_t>();
+			ping_key = make_random<uint32_t>( 1 );
 			last_ping = time::now();
 			send_packet( opcode::ping, &ping_key, sizeof( ping_key ) );
 			return t;
