@@ -237,7 +237,35 @@ namespace xstd
 	}
 };
 
+// Hex decoding string literal.
+//
+#ifdef __INTELLISENSE__
+constexpr std::array<uint8_t, 1> operator""_hex( const char* str, size_t n ) { return { 0 }; }
+#elif !GNU_COMPILER
+std::array<uint8_t, 1> operator""_hex( const char* str, size_t n );
+#else
+template<typename T, T... chars>
+constexpr auto operator""_hex()
+{
+	constexpr char str[] = { char(chars)... };
+	static_assert( !( sizeof...( chars ) & 1 ), "Invalid hex digest." );
 
+	constexpr auto read_digit = [ ] ( char c ) -> uint8_t
+	{
+		if ( c >= 'a' ) return 10 + ( c - 'a' );
+		if ( c >= 'A' ) return 10 + ( c - 'A' );
+		return c - '0';
+	};
+
+	std::array<uint8_t, sizeof( str ) / 2> result = {};
+	for ( size_t n = 0; n != result.size(); n++ )
+		result[ n ] = ( read_digit( str[ n * 2 ] ) << 4 ) | read_digit( str[ 1 + n * 2 ] );
+	return result;
+}
+#endif
+
+// Hash literals.
+//
 #ifdef __INTELLISENSE__
 	#define MAKE_HASHER( op, fn )                                         \
 	constexpr xstd::hash_t operator"" op( const char* str, size_t n );    \
