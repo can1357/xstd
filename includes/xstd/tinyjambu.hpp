@@ -238,17 +238,17 @@ namespace xstd
 		// Primitives.
 		//
 		template<typename T, typename... Tx>
-		FORCE_INLINE constexpr tinyjambu& associate( const T& data, const Tx&... rest )
+		FORCE_INLINE constexpr tinyjambu& associate( const T* data, const Tx*... rest )
 		{
 			if ( !std::is_constant_evaluated() )
 			{
 				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
-				associate( ( const E* ) &data, sizeof( T ) / sizeof( E ) );
+				associate( ( const E* ) data, sizeof( T ) / sizeof( E ) );
 			}
 			else
 			{
 				using A = std::array<uint8_t, sizeof( T )>;
-				A value = bit_cast<A>( data );
+				A value = bit_cast<A>( *data );
 				associate( value.data(), value.size() );
 			}
 			if constexpr ( sizeof...( Tx ) )
