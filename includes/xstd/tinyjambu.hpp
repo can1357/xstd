@@ -139,7 +139,6 @@ namespace xstd
 						io += sizeof( unit_type );
 						count -= sizeof( unit_type );
 					}
-					if ( !count ) return *this;
 				}
 
 				// Until we reach the end:
