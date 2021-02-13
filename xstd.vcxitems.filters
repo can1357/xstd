@@ -10,9 +10,6 @@
     <Filter Include="Numeric">
       <UniqueIdentifier>{d2c97606-7bf3-4c20-9d7b-675b7c25e27d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Protocols">
-      <UniqueIdentifier>{7640bd5f-c9d0-483e-b222-82ae1a8d35f0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Ranges">
       <UniqueIdentifier>{16e6d8ed-60e2-4e49-9445-aa6de7892f3f}</UniqueIdentifier>
     </Filter>
@@ -24,6 +21,9 @@
     </Filter>
     <Filter Include="Network">
       <UniqueIdentifier>{f9587024-8ecd-4557-a8de-49321b5bb1e8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithms">
+      <UniqueIdentifier>{7640bd5f-c9d0-483e-b222-82ae1a8d35f0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -124,13 +124,13 @@
       <Filter>Misc</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\gzip.hpp">
-      <Filter>Protocols</Filter>
+      <Filter>Algorithms</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp">
       <Filter>Ranges</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\base_n.hpp">
-      <Filter>Protocols</Filter>
+      <Filter>Algorithms</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp">
       <Filter>Misc</Filter>
@@ -139,7 +139,7 @@
       <Filter>Ranges</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\leb128.hpp">
-      <Filter>Protocols</Filter>
+      <Filter>Algorithms</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
@@ -164,7 +164,7 @@
       <Filter>Image</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp">
-      <Filter>Protocols</Filter>
+      <Filter>Algorithms</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

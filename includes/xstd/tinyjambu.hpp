@@ -3,7 +3,7 @@
 #include <array>
 #include <numeric>
 
-namespace xstd::crypto
+namespace xstd
 {
 	// TinyJAMBU implementation, one-time use state.
 	// - N is key size in bits.
@@ -11,8 +11,8 @@ namespace xstd::crypto
 	template<size_t N>
 	struct tinyjambu
 	{
-		using unit_t = uint32_t;
-		static constexpr size_t unit_bits = sizeof( unit_t ) * 8;
+		using unit_type = uint32_t;
+		static constexpr size_t unit_bits = sizeof( unit_type ) * 8;
 		static_assert( ( N % unit_bits ) == 0, "Key size must be divisible by the unit size." );
 
 		// Types.
@@ -21,18 +21,18 @@ namespace xstd::crypto
 		static constexpr size_t key_size = N / unit_bits;
 		static constexpr size_t tag_size = 64 / unit_bits;
 		static constexpr size_t state_size = 128 / unit_bits;
-		using iv_type = std::array<unit_t, iv_size>;
-		using key_type = std::array<unit_t, key_size>;
-		using tag_type = std::array<unit_t, tag_size>;
-		using state_type = std::array<unit_t, state_size>;
+		using iv_type = std::array<unit_type, iv_size>;
+		using key_type = std::array<unit_type, key_size>;
+		using tag_type = std::array<unit_type, tag_size>;
+		using state_type = std::array<unit_type, state_size>;
 
 		// Frame bits.
 		//
-		static constexpr unit_t framebits_init = 0x00;
-		static constexpr unit_t framebits_iv = 0x10;
-		static constexpr unit_t framebits_ad = 0x30;
-		static constexpr unit_t framebits_pc = 0x50;
-		static constexpr unit_t framebits_fin = 0x70;
+		static constexpr unit_type framebits_in = 0x00;
+		static constexpr unit_type framebits_iv = 0x10;
+		static constexpr unit_type framebits_ad = 0x30;
+		static constexpr unit_type framebits_pc = 0x50;
+		static constexpr unit_type framebits_fi = 0x70;
 	
 		// Constants.
 		//
@@ -55,7 +55,7 @@ namespace xstd::crypto
 
 		// Update helpers.
 		//
-		FORCE_INLINE constexpr unit_t update_single( size_t rounds, unit_t framebits, unit_t data_in = 0, bool reverse = false, unit_t mask = std::numeric_limits<unit_t>::max() )
+		FORCE_INLINE constexpr unit_type update_single( size_t rounds, unit_type framebits, unit_type data_in = 0, bool reverse = false, unit_type mask = std::numeric_limits<unit_type>::max() )
 		{
 			// indicate frame
 			state[ 1 ] ^= framebits;
@@ -95,14 +95,14 @@ namespace xstd::crypto
 				return data_in;
 			}
 		}
-		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
-		FORCE_INLINE constexpr tinyjambu& update( size_t rounds, unit_t framebits, T* io, size_t count, bool reverse = false )
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
+		FORCE_INLINE constexpr tinyjambu& update( size_t rounds, unit_type framebits, T* io, size_t count, bool reverse = false )
 		{
-			if constexpr ( sizeof( T ) == sizeof( unit_t ) )
+			if constexpr ( sizeof( T ) == sizeof( unit_type ) )
 			{
 				while ( count-- )
 				{
-					unit_t res = update_single( rounds, framebits, *io, reverse );
+					unit_type res = update_single( rounds, framebits, *io, reverse );
 					if constexpr ( !std::is_const_v<T> )
 						*io = res;
 					io++;
@@ -114,13 +114,13 @@ namespace xstd::crypto
 				//
 				if ( !std::is_constant_evaluated() )
 				{
-					while ( count >= sizeof( unit_t ) )
+					while ( count >= sizeof( unit_type ) )
 					{
-						unit_t res = update_single( rounds, framebits, *( const unit_t* ) io, reverse );
+						unit_type res = update_single( rounds, framebits, *( const unit_type* ) io, reverse );
 						if constexpr ( !std::is_const_v<T> )
-							*( unit_t* ) io = res;
-						io += sizeof( unit_t );
-						count -= sizeof( unit_t );
+							*( unit_type* ) io = res;
+						io += sizeof( unit_type );
+						count -= sizeof( unit_type );
 					}
 					if ( !count ) return *this;
 				}
@@ -132,12 +132,12 @@ namespace xstd::crypto
 				{
 					// Fill a unit zero-extended and update.
 					//
-					unit_t u = 0;
+					unit_type u = 0;
 					size_t n;
 					if ( std::is_constant_evaluated() )
 					{
-						for ( n = 0; io != end && n != sizeof( unit_t ); n++, io++ )
-							u |= unit_t( ( uint8_t ) ( *io ) ) << ( n * 8 );
+						for ( n = 0; io != end && n != sizeof( unit_type ); n++, io++ )
+							u |= unit_type( ( uint8_t ) ( *io ) ) << ( n * 8 );
 					}
 					else
 					{
@@ -152,7 +152,7 @@ namespace xstd::crypto
 						}
 						io += n;
 					}
-					u = update_single( rounds, framebits, u, reverse, ( unit_t ) ( ( 1ull << ( n * 8 ) ) - 1 ) );
+					u = update_single( rounds, framebits, u, reverse, ( unit_type ) ( ( 1ull << ( n * 8 ) ) - 1 ) );
 
 					// If there is an output, write it byte by byte.
 					//
@@ -190,7 +190,7 @@ namespace xstd::crypto
 
 			// Update the state with the key.
 			//
-			update_single( rounds_2, framebits_init );
+			update_single( rounds_2, framebits_in );
 
 			// Introduce IV into the state.
 			//
@@ -199,7 +199,7 @@ namespace xstd::crypto
 
 		// Appends associated data.
 		//
-		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
 		FORCE_INLINE constexpr tinyjambu& associate( const T* data, size_t num )
 		{
 			return update( rounds_1, framebits_ad, data, num, false );
@@ -207,12 +207,12 @@ namespace xstd::crypto
 
 		// Encryption and decryption.
 		//
-		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
 		FORCE_INLINE constexpr tinyjambu& encrypt( T* data, size_t num )
 		{
 			return update( rounds_2, framebits_pc, data, num, false );
 		}
-		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
 		FORCE_INLINE constexpr tinyjambu& decrypt( T* data, size_t num )
 		{
 			return update( rounds_2, framebits_pc, data, num, true );
@@ -225,7 +225,7 @@ namespace xstd::crypto
 		{
 			if ( !std::is_constant_evaluated() )
 			{
-				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
+				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
 				associate( ( const E* ) &data, sizeof( T ) / sizeof( E ) );
 			}
 			else
@@ -244,7 +244,7 @@ namespace xstd::crypto
 		{
 			if ( !std::is_constant_evaluated() )
 			{
-				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
+				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
 				decrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
 			}
 			else
@@ -263,7 +263,7 @@ namespace xstd::crypto
 		{
 			if ( !std::is_constant_evaluated() )
 			{
-				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
+				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
 				encrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
 			}
 			else 
@@ -282,7 +282,7 @@ namespace xstd::crypto
 		//
 		FORCE_INLINE constexpr tag_type finalize()
 		{
-			return { update_single( rounds_2, framebits_fin ), update_single( rounds_1, framebits_fin ) };
+			return { update_single( rounds_2, framebits_fi ), update_single( rounds_1, framebits_fi ) };
 		}
 	};
 };
