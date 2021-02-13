@@ -45,7 +45,7 @@ namespace xstd
 			string_view_t<T> view = { value };
 			hash_t h = {};
 			for ( auto c : view )
-				h.add_bytes( ( int ) c );
+				h.add_bytes( ( uint32_t ) c );
 			return h;
 		}
 	};
