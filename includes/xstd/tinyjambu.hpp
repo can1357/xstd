@@ -199,20 +199,20 @@ namespace xstd::crypto
 
 		// Appends associated data.
 		//
-		template<typename T> requires Same<T, uint8_t> || Same<T, unit_t>
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
 		FORCE_INLINE constexpr tinyjambu& associate( const T* data, size_t num )
 		{
-			return update( rounds_1, framebits_ad, data, num, true );
+			return update( rounds_1, framebits_ad, data, num, false );
 		}
 
 		// Encryption and decryption.
 		//
-		template<typename T> requires Same<T, uint8_t> || Same<T, unit_t>
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
 		FORCE_INLINE constexpr tinyjambu& encrypt( T* data, size_t num )
 		{
 			return update( rounds_2, framebits_pc, data, num, false );
 		}
-		template<typename T> requires Same<T, uint8_t> || Same<T, unit_t>
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_t ) )
 		FORCE_INLINE constexpr tinyjambu& decrypt( T* data, size_t num )
 		{
 			return update( rounds_2, framebits_pc, data, num, true );
@@ -220,39 +220,53 @@ namespace xstd::crypto
 		
 		// Primitives.
 		//
-		template<Trivial T>
-		FORCE_INLINE constexpr tinyjambu& decrypt( T* data )
+		template<typename T>
+		FORCE_INLINE constexpr tinyjambu& associate( const T& data )
 		{
-			using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
-			
 			if ( !std::is_constant_evaluated() )
 			{
-				return decrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
+				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
+				associate( ( const E* ) &data, sizeof( T ) / sizeof( E ) );
 			}
 			else
 			{
-				using A = std::array<E, sizeof( T ) / sizeof( E )>;
-				A value = bit_cast< A >( *data );
+				using A = std::array<uint8_t, sizeof( T )>;
+				A value = bit_cast<A>( data );
+				associate( value.data(), value.size() );
+			}
+			return *this;
+		}
+		template<typename T>
+		FORCE_INLINE constexpr tinyjambu& decrypt( T& data )
+		{
+			if ( !std::is_constant_evaluated() )
+			{
+				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
+				return decrypt( ( E* ) &data, sizeof( T ) / sizeof( E ) );
+			}
+			else
+			{
+				using A = std::array<uint8_t, sizeof( T )>;
+				A value = bit_cast< A >( data );
 				decrypt( value.data(), value.size() );
-				*data = bit_cast< T >( value );
+				data = bit_cast< T >( value );
 				return *this;
 			}
 		}
-		template<Trivial T>
-		FORCE_INLINE constexpr tinyjambu& encrypt( T* data )
+		template<typename T>
+		FORCE_INLINE constexpr tinyjambu& encrypt( T& data )
 		{
-			using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
-
 			if ( !std::is_constant_evaluated() )
 			{
-				return encrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
+				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
+				return encrypt( ( E* ) &data, sizeof( T ) / sizeof( E ) );
 			}
 			else 
 			{
-				using A = std::array<E, sizeof( T ) / sizeof( E )>;
-				A value = bit_cast< A >( *data );
+				using A = std::array<uint8_t, sizeof( T )>;
+				A value = bit_cast< A >( data );
 				encrypt( value.data(), value.size() );
-				*data = bit_cast< T >( value );
+				data = bit_cast< T >( value );
 				return *this;
 			}
 		}
