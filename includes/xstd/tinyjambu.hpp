@@ -2,29 +2,31 @@
 #include "intrinsics.hpp"
 #include <array>
 #include <numeric>
+#include "random.hpp"
 
 namespace xstd
 {
 	// TinyJAMBU implementation, one-time use state.
 	// - N is key size in bits.
 	//
-	template<size_t N>
+	template<size_t N = 128>
 	struct tinyjambu
 	{
 		using unit_type = uint32_t;
 		static constexpr size_t unit_bits = sizeof( unit_type ) * 8;
+		static constexpr size_t unit_bytes = sizeof( unit_type );
 		static_assert( ( N % unit_bits ) == 0, "Key size must be divisible by the unit size." );
 
 		// Types.
 		//
-		static constexpr size_t iv_size = 96 / unit_bits;
 		static constexpr size_t key_size = N / unit_bits;
 		static constexpr size_t tag_size = 64 / unit_bits;
 		static constexpr size_t state_size = 128 / unit_bits;
-		using iv_type = std::array<unit_type, iv_size>;
+		static constexpr size_t default_iv_size = 96 / unit_bits;
 		using key_type = std::array<unit_type, key_size>;
 		using tag_type = std::array<unit_type, tag_size>;
 		using state_type = std::array<unit_type, state_size>;
+		using default_iv_type = std::array<unit_type, default_iv_size>;
 
 		// Frame bits.
 		//
@@ -36,15 +38,30 @@ namespace xstd
 	
 		// Constants.
 		//
-		static constexpr size_t rounds_1 = state_size * iv_size;
+		static constexpr size_t rounds_1 = state_size * default_iv_size;
 		static constexpr size_t rounds_2 = state_size * ( tag_size + key_size );
+
+		// Helpers.
+		//
+		template<size_t C = default_iv_size>
+		FORCE_INLINE inline static constexpr std::array<unit_type, C> generate_iv()
+		{
+			if ( std::is_constant_evaluated() )
+				return make_random_n<unit_type, C>();
+			else
+				return make_crandom_n<unit_type, C>();
+		}
+		FORCE_INLINE inline static constexpr key_type generate_key() { return generate_iv<key_size>(); }
 
 		// Initialization of the state.
 		//
-		state_type state = {};
 		key_type key = {};
+		state_type state = {};
+		FORCE_INLINE constexpr tinyjambu() {}
 		FORCE_INLINE constexpr tinyjambu( const key_type& key ) : key( key ) {}
-		FORCE_INLINE constexpr tinyjambu( const key_type& key, const iv_type& iv ) : tinyjambu( key ) { reset( iv ); }
+		FORCE_INLINE constexpr tinyjambu( const unit_type* key ) : key( *( const key_type* ) key ) {}
+		FORCE_INLINE constexpr tinyjambu( const key_type& key, const default_iv_type& iv ) : tinyjambu( key ) { reset( iv ); }
+		FORCE_INLINE constexpr tinyjambu( const unit_type* key, const unit_type* iv, size_t len = default_iv_size ) : tinyjambu( key ) { reset( iv, default_iv_size ); }
 
 		// Default copy/move.
 		//
@@ -184,7 +201,7 @@ namespace xstd
 
 		// Initializes the state.
 		//
-		FORCE_INLINE constexpr tinyjambu& reset( const iv_type& iv )
+		FORCE_INLINE constexpr tinyjambu& reset( const unit_type* iv, size_t num = default_iv_size )
 		{
 			state.fill( 0 );
 
@@ -194,8 +211,9 @@ namespace xstd
 
 			// Introduce IV into the state.
 			//
-			return update( rounds_1, framebits_iv, iv.data(), iv.size() );
+			return update( rounds_1, framebits_iv, iv, num );
 		}
+		FORCE_INLINE constexpr tinyjambu& reset( const default_iv_type& iv ) { return reset( iv.data(), iv.size() ); }
 
 		// Appends associated data.
 		//
