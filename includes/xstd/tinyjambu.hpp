@@ -220,8 +220,8 @@ namespace xstd::crypto
 		
 		// Primitives.
 		//
-		template<typename T>
-		FORCE_INLINE constexpr tinyjambu& associate( const T& data )
+		template<typename T, typename... Tx>
+		FORCE_INLINE constexpr tinyjambu& associate( const T& data, const Tx&... rest )
 		{
 			if ( !std::is_constant_evaluated() )
 			{
@@ -234,41 +234,48 @@ namespace xstd::crypto
 				A value = bit_cast<A>( data );
 				associate( value.data(), value.size() );
 			}
+			if constexpr ( sizeof...( Tx ) )
+				associate<Tx...>( rest... );
 			return *this;
 		}
-		template<typename T>
-		FORCE_INLINE constexpr tinyjambu& decrypt( T& data )
+
+		template<typename T, typename... Tx>
+		FORCE_INLINE constexpr tinyjambu& decrypt( T* data, Tx*... rest )
 		{
 			if ( !std::is_constant_evaluated() )
 			{
 				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
-				return decrypt( ( E* ) &data, sizeof( T ) / sizeof( E ) );
+				decrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
 			}
 			else
 			{
 				using A = std::array<uint8_t, sizeof( T )>;
-				A value = bit_cast< A >( data );
+				A value = bit_cast< A >( *data );
 				decrypt( value.data(), value.size() );
-				data = bit_cast< T >( value );
-				return *this;
+				*data = bit_cast< T >( value );
 			}
+			if constexpr ( sizeof...( Tx ) )
+				decrypt<Tx...>( rest... );
+			return *this;
 		}
-		template<typename T>
-		FORCE_INLINE constexpr tinyjambu& encrypt( T& data )
+		template<typename T, typename... Tx>
+		FORCE_INLINE constexpr tinyjambu& encrypt( T* data, Tx*... rest )
 		{
 			if ( !std::is_constant_evaluated() )
 			{
 				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_t ) ) == 0, unit_t, uint8_t>;
-				return encrypt( ( E* ) &data, sizeof( T ) / sizeof( E ) );
+				encrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
 			}
 			else 
 			{
 				using A = std::array<uint8_t, sizeof( T )>;
-				A value = bit_cast< A >( data );
+				A value = bit_cast< A >( *data );
 				encrypt( value.data(), value.size() );
-				data = bit_cast< T >( value );
-				return *this;
+				*data = bit_cast< T >( value );
 			}
+			if constexpr ( sizeof...( Tx ) )
+				encrypt<Tx...>( rest... );
+			return *this;
 		}
 
 		// Tag calculation.
