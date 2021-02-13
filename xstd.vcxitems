@@ -58,6 +58,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\text.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\time.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zip.hpp" />
