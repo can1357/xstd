@@ -153,6 +153,10 @@ namespace xstd
 			if ( value_set_flag.exchange( true ) )
 				return;
 
+			// Clear triggers.
+			//
+			clear_trigger();
+
 			// Emplace the value and set the flag.
 			//
 			value.emplace( store_type( std::in_place_index_t<0>{}, std::forward<Tx>( result )... ) );
@@ -177,6 +181,10 @@ namespace xstd
 			//
 			if ( value_set_flag.exchange( true ) )
 				return;
+
+			// Clear triggers.
+			//
+			clear_trigger();
 
 			// Emplace the exception and set the flag.
 			//
@@ -204,8 +212,16 @@ namespace xstd
 		const store_type& poll() const
 		{
 			while ( !value_flag.load() )
-				yield_cpu();
+				std::this_thread::yield();
 			return *value;
+		}
+
+		// Clears and discards the trigger.
+		//
+		void clear_trigger() const
+		{
+			if ( trigger_flag.exchange( false ) )
+				trigger = {};
 		}
 
 		// When a user needs to query the state of the promise, trigger gets called to invoke the deferred routine.
