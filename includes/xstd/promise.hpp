@@ -237,7 +237,7 @@ namespace xstd
 
 		// Exposes information on the promise state.
 		//
-		bool waiting() const { return !value_flag.load(); }
+		bool pending() const { return !value_flag.load(); }
 		bool finished() const { return value_flag.load(); }
 		bool fulfilled() const { return finished() && poll().index() == 0; }
 		bool failed() const { return finished() && poll().index() == 1; }
@@ -346,7 +346,7 @@ namespace xstd
 		//
 		std::string to_string() const
 		{
-			if ( waiting() )
+			if ( pending() )
 				return XSTD_STR( "(Pending)" );
 			else if ( fulfilled() )
 				return fmt::str( XSTD_CSTR( "(Fulfilled='%s')" ), get_value() );
@@ -453,13 +453,6 @@ namespace xstd
 	struct __async_await_t
 	{
 		template<typename T>
-		auto operator<<( const xstd::promise<T>& pr ) const ->
-			std::add_const_t<typename xstd::promise_store<T>::value_type>&
-		{
-			pr->wait();
-			return pr->get_value();
-		}
-		template<typename T>
 		auto operator<=( const xstd::promise<T>& pr ) const ->
 			std::optional<typename xstd::promise_store<T>::value_type>
 		{
@@ -470,6 +463,5 @@ namespace xstd
 				return std::nullopt;
 		}
 	};
-	#define await      __async_await_t{} <<  // const T&         || => exception
-	#define opt_await  __async_await_t{} <=  // std::optional<T> || std::nullopt
+	#define await  __async_await_t{} <=  // std::optional<T> || std::nullopt
 #endif

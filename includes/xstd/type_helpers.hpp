@@ -315,16 +315,13 @@ namespace xstd
 	//
 	template<typename T> static constexpr const T& make_default() noexcept { return make_static<T>(); }
 
-	// Special type that collapses to a constant reference to the default constructed value of the type.
+	// Special type that decays to a constant reference to the default constructed value of the type.
 	//
-	static constexpr struct
+	struct static_default
 	{
 		template<typename T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
 		constexpr operator const T&() const noexcept { return make_default<T>(); }
-
-		template<typename T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
-		constexpr operator T() const noexcept { static_assert( sizeof( T ) == -1, "Static default immediately decays, unnecessary use." ); unreachable(); }
-	} static_default;
+	};
 
 	// Implementation of type-helpers for the functions below.
 	//

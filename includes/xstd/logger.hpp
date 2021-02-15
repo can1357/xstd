@@ -60,7 +60,7 @@
 	#endif
 #endif
 
-#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
+#if ( WINDOWS_TARGET && ( XSTD_CON_ENFORCE_UTF8_WINDOWS || !XSTD_CON_NO_COLORS ) )
 extern "C" 
 {
 	__declspec( dllimport ) int __stdcall SetConsoleOutputCP( unsigned int code_page_id );
@@ -403,7 +403,7 @@ namespace xstd
 			fmt_str,
 			std::forward<params>( ps )...
 		);
-		message = XSTD_STR( "\n" ) + impl::translate_color( CON_RED ) + XSTD_STR( "[*] Error:" ) + std::move( message ) + '\n';
+		message = XSTD_STR( "\n" ) + impl::translate_color( CON_RED ) + XSTD_STR( "[*] Error:" ) + std::move( message ) + "\n" + impl::translate_color( CON_DEF );
 
 		// Try acquiring the lock and print the error, if properly locked skiped the first newline.
 		//
