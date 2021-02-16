@@ -170,7 +170,7 @@ namespace xstd
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
-#if MS_COMPILER && AMD64_TARGET
+#if AMD64_TARGET
 		if ( !std::is_constant_evaluated() )
 			return _bittestandset64( ( long long* ) &value, n );
 #endif
@@ -183,7 +183,7 @@ namespace xstd
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
-#if MS_COMPILER && AMD64_TARGET
+#if AMD64_TARGET
 		if ( !std::is_constant_evaluated() )
 			return _bittestandreset64( ( long long* ) &value, n );
 #endif
