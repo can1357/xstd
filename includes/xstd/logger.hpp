@@ -386,7 +386,7 @@ namespace xstd
 	#if XSTD_CON_ERROR_NOMSG
 		XSTD_CON_ERROR_REDIRECT();
 	#else
-		if constexpr ( sizeof...( ps ) )
+		if constexpr ( sizeof...( ps ) != 0 )
 		{
 			std::string buffer = fmt::str( fmt_str, std::forward<params>( ps )... );
 			XSTD_CON_ERROR_REDIRECT( buffer.c_str() );
