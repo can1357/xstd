@@ -17,6 +17,7 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\base_n.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitwise.hpp" />

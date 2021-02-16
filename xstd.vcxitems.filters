@@ -169,6 +169,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp">
+      <Filter>Misc</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
