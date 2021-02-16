@@ -5,15 +5,10 @@
 #include <thread>
 
 // [Configuration]
-// XSTD_CHORE_OS_DEFER: If set, defer/timeout will invoke the OS helper given instead of creating a thread and sleeping.
-// XSTD_CHORE_OS_SCHEDULE: If set, chore with an event will invoke the OS helper given with the event and the function 
-// to schedule an action to be done after the event is signalled.
+// XSTD_CHORE_SCHEDULER: If set, chore will pass OS two callbacks to help with the scheduling.
 //
-#ifdef XSTD_CHORE_OS_DEFER
-	extern "C" void __cdecl XSTD_CHORE_OS_DEFER( void( __cdecl* func )( void* ), void* argument, const xstd::timestamp* due_time );
-#endif
-#ifdef XSTD_CHORE_OS_SCHEDULE
-	extern "C" void __cdecl XSTD_CHORE_OS_SCHEDULE( void( __cdecl* func )( void* ), void* argument, const event& evt );
+#ifdef XSTD_CHORE_SCHEDULER
+	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( bool( __cdecl* ready /*can be null*/ )( void* ), void* flt_arg, void( __cdecl* callback )( void* ), void* cb_arg );
 #endif
 
 namespace xstd
@@ -23,15 +18,19 @@ namespace xstd
 	template<typename T> requires Invocable<T, void>
 	inline void chore( T&& fn, xstd::timestamp due_time = {} )
 	{
-#if XSTD_CHORE_OS_DEFER
+#ifdef XSTD_CHORE_SCHEDULER
 		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
 		if ( due_time == xstd::timestamp{} )
 		{
-			XSTD_CHORE_OS_DEFER( func, arg, nullptr );
+			XSTD_CHORE_SCHEDULER( nullptr, nullptr, func, arg );
 		}
 		else
 		{
-			XSTD_CHORE_OS_DEFER( func, arg, &due_time );
+			auto [ffunc, farg, __] = xstd::flatten( [ due_time ] ()
+			{
+				return xstd::time::now() >= due_time;
+			} );
+			XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg );
 		}
 #else
 		if ( due_time == xstd::timestamp{} )
@@ -59,13 +58,35 @@ namespace xstd
 	template<typename T> requires Invocable<T, void>
 	inline void chore( const event& evt, T&& fn )
 	{
-#if XSTD_CHORE_OS_SCHEDULE
+#ifdef XSTD_CHORE_SCHEDULER
 		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
-		XSTD_CHORE_OS_SCHEDULE( func, arg, evt );
+		auto [ffunc, farg, __] = xstd::flatten( [ evt ] ()
+		{
+			return evt->signalled();
+		} );
+		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg );
 #else
 		chore( [ fn = std::forward<T>( fn ), evt ] ()
 		{
 			evt->wait();
+			fn();
+		} );
+#endif
+	}
+	template<typename T> requires Invocable<T, void>
+	inline void chore( const event& evt, T&& fn, xstd::duration timeout )
+	{
+#ifdef XSTD_CHORE_SCHEDULER
+		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
+		auto [ffunc, farg, __] = xstd::flatten( [ evt, to = xstd::time::now() + timeout ] ()
+		{
+			return evt->signalled() || xstd::time::now() >= t0;
+		} );
+		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg );
+#else
+		chore( [ fn = std::forward<T>( fn ), evt, t = timeout / 1ms ] ()
+		{
+			evt->wait_for( t );
 			fn();
 		} );
 #endif

@@ -1,5 +1,6 @@
 #pragma once
 #include "intrinsics.hpp"
+#include "type_helpers.hpp"
 #include <mutex>
 #include <memory>
 #include <functional>
@@ -29,6 +30,8 @@ namespace xstd
 		event_primitive_default& operator=( const event_primitive_default& ) = delete;
 		~event_primitive_default() {}
 
+		bool signalled() const { return flag; }
+		bool wait_for( long long milliseconds ); /*Not implemented.*/
 		void wait() 
 		{ 
 			if ( flag )
@@ -45,6 +48,11 @@ namespace xstd
 		}
 	};
 	using event_primitive = XSTD_OS_EVENT_PRIMITIVE;
-	using event = std::shared_ptr<event_primitive>;
-	inline event make_event() { return std::make_shared<event_primitive>(); }
+	struct event_wrapper : event_primitive
+	{
+		using event_primitive::event_primitive;
+		template<Duration T> bool wait_for( T duration ) { return event_primitive::wait_for( duration / 1ms ); }
+	};
+	using event = std::shared_ptr<event_wrapper>;
+	inline event make_event() { return std::make_shared<event_wrapper>(); }
 };
