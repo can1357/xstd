@@ -163,6 +163,7 @@ namespace xstd
 			const value_type& ref = std::get<0>( value.value() );
 			if( value_flag.exchange( true ) )
 				xstd::error( XSTD_ESTR( "Promise resolved multiple times." ) );
+			value_flag.notify_all();
 
 			// Swap the callback-list with an empty one within a lock.
 			//
@@ -192,6 +193,7 @@ namespace xstd
 			const std::exception& ref = std::get<1>( value.value() );
 			if ( value_flag.exchange( true ) )
 				xstd::error( XSTD_ESTR( "Promise resolved multiple times." ) );
+			value_flag.notify_all();
 
 			// Swap the callback-list with an empty one within a lock.
 			//
@@ -211,8 +213,8 @@ namespace xstd
 		//
 		const store_type& poll() const
 		{
-			while ( !value_flag.load() )
-				std::this_thread::yield();
+			value_flag.wait( false, std::memory_order::release );
+			std::this_thread::yield();
 			return *value;
 		}
 
