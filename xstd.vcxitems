@@ -22,6 +22,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitwise.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bmp.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\chore.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\color.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp" />

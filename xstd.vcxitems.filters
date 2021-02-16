@@ -178,6 +178,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\spinlock.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\chore.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
