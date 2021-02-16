@@ -25,6 +25,9 @@
     <Filter Include="Algorithms">
       <UniqueIdentifier>{7640bd5f-c9d0-483e-b222-82ae1a8d35f0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Thread">
+      <UniqueIdentifier>{c1a44b87-75db-486e-848d-9bfcc80596bc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp">
@@ -52,9 +55,6 @@
       <Filter>Ranges</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zip.hpp">
-      <Filter>Ranges</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp">
       <Filter>Ranges</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp">
@@ -99,9 +99,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\finally.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
@@ -142,9 +139,6 @@
       <Filter>Algorithms</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\statistics.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
@@ -169,8 +163,20 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp">
-      <Filter>Misc</Filter>
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\spinlock.hpp">
+      <Filter>Thread</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
