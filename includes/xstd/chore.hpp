@@ -63,7 +63,7 @@ namespace xstd
 		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_OS_SCHEDULE( func, arg, evt );
 #else
-		chore( [ fn = std::forward<T>( fn ) ] ()
+		chore( [ fn = std::forward<T>( fn ), evt ] ()
 		{
 			evt->wait();
 			fn();
