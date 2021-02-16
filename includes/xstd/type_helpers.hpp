@@ -9,6 +9,7 @@
 #include <vector>
 #include <chrono>
 #include <utility>
+#include <memory>
 #include <variant>
 #include <string_view>
 #include <initializer_list>
@@ -576,6 +577,79 @@ namespace xstd
 	template<typename T> using convert_uint_t = typename trivial_converter<sizeof( T )>::integral_unsigned;
 	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
 	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
+
+	// Flattens the lambda function to a function pointer, a pointer sized argument and a manual destroyer in case it is needed.
+	//
+	using flat_function_t = void( __cdecl* )( void* arg );
+	template<typename T, typename Store = char> requires Invocable<T, void>
+	__forceinline inline std::tuple<flat_function_t, void*, flat_function_t> flatten( T&& fn, Store* store = nullptr )
+	{
+		using F = std::decay_t<T>;
+
+		void* argument = nullptr;
+		flat_function_t functor;
+		flat_function_t discard;
+
+		// If no storage required:
+		//
+		if constexpr ( std::is_default_constructible_v<F> )
+		{
+			functor = [ ] ( void* ) { F{}( ); };
+			discard = [ ] ( void* argument ) {};
+		}
+		// If function fits the argument inline:
+		//
+		else if constexpr ( sizeof( void* ) >= sizeof( F ) )
+		{
+			new ( &argument ) F( std::forward<T>( fn ) );
+			functor = [ ] ( void* argument )
+			{
+				F* pfn = ( F* ) &argument;
+				( *pfn )( );
+				std::destroy_at( pfn );
+			};
+			discard = [ ] ( void* argument )
+			{
+				delete ( F* ) &argument;
+			};
+		}
+		// If function fits the pre-allocated store inline:
+		//
+		else if ( sizeof( Store ) >= sizeof( F ) && store )
+		{
+			new ( store ) F( std::forward<T>( fn ) );
+
+			argument = store;
+			functor = [ ] ( void* argument )
+			{
+				F* pfn = ( F* ) argument;
+				( *pfn )( );
+				std::destroy_at( pfn );
+			};
+			discard = [ ] ( void* argument )
+			{
+				std::destroy_at( ( F* ) argument );
+			};
+		}
+		// If otherwise, allocate in heap.
+		//
+		else
+		{
+			argument = new F( std::forward<T>( fn ) );
+			functor = [ ] ( void* argument )
+			{
+				F* pfn = ( F* ) argument;
+				( *pfn )( );
+				delete pfn;
+			};
+			discard = [ ] ( void* argument )
+			{
+				delete ( F* ) argument;
+			};
+		}
+
+		return std::tuple{ functor, argument, discard };
+	}
 };
 
 // Expose literals.
