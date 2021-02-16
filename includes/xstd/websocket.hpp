@@ -217,8 +217,8 @@ namespace xstd::ws
 		// Status of our ping-pong requests.
 		//
 		uint32_t ping_key = make_random<uint32_t>();
-		timestamp_t last_ping = {};
-		timestamp_t last_pong = {};
+		timestamp last_ping = {};
+		timestamp last_pong = {};
 
 		// Receive buffer and the state of the fragmentation handlers.
 		//
@@ -305,7 +305,7 @@ namespace xstd::ws
 
 		// Ping-pong helper, returns latest measured latency or zero.
 		//
-		timeunit_t ping()
+		duration ping()
 		{
 			auto t = last_pong - last_ping;
 			ping_key = make_random<uint32_t>( 1 );

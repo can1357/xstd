@@ -127,25 +127,19 @@ namespace xstd
 #if XSTD_CON_THREAD_LOCAL
 		// Lock of the stream.
 		//
-		std::recursive_mutex mtx;
+		std::recursive_timed_mutex mtx;
 
 		void lock() { mtx.lock(); }
 		void unlock() { mtx.unlock(); }
 		bool try_lock() { return mtx.try_lock(); }
-		bool try_lock( timeunit_t max_wait )
-		{
-			bool locked = false;
-			auto t0 = time::now();
-			while ( !( locked = try_lock() ) )
-				if ( ( time::now() - t0 ) > max_wait )
-					break;
-			return locked;
-		}
+		bool try_lock( duration max_wait ) { return mtx.try_lock_for( 100ms ); }
 #else
+
+
 		void lock() {}
 		void unlock() {}
 		bool try_lock() { return true; }
-		bool try_lock( timeunit_t max_wait ) { return true; }
+		bool try_lock( duration max_wait ) { return true; }
 #endif
 	};
 	inline logger_state_t logger_state = {};

@@ -29,69 +29,61 @@ namespace xstd
 		using seconds =      std::chrono::seconds;
 		using milliseconds = std::chrono::milliseconds;
 		using nanoseconds =  std::chrono::nanoseconds;
-		using unit_t =       nanoseconds;
 		using basic_units =  std::tuple<nanoseconds, milliseconds, seconds, minutes, hours>;
 
 		// Declare prefered clock and units.
 		//
-		using base_clock = XSTD_DEFAULT_CLOCK;
-		using stamp_t =    base_clock::time_point;
+		using base_clock =   XSTD_DEFAULT_CLOCK;
+		using stamp =        base_clock::time_point;
+		using duration =     base_clock::duration;
 
 		// Wrap around base clock.
 		//
-		inline static stamp_t now() { return base_clock::now(); }
+		inline static stamp now() { return base_clock::now(); }
 
 		// Declare conversion to string.
 		//
-		template<Duration T>
-		static std::string to_string( T duration )
+		template<typename Rep, typename Period>
+		static std::string to_string( std::chrono::duration<Rep, Period> duration )
 		{
-			static const std::array basic_unit_abbreviations = { XSTD_STR( "ns" ),          XSTD_STR( "ms" ),           XSTD_STR( "sec" ),     XSTD_STR( "min" ),     XSTD_STR( "hrs" ) };
-			static const std::array basic_unit_names =         { XSTD_STR( "nanoseconds" ), XSTD_STR( "milliseconds" ), XSTD_STR( "seconds" ), XSTD_STR( "minutes" ), XSTD_STR( "hours" ) };
-			static const std::array basic_unit_durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
+			using T = std::chrono::duration<double, Period>;
+			T fduration = std::chrono::duration_cast<T>( duration );
+
+			static constexpr std::array abbreviations = { XSTD_CSTR( "ns" ), XSTD_CSTR( "ms" ), XSTD_CSTR( "sec" ), XSTD_CSTR( "min" ), XSTD_CSTR( "hrs" ) };
+			static constexpr std::array durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
 			{
-				return std::chrono::duration_cast< unit_t >( std::tuple_element_t<decltype( x )::value, basic_units>( 1 ) );
+				return std::chrono::duration_cast<T>( 
+					std::tuple_element_t<decltype( x )::value, basic_units>( 1 )
+				);
 			} );
 
-			// Convert to unit time.
+			// Iterate duration list in descending order until we find an appropriate duration.
 			//
-			unit_t t = std::chrono::duration_cast<unit_t>( duration );
-			
-			// Iterate duration list in descending order.
-			//
-			for ( auto [duration, abbrv] : backwards( zip( basic_unit_durations, basic_unit_abbreviations ) ) )
+			size_t n = abbreviations.size() - 1;
+			while ( n != 0 )
 			{
-				// If time is larger than the duration given or if we're at the last duration:
-				//
-				if ( t >= duration || duration == *std::begin( basic_unit_durations ) )
-				{
-					// Convert float to string.
-					//
-					char buffer[ 32 ];
-					snprintf( buffer, 32, XSTD_CSTR( "%.2lf" ), t.count() / double( duration.count() ) );
-					return buffer + abbrv;
-				}
+				if ( fduration >= durations[ n ] )
+					break;
+				--n;
 			}
-			unreachable();
+
+			// Convert float to string.
+			//
+			char buffer[ 64 ];
+			snprintf( buffer, 64, XSTD_CSTR( "%.2lf%s" ), fduration / durations[ n ], abbreviations[ n ] );
+			return buffer;
 		}
 
-		// Platform specific fast monotic counter.
+		// Monotic counter returning a unique value every call.
 		//
 		namespace mimpl { inline std::atomic<uint64_t> tcounter = 0; };
 		inline static uint64_t monotonic()
 		{
-#if WINDOWS_TARGET
-			if constexpr ( is_kernel_mode() )
-				return *( volatile uint64_t* ) 0xFFFFF78000000008;
-			else
-				return *( volatile uint64_t* ) 0x7FFE0008;
-#else
 			return ++mimpl::tcounter;
-#endif
 		}
 	};
-	using timestamp_t = time::stamp_t;
-	using timeunit_t =  time::unit_t;
+	using timestamp = time::stamp;
+	using duration =  time::duration;
 
 	// Wrappers around std::this_thread::sleep_*.
 	//
@@ -110,17 +102,17 @@ namespace xstd
 
 		if constexpr ( std::is_same_v<result_t, void> )
 		{
-			timestamp_t t0 = time::now();
+			timestamp t0 = time::now();
 			f( std::forward<Tx>( args )... );
-			timestamp_t t1 = time::now();
+			timestamp t1 = time::now();
 			return t1 - t0;
 		}
 		else
 		{
 
-			timestamp_t t0 = time::now();
+			timestamp t0 = time::now();
 			result_t res = f( std::forward<Tx>( args )... );
-			timestamp_t t1 = time::now();
+			timestamp t1 = time::now();
 			return std::make_pair( res, t1 - t0 );
 		}
 	}
@@ -128,7 +120,7 @@ namespace xstd
 	// Same as ::profile but ignores the return value and runs N times.
 	//
 	template<size_t N, typename T, typename... Tx> requires InvocableWith<T, Tx...>
-	static timeunit_t profile_n( T&& f, Tx&&... args )
+	static duration profile_n( T&& f, Tx&&... args )
 	{
 		auto t0 = time::now();
 		for ( size_t i = 0; i != N; i++ ) 
