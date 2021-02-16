@@ -19,9 +19,13 @@ namespace xstd
 			uint64_t version = 0;
 		};
 
+		// List head and the length.
+		//
 		versioned_pointer head = {};
 		std::atomic<size_t> length = 0;
 
+		// Default empty construct, no copy/move construction/assign.
+		//
 		atomic_slist() {}
 		atomic_slist( atomic_slist&& ) noexcept = delete;
 		atomic_slist( const atomic_slist& ) = delete;
@@ -44,11 +48,10 @@ namespace xstd
 		//
 		FORCE_INLINE void push( T* node )
 		{
-			versioned_pointer new_head = { .pointer = node };
 			versioned_pointer curr_head = head;
 			while ( true )
 			{
-				new_head.version = curr_head.version + 1;
+				versioned_pointer new_head = { node, curr_head.version + 1 };
 				node->next = curr_head.pointer;
 				if ( cmpxchg( curr_head, new_head ) )
 				{
