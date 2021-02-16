@@ -57,5 +57,8 @@ namespace xstd
 		template<Duration T> bool wait_for( T duration ) { return event_primitive::wait_for( duration / 1ms ); }
 	};
 	using event = std::shared_ptr<event_wrapper>;
+
+	// Creates an event object.
+	//
 	inline event make_event() { return std::make_shared<event_wrapper>(); }
 };
