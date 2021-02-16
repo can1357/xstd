@@ -41,10 +41,13 @@ namespace xstd
 				return;
 			flag.wait( false, std::memory_order::acquire ); 
 		}
-		void notify() 
+		bool notify()
 		{ 
+			if ( flag )
+				return false;
 			flag.store( true, std::memory_order::relaxed );
-			flag.notify_one(); 
+			flag.notify_one();
+			return true;
 		}
 	};
 	using event_primitive = XSTD_OS_EVENT_PRIMITIVE;
