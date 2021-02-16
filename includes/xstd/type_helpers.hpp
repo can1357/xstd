@@ -580,15 +580,16 @@ namespace xstd
 
 	// Flattens the lambda function to a function pointer, a pointer sized argument and a manual destroyer in case it is needed.
 	//
-	using flat_function_t = void( __cdecl* )( void* arg );
-	template<typename T, typename Store = char> requires Invocable<T, void>
-	__forceinline inline std::tuple<flat_function_t, void*, flat_function_t> flatten( T&& fn, Store* store = nullptr )
+	template<typename R = void>
+	using flat_function_t = R( __cdecl* )( void* arg );
+	template<typename T, typename Store = char, typename Ret = decltype( std::declval<T&&>()( ) )> requires Invocable<T, void>
+	__forceinline inline std::tuple<flat_function_t<Ret>, void*, flat_function_t<>> flatten( T&& fn, Store* store = nullptr )
 	{
 		using F = std::decay_t<T>;
 
 		void* argument = nullptr;
-		flat_function_t functor;
-		flat_function_t discard;
+		flat_function_t<Ret> functor;
+		flat_function_t<> discard;
 
 		// If no storage required:
 		//
@@ -602,11 +603,21 @@ namespace xstd
 		else if constexpr ( sizeof( void* ) >= sizeof( F ) )
 		{
 			new ( &argument ) F( std::forward<T>( fn ) );
-			functor = [ ] ( void* argument )
+			functor = [ ] ( void* argument ) -> Ret
 			{
 				F* pfn = ( F* ) &argument;
-				( *pfn )( );
-				std::destroy_at( pfn );
+				
+				if constexpr ( std::is_void_v<Ret> )
+				{
+					( *pfn )( );
+					std::destroy_at( pfn );
+				}
+				else
+				{
+					auto&& res = ( *pfn )( );
+					std::destroy_at( pfn );
+					return res;
+				}
 			};
 			discard = [ ] ( void* argument )
 			{
@@ -620,11 +631,21 @@ namespace xstd
 			new ( store ) F( std::forward<T>( fn ) );
 
 			argument = store;
-			functor = [ ] ( void* argument )
+			functor = [ ] ( void* argument ) -> Ret
 			{
 				F* pfn = ( F* ) argument;
-				( *pfn )( );
-				std::destroy_at( pfn );
+
+				if constexpr ( std::is_void_v<Ret> )
+				{
+					( *pfn )( );
+					std::destroy_at( pfn );
+				}
+				else
+				{
+					auto&& res = ( *pfn )( );
+					std::destroy_at( pfn );
+					return res;
+				}
 			};
 			discard = [ ] ( void* argument )
 			{
@@ -636,11 +657,21 @@ namespace xstd
 		else
 		{
 			argument = new F( std::forward<T>( fn ) );
-			functor = [ ] ( void* argument )
+			functor = [ ] ( void* argument ) -> Ret
 			{
 				F* pfn = ( F* ) argument;
-				( *pfn )( );
-				delete pfn;
+
+				if constexpr ( std::is_void_v<Ret> )
+				{
+					( *pfn )( );
+					delete pfn;
+				}
+				else
+				{
+					auto&& res = ( *pfn )( );
+					delete pfn;
+					return res;
+				}
 			};
 			discard = [ ] ( void* argument )
 			{
