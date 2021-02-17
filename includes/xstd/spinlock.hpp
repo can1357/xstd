@@ -5,23 +5,32 @@
 
 namespace xstd
 {
-	template<bool Yield = true>
+	template<bool Busy = false>
 	struct spinlock
 	{
 		std::atomic<bool> value = false;
 
-		void lock()
+		spinlock() {}
+		spinlock( spinlock&& ) noexcept = default;
+		spinlock( const spinlock& ) = delete;
+		spinlock& operator=( spinlock&& ) noexcept = default;
+		spinlock& operator=( const spinlock& ) = delete;
+
+		FORCE_INLINE bool try_lock()
 		{
-			while ( value.exchange( true, std::memory_order::acquire ) )
+			return !value.exchange( true, std::memory_order::acquire );
+		}
+		FORCE_INLINE void lock()
+		{
+			while ( !try_lock() )
 			{
-				if constexpr ( Yield )
+				if constexpr ( Busy )
 					std::this_thread::yield();
 				else
 					yield_cpu();
 			}
 		}
-
-		void unlock()
+		FORCE_INLINE void unlock()
 		{
 			value.store( false, std::memory_order::release );
 		}

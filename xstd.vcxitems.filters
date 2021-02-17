@@ -84,9 +84,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitwise.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp">
-      <Filter>Numeric</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\random.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
@@ -160,9 +157,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp">
-      <Filter>Numeric</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
@@ -183,6 +177,12 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\event.hpp">
       <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp">
+      <Filter>Algorithms</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp">
+      <Filter>Algorithms</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -19,7 +19,7 @@ namespace xstd
 	struct event_primitive_default
 	{
 		std::atomic<bool> flag = false;
-		std::mutex mtx = {};
+		mutable std::mutex mtx = {};
 
 		// No copy/move.
 		//
@@ -31,8 +31,8 @@ namespace xstd
 		~event_primitive_default() {}
 
 		bool signalled() const { return flag; }
-		bool wait_for( long long milliseconds ); /*Not implemented.*/
-		void wait() 
+		bool wait_for( long long milliseconds ) const; /*Not implemented.*/
+		void wait() const
 		{ 
 			if ( flag )
 				return;
@@ -51,14 +51,14 @@ namespace xstd
 		}
 	};
 	using event_primitive = XSTD_OS_EVENT_PRIMITIVE;
-	struct event_wrapper : event_primitive
+	struct event_base : event_primitive
 	{
 		using event_primitive::event_primitive;
 		template<Duration T> bool wait_for( T duration ) { return event_primitive::wait_for( duration / 1ms ); }
 	};
-	using event = std::shared_ptr<event_wrapper>;
+	using event = std::shared_ptr<event_base>;
 
 	// Creates an event object.
 	//
-	inline event make_event() { return std::make_shared<event_wrapper>(); }
+	inline event make_event() { return std::make_shared<event_base>(); }
 };
