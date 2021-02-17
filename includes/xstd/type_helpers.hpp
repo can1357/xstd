@@ -150,6 +150,12 @@ namespace xstd
 	template<typename T>
 	concept Reference = std::is_reference_v<T>;
 	template<typename T>
+	concept Const = std::is_const_v<T>;
+	template<typename T>
+	concept Mutable = !std::is_const_v<T>;
+	template<typename T>
+	concept Volatile = std::is_volatile_v<T>;
+	template<typename T>
 	concept Optional = is_specialization_v<std::optional, T>;
 	template<typename T>
 	concept Final = std::is_final_v<T>;

@@ -49,6 +49,11 @@ namespace xstd
 			mtx.lock_shared();
 			mtx.unlock_shared();
 		}
+		void reset()
+		{
+			mtx.lock();
+			flag = false;
+		}
 		bool notify()
 		{ 
 			if ( flag )

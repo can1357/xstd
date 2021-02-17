@@ -213,7 +213,7 @@ namespace xstd::ws
 	{
 		// Status of the WebSocket.
 		//
-		status_code status = status_none;
+		std::atomic<status_code> status = status_none;
 
 		// Status of our ping-pong requests.
 		//
@@ -242,10 +242,11 @@ namespace xstd::ws
 			{
 				// Read the status code and invoke the callback.
 				//
+				auto status_ex = status_none;
 				if ( data.size() >= 2 )
-					status = bswap( *( status_code* ) data.data() );
+					status.compare_exchange_strong( status_ex, bswap( *( status_code* ) data.data() ) );
 				else
-					status = status_shutdown;
+					status.compare_exchange_strong( status_ex, status_shutdown );
 				transport_layer::socket_close();
 			}
 			else if ( hdr.op == opcode::ping )
@@ -318,15 +319,16 @@ namespace xstd::ws
 
 		// Terminates the connection.
 		//
-		void close( status_code status = status_shutdown )
+		void close( status_code st = status_shutdown )
 		{
-			if ( this->status != status_none ) return;
-			if ( status == status_none ) status = status_shutdown;
-			
-			this->status = status;
-			status_code sstatus = bswap( status );
-			send_packet( opcode::close, &sstatus, sizeof( sstatus ) );
-			transport_layer::socket_writeback();
+			if ( st == status_none ) st = status_shutdown;
+			status_code status_ex = status_none;
+			if ( status.compare_exchange_strong( status_ex, st ) )
+			{
+				st = bswap( st );
+				send_packet( opcode::close, &st, sizeof( st ) );
+				transport_layer::socket_writeback();
+			}
 			transport_layer::socket_close();
 		}
 
