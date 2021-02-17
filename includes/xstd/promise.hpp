@@ -84,7 +84,7 @@ namespace xstd
 		{
 			waiter = [ ] ( auto& result )
 			{
-				if constexpr ( std::is_same_v<R, R2> )
+				if constexpr ( std::is_same_v<typename R<T>::status_type, typename R2<T2>::status_type> )
 				{
 					result.emplace( value_type{}, result.status );
 				}
