@@ -41,10 +41,6 @@ namespace xstd
 		using waiter_type =    std::function<void( store_type& )>;
 		static constexpr bool has_value = !std::is_same_v<value_type, std::monostate>;
 		
-		// User-defined field used in case promise is dependent on another promise that has to be saved as a resource.
-		//
-		std::shared_ptr<void> owner = {};
-
 		// List of callbacks guarded by a mutex.
 		//
 		spinlock<> cb_lock = {};
@@ -72,6 +68,35 @@ namespace xstd
 		// Constructs a promise with a fixed value.
 		//
 		promise_base( store_type result ) : result( std::move( result ) ) { evt.notify(); }
+
+		// Constructs a promise that waits for another promise and then transforms the value.
+		//
+		template<typename T2, template<typename> typename R2, typename F>
+		promise_base( const promise<T2, R2>& pr, F&& transform )
+		{
+			waiter = [ transform = std::forward<F>( transform ), pr ] ( auto& result )
+			{
+				result = transform( pr->wait() );
+			};
+		}
+		template<typename T2, template<typename> typename R2>
+		promise_base( const promise<T2, R2>& pr )
+		{
+			waiter = [ ] ( auto& result )
+			{
+				if constexpr ( std::is_same_v<R, R2> )
+				{
+					result.emplace( value_type{}, result.status );
+				}
+				else
+				{
+					if ( result.success() )
+						result.emplace( value_type{}, status_type{ result_traits::success_value } );
+					else
+						result.emplace( value_type{}, status_type{ result_traits::failure_value } );
+				}
+			};
+		}
 		
 		// No copy allowed, default move.
 		//
