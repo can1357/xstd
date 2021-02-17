@@ -79,12 +79,20 @@ namespace xstd
 			{
 				if constexpr ( std::is_void_v<decltype( transform( pr->wait() ) )> )
 				{
-					transform( pr->wait( time ) );
+					const auto& result2 = pr->wait( time );
+					transform( result2 );
 
-					if ( result.success() )
+					if ( result2.success() )
+					{
 						result.emplace( value_type{}, status_type{ result_traits::success_value } );
+					}
 					else
-						result.emplace( value_type{}, status_type{ result_traits::failure_value } );
+					{
+						if constexpr ( std::is_same_v<status_type, std::string> )
+							result.emplace( value_type{}, result2.message() );
+						if ( !result.fail() )
+							result.status = status_type{ result_traits::failure_value };
+					}
 				}
 				else
 				{
@@ -97,17 +105,24 @@ namespace xstd
 		{
 			waiter = [ pr ] ( auto& result, duration time )
 			{
-				auto&& result2 = pr->wait( time );
+				const auto& result2 = pr->wait( time );
 				if constexpr ( std::is_same_v<typename R<T>::status_type, typename R2<T2>::status_type> )
 				{
 					result.emplace( value_type{}, result2.status );
 				}
 				else
 				{
-					if ( result.success() )
+					if ( result2.success() )
+					{
 						result.emplace( value_type{}, status_type{ result_traits::success_value } );
+					}
 					else
-						result.emplace( value_type{}, status_type{ result_traits::failure_value } );
+					{
+						if constexpr ( std::is_same_v<status_type, std::string> )
+							result.emplace( value_type{}, result2.message() );
+						if ( !result.fail() )
+							result.status = status_type{ result_traits::failure_value };
+					}
 				}
 			};
 		}
