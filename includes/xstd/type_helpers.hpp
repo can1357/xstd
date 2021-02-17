@@ -438,9 +438,18 @@ namespace xstd
 	// Gets the type at the given offset.
 	//
 	template<typename T = void>
-	static auto* ptr_at( any_ptr base, int64_t off ) noexcept { return carry_const( base, ( T* ) ( base + off ) ); }
+	static auto ptr_at( any_ptr base, int64_t off ) noexcept 
+	{ 
+		if constexpr( std::is_void_v<T> )
+			return any_ptr( base + off );
+		else
+			return carry_const( base, ( T* ) ( base + off ) ); 
+	}
 	template<typename T>
-	static auto& ref_at( any_ptr base, int64_t off ) noexcept { return *ptr_at<T>(base, off); }
+	static auto& ref_at( any_ptr base, int64_t off ) noexcept 
+	{ 
+		return *ptr_at<T>(base, off); 
+	}
 
 	// Byte distance between two pointers.
 	//
