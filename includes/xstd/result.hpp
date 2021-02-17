@@ -114,11 +114,7 @@ namespace xstd
 		constexpr void assert() const
 		{
 			if ( !success() ) [[unlikely]]
-			{
-				if constexpr ( is_debug_build() )
-					debugbreak();
 				xstd::error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
-			}
 		}
 
 		// String conversion.
