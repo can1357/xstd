@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <optional>
+#include <mutex>
 #include "time.hpp"
 #include "random.hpp"
 #include "tcp.hpp"
@@ -222,6 +223,7 @@ namespace xstd::ws
 
 		// Receive buffer and the state of the fragmentation handlers.
 		//
+		std::recursive_mutex receive_mutex;
 		std::optional<std::pair<header, std::vector<uint8_t>>> fragmented_packet;
 
 		// Implemented by the application layer.
@@ -332,7 +334,7 @@ namespace xstd::ws
 		//
 		size_t packet_parse( std::string_view data ) override
 		{
-			if ( transport_layer::closed ) return 0;
+			std::lock_guard _g{ receive_mutex };
 			const char* it_original = data.data();
 
 			// Read the headers:

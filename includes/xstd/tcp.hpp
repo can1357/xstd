@@ -2,6 +2,7 @@
 #include <list>
 #include <string>
 #include <array>
+#include <mutex>
 #include <string_view>
 #include "type_helpers.hpp"
 #include "promise.hpp"
@@ -22,6 +23,7 @@ namespace xstd::tcp
 
 		// Transmission queues.
 		//
+		std::recursive_mutex queue_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::string, size_t>> tx_queue;
@@ -60,6 +62,7 @@ namespace xstd::tcp
 		{
 			if ( closed ) return;
 
+			std::lock_guard _g{ queue_lock };
 			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
 			{
 				// Try writing it to the socket.
@@ -95,7 +98,9 @@ namespace xstd::tcp
 
 			// Append the data onto tx queue.
 			//
+			queue_lock.lock();
 			tx_queue.emplace_back( std::move( data ), 0 );
+			queue_lock.unlock();
 
 			// Invoke socket timer to exhaust the queue.
 			//
@@ -114,10 +119,11 @@ namespace xstd::tcp
 		void on_socket_ack( size_t n )
 		{
 			if ( closed ) return;
-			size_t new_id = ( last_ack_id += n );
 
 			// Delete every entry from acknowledgment queue where the id is below the new one.
 			//
+			std::lock_guard _g{ queue_lock };
+			size_t new_id = ( last_ack_id += n );
 			for ( auto it = ack_queue.begin(); it != ack_queue.end(); )
 			{
 				if ( it->second > new_id )
@@ -132,6 +138,7 @@ namespace xstd::tcp
 		{
 			// Reset the buffers and invoke application layer callback if first time.
 			//
+			std::lock_guard _g{ queue_lock };
 			tx_queue.clear();
 			ack_queue.clear();
 			rx_buffer.clear();
@@ -149,6 +156,7 @@ namespace xstd::tcp
 
 			// If receive buffer is empty, try parsing the segment without any copy.
 			//
+			std::lock_guard _g{ queue_lock };
 			if ( rx_buffer.empty() )
 			{
 				// While packets are parsed:

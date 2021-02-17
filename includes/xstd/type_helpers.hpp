@@ -290,6 +290,16 @@ namespace xstd
 	template<typename T>
 	concept Lockable = requires( T& x ) { x.lock(); x.unlock(); };
 	template<typename T>
+	concept SharedLockable = requires( T& x ) { x.lock_shared(); x.unlock_shared(); };
+	template<typename T>
+	concept TryLockable = requires( T& x ) { x.try_lock(); };
+	template<typename T>
+	concept SharedTryLockable = requires( T& x ) { x.try_lock_shared(); };
+	template<typename T>
+	concept TimeLockable = requires( T & x, std::chrono::milliseconds y ) { x.try_lock_for( y ); x.try_lock_until( y ); };
+	template<typename T>
+	concept SharedTimeLockable = requires( T & x, std::chrono::milliseconds y ) { x.try_lock_shared_for( y ); x.try_lock_shared_until( y ); };
+	template<typename T>
 	concept Atomic = is_specialization_v<std::atomic, T>;
 
 	// Chrono traits.
@@ -583,7 +593,7 @@ namespace xstd
 	template<typename R = void>
 	using flat_function_t = R( __cdecl* )( void* arg );
 	template<typename T, typename Store = char, typename Ret = decltype( std::declval<T&&>()( ) )> requires Invocable<T, void>
-	__forceinline inline std::tuple<flat_function_t<Ret>, void*, flat_function_t<>> flatten( T&& fn, Store* store = nullptr )
+	__forceinline std::tuple<flat_function_t<Ret>, void*, flat_function_t<>> flatten( T&& fn, Store* store = nullptr )
 	{
 		using F = std::decay_t<T>;
 
