@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <type_traits>
 #include <typeinfo>
+#include <atomic>
 
 #ifdef __has_include
     #if __has_include(<xstd/options.hpp>)
@@ -228,28 +229,110 @@ MUST_MATCH( DEBUG_BUILD );
     #pragma GCC diagnostic ignored "-Wmicrosoft-cast"
 #endif
 
+// Define stdint style 128-bit integers.
+//
+using int128_t = __int128;
+using uint128_t = unsigned __int128;
+
+// Define MS-style builtins we're using if not available.
+//
+#if !MS_COMPILER
+    #define __forceinline __attribute__((always_inline)) inline
+    #define _AddressOfReturnAddress() ((void*)__builtin_frame_address(0))
+#endif
+
+// Include intrin.h if available.
+//
 #if HAS_MS_EXTENSIONS
     #include <intrin.h>
+#endif
 
-    // Declare demangled function name.
-    //
-    #define FUNCTION_NAME __FUNCSIG__
-
-    // Declare unreachable.
-    //
+// Define unreachable() / debugbreak() / fastfail(x).
+//
+#if MS_COMPILER
     #define unreachable() __assume(0)
-    
-    // Declare yield.
-    //
+    #define debugbreak() __debugbreak()
     #define yield_cpu() _mm_pause()
-
-    // Declare fastfail. (Not marked noreturn in standard declaration.)
-    //
-    __forceinline static void fastfail [[noreturn]] ( int status ) 
+    __forceinline static void fastfail [[noreturn]] ( int status )
     {
         __fastfail( status );
         unreachable();
     }
+#else
+    #if __has_builtin(__builtin_unreachable)
+        #define unreachable() __builtin_unreachable()
+    #elif __has_builtin(__builtin_trap)
+        #define unreachable() __builtin_trap();
+    #else
+        #define unreachable()
+    #endif
+
+    #if __has_builtin(__builtin_debugtrap)
+        #define debugbreak() __builtin_debugtrap()
+    #elif __has_builtin(__builtin_trap)
+        #define debugbreak() __builtin_trap()
+    #else
+        #define debugbreak() 
+    #endif
+
+    #if AMD64_TARGET && WINDOWS_TARGET
+        __forceinline static void fastfail [[noreturn]] ( int status )
+        {
+            asm volatile ( "mov %0, %%ecx; int $0x2c" :: "r" ( status ) );
+            unreachable();
+        }
+    #else
+        #define fastfail(x) debugbreak()
+    #endif
+#endif
+
+// Define yield for busy loops.
+//
+__forceinline static void yield_cpu()
+{
+    #if MS_COMPILER
+        _mm_pause();
+    #elif AMD64_TARGET
+        asm volatile ( "pause" );
+    #elif ARM64_TARGET
+        asm volatile ( "yield" );
+    #else
+        std::atomic_thread_fence( std::memory_order_release ); // Close enough...
+    #endif
+}
+
+// Define task priority.
+//
+__forceinline static void set_task_priority( uintptr_t value )
+{
+#if MS_COMPILER && AMD64_TARGET && KERNEL_TARGET
+    __writecr8( value );
+#elif AMD64_TARGET && KERNEL_TARGET
+    asm volatile ( "mov %0, %%cr8" :: "r" ( value ) );
+#else
+    // Assuming not relevant.
+#endif
+}
+__forceinline static uintptr_t get_task_priority()
+{
+    uintptr_t value;
+#if MS_COMPILER && AMD64_TARGET && KERNEL_TARGET
+    value = __readcr8();
+#elif AMD64_TARGET && KERNEL_TARGET
+    asm volatile ( "mov %%cr8, %0" : "=r" ( value ) );
+#else
+    // Assuming not relevant.
+    value = 0;
+#endif
+    return value;
+}
+
+// Declare some compiler dependant features.
+//
+#if HAS_MS_EXTENSIONS
+    // Declare demangled function name.
+    //
+    #define FUNCTION_NAME __FUNCSIG__
 
     // No-op demangle.
     //
@@ -258,91 +341,6 @@ MUST_MATCH( DEBUG_BUILD );
     // Declare demangled function name.
     //
     #define FUNCTION_NAME __PRETTY_FUNCTION__
-
-    // Declare MS-style builtins we use.
-    //
-    #define __forceinline             __attribute__((always_inline))
-    #define _AddressOfReturnAddress() ((void*)__builtin_frame_address(0))
-
-    // Declare fastfail.
-    //
-    __forceinline static void fastfail [[noreturn]] ( int status ) { abort(); }
-
-    // Declare debugbreak / unreachable.
-    //
-    #if __has_builtin(__builtin_unreachable)
-        #define unreachable() __builtin_unreachable()
-    #elif __has_builtin(__builtin_trap)
-        #define unreachable() __builtin_trap();
-    #elif AMD64_TARGET
-        #define unreachable() { asm volatile ( "int $3" );  fastfail( 0 ); }
-    #elif ARM64_TARGET                                           
-        #define unreachable() { asm volatile ( "bkpt #0" ); fastfail( 0 ); }
-    #else
-        #define unreachable() { *(int*)0 = 0;               fastfail( 0 ); }
-    #endif
-
-    // Declare debugbreak.
-    // - Some compilers apparently assume debugbreak is [[noreturn]] which is unwanted so use actual builtin as fallback.
-    //
-    #if AMD64_TARGET
-        #define __debugbreak() asm volatile ( "int $3" )
-    #elif ARM64_TARGET
-        #define __debugbreak() asm volatile ( "bkpt #0" )
-    #elif __has_builtin(__builtin_debugtrap)
-        #define __debugbreak() __builtin_debugtrap()
-    #elif __has_builtin(__builtin_trap)
-        #define __debugbreak() __builtin_trap()
-    #else
-        #define __debugbreak() { *(int*) 1 = 1; }
-    #endif
-    
-    // Declare yield.
-    //
-    #if AMD64_TARGET
-        #include <emmintrin.h>
-        #define yield_cpu() _mm_pause()
-    #elif ARM64_TARGET
-        #define yield_cpu() asm volatile ("yield")
-    #else
-        // Close enough...
-        #include <atomic>
-        #define yield_cpu() std::atomic_thread_fence( std::memory_order_release );
-    #endif
-
-    // Declare _?mul128
-    //
-    using int128_t =  __int128;
-    using uint128_t = unsigned __int128;
-    __forceinline static uint64_t _umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
-    {
-        uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
-        *_HighProduct = uint64_t( _Product >> 64 );
-        return uint64_t( _Product );
-    }
-
-    __forceinline static int64_t _mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
-    {
-        int128_t _Product = int128_t( _Multiplier ) * _Multiplicand;
-        *_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
-        return int64_t( _Product );
-    }
-
-    // Declare _?mulh
-    //
-    __forceinline static int64_t __mulh( int64_t _Multiplier, int64_t _Multiplicand )
-    {
-        int64_t HighProduct;
-        _mul128( _Multiplier, _Multiplicand, &HighProduct );
-        return HighProduct;
-    }
-
-    __forceinline static uint64_t __umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
-    {
-        uint64_t HighProduct;
-        _umul128( _Multiplier, _Multiplicand, &HighProduct );
-        return HighProduct;
-    }
 
     // Declare demangling helper.
     //
@@ -361,6 +359,35 @@ MUST_MATCH( DEBUG_BUILD );
         __forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
     #endif
 #endif
+
+// Declare 128-bit multiplication.
+//
+__forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
+{
+    uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
+    *_HighProduct = uint64_t( _Product >> 64 );
+    return uint64_t( _Product );
+}
+
+__forceinline static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
+{
+    int128_t _Product = int128_t( _Multiplier ) * _Multiplicand;
+    *_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
+    return int64_t( _Product );
+}
+__forceinline static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
+{
+    int64_t HighProduct;
+    mul128( _Multiplier, _Multiplicand, &HighProduct );
+    return HighProduct;
+}
+
+__forceinline static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
+{
+    uint64_t HighProduct;
+    umul128( _Multiplier, _Multiplicand, &HighProduct );
+    return HighProduct;
+}
 
 // Declare rotation.
 //

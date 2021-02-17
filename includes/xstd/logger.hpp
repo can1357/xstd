@@ -413,7 +413,7 @@ namespace xstd
 		// Break the program, leave the logger locked since we'll break anyways.
 		//
 		unreachable();
-		__debugbreak();
+		debugbreak();
 #endif
 	}
 };
