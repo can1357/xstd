@@ -5,6 +5,7 @@
 #include "assert.hpp"
 #include "result.hpp"
 #include "event.hpp"
+#include "time.hpp"
 #include "spinlock.hpp"
 #include <atomic>
 #include <memory>
@@ -38,7 +39,7 @@ namespace xstd
 		using store_type =     R<T>;
 		using result_traits =  typename store_type::traits;
 		using callback_type =  std::function<void( const store_type& )>;
-		using waiter_type =    std::function<void( store_type& )>;
+		using waiter_type =    std::function<void( store_type&, duration )>;
 		static constexpr bool has_value = !std::is_same_v<value_type, std::monostate>;
 		
 		// List of callbacks guarded by a mutex.
@@ -74,11 +75,11 @@ namespace xstd
 		template<typename T2, template<typename> typename R2, typename F>
 		promise_base( const promise<T2, R2>& pr, F&& transform )
 		{
-			waiter = [ transform = std::forward<F>( transform ), pr ] ( auto& result )
+			waiter = [ transform = std::forward<F>( transform ), pr ] ( auto& result, duration time )
 			{
 				if constexpr ( std::is_void_v<decltype( transform( pr->wait() ) )> )
 				{
-					transform( pr->wait() );
+					transform( pr->wait( time ) );
 
 					if ( result.success() )
 						result.emplace( value_type{}, status_type{ result_traits::success_value } );
@@ -87,16 +88,16 @@ namespace xstd
 				}
 				else
 				{
-					result = transform( pr->wait() );
+					result = transform( pr->wait( time ) );
 				}
 			};
 		}
 		template<typename T2, template<typename> typename R2>
 		promise_base( const promise<T2, R2>& pr )
 		{
-			waiter = [ pr ] ( auto& result )
+			waiter = [ pr ] ( auto& result, duration time )
 			{
-				auto&& result2 = pr->wait();
+				auto&& result2 = pr->wait( time );
 				if constexpr ( std::is_same_v<typename R<T>::status_type, typename R2<T2>::status_type> )
 				{
 					result.emplace( value_type{}, result2.status );
@@ -136,21 +137,24 @@ namespace xstd
 		
 		// Waits for the event to be complete.
 		//
-		const store_type& wait() const
+		const store_type& wait( duration time = {} ) const
 		{
 			if ( waiter )
 			{
 				if ( waiter_lock.try_lock() )
 				{
-					waiter( const_cast< store_type& >( result ) );
+					waiter( const_cast< store_type& >( result ), time );
 					const_cast< event_base& >( evt ).notify();
 					return result;
 				}
 			}
-
-			evt.wait();
+			if ( time != duration{} )
+				evt.wait_for( time );
+			else
+				evt.wait();
 			return result;
 		}
+		const store_type& wait_for( duration time ) const { return wait( time ); }
 
 		// Resolution of the promise value.
 		//

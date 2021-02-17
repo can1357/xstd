@@ -2,6 +2,7 @@
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
 #include <mutex>
+#include <shared_mutex>
 #include <memory>
 #include <functional>
 
@@ -19,34 +20,41 @@ namespace xstd
 	struct event_primitive_default
 	{
 		std::atomic<bool> flag = false;
-		mutable std::mutex mtx = {};
+		mutable std::shared_timed_mutex mtx = {};
 
 		// No copy/move.
 		//
-		event_primitive_default() {};
+		event_primitive_default() { mtx.lock(); };
 		event_primitive_default( event_primitive_default&& ) noexcept = delete;
 		event_primitive_default( const event_primitive_default& ) = delete;
 		event_primitive_default& operator=( event_primitive_default&& ) noexcept = delete;
 		event_primitive_default& operator=( const event_primitive_default& ) = delete;
-		~event_primitive_default() {}
+		~event_primitive_default() { if( !flag ) mtx.unlock(); }
 
 		bool signalled() const { return flag; }
-		bool wait_for( long long milliseconds ) const; /*Not implemented.*/
+		bool wait_for( long long milliseconds ) const
+		{
+			if ( flag )
+				return true;
+			if ( mtx.try_lock_shared_for( time::milliseconds{ milliseconds } ) )
+			{
+				mtx.unlock_shared();
+				return true;
+			}
+			return false;
+		}
 		void wait() const
 		{ 
-			if ( flag )
-				return;
-			std::lock_guard _g{ mtx };
-			if ( flag )
-				return;
-			flag.wait( false, std::memory_order::acquire ); 
+			if ( flag ) return;
+			mtx.lock_shared();
+			mtx.unlock_shared();
 		}
 		bool notify()
 		{ 
 			if ( flag )
 				return false;
 			flag.store( true, std::memory_order::relaxed );
-			flag.notify_one();
+			mtx.unlock();
 			return true;
 		}
 	};
@@ -54,7 +62,9 @@ namespace xstd
 	struct event_base : event_primitive
 	{
 		using event_primitive::event_primitive;
-		template<Duration T> bool wait_for( T duration ) { return event_primitive::wait_for( duration / 1ms ); }
+		
+		template<Duration T> 
+		bool wait_for( T duration ) const { return event_primitive::wait_for( duration / 1ms ); }
 	};
 	using event = std::shared_ptr<event_base>;
 
