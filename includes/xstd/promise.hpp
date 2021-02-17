@@ -76,17 +76,30 @@ namespace xstd
 		{
 			waiter = [ transform = std::forward<F>( transform ), pr ] ( auto& result )
 			{
-				result = transform( pr->wait() );
+				if constexpr ( std::is_void_v<decltype( transform( pr->wait() ) )> )
+				{
+					transform( pr->wait() );
+
+					if ( result.success() )
+						result.emplace( value_type{}, status_type{ result_traits::success_value } );
+					else
+						result.emplace( value_type{}, status_type{ result_traits::failure_value } );
+				}
+				else
+				{
+					result = transform( pr->wait() );
+				}
 			};
 		}
 		template<typename T2, template<typename> typename R2>
 		promise_base( const promise<T2, R2>& pr )
 		{
-			waiter = [ ] ( auto& result )
+			waiter = [ pr ] ( auto& result )
 			{
+				auto&& result2 = pr->wait();
 				if constexpr ( std::is_same_v<typename R<T>::status_type, typename R2<T2>::status_type> )
 				{
-					result.emplace( value_type{}, result.status );
+					result.emplace( value_type{}, result2.status );
 				}
 				else
 				{
