@@ -266,24 +266,20 @@ constexpr auto operator""_hex()
 
 // Hash literals.
 //
-#ifdef __INTELLISENSE__
-	#define MAKE_HASHER( op, fn )                                         \
-	constexpr xstd::hash_t operator"" op( const char* str, size_t n );    \
-	constexpr xstd::hash_t operator"" op( const wchar_t* str, size_t n );
-#elif !GNU_COMPILER
-	#define MAKE_HASHER( op, fn )                                         \
-	constexpr xstd::hash_t operator"" op( const char* str, size_t n )     \
-	{                                                                     \
-		return fn<std::basic_string_view<char>>{}( { str, n } );          \
-	}                                                                     \
-	constexpr xstd::hash_t operator"" op( const wchar_t* str, size_t n )  \
-	{                                                                     \
-		return fn<std::basic_string_view<wchar_t>>{}( { str, n } );       \
+#ifdef __INTELLISENSE__ || !GNU_COMPILER
+	#define MAKE_HASHER( op, fn )                                                \
+	inline constexpr xstd::hash_t operator"" op( const char* str, size_t n )     \
+	{                                                                            \
+		return fn<std::basic_string_view<char>>{}( { str, n } );                 \
+	}                                                                            \
+	inline constexpr xstd::hash_t operator"" op( const wchar_t* str, size_t n )  \
+	{                                                                            \
+		return fn<std::basic_string_view<wchar_t>>{}( { str, n } );              \
 	}                                                                    
 #else
 	#define MAKE_HASHER( op, fn )                                                                        \
 	template<typename T, T... chars>                                                                     \
-	constexpr xstd::hash_t operator"" op()                                                              \
+	constexpr xstd::hash_t operator"" op()                                                               \
 	{                                                                                                    \
 		constexpr T str[] = { chars... };                                                                \
 		constexpr xstd::hash_t hash = fn<std::basic_string_view<T>>{}( { str, sizeof...( chars ) } );    \
