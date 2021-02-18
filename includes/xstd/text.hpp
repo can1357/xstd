@@ -266,7 +266,7 @@ constexpr auto operator""_hex()
 
 // Hash literals.
 //
-#ifdef __INTELLISENSE__ || !GNU_COMPILER
+#if (defined(__INTELLISENSE__) || !GNU_COMPILER)
 	#define MAKE_HASHER( op, fn )                                                \
 	inline constexpr xstd::hash_t operator"" op( const char* str, size_t n )     \
 	{                                                                            \
