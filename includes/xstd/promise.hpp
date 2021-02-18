@@ -320,10 +320,29 @@ namespace xstd
 	struct __async_await_t
 	{
 		template<typename T>
-		const auto& operator<=( const xstd::promise<T>& pr ) const
+		__forceinline const auto& operator<=( const xstd::promise<T>& pr ) const
 		{
 			return pr->wait();
 		}
+		__forceinline void operator<=( const xstd::event& evt ) const
+		{
+			return evt->wait();
+		}
 	};
-	#define await  __async_await_t{} <=  // const R<T>&
+	struct __async_await_for_t
+	{
+		xstd::duration duration;
+
+		template<typename T>
+		__forceinline const auto& operator<=( const xstd::promise<T>& pr ) const
+		{
+			return pr->wait_for( duration );
+		}
+		__forceinline bool operator<=( const xstd::event& evt ) const
+		{
+			return evt->wait_for( duration );
+		}
+	};
+	#define await         __async_await_t{} <=       // const R<T>&
+	#define await_for(x)  __async_await_for_t{x} <=  // const R<T>&
 #endif
