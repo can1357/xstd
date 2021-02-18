@@ -16,24 +16,24 @@ namespace xstd
 	// Registers a chore that will be invoked either at a set time, or if left empty immediately but in an async context.
 	//
 	template<typename T> requires Invocable<T, void>
-	inline void chore( T&& fn, xstd::timestamp due_time = {}, uint8_t priority = 0 )
+	inline void chore( T&& fn, timestamp due_time = {}, uint8_t priority = 0 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
-		if ( due_time == xstd::timestamp{} )
+		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
+		if ( due_time == timestamp{} )
 		{
 			XSTD_CHORE_SCHEDULER( [ ] ( void* ) { return true; }, nullptr, func, arg, priority );
 		}
 		else
 		{
-			auto [ffunc, farg, __] = xstd::flatten( [ due_time ] ()
+			auto [ffunc, farg, __] = flatten( [ due_time ] ()
 			{
-				return xstd::time::now() >= due_time;
+				return time::now() >= due_time;
 			} );
 			XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority );
 		}
 #else
-		if ( due_time == xstd::timestamp{} )
+		if ( due_time == timestamp{} )
 		{
 			std::thread( std::forward<T>( fn ) ).detach();
 		}
@@ -48,9 +48,9 @@ namespace xstd
 #endif
 	}
 	template<typename T> requires Invocable<T, void>
-	inline void chore( T&& fn, xstd::duration delay, uint8_t priority = 0 )
+	inline void chore( T&& fn, duration delay, uint8_t priority = 0 )
 	{
-		return chore( std::forward<T>( fn ), xstd::time::now() + delay );
+		return chore( std::forward<T>( fn ), time::now() + delay );
 	}
 
 	// Registers a chore to be invoked when an even occurs.
@@ -59,8 +59,8 @@ namespace xstd
 	inline void chore( T&& fn, const event& evt, uint8_t priority = 0 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
-		auto [ffunc, farg, __] = xstd::flatten( [ evt ] ()
+		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
+		auto [ffunc, farg, __] = flatten( [ evt ] ()
 		{
 			return evt->signalled();
 		} );
@@ -74,13 +74,13 @@ namespace xstd
 #endif
 	}
 	template<typename T> requires Invocable<T, void>
-	inline void chore( T&& fn, const event& evt, xstd::duration timeout, uint8_t priority = 0 )
+	inline void chore( T&& fn, const event& evt, duration timeout, uint8_t priority = 0 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = xstd::flatten( std::forward<T>( fn ) );
-		auto [ffunc, farg, __] = xstd::flatten( [ evt, to = xstd::time::now() + timeout ] ()
+		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
+		auto [ffunc, farg, __] = flatten( [ evt, to = time::now() + timeout ] ()
 		{
-			return evt->signalled() || xstd::time::now() >= t0;
+			return evt->signalled() || time::now() >= t0;
 		} );
 		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority );
 #else

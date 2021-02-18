@@ -72,10 +72,17 @@ namespace xstd
 #if XSTD_NO_EXCEPTIONS
 		error( fmt_str, std::forward<params>( ps )... );
 #else
-		throw std::runtime_error( fmt::str(
-			fmt_str,
-			std::forward<params>( ps )...
-		) );
+		if constexpr ( sizeof...( params ) != 0 )
+		{
+			throw std::runtime_error( fmt::str(
+				fmt_str,
+				std::forward<params>( ps )...
+			) );
+		}
+		else
+		{
+			throw std::runtime_error( fmt_str );
+		}
 #endif
 	}
 };

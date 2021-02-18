@@ -108,7 +108,7 @@ namespace xstd::file
 		{
 #if WINDOWS_TARGET
 			if ( address && !UnmapViewOfFile( ( void* ) address ) )
-				xstd::error( XSTD_ESTR( "UnmapViewOfFile failed." ) );
+				error( XSTD_ESTR( "UnmapViewOfFile failed." ) );
 			if ( mapping_handle != INVALID_HANDLE_VALUE )
 				CloseHandle( mapping_handle );
 			if ( file_handle != INVALID_HANDLE_VALUE )
@@ -116,7 +116,7 @@ namespace xstd::file
 #else
 			close( fd );
 			if ( address && munmap( ( void* ) address, length * sizeof( T ) ) == -1 )
-				xstd::error( XSTD_ESTR( "munmap failed." ) );
+				error( XSTD_ESTR( "munmap failed." ) );
 #endif
 		}
 	};

@@ -44,7 +44,7 @@ namespace xstd
 		if ( auto* s = ::getenv( name ) )
 			return s;
 #endif
-		if ( def.empty() ) xstd::error( XSTD_ESTR( "Environment variable %s is not defined!" ), name );
+		if ( def.empty() ) error( XSTD_ESTR( "Environment variable %s is not defined!" ), name );
 		else               return def;
 	}
 };

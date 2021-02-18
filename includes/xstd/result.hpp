@@ -114,7 +114,7 @@ namespace xstd
 		constexpr void assert() const
 		{
 			if ( !success() ) [[unlikely]]
-				xstd::error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
+				error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
 		}
 
 		// String conversion.
@@ -124,7 +124,7 @@ namespace xstd
 			if ( fail() ) 
 				return fmt::str( XSTD_CSTR( "(Fail='%s')" ), message() );
 			if constexpr ( StringConvertible<Value> ) 
-				return fmt::str( XSTD_CSTR( "(Result='%s')" ), xstd::fmt::as_string( result ) );
+				return fmt::str( XSTD_CSTR( "(Result='%s')" ), fmt::as_string( result ) );
 			else                                    
 				return XSTD_CSTR( "(Success)" );
 		}
