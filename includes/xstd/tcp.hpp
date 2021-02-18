@@ -20,10 +20,11 @@ namespace xstd::tcp
 		//
 		size_t rx_buffer_offset = 0;
 		std::string rx_buffer;
+		std::recursive_mutex rx_lock;
 
 		// Transmission queues.
 		//
-		std::recursive_mutex queue_lock;
+		std::recursive_mutex tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::string, size_t>> tx_queue;
@@ -62,7 +63,7 @@ namespace xstd::tcp
 		{
 			if ( closed ) return;
 
-			std::lock_guard _g{ queue_lock };
+			std::lock_guard _g{ tx_lock };
 			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
 			{
 				// Try writing it to the socket.
@@ -98,9 +99,9 @@ namespace xstd::tcp
 
 			// Append the data onto tx queue.
 			//
-			queue_lock.lock();
+			tx_lock.lock();
 			tx_queue.emplace_back( std::move( data ), 0 );
-			queue_lock.unlock();
+			tx_lock.unlock();
 
 			// Invoke socket timer to exhaust the queue.
 			//
@@ -111,6 +112,24 @@ namespace xstd::tcp
 		//
 		void on_socket_connect()
 		{
+			// Reset the buffers.
+			//
+			{
+				std::lock_guard _g{ tx_lock };
+				tx_queue.clear();
+			}
+			{
+
+				std::lock_guard _g{ rx_lock };
+				ack_queue.clear();
+				rx_buffer.clear();
+				rx_buffer_offset = 0;
+			}
+			last_tx_id = 0;
+			last_ack_id = 0;
+
+			// Reset the flag.
+			//
 			closed = false;
 		}
 
@@ -122,7 +141,7 @@ namespace xstd::tcp
 
 			// Delete every entry from acknowledgment queue where the id is below the new one.
 			//
-			std::lock_guard _g{ queue_lock };
+			std::lock_guard _g{ tx_lock };
 			size_t new_id = ( last_ack_id += n );
 			for ( auto it = ack_queue.begin(); it != ack_queue.end(); )
 			{
@@ -137,16 +156,7 @@ namespace xstd::tcp
 		//
 		virtual void on_socket_close()
 		{
-			// Reset the buffers.
-			//
 			closed = true;
-			std::lock_guard _g{ queue_lock };
-			tx_queue.clear();
-			ack_queue.clear();
-			rx_buffer.clear();
-			rx_buffer_offset = 0;
-			last_tx_id = 0;
-			last_ack_id = 0;
 		}
 
 		// Invoked by network layer to indicate the socket received data.
@@ -157,7 +167,7 @@ namespace xstd::tcp
 
 			// If receive buffer is empty, try parsing the segment without any copy.
 			//
-			std::lock_guard _g{ queue_lock };
+			std::lock_guard _g{ rx_lock };
 			if ( rx_buffer.empty() )
 			{
 				// While packets are parsed:
