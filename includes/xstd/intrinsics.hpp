@@ -229,11 +229,6 @@ MUST_MATCH( DEBUG_BUILD );
     #pragma GCC diagnostic ignored "-Wmicrosoft-cast"
 #endif
 
-// Define stdint style 128-bit integers.
-//
-using int128_t = __int128;
-using uint128_t = unsigned __int128;
-
 // Define MS-style builtins we're using if not available.
 //
 #if !MS_COMPILER
@@ -245,6 +240,9 @@ using uint128_t = unsigned __int128;
 //
 #if HAS_MS_EXTENSIONS
     #include <intrin.h>
+    #if MS_COMPILER
+        #include <xmmintrin.h>
+    #endif
 #endif
 
 // Define unreachable() / debugbreak() / fastfail(x).
@@ -252,7 +250,6 @@ using uint128_t = unsigned __int128;
 #if MS_COMPILER
     #define unreachable() __assume(0)
     #define debugbreak() __debugbreak()
-    #define yield_cpu() _mm_pause()
     __forceinline static void fastfail [[noreturn]] ( int status )
     {
         __fastfail( status );
@@ -362,32 +359,56 @@ __forceinline static uintptr_t get_task_priority()
 
 // Declare 128-bit multiplication.
 //
-__forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
-{
-    uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
-    *_HighProduct = uint64_t( _Product >> 64 );
-    return uint64_t( _Product );
-}
+#ifndef MS_COMPILER
+        using int128_t = __int128;
+        using uint128_t = unsigned __int128;
+        __forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
+        {
+            uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
+            *_HighProduct = uint64_t( _Product >> 64 );
+            return uint64_t( _Product );
+        }
 
-__forceinline static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
-{
-    int128_t _Product = int128_t( _Multiplier ) * _Multiplicand;
-    *_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
-    return int64_t( _Product );
-}
-__forceinline static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
-{
-    int64_t HighProduct;
-    mul128( _Multiplier, _Multiplicand, &HighProduct );
-    return HighProduct;
-}
+        __forceinline static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
+        {
+            int128_t _Product = int128_t( _Multiplier ) * _Multiplicand;
+            *_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
+            return int64_t( _Product );
+        }
+        __forceinline static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
+        {
+            int64_t HighProduct;
+            mul128( _Multiplier, _Multiplicand, &HighProduct );
+            return HighProduct;
+        }
 
-__forceinline static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
-{
-    uint64_t HighProduct;
-    umul128( _Multiplier, _Multiplicand, &HighProduct );
-    return HighProduct;
-}
+        __forceinline static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
+        {
+            uint64_t HighProduct;
+            umul128( _Multiplier, _Multiplicand, &HighProduct );
+            return HighProduct;
+        }
+#else
+
+        __forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
+        {
+            return _umul128( _Multiplier, _Multiplicand, _HighProduct );
+        }
+
+        __forceinline static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
+        {
+            return _mul128( _Multiplier, _Multiplicand, _HighProduct );
+        }
+        __forceinline static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
+        {
+            return __mulh( _Multiplier, _Multiplicand );
+        }
+
+        __forceinline static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
+        {
+            return __umulh( _Multiplier, _Multiplicand );
+        }
+#endif
 
 // Declare rotation.
 //
