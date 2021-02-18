@@ -321,13 +321,16 @@ namespace xstd::ws
 		//
 		void close( status_code st = status_shutdown )
 		{
-			if ( st == status_none ) st = status_shutdown;
-			status_code status_ex = status_none;
-			if ( status.compare_exchange_strong( status_ex, st ) )
+			if ( transport_layer::closed ) return;
+			if ( st != status_none )
 			{
-				st = bswap( st );
-				send_packet( opcode::close, &st, sizeof( st ) );
-				transport_layer::socket_writeback();
+				status_code status_ex = status_none;
+				if ( status.compare_exchange_strong( status_ex, st ) )
+				{
+					st = bswap( st );
+					send_packet( opcode::close, &st, sizeof( st ) );
+					transport_layer::socket_writeback();
+				}
 			}
 			transport_layer::socket_close();
 		}
@@ -434,6 +437,6 @@ namespace xstd::ws
 
 		// Close the stream on destruction.
 		//
-		~client() { close(); }
+		~client() { close( status_none ); }
 	};
 };
