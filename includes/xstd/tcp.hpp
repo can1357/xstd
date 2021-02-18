@@ -133,11 +133,13 @@ namespace xstd::tcp
 		}
 
 		// Invoked by network layer to indicate the socket was closed.
+		// - Can be overriden to hook the event.
 		//
-		void on_socket_close()
+		virtual void on_socket_close()
 		{
-			// Reset the buffers and invoke application layer callback if first time.
+			// Reset the buffers.
 			//
+			closed = true;
 			std::lock_guard _g{ queue_lock };
 			tx_queue.clear();
 			ack_queue.clear();
@@ -145,7 +147,6 @@ namespace xstd::tcp
 			rx_buffer_offset = 0;
 			last_tx_id = 0;
 			last_ack_id = 0;
-			closed = true;
 		}
 
 		// Invoked by network layer to indicate the socket received data.
