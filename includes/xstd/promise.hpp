@@ -138,6 +138,8 @@ namespace xstd
 		//
 		void signal()
 		{
+			dassert_s( evt.notify() );
+
 			// Swap the callback-list with an empty one within a lock.
 			//
 			cb_lock.lock();
@@ -159,7 +161,7 @@ namespace xstd
 				if ( waiter_lock.try_lock() )
 				{
 					waiter( const_cast< store_type& >( result ), time );
-					const_cast< event_base& >( evt ).notify();
+					signal();
 					return result;
 				}
 			}
@@ -181,7 +183,6 @@ namespace xstd
 			{
 				std::lock_guard _g{ result_lock };
 				result = std::move( value );
-				dassert_s( evt.notify() );
 			}
 			signal();
 		}
@@ -196,7 +197,6 @@ namespace xstd
 					value_type{ std::forward<Tx>( value )... },
 					status_type{ result_traits::success_value }
 				);
-				dassert_s( evt.notify() );
 			}
 			signal();
 		}
@@ -211,7 +211,6 @@ namespace xstd
 				if ( result_traits::is_success( error ) )
 					error = result_traits::failure_value;
 				result.status = std::move( error );
-				dassert_s( evt.notify() );
 			}
 			signal();
 		}

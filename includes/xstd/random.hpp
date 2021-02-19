@@ -89,7 +89,7 @@ namespace xstd
 	// - If XSTD_RANDOM_THREAD_LOCAL is set, will be a thread-local change, else global.
 	//
 	static void seed_rng( size_t n ) 
-	{ 
+	{
 		impl::get_runtime_rng().seed( n ); 
 	}
 
