@@ -161,7 +161,7 @@ namespace xstd
 				if ( waiter_lock.try_lock() )
 				{
 					waiter( const_cast< store_type& >( result ), time );
-					signal();
+					const_cast< promise_base* >( this )->signal();
 					return result;
 				}
 			}
