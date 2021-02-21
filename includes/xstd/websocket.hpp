@@ -300,7 +300,7 @@ namespace xstd::ws
 			tx_buffer.insert( tx_buffer.end(), ( char* ) data, ( char* ) data + length );
 			mask_buffer( tx_buffer.data() + p, length, hdr.mask_key );
 			
-			// Write to the TCP socket, close connection if it was opcode close, return the status.
+			// Write to the TCP socket.
 			//
 			transport_layer::write( std::move( tx_buffer ) );
 		}
