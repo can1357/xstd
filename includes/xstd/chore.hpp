@@ -8,7 +8,7 @@
 // XSTD_CHORE_SCHEDULER: If set, chore will pass OS two callbacks to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER
-	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( bool( __cdecl* filter )( void* ), void* flt_arg, void( __cdecl* callback )( void* ), void* cb_arg, int64_t priority );
+	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( bool( __cdecl* filter )( void* ), void* flt_arg, void( __cdecl* callback )( void* ), void* cb_arg, int64_t priority, int64_t due_time );
 #endif
 
 namespace xstd
@@ -20,11 +20,7 @@ namespace xstd
 	{
 #ifdef XSTD_CHORE_SCHEDULER
 		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
-		auto [ffunc, farg, __] = flatten( [ due_time ] ()
-		{
-			return time::now() >= due_time;
-		} );
-		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority );
+		XSTD_CHORE_SCHEDULER( nullptr, nullptr, func, arg, priority, due_time.time_since_epoch().count() );
 #else
 		std::thread( [ fn = std::forward<T>( fn ), due_time ]()
 		{
@@ -43,7 +39,7 @@ namespace xstd
 	{
 #ifdef XSTD_CHORE_SCHEDULER
 		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
-		XSTD_CHORE_SCHEDULER( nullptr, nullptr, func, arg, priority );
+		XSTD_CHORE_SCHEDULER( nullptr, nullptr, func, arg, priority, 0 );
 #else
 		std::thread( std::forward<T>( fn ) ).detach();
 #endif
@@ -60,7 +56,7 @@ namespace xstd
 		{
 			return evt->signalled();
 		} );
-		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority );
+		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority, 0 );
 #else
 		chore( [ fn = std::forward<T>( fn ), evt ] ()
 		{
@@ -89,7 +85,7 @@ namespace xstd
 			}
 			return time::now() >= t0;
 		} );
-		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority );
+		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority, 0 );
 #else
 		chore( [ fn = std::forward<T>( fn ), evt, t = timeout / 1ms ] ()
 		{
