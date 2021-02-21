@@ -46,6 +46,10 @@ namespace xstd
 			// Redirect dereferencing to container.
 			//
 			constexpr value_type operator*() const { return at; }
+
+			// String conversion.
+			//
+			std::string to_string() const { return fmt::as_string( at ); }
 		};
 		using const_iterator = iterator;
 
@@ -90,6 +94,16 @@ namespace xstd
 			return { nfirst, nlimit };
 		}
 
+		// Checks if the range contains a certain value.
+		//
+		constexpr iterator find( T value ) const
+		{
+			if ( first <= value && value < limit )
+				return iterator{ value };
+			else
+				return iterator{ limit };
+		}
+
 		// Slices the region.
 		//
 		constexpr numeric_range slice( size_t offset = 0, size_t count = std::string::npos ) const
@@ -106,7 +120,7 @@ namespace xstd
 		//
 		std::string to_string() const
 		{
-			return XSTD_CSTR( "[" ) + xstd::fmt::as_string( first ) + XSTD_CSTR( ", " ) + xstd::fmt::as_string( limit ) + XSTD_CSTR( ")" );
+			return XSTD_CSTR( "[" ) + fmt::as_string( first ) + XSTD_CSTR( ", " ) + fmt::as_string( limit ) + XSTD_CSTR( ")" );
 		}
 	};
 	template<typename T>               numeric_range( T )      -> numeric_range<integral_max_t<T, T>>;  // Max'd to enforce the concept, intellisense does not like concepts here.

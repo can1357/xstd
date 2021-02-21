@@ -556,7 +556,7 @@ namespace xstd
 	template<typename T>
 	concept Bitcastable = requires( T x ) { bit_cast<std::array<char, sizeof( T )>, T >( x ); };
 	template<typename T>
-	static auto& as_byte_array( T& src )
+	static auto& bytes( T& src )
 	{
 		return carry_const( src, ( std::array<char, sizeof( T )>& ) src );
 	}
