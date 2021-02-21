@@ -46,6 +46,13 @@ namespace xstd
 		template<typename Rep, typename Period>
 		static std::string to_string( std::chrono::duration<Rep, Period> duration )
 		{
+			bool sign = false;
+			if ( duration < std::chrono::duration < Rep, Period>{ 0 } )
+			{
+				sign = true;
+				duration = -duration;
+			}
+
 			using T = std::chrono::duration<double, Period>;
 			T fduration = std::chrono::duration_cast<T>( duration );
 
@@ -70,7 +77,7 @@ namespace xstd
 			// Convert float to string.
 			//
 			char buffer[ 32 ];
-			snprintf( buffer, 32, XSTD_CSTR( "%.2lf%s" ), fduration / durations[ n ], abbreviations[ n ] );
+			snprintf( buffer, 32, XSTD_CSTR( "%s%.2lf%s" ), sign ? "-" : "", fduration / durations[ n ], abbreviations[ n ] );
 			return buffer;
 		}
 
