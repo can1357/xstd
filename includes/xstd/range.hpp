@@ -12,8 +12,7 @@ namespace xstd
 		//
 		struct no_transform
 		{
-			template<typename T> __forceinline T& operator()( T& x ) const noexcept { return x; }
-			template<typename T> __forceinline T operator()( T&& x ) const noexcept { return std::move( x ); }
+			template<typename T> __forceinline decltype( auto ) operator()( T&& x ) const noexcept { return x; }
 		};
 	};
 
@@ -117,6 +116,44 @@ namespace xstd
 		constexpr decltype( auto ) operator[]( size_t n ) const { return transform( *std::next( ibegin, n ) ); }
 	};
 
+	// Declare a trivial range where a complex iterator cannot be used.
+	//
+	template<typename It>
+	struct trivial_range
+	{
+		using iterator =       It;
+		using const_iterator = It;
+		using value_type =     std::remove_cvref_t<decltype( *std::declval<It>() )>;
+
+		// Holds the limits.
+		//
+		It ibegin;
+		It iend;
+		constexpr trivial_range( It begin, It end )
+			: ibegin( std::move( begin ) ), iend( std::move( end ) ) {}
+
+		// Construct by container and transformation.
+		//
+		template<Iterable C>
+		constexpr trivial_range( const C& container )
+			: ibegin( std::begin( container ) ), iend( std::end( container ) ) {}
+
+		// Default copy and move.
+		//
+		constexpr trivial_range( trivial_range&& ) noexcept = default;
+		constexpr trivial_range( const trivial_range& ) = default;
+		constexpr trivial_range& operator=( trivial_range&& ) noexcept = default;
+		constexpr trivial_range& operator=( const trivial_range& ) = default;
+
+		// Declare basic container interface.
+		//
+		constexpr iterator begin() const  { return ibegin; }
+		constexpr iterator end() const { return iend; }
+		constexpr size_t size() const { return ( size_t ) std::distance( ibegin, iend ); }
+		constexpr bool empty() const { return ibegin == iend; }
+		constexpr decltype( auto ) operator[]( size_t n ) const { return  *std::next( ibegin, n ); }
+	};
+
 	// Declare the deduction guides.
 	//
 	template<typename It1, typename It2, typename Fn>
@@ -125,6 +162,11 @@ namespace xstd
 	range( C, Fn )->range<iterator_type_t<C>, Fn>;
 	template<typename It1, typename It2> requires ( !Iterable<It1> )
 	range( It1, It2 )->range<It1>;
+
+	template<typename C, typename Fn> requires Iterable<C>
+	trivial_range( C, Fn )->trivial_range<iterator_type_t<C>>;
+	template<typename It1, typename It2> requires ( !Iterable<It1> )
+	trivial_range( It1, It2 )->trivial_range<It1>;
 
 	// Old style functors.
 	//

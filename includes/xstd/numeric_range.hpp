@@ -2,6 +2,8 @@
 #include <iterator>
 #include <limits>
 #include <string>
+#include <optional>
+#include "formatting.hpp"
 #include "type_helpers.hpp"
 
 namespace xstd
@@ -49,11 +51,11 @@ namespace xstd
 
 		// Beginning and the end of the range.
 		//
-		T min_value;
-		T max_value;
-		constexpr numeric_range( T min_value = std::numeric_limits<T>::min(),
-					             T max_value = std::numeric_limits<T>::max() ) 
-			: min_value( min_value ), max_value( max_value ) {}
+		T first;
+		T limit;
+		constexpr numeric_range() : first( 0 ), limit( 0 ) {}
+		constexpr numeric_range( T first, T limit ) 
+			: first( first ), limit( limit ) {}
 
 		// Default copy/move.
 		//
@@ -64,16 +66,47 @@ namespace xstd
 
 		// Generic container helpers.
 		//
-		constexpr size_t size() const { return max_value - min_value; }
-		constexpr iterator begin() const { return { min_value }; }
-		constexpr iterator end() const   { return { max_value }; }
-		constexpr T operator[]( size_t n ) const { return min_value + n; }
+		constexpr bool empty() const { return limit == first; }
+		constexpr size_t size() const { return limit - first; }
+		constexpr iterator begin() const { return { first }; }
+		constexpr iterator end() const   { return { limit }; }
+		constexpr T operator[]( size_t n ) const { return first + n; }
+
+		// Finds the overlapping region if relevant.
+		//
+		constexpr numeric_range overlap( const numeric_range& other ) const
+		{
+			// Completely seperate ranges:
+			//
+			if ( other.first >= limit )
+				return {};
+			if ( other.limit <= first  )
+				return {};
+
+			// Return the overlap:
+			//
+			T nfirst = std::max( first, other.first );
+			T nlimit = std::min( limit, other.limit );
+			return { nfirst, nlimit };
+		}
+
+		// Slices the region.
+		//
+		constexpr numeric_range slice( size_t offset = 0, size_t count = std::string::npos ) const
+		{
+			T nfirst = first + offset;
+			if ( nfirst >= limit )
+				return {};
+			if ( count == std::string::npos )
+				count = limit - nfirst;
+			return { nfirst, nfirst + count };
+		}
 
 		// String conversion.
 		//
 		std::string to_string() const
 		{
-			return XSTD_CSTR( "[" ) + std::to_string( min_value ) + XSTD_CSTR( ", " ) + std::to_string( max_value ) + XSTD_CSTR( ")" );
+			return XSTD_CSTR( "[" ) + xstd::fmt::as_string( first ) + XSTD_CSTR( ", " ) + xstd::fmt::as_string( limit ) + XSTD_CSTR( ")" );
 		}
 	};
 	template<typename T>               numeric_range( T )      -> numeric_range<integral_max_t<T, T>>;  // Max'd to enforce the concept, intellisense does not like concepts here.
@@ -81,8 +114,8 @@ namespace xstd
 
 	// Simple range creation wrapper.
 	//
-	static constexpr numeric_range<> iindices = {};
+	static constexpr numeric_range<> iindices = { 0ull, SIZE_MAX };
 
 	template<typename T>
-	static numeric_range<T> iiota( T x ) { return { x }; }
+	static numeric_range<T> iiota( T x ) { return { x, SIZE_MAX }; }
 };

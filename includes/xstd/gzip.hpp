@@ -83,7 +83,7 @@ namespace xstd::gzip
 		result.resize( result.size() - stream.avail_out );
 		return result;
 	}
-	template<Iterable T> requires is_contiguous_iterable_v<T>
+	template<Iterable T>
 	inline static string_result<std::vector<uint8_t>> decompress( T&& cont )
 	{
 		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterator_value_type_t<T> ) );

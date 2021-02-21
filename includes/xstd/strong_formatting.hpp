@@ -5,7 +5,6 @@
 #include "algorithm.hpp"
 #include "formatting.hpp"
 #include "type_helpers.hpp"
-#include "numeric_range.hpp"
 
 // Trivial types with useful explict formatting wrappers.
 //
@@ -61,9 +60,9 @@ namespace xstd::fmt
 	struct byte_count
 	{
 		inline static const std::array unit_abbrv = {
-			XSTD_STR( "b" ),  XSTD_STR( "kb" ),
-			XSTD_STR( "mb" ), XSTD_STR( "gb" ),
-			XSTD_STR( "tb" ), XSTD_STR( "pb" )
+			XSTD_CSTR( "b" ),  XSTD_CSTR( "kb" ),
+			XSTD_CSTR( "mb" ), XSTD_CSTR( "gb" ),
+			XSTD_CSTR( "tb" ), XSTD_CSTR( "pb" )
 		};
 		inline static const std::array unit_size = xstd::make_constant_series<std::size( unit_abbrv )>( [ ] ( auto n )
 		{
@@ -86,20 +85,19 @@ namespace xstd::fmt
 
 			// Iterate unit list in descending order.
 			//
-			for ( auto&& [abbrv, limit] : backwards( zip( unit_abbrv, unit_size ) ) )
+			size_t n = unit_abbrv.size() - 1;
+			while ( n != 0 )
 			{
-				// If value is larger than the unit given or if we're at the last unit:
-				//
-				if ( std::abs( fvalue ) >= limit || abbrv == *std::begin( unit_abbrv ) )
-				{
-					// Convert float to string.
-					//
-					char buffer[ 32 ];
-					snprintf( buffer, 32, XSTD_CSTR( "%.1lf%s" ), fvalue / limit, abbrv.c_str() );
-					return buffer;
-				}
+				if ( fvalue >= unit_size[ n ] )
+					break;
+				--n;
 			}
-			unreachable();
+
+			// Convert float to string.
+			//
+			char buffer[ 32 ];
+			snprintf( buffer, 32, XSTD_CSTR( "%.1lf%s" ), fvalue / unit_size[ n ], unit_abbrv );
+			return buffer;
 		}
 	};
 

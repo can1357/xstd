@@ -69,8 +69,8 @@ namespace xstd
 
 			// Convert float to string.
 			//
-			char buffer[ 64 ];
-			snprintf( buffer, 64, XSTD_CSTR( "%.2lf%s" ), fduration / durations[ n ], abbreviations[ n ] );
+			char buffer[ 32 ];
+			snprintf( buffer, 32, XSTD_CSTR( "%.2lf%s" ), fduration / durations[ n ], abbreviations[ n ] );
 			return buffer;
 		}
 
