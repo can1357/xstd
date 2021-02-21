@@ -44,19 +44,19 @@ namespace xstd
 		
 		// List of callbacks guarded by a mutex.
 		//
-		spinlock<> cb_lock = {};
+		spinlock cb_lock = {};
 		std::vector<callback_type> cb_list;
 
 		// Resulting value or the status, constant after flag is set.
 		//
-		spinlock<> result_lock = {};
+		spinlock result_lock = {};
 		store_type result;
 		
 		// Event for when the store gets set.
 		//
 		event_base evt = {};
 		mutable waiter_type waiter = {};
-		mutable spinlock<> waiter_lock = {};
+		mutable spinlock waiter_lock = {};
 
 		// Default constructor makes a pending promise.
 		//

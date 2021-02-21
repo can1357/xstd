@@ -381,7 +381,7 @@ namespace xstd::fmt
 	template<typename... Tx>
 	static std::string str( const char* fmt_str, Tx&&... ps )
 	{
-		if constexpr ( sizeof...( ps ) > 0 )
+		if constexpr ( sizeof...( Tx ) > 0 )
 		{
 			auto print_to_buffer = [ ] ( const char* fmt_str, auto&&... args )
 			{

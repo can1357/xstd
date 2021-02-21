@@ -8,7 +8,7 @@ namespace xstd
 	// Raises caller to a specific task priority upon lock and lowers on unlock. Ignored for shared lockers.
 	//
 	template<Lockable Mutex, uintptr_t TP>
-	struct task_mutex
+	struct task_guard
 	{
 		Mutex mutex;
 
@@ -16,7 +16,7 @@ namespace xstd
 		std::atomic<uintptr_t> ex_tp = 0;
 
 		template<typename... Tx>
-		__forceinline constexpr task_mutex( Tx&&... args ) : mutex( std::forward<Tx>()... ) {}
+		__forceinline constexpr task_guard( Tx&&... args ) : mutex( std::forward<Tx>()... ) {}
 
 		// Common helpers for raising/lowering of the task priority.
 		//
