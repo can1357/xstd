@@ -8,7 +8,7 @@
 // XSTD_CHORE_SCHEDULER: If set, chore will pass OS two callbacks to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER
-	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( bool( __cdecl* ready )( void* ), void* flt_arg, void( __cdecl* callback )( void* ), void* cb_arg, int64_t priority );
+	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( bool( __cdecl* filter )( void* ), void* flt_arg, void( __cdecl* callback )( void* ), void* cb_arg, int64_t priority );
 #endif
 
 namespace xstd
@@ -43,7 +43,7 @@ namespace xstd
 	{
 #ifdef XSTD_CHORE_SCHEDULER
 		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
-		XSTD_CHORE_SCHEDULER( [ ] ( void* ) { return true; }, nullptr, func, arg, priority );
+		XSTD_CHORE_SCHEDULER( nullptr, nullptr, func, arg, priority );
 #else
 		std::thread( std::forward<T>( fn ) ).detach();
 #endif
@@ -69,14 +69,25 @@ namespace xstd
 		} );
 #endif
 	}
-	template<typename T> requires Invocable<T, void>
+	template<typename T> requires Invocable<T, bool>
 	inline void chore( T&& fn, const event& evt, duration timeout, int64_t priority = -1 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
-		auto [ffunc, farg, __] = flatten( [ evt, to = time::now() + timeout ] ()
+		bool* flag = new bool( false );
+		auto [func, arg, _] = flatten( [ flag, fn = std::forward<T>( fn ) ] () mutable
 		{
-			return evt->signalled() || time::now() >= t0;
+			bool res = *flag;
+			delete flag;
+			std::move( fn )( res );
+		} );
+		auto [ffunc, farg, __] = flatten( [ flag, evt, to = time::now() + timeout ] ()
+		{
+			if ( evt->signalled() )
+			{
+				*flag = true;
+				return true;
+			}
+			return time::now() >= t0;
 		} );
 		XSTD_CHORE_SCHEDULER( ffunc, farg, func, arg, priority );
 #else

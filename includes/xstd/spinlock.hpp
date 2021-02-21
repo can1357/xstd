@@ -25,6 +25,35 @@ namespace xstd
 		}
 	};
 
+	struct recursive_spinlock
+	{
+		std::atomic<std::thread::id> owner = {};
+		int32_t depth = 0;
+
+		FORCE_INLINE bool try_lock()
+		{
+			std::thread::id expected = {};
+			std::thread::id desired = std::this_thread::get_id();
+			if ( !owner.compare_exchange_strong( expected, desired, std::memory_order::acquire ) )
+			{
+				if ( desired != expected )
+					return false;
+			}
+			++depth;
+			return true;
+		}
+		FORCE_INLINE void lock()
+		{
+			while ( !try_lock() )
+				yield_cpu();
+		}
+		FORCE_INLINE void unlock()
+		{
+			if( !--depth )
+				owner.store( std::thread::id{}, std::memory_order::release );
+		}
+	};
+
 	struct shared_spinlock
 	{
 		std::atomic<int32_t> counter = 0;
