@@ -184,7 +184,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\event.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="S:\Projects\Libraries\xstd\includes\xstd\task_guard.hpp">
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task_guard.hpp" />
       <Filter>Thread</Filter>
     </ClInclude>
   </ItemGroup>
