@@ -12,7 +12,7 @@ namespace xstd
 	{
 		Mutex mutex;
 
-		size_t ex_depth = 0;
+		std::atomic<size_t> ex_depth = 0;
 		std::atomic<uintptr_t> ex_tp = 0;
 
 		template<typename... Tx>
@@ -20,12 +20,20 @@ namespace xstd
 
 		// Common helpers for raising/lowering of the task priority.
 		//
-		__forceinline static uintptr_t raise()
+		__forceinline static uintptr_t raise( bool raised = false )
 		{
-			uintptr_t prio = get_task_priority();
-			if ( prio < TP )
-				set_task_priority( TP );
-			return prio;
+			if ( raised )
+			{
+				dassert( get_task_priority() == TP );
+				return TP;
+			}
+			else
+			{
+				uintptr_t prio = get_task_priority();
+				if ( prio < TP )
+					set_task_priority( TP );
+				return prio;
+			}
 		}
 		__forceinline static void lower( uintptr_t prev )
 		{
@@ -39,19 +47,21 @@ namespace xstd
 		{
 			// Raise the priority and lock.
 			//
-			auto prev = raised ? TP : raise();
+			auto prev = raise( raised );
 			mutex.lock();
 
 			// If not recursive, store the previous priority.
 			//
 			if ( !ex_depth++ )
 				ex_tp.store( prev, std::memory_order::release );
+			else
+				dassert( prev == TP );
 		}
 		__forceinline bool try_lock( bool raised = false ) requires TryLockable<Mutex>
 		{
 			// Raise the prioriy and attempt at locking.
 			//
-			auto prev = raised ? TP : raise();
+			auto prev = raise( raised );
 			bool state = mutex.try_lock();
 
 			// If successful, store the priority if not recursive.
@@ -60,10 +70,12 @@ namespace xstd
 			{
 				if ( !ex_depth++ )
 					ex_tp.store( prev, std::memory_order::release );
+				else
+					dassert( prev == TP );
 			}
 			// Otherwise, lower the priority back.
 			//
-			else
+			else if ( !raised )
 			{
 				lower( prev );
 			}
@@ -77,7 +89,7 @@ namespace xstd
 		{
 			// Raise the prioriy and attempt at locking.
 			//
-			auto prev = raised ? TP : raise();
+			auto prev = raise( raised );
 			bool state = mutex.try_lock_for( dur );
 
 			// If successful, store the priority if not recursive.
@@ -86,10 +98,12 @@ namespace xstd
 			{
 				if ( !ex_depth++ )
 					ex_tp.store( prev, std::memory_order::release );
+				else
+					dassert( prev == TP );
 			}
 			// Otherwise, lower the priority back.
 			//
-			else
+			else if ( !raised )
 			{
 				lower( prev );
 			}
@@ -100,7 +114,7 @@ namespace xstd
 		{
 			// Raise the prioriy and attempt at locking.
 			//
-			auto prev = raised ? TP : raise();
+			auto prev = raise( raised );
 			bool state = mutex.try_lock_for( st );
 
 			// If successful, store the priority if not recursive.
@@ -109,10 +123,12 @@ namespace xstd
 			{
 				if ( !ex_depth++ )
 					ex_tp.store( prev, std::memory_order::release );
+				else
+					dassert( prev == TP );
 			}
 			// Otherwise, lower the priority back.
 			//
-			else
+			else if ( !raised )
 			{
 				lower( prev );
 			}
@@ -124,9 +140,10 @@ namespace xstd
 			// lower to the previous task priority.
 			//
 			auto prev = ex_tp.load( std::memory_order::acquire );
-			if ( !--ex_depth )
-				lower( prev );
+			auto ndepth = --ex_depth;
 			mutex.unlock();
+			if ( !ndepth )
+				lower( prev );
 		}
 
 		// Shared redirects ignore task priority checks.
