@@ -531,7 +531,10 @@ namespace xstd
 	template<auto N, template<typename...> typename Tr = std::tuple, typename T>
 	static constexpr auto make_tuple_series( T&& f )
 	{
-		return impl::make_tuple_series<decltype( N ), Tr>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
+		if constexpr ( N != 0 )
+			return impl::make_tuple_series<decltype( N ), Tr>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
+		else
+			return Tr<>{};
 	}
 	template<auto N, typename T>
 	static constexpr auto make_constant_series( T&& f )
