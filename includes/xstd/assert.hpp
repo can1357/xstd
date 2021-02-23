@@ -47,6 +47,10 @@ namespace xstd
 			else                                error( fmt_str, std::forward<Tx>( ps )... );
 		}
 	}
+	__forceinline static constexpr void assert_that( bool condition )
+	{
+		return assert_that( condition, XSTD_ESTR( "Assertation failed." ) );
+	}
 
 	// Same as the one above but takes the format string as a lambda to avoid failure where the the string
 	// cannot be converted to const char* during constexpr evaluation.
@@ -54,7 +58,7 @@ namespace xstd
 	template<typename F>
 	__forceinline static constexpr void xassert_helper( bool condition, F&& getter )
 	{
-		if ( std::is_constant_evaluated() ) assert_that( condition, "" );
+		if ( std::is_constant_evaluated() ) assert_that( condition );
 		else                                assert_that( condition, getter() );
 	}
 

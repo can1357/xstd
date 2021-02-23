@@ -16,57 +16,82 @@ namespace xstd::encode
     template<Integral T>
     inline static void leb128( std::vector<uint8_t>& out, T value )
     {
-        while ( 1 )
+        if constexpr ( !std::is_same_v<T, bool> )
         {
-            // Push 7 bits of value onto the stream.
-            //
-            auto& segment = out.emplace_back( ( uint8_t ) ( value & 0x7F ) );
+            while ( 1 )
+            {
+                // Push 7 bits of value onto the stream.
+                //
+                auto& segment = out.emplace_back( ( uint8_t ) ( value & 0x7F ) );
     
-            // Shift the number, if we've reached the ending condition break.
-            //
-            if constexpr ( Signed<T> )
-            {
-                T ext = value >>= 6;
-                if ( ( value >>= 1 ) == ext )
-                    break;
-            }
-            else
-            {
-                value >>= 7;
-                if ( !value ) break;
-            }
+                // Shift the number, if we've reached the ending condition break.
+                //
+                if constexpr ( Signed<T> )
+                {
+                    T ext = value >>= 6;
+                    if ( ( value >>= 1 ) == ext )
+                        break;
+                }
+                else
+                {
+                    value >>= 7;
+                    if ( !value ) break;
+                }
             
-            // Mark the byte to indicate stream is not terminated yet.
-            segment |= 0x80;
+                // Mark the byte to indicate stream is not terminated yet.
+                segment |= 0x80;
+            }
+        }
+        else
+        {
+            out.push_back( value ? 1 : 0 );
         }
     }
     
     template<Integral T, typename It1, typename It2>
     inline static result<T> rleb128( It1&& it, It2&& end )
     {
-        T value = 0;
-        for ( size_t bitcnt = 0; it != end; bitcnt += 7 )
+        if constexpr ( !std::is_same_v<T, bool> )
         {
-            // Read 7 bits from the stream and reflect onto the value.
-            //
-            uint8_t segment = *it++;
-            value |= T( segment & 0x7F ) << bitcnt;
-    
-            // Make sure we did not overflow out of the range.
-            //
-            if ( bitcnt > ( sizeof( T ) * 8 ) && ( value >> bitcnt ) != ( segment & 0x7F ) )
-                return std::nullopt;
-    
-            // If stream is terminated, return the value.
-            //
-            if ( !( segment & 0x80 ) )
+            T value = 0;
+            for ( size_t bitcnt = 0; it != end; bitcnt += 7 )
             {
-                if constexpr ( Signed<T> )
-                    return { ( T ) sign_extend( uint64_t( value ), std::min<size_t>( 64, bitcnt + 7 ) ), true };
-                return { value, true };
+                // Read 7 bits from the stream and reflect onto the value.
+                //
+                uint8_t segment = *it++;
+                value |= T( segment & 0x7F ) << bitcnt;
+    
+                // Make sure we did not overflow out of the range.
+                //
+                if ( bitcnt > ( sizeof( T ) * 8 ) && ( value >> bitcnt ) != ( segment & 0x7F ) )
+                    return std::nullopt;
+    
+                // If stream is terminated, return the value.
+                //
+                if ( !( segment & 0x80 ) )
+                {
+                    if constexpr ( Signed<T> )
+                        return { ( T ) sign_extend( uint64_t( value ), std::min<size_t>( 64, bitcnt + 7 ) ), true };
+                    return { value, true };
+                }
+            }
+            return std::nullopt;
+        }
+        else
+        {
+            if ( it == end )
+                return std::nullopt;
+            else
+            {
+                uint8_t res = *it++;
+                if ( res == 1 )
+                    return { true, true };
+                else if ( res == 0 )
+                    return { false, true };
+                else
+                    return std::nullopt;
             }
         }
-        return std::nullopt;
     }
 
     // Declare array encoder and decoders.
