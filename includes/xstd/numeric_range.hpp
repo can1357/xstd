@@ -40,12 +40,16 @@ namespace xstd
 			//
 			constexpr difference_type operator-( const iterator& other ) const { return at - other.at; }
 			constexpr bool operator<( const iterator& other ) const { return at < other.at; }
+			constexpr bool operator<=( const iterator& other ) const { return at <= other.at; }
+			constexpr bool operator>( const iterator& other ) const { return at > other.at; }
+			constexpr bool operator>=( const iterator& other ) const { return at >= other.at; }
 			constexpr bool operator==( const iterator& other ) const { return at == other.at; }
 			constexpr bool operator!=( const iterator& other ) const { return at != other.at; }
 			
-			// Redirect dereferencing to container.
+			// Redirect dereferencing to the number, decay to it as well.
 			//
 			constexpr value_type operator*() const { return at; }
+			explicit constexpr operator value_type() const { return at; }
 
 			// String conversion.
 			//
@@ -80,7 +84,7 @@ namespace xstd
 		//
 		constexpr numeric_range overlap( const numeric_range& other ) const
 		{
-			// Completely seperate ranges:
+			// Disjoint cases:
 			//
 			if ( other.first >= limit )
 				return {};
@@ -92,6 +96,15 @@ namespace xstd
 			T nfirst = std::max( first, other.first );
 			T nlimit = std::min( limit, other.limit );
 			return { nfirst, nlimit };
+		}
+
+		// Checks if the range contains the other, if so returns the offset.
+		//
+		constexpr std::optional<std::make_signed_t<T>> contains( const numeric_range& other ) const
+		{
+			if ( first <= other.first && other.limit <= limit )
+				return std::make_signed_t<T>{ other.first - first };
+			return std::nullopt;
 		}
 
 		// Checks if the range contains a certain value.
@@ -116,12 +129,58 @@ namespace xstd
 			return { nfirst, nfirst + count };
 		}
 
+		// Substracts/adds the ranges, returns a sorted list of result.
+		//
+		constexpr std::pair<numeric_range, numeric_range> operator+( const numeric_range& other ) const
+		{
+			// Disjoint cases:
+			//
+			if ( other.first >= limit )
+				return { *this, other };
+			if ( other.limit <= first )
+				return { other, *this };
+
+			// Overlapping:
+			//
+			return { { std::min( first, other.first ), std::max( limit, other.limit ) }, {} };
+		}
+		constexpr std::pair<numeric_range, numeric_range> operator-( const numeric_range& other ) const
+		{
+			// Disjoint cases:
+			//
+			if ( other.first >= limit )
+				return { *this, {} };
+			if ( other.limit <= first )
+				return { *this, {} };
+
+			// Cut the edges.
+			//
+			numeric_range lo = *this;
+			numeric_range hi = *this;
+			if ( lo.limit > other.first )
+				lo.limit = other.first;
+			if ( hi.first < other.limit )
+				hi.first = other.limit;
+
+			// Normalize and return.
+			//
+			if ( lo.limit < lo.first )
+				lo = {};
+			if ( hi.limit < hi.first )
+				hi = {};
+			return { lo, hi };
+		}
+
 		// String conversion.
 		//
 		std::string to_string() const
 		{
 			return XSTD_CSTR( "[" ) + fmt::as_string( first ) + XSTD_CSTR( ", " ) + fmt::as_string( limit ) + XSTD_CSTR( ")" );
 		}
+
+		// Automatic serialization.
+		//
+		auto tie() { return std::tie( first, limit ); }
 	};
 	template<typename T>               numeric_range( T )      -> numeric_range<integral_max_t<T, T>>;  // Max'd to enforce the concept, intellisense does not like concepts here.
 	template<typename T1, typename T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;

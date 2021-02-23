@@ -6,19 +6,12 @@
 
 namespace xstd
 {
-	namespace impl
-	{
-		// Dummy transformation.
-		//
-		struct no_transform
-		{
-			template<typename T> __forceinline decltype( auto ) operator()( T&& x ) const noexcept { return x; }
-		};
-	};
+	template<typename It, typename F = void>
+	struct range;
 
 	// Declare a proxying range iterator.
 	//
-	template<typename It, typename F = impl::no_transform>
+	template<typename It, typename F>
 	struct range_iterator
 	{
 		// Define iterator traits.
@@ -71,8 +64,8 @@ namespace xstd
 
 	// Declare a proxying range container.
 	//
-	template<typename It, typename F = impl::no_transform>
-	struct range
+	template<typename It, NonVoid F>
+	struct range<It, F>
 	{
 		using iterator =       range_iterator<It, F>;
 		using const_iterator = range_iterator<It, F>;
@@ -95,11 +88,6 @@ namespace xstd
 		constexpr range( const C& container, F fn ) 
 			: ibegin( std::begin( container ) ), iend( std::end( container ) ), transform( std::move( fn ) ) {}
 
-		// Construct by beginning and end.
-		//
-		constexpr range( It begin, It end ) 
-			: ibegin( std::move( begin ) ), iend( std::move( end ) ) {}
-
 		// Default copy and move.
 		//
 		constexpr range( range&& ) noexcept = default;
@@ -116,10 +104,10 @@ namespace xstd
 		constexpr decltype( auto ) operator[]( size_t n ) const { return transform( *std::next( ibegin, n ) ); }
 	};
 
-	// Declare a trivial range where a complex iterator cannot be used.
+	// Declare a trivial range where a transformation cannot be used.
 	//
 	template<typename It>
-	struct trivial_range
+	struct range<It, void>
 	{
 		using iterator =       It;
 		using const_iterator = It;
@@ -129,21 +117,24 @@ namespace xstd
 		//
 		It ibegin;
 		It iend;
-		constexpr trivial_range( It begin, It end )
+
+		// Construct by beginning and end.
+		//
+		constexpr range( It begin, It end )
 			: ibegin( std::move( begin ) ), iend( std::move( end ) ) {}
 
-		// Construct by container and transformation.
+		// Construct by container.
 		//
 		template<Iterable C>
-		constexpr trivial_range( const C& container )
+		constexpr range( const C& container )
 			: ibegin( std::begin( container ) ), iend( std::end( container ) ) {}
 
 		// Default copy and move.
 		//
-		constexpr trivial_range( trivial_range&& ) noexcept = default;
-		constexpr trivial_range( const trivial_range& ) = default;
-		constexpr trivial_range& operator=( trivial_range&& ) noexcept = default;
-		constexpr trivial_range& operator=( const trivial_range& ) = default;
+		constexpr range( range&& ) noexcept = default;
+		constexpr range( const range& ) = default;
+		constexpr range& operator=( range&& ) noexcept = default;
+		constexpr range& operator=( const range& ) = default;
 
 		// Declare basic container interface.
 		//
@@ -156,17 +147,14 @@ namespace xstd
 
 	// Declare the deduction guides.
 	//
-	template<typename It1, typename It2, typename Fn>
-	range( It1, It2, Fn )->range<It1, Fn>;
+	template<typename C> requires Iterable<C>
+	range( C )->range<iterator_type_t<C>, void>;
 	template<typename C, typename Fn> requires Iterable<C>
 	range( C, Fn )->range<iterator_type_t<C>, Fn>;
 	template<typename It1, typename It2> requires ( !Iterable<It1> )
-	range( It1, It2 )->range<It1>;
-
-	template<typename C, typename Fn> requires Iterable<C>
-	trivial_range( C, Fn )->trivial_range<iterator_type_t<C>>;
-	template<typename It1, typename It2> requires ( !Iterable<It1> )
-	trivial_range( It1, It2 )->trivial_range<It1>;
+	range( It1, It2 )->range<std::conditional_t<Convertible<It1, It2>, It2, It1>, void>;
+	template<typename It1, typename It2, typename Fn>
+	range( It1, It2, Fn )->range<std::conditional_t<Convertible<It1, It2>, It2, It1>, Fn>;
 
 	// Old style functors.
 	//
@@ -175,31 +163,27 @@ namespace xstd
 	{
 		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
 
-		return range<It, Fn>{
+		return range<It, Fn>(
 				std::forward<It1>( begin ),
 				std::forward<It2>( end ),
 				std::forward<Fn>( f )
-		};
+		);
 	}
 	template<typename It1, typename It2>
 	static constexpr auto make_range( It1&& begin, It2&& end )
 	{
 		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
 
-		return range<It, impl::no_transform>{
-				std::forward<It1>( begin ),
-				std::forward<It2>( end ),
-				impl::no_transform{}
-		};
+		return range<It, void>( std::forward<It1>( begin ), std::forward<It2>( end ) );
 	}
 	template<Iterable C, typename Fn>
 	static constexpr auto make_view( C&& container, Fn&& f )
 	{
-		return range<iterator_type_t<C>, Fn>{
-				std::begin( container ),
-				std::end( container ),
-				std::forward<Fn>( f )
-		};
+		return range<iterator_type_t<C>, Fn>(
+			std::begin( container ),
+			std::end( container ),
+			std::forward<Fn>( f )
+		);
 	}
 	template<Iterable C, typename B, typename F>
 	static constexpr auto make_view( C&& container, member_reference_t<B, F> ref )
@@ -211,11 +195,11 @@ namespace xstd
 			else
 				return std::to_address( v )->*ref;
 		};
-		return range<iterator_type_t<C>, decltype( fn )>{
-				std::begin( container ),
-				std::end( container ),
-				std::move( fn )
-		};
+		return range<iterator_type_t<C>, decltype( fn )>(
+			std::begin( container ),
+			std::end( container ),
+			std::move( fn )
+		);
 	}
 
 	// Returns a reversed container.
@@ -223,10 +207,15 @@ namespace xstd
 	template<Iterable C>
 	static constexpr auto backwards( C&& container )
 	{
-		return range<std::reverse_iterator<iterator_type_t<C>>, impl::no_transform>{
+		return range<std::reverse_iterator<iterator_type_t<C>>, void>{
 			std::reverse_iterator( std::end( container ) ),
-			std::reverse_iterator( std::begin( container ) ),
-			impl::no_transform{}
+			std::reverse_iterator( std::begin( container ) )
 		};
+	}
+	template<typename It1, typename It2>
+	static constexpr auto backwards( It1&& first, It2&& last )
+	{
+		using It = std::reverse_iterator<std::conditional_t<Convertible<It1, It2>, It2, It1>>;
+		return range<It, void>( It( std::forward<It2>( last ) ), It( std::forward<It1>( first ) ) );
 	}
 };
