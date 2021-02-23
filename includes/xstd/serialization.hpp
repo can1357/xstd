@@ -236,7 +236,7 @@ namespace xstd
             return T{ deserialize<typename T::value_type>( ctx ) };
         }
     };
-    template<Iterable T> requires DefaultSerialized<T>
+    template<Iterable T> requires ( DefaultSerialized<T> && !Trivial<T> )
     struct serializer<T>
     {
         static inline void apply( serialization& ctx, const T& value )
