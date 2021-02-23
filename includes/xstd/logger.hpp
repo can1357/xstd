@@ -23,6 +23,7 @@
 // XSTD_CON_ERR_DST: If set, changes the error/warning logging destination from stderr to the given FILE*.
 // XSTD_CON_MSG_DST: If set, changes the generic logging destination from stdout to the given FILE*.
 // XSTD_CON_IFLUSH: If set, instantaneously flushes the file after every message.
+// XSTD_CON_SCOPED: If set, enables padding/scope handling.
 //
 
 #ifndef XSTD_CON_THREAD_LOCAL
@@ -49,8 +50,8 @@
 #ifndef XSTD_CON_MSG_DST
 	#define XSTD_CON_MSG_DST stdout
 #endif
-#ifndef XSTD_CON_IFLUSH
-	#define XSTD_CON_IFLUSH 0
+#ifndef XSTD_CON_SCOPED
+	#define XSTD_CON_SCOPED 0
 #endif
 #ifdef XSTD_CON_ERROR_REDIRECT
 	#if XSTD_CON_ERROR_NOMSG
@@ -95,6 +96,7 @@ namespace xstd
 	//
 	struct logger_state_t
 	{
+#if XSTD_CON_SCOPED
 		// Whether prints are muted or not.
 		//
 		bool mute = false;
@@ -106,6 +108,7 @@ namespace xstd
 		// Padding leftover from previous print.
 		//
 		int padding_carry = 0;
+#endif
 
 		// Constructor initializes logger.
 		//
@@ -144,6 +147,7 @@ namespace xstd
 	};
 	inline logger_state_t logger_state = {};
 
+#if XSTD_CON_SCOPED
 	// RAII hack for incrementing the padding until routine ends.
 	// Can be used with the argument u=0 to act as a lock guard.
 	// - Will wait for the critical section ownership and hold it
@@ -194,6 +198,10 @@ namespace xstd
 		}
 		~scope_verbosity() { end(); }
 	};
+#else
+	struct scope_padding {};
+	struct scope_verbosity {};
+#endif
 
 	// Main function used when logging.
 	//
@@ -219,11 +227,14 @@ namespace xstd
 #endif
 		}
 
-		static int handle_padding( FILE* dst, const char* cstr )
+		FORCE_INLINE static int handle_scope( FILE* dst, const char* cstr )
 		{
 			// If we should pad this output:
 			//
 			int out_cnt = 0;
+#if XSTD_CON_SCOPED
+			if ( logger_state.mute )
+				return -1;
 			if ( logger_state.padding > 0 )
 			{
 				// If it was not carried from previous:
@@ -251,23 +262,26 @@ namespace xstd
 				else
 					logger_state.padding_carry = logger_state.padding;
 			}
+#endif
 			return out_cnt;
 		}
 
 		template<bool has_args>
 		static int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
 		{
-			// Hold the lock for the critical section guarding ::log.
+			// If it's a message:
 			//
-			std::lock_guard g( logger_state );
-
-			// Do not execute if logs are disabled.
-			//
-			if ( logger_state.mute ) return 0;
-
-			// If we should pad this output:
-			//
-			int out_cnt = handle_padding( dst, fmt_str );
+			std::unique_lock lock( logger_state, std::defer_lock_t{} );
+			int out_cnt = 0;
+			if ( dst == XSTD_CON_MSG_DST )
+			{
+				// Handle scope details:
+				//
+				lock.lock();
+				out_cnt = handle_scope( dst, fmt_str );
+				if ( out_cnt < 0 )
+					return 0;
+			}
 
 			// Set to requested color and redirect to printf.
 			//
@@ -305,74 +319,71 @@ namespace xstd
 	// Generic logger.
 	//
 	template<typename... Tx>
-	static int log( console_color color, const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
 	{
 		auto buf = fmt::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	static int log( const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
 	{
-		auto buf = fmt::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( XSTD_CON_MSG_DST, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		return flog( dst, color, fmt_str, std::forward<Tx>( ps )... );
+	}
+	template<typename... Tx>
+	FORCE_INLINE static int log( console_color color, const char* fmt_str, Tx&&... ps )
+	{
+		return flog( XSTD_CON_MSG_DST, color, fmt_str, std::forward<Tx>( ps ) ... );
+	}
+	template<console_color color = CON_DEF, typename... Tx>
+	FORCE_INLINE static int log( const char* fmt_str, Tx&&... ps )
+	{
+		return flog( XSTD_CON_MSG_DST, color, fmt_str, std::forward<Tx>( ps )... );
 	}
 
 	// Logs the object given as is instead of using any other formatting specifier.
 	//
-	template<typename... Tx> requires ( sizeof...( Tx ) != 0 )
-	static int inspect( console_color color, Tx&&... objects )
+	template<console_color color = CON_DEF, typename... Tx> requires ( sizeof...( Tx ) != 0 )
+	FORCE_INLINE static int finspect( FILE* dst, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
-		return impl::log_w<false>( XSTD_CON_MSG_DST, color, result.c_str() );
+		return log( dst, color, result.c_str() );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	static int inspect( Tx&&... objects )
+	FORCE_INLINE static int inspect( Tx&&... objects )
 	{
-		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
-		return impl::log_w<false>( XSTD_CON_MSG_DST, color, result.c_str() );
+		return finspect<color>( XSTD_CON_MSG_DST, std::forward<Tx>( objects )... );
 	}
 #else
-	template<typename... Tx> FORCE_INLINE FORCE_INLINE static int log( console_color, Tx... ) { return 0; }
-	template<console_color color = CON_DEF, typename... Tx> FORCE_INLINE static int log( Tx... ) { return 0; }
+	template<typename... Tx> FORCE_INLINE static int flog( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE static int flog( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE static int log( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE static int log( Tx&&... ps ) { return 0; }
 
-	template<typename... Tx> FORCE_INLINE FORCE_INLINE static int inspect( console_color, Tx... ) { return 0; }
-	template<console_color color = CON_DEF, typename... Tx> FORCE_INLINE static int inspect( Tx... ) { return 0; }
+	template<typename... Tx> FORCE_INLINE static int finspect( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE static int finspect( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE static int inspect( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE static int inspect( Tx&&... ps ) { return 0; }
 #endif
 
 	// Prints a warning message.
 	//
-	template<typename... params>
-	static void warning( const char* fmt_str, params&&... ps )
+	template<typename... Tx>
+	static void warning( const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_WARNINGS
-		// Format warning message.
+		// Forward to f-log with a prefix and a color.
 		//
-		std::string message = XSTD_STR( "\n" ) + impl::translate_color( CON_YLW ) + XSTD_STR( "[!] Warning: " ) + fmt::str(
-			fmt_str,
-			std::forward<params>( ps )...
-		) + '\n';
-
-		// Try acquiring the lock and print the warning, if properly locked skiped the first newline.
-		//
-		bool locked = logger_state.try_lock( 10s );
-		fputs( message.c_str() + locked, XSTD_CON_ERR_DST );
-
-		// Flush the file if requested so.
-		//
-#if XSTD_CON_IFLUSH
-		fflush( XSTD_CON_ERR_DST );
-#endif
-
-		// Unlock if previously locked.
-		//
-		if ( locked ) logger_state.unlock();
+		std::lock_guard _g{ logger_state };
+		flog<CON_YLW>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n[!] Warning: " ) );
+		flog<CON_YLW>( XSTD_CON_ERR_DST, fmt_str, std::forward<Tx>( ps )... );
+		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
 #endif
 	}
 
 	// Prints an error message and breaks the execution.
 	//
-	template<typename... params>
-	static void error [[noreturn]] ( const char* fmt_str, params&&... ps )
+	template<typename... Tx>
+	static void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
 	{
 		// If there is an active hook, call into it, else add formatting and print.
 		//
@@ -380,9 +391,9 @@ namespace xstd
 	#if XSTD_CON_ERROR_NOMSG
 		XSTD_CON_ERROR_REDIRECT();
 	#else
-		if constexpr ( sizeof...( params ) != 0 )
+		if constexpr ( sizeof...( Tx ) != 0 )
 		{
-			std::string buffer = fmt::str( fmt_str, std::forward<params>( ps )... );
+			std::string buffer = fmt::str( fmt_str, std::forward<Tx>( ps )... );
 			XSTD_CON_ERROR_REDIRECT( buffer.c_str() );
 		}
 		else
@@ -390,30 +401,65 @@ namespace xstd
 			XSTD_CON_ERROR_REDIRECT( fmt_str );
 		}
 	#endif
+		// If no error messages are requested:
+		//
+#elif XSTD_CON_ERROR_NOMSG
+		// Throw an exception if we can.
+		//
+	#if !XSTD_NO_EXCEPTIONS
+		throw std::exception{};
+	#endif
+		// If we should print the error to console:
+		//
 #else
 		// Format error message.
 		//
-		std::string message = fmt::str(
-			fmt_str,
-			std::forward<params>( ps )...
-		);
-		message = XSTD_STR( "\n" ) + impl::translate_color( CON_RED ) + XSTD_STR( "[*] Error:" ) + std::move( message ) + "\n" + impl::translate_color( CON_DEF );
+		std::string buffer;
+		const char* error;
+		if constexpr ( sizeof...( Tx ) != 0 )
+		{
+			buffer = fmt::str(
+				fmt_str,
+				std::forward<Tx>( ps )...
+			);
+			error = buffer.c_str();
+		}
+		else
+		{
+			error = fmt_str;
+		}
 
-		// Try acquiring the lock and print the error, if properly locked skiped the first newline.
+		// Forward to f-log with a prefix and a color.
 		//
-		bool locked = logger_state.try_lock( 100ms );
-		fputs( message.c_str() + locked, XSTD_CON_ERR_DST );
+		bool locked = logger_state.try_lock( 2s );
+		flog<CON_RED>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n[x] Error: " ) );
+		flog<CON_RED>( XSTD_CON_ERR_DST, error );
+		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
 
 		// Flush the file if requested so.
 		//
-#if XSTD_CON_IFLUSH
+	#if XSTD_CON_IFLUSH
 		fflush( XSTD_CON_ERR_DST );
-#endif
+	#endif
 
-		// Break the program, leave the logger locked since we'll break anyways.
+		// Unlock if previously locked.
 		//
-		unreachable();
+		if ( locked ) logger_state.unlock();
+
+		// If exceptions are allowed, throw one.
+		//
+		if ( locked ) logger_state.unlock();
+	#if !XSTD_NO_EXCEPTIONS
+		throw std::runtime_error( error );
+	#endif
+#endif
+		// Break the program.
+		//
+#if DEBUG_BUILD
 		debugbreak();
+		unreachable();
+#else
+		exit( -1 );
 #endif
 	}
 };
