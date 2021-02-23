@@ -233,7 +233,8 @@ MUST_MATCH( DEBUG_BUILD );
 //
 #if !MS_COMPILER
     #define __forceinline __attribute__((always_inline)) inline
-    #define _AddressOfReturnAddress() ((void*)__builtin_frame_address(0))
+    #define _ReturnAddress() ((xstd::any_ptr)__builtin_return_address(0))
+    #define _AddressOfReturnAddress() ((xstd::any_ptr)__builtin_frame_address(0))
 #endif
 
 // Include intrin.h if available.

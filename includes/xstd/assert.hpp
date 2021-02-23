@@ -34,8 +34,8 @@ namespace xstd
 {
 	// Aborts if the given condition is not met.
 	//
-	template<typename... Params>
-	__forceinline static constexpr void assert_that( bool condition, const char* fmt_str, Params&&... ps )
+	template<typename... Tx>
+	__forceinline static constexpr void assert_that( bool condition, const char* fmt_str, Tx&&... ps )
 	{
 		// If condition met:
 		//
@@ -44,12 +44,8 @@ namespace xstd
 			// Throw exception if consteval, else throw runtime error.
 			//
 			if ( std::is_constant_evaluated() ) unreachable();
-			else                                error( fmt_str, std::forward<Params>( ps )... );
+			else                                error( fmt_str, std::forward<Tx>( ps )... );
 		}
-	}
-	__forceinline static constexpr void assert_that( bool condition, const char* string = "" )
-	{
-		return assert_that( condition, XSTD_CSTR( "%s" ), string );
 	}
 
 	// Same as the one above but takes the format string as a lambda to avoid failure where the the string
