@@ -66,7 +66,7 @@ namespace xstd
 		FORCE_INLINE bool try_lock_shared()
 		{
 			int32_t value = counter.load();
-			while ( value < 0 )
+			while ( value <= 0 )
 			{
 				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
 					return true;
