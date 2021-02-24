@@ -71,7 +71,6 @@ namespace xstd
 			{
 				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
 					return true;
-				yield_cpu();
 			}
 			return false;
 		}
