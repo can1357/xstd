@@ -3,6 +3,7 @@
 #include <thread>
 #include <mutex>
 #include "intrinsics.hpp"
+#include "assert.hpp"
 
 namespace xstd
 {
@@ -66,7 +67,7 @@ namespace xstd
 		FORCE_INLINE bool try_lock_shared()
 		{
 			int32_t value = counter.load();
-			while ( value <= 0 )
+			while ( value >= 0 )
 			{
 				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
 					return true;
@@ -88,11 +89,12 @@ namespace xstd
 
 		FORCE_INLINE void unlock()
 		{
-			counter.store( false, std::memory_order::release );
+			int32_t expected = -1;
+			dassert_s( counter.compare_exchange_strong( expected, 0, std::memory_order::release ) );
 		}
 		FORCE_INLINE void unlock_shared()
 		{
-			counter.fetch_add( -1 );
+			dassert_s( counter-- >= 0 );
 		}
 	};
 };
