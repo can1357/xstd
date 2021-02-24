@@ -627,7 +627,7 @@ namespace xstd
 		//
 		if constexpr ( std::is_default_constructible_v<F> )
 		{
-			functor = [ ] ( void* ) { F{}( ); };
+			functor = [ ] ( void* ) -> Ret { return F{}(); };
 			discard = [ ] ( void* argument ) {};
 		}
 		// If function fits the argument inline:
