@@ -13,18 +13,20 @@ namespace xstd::tcp
 	struct client
 	{
 		// Socket state.
+		// -- Should be resolved by the network layer.
 		//
-		bool closed = true;
+		xstd::promise<> socket_closed = xstd::make_promise();
+		xstd::promise<> socket_connected = xstd::make_promise();
 
 		// Receive buffer.
 		//
 		size_t rx_buffer_offset = 0;
 		std::string rx_buffer;
-		std::recursive_mutex rx_lock;
+		std::mutex rx_lock;
 
 		// Transmission queues.
 		//
-		std::recursive_mutex tx_lock;
+		std::mutex tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::string, size_t>> tx_queue;
@@ -61,7 +63,7 @@ namespace xstd::tcp
 		//
 		virtual void on_timer()
 		{
-			if ( closed ) return;
+			if ( this->is_closed() ) return;
 
 			std::lock_guard _g{ tx_lock };
 			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
@@ -95,7 +97,7 @@ namespace xstd::tcp
 		//
 		void write( std::string data )
 		{
-			if ( closed ) return;
+			if ( this->is_closed() ) return;
 
 			// Append the data onto tx queue.
 			//
@@ -106,31 +108,6 @@ namespace xstd::tcp
 			// Invoke socket timer to exhaust the queue.
 			//
 			client::on_timer();
-		}
-
-		// Invoked by network layer to indicate a connection was started.
-		//
-		void on_socket_connect()
-		{
-			// Reset the buffers.
-			//
-			{
-				std::lock_guard _g{ tx_lock };
-				tx_queue.clear();
-			}
-			{
-
-				std::lock_guard _g{ rx_lock };
-				ack_queue.clear();
-				rx_buffer.clear();
-				rx_buffer_offset = 0;
-			}
-			last_tx_id = 0;
-			last_ack_id = 0;
-
-			// Reset the flag.
-			//
-			closed = false;
 		}
 
 		// Invoked by network layer to indicate the target acknowledged a number of bytes from our output queue.
@@ -151,27 +128,20 @@ namespace xstd::tcp
 			}
 		}
 
-		// Invoked by network layer to indicate the socket was closed.
-		// - Can be overriden to hook the event.
-		//
-		virtual void on_socket_close()
-		{
-			closed = true;
-		}
-
 		// Invoked by network layer to indicate the socket received data.
 		//
 		void on_socket_receive( std::string_view segment )
 		{
-			if ( closed ) return;
+			if ( this->is_closed() ) return;
 
 			// If receive buffer is empty, try parsing the segment without any copy.
 			//
-			std::lock_guard _g{ rx_lock };
+			std::unique_lock lock{ rx_lock };
 			if ( rx_buffer.empty() )
 			{
 				// While packets are parsed:
 				//
+				lock.unlock();
 				while ( size_t n = packet_parse( segment ) )
 				{
 					// Remove the consumed range and return if empty.
@@ -180,6 +150,7 @@ namespace xstd::tcp
 					if ( segment.empty() )
 						return;
 				}
+				lock.lock();
 
 				// Append the rest to the receive buffer.
 				//
@@ -214,6 +185,17 @@ namespace xstd::tcp
 				//
 				rx_buffer_offset = it.data() - rx_buffer.data();
 			}
+		}
+
+		// Expose the socket state.
+		//
+		bool is_connected() const
+		{
+			return !socket_closed->fulfilled() && socket_connected->fulfilled();
+		}
+		bool is_closed() const
+		{
+			return socket_closed->fulfilled() || socket_connected->failed();
 		}
 	};
 };

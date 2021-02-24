@@ -223,7 +223,7 @@ namespace xstd::ws
 
 		// Receive buffer and the state of the fragmentation handlers.
 		//
-		std::recursive_mutex receive_mutex;
+		std::mutex receive_mutex;
 		std::optional<std::pair<header, std::vector<uint8_t>>> fragmented_packet;
 
 		// Implemented by the application layer.
@@ -234,7 +234,7 @@ namespace xstd::ws
 		//
 		void handle_packet( const header& hdr, std::string_view data )
 		{
-			if ( transport_layer::closed ) return;
+			if ( transport_layer::is_closed() ) return;
 
 			// Handle known control frames.
 			//
@@ -247,13 +247,14 @@ namespace xstd::ws
 					status.compare_exchange_strong( status_ex, bswap( *( status_code* ) data.data() ) );
 				else
 					status.compare_exchange_strong( status_ex, status_shutdown );
+				printf( "Closing socket!\n" );
 				transport_layer::socket_close();
 			}
 			else if ( hdr.op == opcode::ping )
 			{
 				// Send a pong and continue.
 				//
-				send_packet( opcode::pong, data.data(), data.size() );
+				send_packet( opcode::pong, data );
 			}
 			else if ( hdr.op == opcode::pong )
 			{
@@ -277,7 +278,7 @@ namespace xstd::ws
 		//
 		void send_packet( opcode op, any_ptr data, size_t length )
 		{
-			if ( transport_layer::closed ) return;
+			if ( transport_layer::is_closed() ) return;
 
 			// Create the header.
 			//
@@ -321,7 +322,7 @@ namespace xstd::ws
 		//
 		void close( status_code st = status_shutdown )
 		{
-			if ( transport_layer::closed ) return;
+			if ( transport_layer::is_closed() ) return;
 			if ( st != status_none )
 			{
 				status_code status_ex = status_none;
@@ -339,7 +340,6 @@ namespace xstd::ws
 		//
 		size_t packet_parse( std::string_view data ) override
 		{
-			std::lock_guard _g{ receive_mutex };
 			const char* it_original = data.data();
 
 			// Read the headers:
@@ -381,10 +381,13 @@ namespace xstd::ws
 			//
 			else if ( hdr.op == opcode::continuation )
 			{
+				std::unique_lock lock{ receive_mutex };
+
 				// If no unfinished packet exists, terminate due to corrupt stream.
 				//
 				if ( !fragmented_packet )
 				{
+					lock.unlock();
 					close( status_protocol_error );
 					return 0;
 				}
@@ -401,9 +404,11 @@ namespace xstd::ws
 				//
 				if ( hdr.finished )
 				{
-					std::string_view full_data = { ( char* ) fragmented_packet->second.data(), fragmented_packet->second.size() };
-					handle_packet( fragmented_packet->first, full_data );
-					fragmented_packet.reset();
+					auto packet = std::exchange( fragmented_packet, std::nullopt ).value();
+					lock.unlock();
+
+					std::string_view full_data = { ( char* ) packet.second.data(), packet.second.size() };
+					handle_packet( packet.first, full_data );
 				}
 			}
 			// If fragmented packet:
@@ -420,6 +425,7 @@ namespace xstd::ws
 
 				// Save the fragmented packet.
 				//
+				std::unique_lock lock{ receive_mutex };
 				auto& buf = fragmented_packet.emplace( std::pair{ hdr, std::vector<uint8_t>{} } ).second;
 				buf.insert( buf.end(), data_buffer.begin(), data_buffer.end() );
 			}
