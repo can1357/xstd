@@ -7,6 +7,7 @@
 #include "assert.hpp"
 #include "type_helpers.hpp"
 #include "logger.hpp"
+#include "bitwise.hpp"
 #include "hashable.hpp"
 #include "narrow_cast.hpp"
 
