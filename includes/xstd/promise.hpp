@@ -254,8 +254,9 @@ namespace xstd
 		template<typename F> requires ( Invocable<F, void, const value_type&> )
 		void then( F&& cb )
 		{
-			chain( [ cb = std::forward<F>( cb ) ]( const store_type& result )
+			chain( [ _cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
 			{
+				auto&& cb = std::move( _cb );
 				if ( result.success() )
 					cb( result.value() );
 			} );
@@ -263,8 +264,9 @@ namespace xstd
 		template<typename F> requires ( Invocable<F, void> && !Invocable<F, void, const value_type&> )
 		void then( F&& cb )
 		{
-			chain( [ cb = std::forward<F>( cb ) ]( const store_type& result )
+			chain( [ _cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
 			{
+				auto&& cb = std::move( _cb );
 				if ( result.success() )
 					cb();
 			} );
@@ -272,8 +274,9 @@ namespace xstd
 		template<typename F>
 		void except( F&& cb )
 		{
-			chain( [ cb = std::forward<F>( cb ) ]( const store_type& result )
+			chain( [ _cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
 			{
+				auto&& cb = std::move( _cb );
 				if ( result.fail() )
 					cb( result.status );
 			} );
