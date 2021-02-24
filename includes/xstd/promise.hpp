@@ -166,9 +166,21 @@ namespace xstd
 				}
 			}
 			if ( time != duration{} )
-				evt.wait_for( time );
-			else
-				evt.wait();
+			{
+				if ( !evt.wait_for( time ) )
+				{
+					if constexpr ( std::is_same_v<status_type, std::string> )
+					{
+						static store_type res = std::string{ XSTD_ESTR( "Promise timed out." ) };
+						return res;
+					}
+					else
+					{
+						return xstd::static_default{};
+					}
+				}
+			}
+			evt.wait();
 			return result;
 		}
 		const store_type& wait_for( duration time ) const { return wait( time ); }
