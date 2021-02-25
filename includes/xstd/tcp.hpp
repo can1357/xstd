@@ -114,7 +114,7 @@ namespace xstd::tcp
 		//
 		void on_socket_ack( size_t n )
 		{
-			if ( closed ) return;
+			if ( this->is_closed() ) return;
 
 			// Delete every entry from acknowledgment queue where the id is below the new one.
 			//

@@ -49,12 +49,12 @@ namespace xstd
 
 		// Resulting value or the status, constant after flag is set.
 		//
-		spinlock result_lock = {};
 		store_type result;
 		
 		// Event for when the store gets set.
 		//
 		event_base evt = {};
+		mutable std::atomic<bool> preevent_flag = false;
 		mutable waiter_type waiter = {};
 		mutable spinlock waiter_lock = {};
 
@@ -160,9 +160,12 @@ namespace xstd
 			{
 				if ( waiter_lock.try_lock() )
 				{
-					waiter( const_cast< store_type& >( result ), time );
-					const_cast< promise_base* >( this )->signal();
-					return result;
+					if ( !preevent_flag.exchange( true ) )
+					{
+						std::move( waiter )( const_cast< store_type& >( result ), time );
+						const_cast< promise_base* >( this )->signal();
+						return result;
+					}
 				}
 			}
 			if ( time != duration{} )
@@ -188,51 +191,45 @@ namespace xstd
 		// Resolution of the promise value.
 		//
 		template<typename... Tx>
-		void resolve( store_type value )
+		bool resolve( store_type value )
 		{
-			// Emplace the result under a lock.
-			//
-			{
-				std::lock_guard _g{ result_lock };
-				result = std::move( value );
-			}
+			if ( preevent_flag.exchange( true ) )
+				return false;
+			result = std::move( value );
 			signal();
+			return true;
 		}
 		template<typename... Tx>
-		void resolve( Tx&&... value )
+		bool resolve( Tx&&... value )
 		{
-			// Emplace the result under a lock.
-			//
-			{
-				std::lock_guard _g{ result_lock };
-				result.emplace(
-					value_type{ std::forward<Tx>( value )... },
-					status_type{ result_traits::success_value }
-				);
-			}
+			if ( preevent_flag.exchange( true ) )
+				return false;
+			result.emplace(
+				value_type{ std::forward<Tx>( value )... },
+				status_type{ result_traits::success_value }
+			);
 			signal();
+			return true;
 		}
 		template<typename... Tx>
-		void reject( Tx&&... value )
+		bool reject( Tx&&... value )
 		{
-			// Emplace the result under a lock.
-			//
-			{
-				std::lock_guard _g{ result_lock };
-				status_type error{ std::forward<Tx>( value )... };
-				if ( result_traits::is_success( error ) )
-					error = result_traits::failure_value;
-				result.status = std::move( error );
-			}
+			if ( preevent_flag.exchange( true ) )
+				return false;
+			status_type error{ std::forward<Tx>( value )... };
+			if ( result_traits::is_success( error ) )
+				error = result_traits::failure_value;
+			result.status = std::move( error );
 			signal();
+			return true;
 		}
 
 		// Exposes information on the promise state.
 		//
 		bool finished() const { return evt.signalled(); }
 		bool pending() const { return !finished(); }
-		bool fulfilled() const { return finished() && wait().success(); }
-		bool failed() const { return finished() && wait().fail(); }
+		bool fulfilled() const { return finished() && result.success(); }
+		bool failed() const { return finished() && result.fail(); }
 
 		// Waits for the value / exception and returns the result, throws if an unexpected result is found.
 		//
@@ -266,9 +263,8 @@ namespace xstd
 		template<typename F> requires ( Invocable<F, void, const value_type&> )
 		void then( F&& cb )
 		{
-			chain( [ _cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
+			chain( [ cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
 			{
-				auto&& cb = std::move( _cb );
 				if ( result.success() )
 					cb( result.value() );
 			} );
@@ -276,9 +272,8 @@ namespace xstd
 		template<typename F> requires ( Invocable<F, void> && !Invocable<F, void, const value_type&> )
 		void then( F&& cb )
 		{
-			chain( [ _cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
+			chain( [ cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
 			{
-				auto&& cb = std::move( _cb );
 				if ( result.success() )
 					cb();
 			} );
@@ -286,9 +281,8 @@ namespace xstd
 		template<typename F>
 		void except( F&& cb )
 		{
-			chain( [ _cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
+			chain( [ cb = std::forward<F>( cb ) ]( const store_type& result ) mutable
 			{
-				auto&& cb = std::move( _cb );
 				if ( result.fail() )
 					cb( result.status );
 			} );
@@ -308,11 +302,7 @@ namespace xstd
 
 		// Reject the promise on deconstruction if not completed.
 		//
-		~promise_base()
-		{
-			if ( !evt.signalled() )
-				reject();
-		}
+		~promise_base() { reject(); }
 	};
 
 	// Declare the promise creation wrappers.
@@ -327,6 +317,13 @@ namespace xstd
 	{
 		promise<T, R> pr = make_promise<T, R>();
 		pr->reject( std::forward<Tx>( status )... );
+		return pr;
+	}
+	template<typename T = std::monostate, template<typename> typename R = string_result, typename... Tx>
+	inline promise<T, R> make_resolved_promise( Tx&&... value )
+	{
+		promise<T, R> pr = make_promise<T, R>();
+		pr->resolve( std::forward<Tx>( value )... );
 		return pr;
 	}
 };
