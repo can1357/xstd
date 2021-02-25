@@ -5,6 +5,36 @@
 
 namespace xstd
 {
+	// Standalone way to raise task priority for the scope.
+	//
+	template<uintptr_t TP>
+	struct scope_tpr
+	{
+#if XSTD_HAS_TASK_PRIORITY
+		uintptr_t prev;
+		__forceinline scope_tpr( uintptr_t prev = get_task_priority() ) : prev( prev )
+		{
+			lock();
+		}
+		__forceinline void lock()
+		{
+			if ( prev < TP )
+				set_task_priority( TP );
+		}
+		__forceinline void unlock()
+		{
+			if ( prev != TP )
+				set_task_priority( prev );
+		}
+		__forceinline ~scope_tpr()
+		{
+			unlock();
+		}
+#else
+		scope_tpr( uintptr_t prev = 0 ) {}
+#endif
+	};
+
 	// Raises caller to a specific task priority upon lock and lowers on unlock. Ignored for shared lockers.
 	//
 	template<Lockable Mutex, uintptr_t TP>
@@ -22,6 +52,7 @@ namespace xstd
 		//
 		__forceinline static uintptr_t raise( bool raised = false )
 		{
+#if XSTD_HAS_TASK_PRIORITY
 			if ( raised )
 			{
 				dassert( get_task_priority() == TP );
@@ -34,11 +65,16 @@ namespace xstd
 					set_task_priority( TP );
 				return prio;
 			}
+#else
+			return 0;
+#endif
 		}
 		__forceinline static void lower( uintptr_t prev )
 		{
+#if XSTD_HAS_TASK_PRIORITY
 			if ( prev < TP )
 				set_task_priority( prev );
+#endif
 		}
 
 		// Wrap the mutex/recursive_mutex interface.

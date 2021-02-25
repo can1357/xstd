@@ -64,7 +64,6 @@ namespace xstd::tcp
 		virtual void on_timer()
 		{
 			if ( this->is_closed() ) return;
-
 			std::lock_guard _g{ tx_lock };
 			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
 			{

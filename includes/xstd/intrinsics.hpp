@@ -300,12 +300,16 @@ __forceinline static void yield_cpu()
 }
 
 // Define task priority.
-//
+// [Configuration] 
+//  - XSTD_HAS_TASK_PRIORITY: If set enables task priority, by default set if kernel target.
+#ifndef XSTD_HAS_TASK_PRIORITY
+    #define XSTD_HAS_TASK_PRIORITY KERNEL_TARGET
+#endif
 __forceinline static void set_task_priority( uintptr_t value )
 {
-#if MS_COMPILER && AMD64_TARGET && KERNEL_TARGET
+#if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
     __writecr8( value );
-#elif AMD64_TARGET && KERNEL_TARGET
+#elif AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
     asm volatile ( "mov %0, %%cr8" :: "r" ( value ) );
 #else
     // Assuming not relevant.
@@ -314,9 +318,9 @@ __forceinline static void set_task_priority( uintptr_t value )
 __forceinline static uintptr_t get_task_priority()
 {
     uintptr_t value;
-#if MS_COMPILER && AMD64_TARGET && KERNEL_TARGET
+#if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
     value = __readcr8();
-#elif AMD64_TARGET && KERNEL_TARGET
+#elif AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
     asm volatile ( "mov %%cr8, %0" : "=r" ( value ) );
 #else
     // Assuming not relevant.
