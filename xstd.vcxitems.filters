@@ -187,6 +187,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task_guard.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
