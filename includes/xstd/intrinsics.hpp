@@ -234,7 +234,9 @@ MUST_MATCH( DEBUG_BUILD );
 #if !MS_COMPILER
     #define __forceinline __attribute__((always_inline)) inline
     #define _ReturnAddress() ((xstd::any_ptr)__builtin_return_address(0))
-    #define _AddressOfReturnAddress() ((xstd::any_ptr)__builtin_frame_address(0))
+    #ifndef HAS_MS_EXTENSIONS
+        #define _AddressOfReturnAddress() ((xstd::any_ptr)nullptr) // No equivalent, __builtin_frame_address(0) is wrong.
+    #endif
 #endif
 
 // Include intrin.h if available.

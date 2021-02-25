@@ -1,6 +1,7 @@
 #pragma once
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
+#include "assert.hpp"
 #include <atomic>
 
 namespace xstd

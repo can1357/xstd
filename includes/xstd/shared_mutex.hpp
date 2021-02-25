@@ -1,5 +1,6 @@
 #pragma once
 #include <mutex>
+#include <shared_mutex> // For shared_lock.
 #include "assert.hpp"
 
 namespace xstd
@@ -93,7 +94,7 @@ namespace xstd
 
 			// Start the counter at one.
 			//
-			int32_t expected = 0;
+			expected = 0;
 			dassert_s( share_count.compare_exchange_strong( expected, 1 ) );
 		}
 		void unlock()
