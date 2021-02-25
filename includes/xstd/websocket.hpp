@@ -247,7 +247,6 @@ namespace xstd::ws
 					status.compare_exchange_strong( status_ex, bswap( *( status_code* ) data.data() ) );
 				else
 					status.compare_exchange_strong( status_ex, status_shutdown );
-				printf( "Closing socket!\n" );
 				transport_layer::socket_close();
 			}
 			else if ( hdr.op == opcode::ping )
