@@ -1,5 +1,6 @@
 #pragma once
 #include <iterator>
+#include <array>
 #include "type_helpers.hpp"
 #include "bitwise.hpp"
 
@@ -130,7 +131,7 @@ namespace xstd
 
 		// Store the bits, initialized to zero.
 		//
-		uint64_t blocks[ block_count ] = { 0 };
+		std::array<uint64_t, block_count> blocks = { 0 };
 
 		// Default construction / copy / move.
 		//
