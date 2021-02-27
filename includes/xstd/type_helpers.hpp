@@ -408,74 +408,33 @@ namespace xstd
 	
 	// Makes a null pointer to type.
 	//
-	template<typename T> static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
-
-	// Returns the offset/size of given member reference.
-	//
-	template<typename V, typename C> 
-	static constexpr int64_t make_offset( V C::* ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
-	template<typename V, typename C>
-	static constexpr size_t member_size( V C::* ref ) noexcept { return sizeof( V ); }
+	template<typename T> __forceinline static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
 	
-	// Simple void pointer implementation with arithmetic and free casts, comes useful
-	// when you can't infer the type of an argument pointer or if you want to const initialize
-	// an architecture specific pointer.
+	// Helper used to replace types within parameter packs.
 	//
-	struct any_ptr
+	template<typename T, typename O>
+	using swap_type_t = O;
+
+	// Bitcasting.
+	//
+	template<TriviallyCopyable To, TriviallyCopyable From> requires( sizeof( To ) == sizeof( From ) )
+	__forceinline static constexpr To bit_cast( const From& src ) noexcept
 	{
-		uint64_t address;
-
-		inline constexpr any_ptr( std::nullptr_t = {} ) : address( 0 ) {}
-		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
-		inline any_ptr( const void* address ) : address( ( uint64_t ) ( address ) ) {}
-		inline any_ptr( const volatile void* address ) : address( ( uint64_t ) ( address ) ) {}
-
-		constexpr any_ptr( any_ptr&& ) noexcept = default;
-		constexpr any_ptr( const any_ptr& ) = default;
-		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
-		constexpr any_ptr& operator=( const any_ptr& ) = default;
-
-		template<typename T>
-		inline operator T* () const { return ( T* )( address ); }
-		inline constexpr operator uint64_t() const { return address; }
-
-		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
-		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
-		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
-		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
-	};
-
-	// Gets the type at the given offset.
-	//
-	template<typename T = void>
-	static auto ptr_at( any_ptr base, int64_t off ) noexcept 
-	{ 
-		if constexpr( std::is_void_v<T> )
-			return any_ptr( base + off );
+		if ( !std::is_constant_evaluated() )
+			return *( const To* ) &src;
+#if HAS_BIT_CAST
 		else
-			return carry_const( base, ( T* ) ( base + off ) ); 
+			return __builtin_bit_cast( To, src );
+#endif
+		unreachable();
 	}
 	template<typename T>
-	static auto& ref_at( any_ptr base, int64_t off ) noexcept 
-	{ 
-		return *ptr_at<T>(base, off); 
+	concept Bitcastable = requires( T x ) { bit_cast<std::array<char, sizeof( T )>, T >( x ); };
+	template<typename T>
+	__forceinline static auto& bytes( T& src ) noexcept
+	{
+		return carry_const( src, ( std::array<char, sizeof( T )>& ) src );
 	}
-
-	// Byte distance between two pointers.
-	//
-	static constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
-
-	// Wrapper around assume aligned builtin.
-	//
-    template<size_t N, typename T> requires ( Pointer<T> || Same<T, any_ptr> )
-	__forceinline static constexpr T assume_aligned( T ptr )
-    {
-#if __has_builtin(__builtin_assume_aligned)
-        if ( !std::is_constant_evaluated() )
-			return T( __builtin_assume_aligned( ( const void* ) ptr, N ) );
-#endif
-        return ptr;
-    }
 
 	// Member reference helper.
 	//
@@ -506,10 +465,86 @@ namespace xstd
 	template<typename T> concept MemberFunction = impl::is_member_function<T>::value;
 	template<typename T> concept StaticFunction = impl::is_static_function<T>::value;
 
-	// Helper used to replace types within parameter packs.
+	// Returns the offset/size of given member reference.
 	//
-	template<typename T, typename O>
-	using swap_type_t = O;
+	template<typename V, typename C> 
+	__forceinline static int64_t make_offset( member_reference_t<C, V> ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
+	template<typename V, typename C>
+	__forceinline static constexpr size_t member_size( member_reference_t<C, V> ref ) noexcept { return sizeof( V ); }
+
+	// Simple void pointer implementation with arithmetic and free casts, comes useful
+	// when you can't infer the type of an argument pointer or if you want to const initialize
+	// an architecture specific pointer.
+	//
+	struct any_ptr
+	{
+		uint64_t address;
+
+		inline constexpr any_ptr( std::nullptr_t = {} ) : address( 0 ) {}
+		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
+		inline constexpr any_ptr( const void* address ) : address( bit_cast<uint64_t>( address ) ) {}
+		inline constexpr any_ptr( const volatile void* address ) : address( bit_cast<uint64_t>( address ) ) {}
+		template<typename R, typename... A>
+		inline constexpr any_ptr( static_function_t<R, A...> fn ) : address( bit_cast<uint64_t>( fn ) ) {}
+		template<typename C, typename R, typename... A>
+		inline constexpr any_ptr( member_function_t<C, R, A...> fn ) : address( bit_cast<uint64_t>( fn ) ) {}
+
+		constexpr any_ptr( any_ptr&& ) noexcept = default;
+		constexpr any_ptr( const any_ptr& ) = default;
+		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
+		constexpr any_ptr& operator=( const any_ptr& ) = default;
+
+		template<typename T>
+		inline constexpr operator T*() const { return bit_cast<T*>( address ); }
+		template<typename R, typename... A>
+		inline constexpr operator static_function_t<R, A...>() const { return bit_cast<static_function_t<R, A...>>( address ); }
+		template<typename C, typename R, typename... A>
+		inline constexpr operator member_function_t<C, R, A...>() const { return bit_cast<member_function_t<C, R, A...>>( address ); }
+
+		inline constexpr operator uint64_t() const { return address; }
+
+		inline constexpr any_ptr& operator++() { address++; return *this; }
+		inline constexpr any_ptr operator++( int ) { auto s = *this; operator++(); return s; }
+		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
+		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
+
+		inline constexpr any_ptr& operator--() { address--; return *this; }
+		inline constexpr any_ptr operator--( int ) { auto s = *this; operator--(); return s; }
+		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
+		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
+	};
+
+	// Gets the type at the given offset.
+	//
+	template<typename T = void>
+	__forceinline static auto ptr_at( any_ptr base, int64_t off ) noexcept 
+	{ 
+		if constexpr( std::is_void_v<T> )
+			return any_ptr( base + off );
+		else
+			return carry_const( base, ( T* ) ( base + off ) ); 
+	}
+	template<typename T>
+	__forceinline static auto& ref_at( any_ptr base, int64_t off ) noexcept
+	{ 
+		return *ptr_at<T>(base, off); 
+	}
+
+	// Byte distance between two pointers.
+	//
+	__forceinline static constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
+
+	// Wrapper around assume aligned builtin.
+	//
+    template<size_t N, typename T> requires ( Pointer<T> || Same<T, any_ptr> )
+	__forceinline static constexpr T assume_aligned( T ptr )
+    {
+#if __has_builtin(__builtin_assume_aligned)
+        if ( !std::is_constant_evaluated() )
+			return T( __builtin_assume_aligned( ( const void* ) ptr, N ) );
+#endif
+        return ptr;
+    }
 
 	// Implement helpers for basic series creation.
 	//
@@ -544,28 +579,6 @@ namespace xstd
 	static constexpr auto make_constant_series( T&& f )
 	{
 		return impl::make_constant_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
-	}
-
-	// Bitcasting.
-	//
-	template<TriviallyCopyable To, TriviallyCopyable From> 
-	requires( sizeof( To ) == sizeof( From ) )
-	static constexpr To bit_cast( const From& src ) noexcept
-	{
-#if HAS_BIT_CAST
-		return __builtin_bit_cast( To, src );
-#else
-		if ( !std::is_constant_evaluated() )
-			return ( const To& ) src;
-#endif
-		unreachable();
-	}
-	template<typename T>
-	concept Bitcastable = requires( T x ) { bit_cast<std::array<char, sizeof( T )>, T >( x ); };
-	template<typename T>
-	static auto& bytes( T& src )
-	{
-		return carry_const( src, ( std::array<char, sizeof( T )>& ) src );
 	}
 
 	// Converts any type to their trivial equivalents.
