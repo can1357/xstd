@@ -18,10 +18,11 @@ namespace xstd
 		mask_type mask;
 
 		inline constexpr operator bool() const noexcept { return ( *storage & mask ) != 0; }
-		inline constexpr const bool_proxy& operator=( bool value ) const noexcept requires !Const<std::remove_pointer_t<Ptr>>
+		inline constexpr const bool_proxy& operator=( bool value ) const noexcept requires ( !Const<std::remove_pointer_t<Ptr>> )
 		{
 			if ( value ) *storage |= mask;
 			else         *storage &= ~mask;
+			return *this;
 		}
 	};
 	template<Integral I> bool_proxy( I*, I )->bool_proxy<I*>;
