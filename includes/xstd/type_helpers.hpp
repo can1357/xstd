@@ -24,10 +24,31 @@ namespace xstd
 	{ 
 		using type = T; 
 
+		// Returns a 64-bit hash that can be used to identify the type.
+		//
 		template<typename vvvv__identifier__vvvv = T>
-		static constexpr std::string_view to_string()
+		static _CONSTEVAL size_t _hasher()
 		{
-			std::string_view sig = XSTD_CSTR( FUNCTION_NAME );
+			const char* sig = FUNCTION_NAME;
+			size_t tmp = 0xdb88df354763d75f;
+			while ( *sig )
+			{
+				tmp ^= *sig++;
+				tmp *= 0x00000100000001B3;
+			}
+			return tmp;
+		}
+		static _CONSTEVAL size_t hash()
+		{
+			return std::integral_constant<size_t, _hasher()>{};
+		}
+
+		// Returns the name of the type.
+		//
+		template<typename vvvv__identifier__vvvv = T>
+		static _CONSTEVAL std::string_view to_string()
+		{
+			std::string_view sig = FUNCTION_NAME;
 			auto [begin, delta, end] = std::tuple{
 #if MS_COMPILER
 				std::string_view{ "<" },                      0,  ">"
@@ -198,6 +219,8 @@ namespace xstd
 	concept Constructable = requires( Args&&... a ) { T( std::forward<Args>( a )... ); };
 	template<typename T, typename X>
 	concept Assignable = requires( T r, X && v ) { r = std::forward<X>( v ); };
+	template<typename T>
+	concept Complete = requires( T x ) { sizeof( T ) != 0; };
 
 	// Comparison traits.
 	//

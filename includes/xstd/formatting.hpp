@@ -12,7 +12,6 @@
 #include <filesystem>
 #include <numeric>
 #include <string_view>
-#include "lt_typeid.hpp"
 #include "type_helpers.hpp"
 #include "time.hpp"
 #include "intrinsics.hpp"
