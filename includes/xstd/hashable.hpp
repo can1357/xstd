@@ -125,7 +125,7 @@ namespace xstd
 				// Pick a random key based on the link time type identifier of the base type.
 				//
 				using B = std::remove_pointer_t<std::conditional_t<std::is_same_v<T, any_ptr>, void*, T>>;
-				uint64_t key = 0x4f9f74a0ce517dbb ^ ~impl::hash_combination_keys[ lt_typeid<B>::get_weak() & 63 ];
+				uint64_t key = 0x4f9f74a0ce517dbb ^ ~impl::hash_combination_keys[ lt_typeid<B>::weak() & 63 ];
 
 				// Extract the identifiers, most systems use 48-bit address spaces in reality with rest sign extended.
 				//
@@ -215,7 +215,7 @@ namespace xstd
 		__forceinline constexpr hash_t operator()( const std::reference_wrapper<T>& value ) const noexcept
 		{
 			if ( value ) return make_hash( value.get() );
-			else         return lt_typeid_v<T>;
+			else         return lt_typeid<T>::hash( 0xac07ef2ee5fcaa79 );
 		}
 	};
 
@@ -227,7 +227,7 @@ namespace xstd
 		__forceinline constexpr hash_t operator()( const std::optional<T>& value ) const noexcept
 		{
 			if ( value ) return make_hash( *value );
-			else         return lt_typeid_v<T>;
+			else         return lt_typeid<T>::hash( 0x6a477a8b10f59225 );
 		}
 	};
 
@@ -281,7 +281,7 @@ namespace xstd
 			if constexpr ( std::tuple_size_v<T> != 0 )
 				return std::apply( [ ] ( auto&&... params ) { return make_hash( params... ); }, obj );
 			else 
-				return lt_typeid_v<T>;
+				return 0xac07ef2ee5fcaa79;
 		}
 	};
 

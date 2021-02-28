@@ -627,8 +627,8 @@ namespace xstd
 	//
 	template<typename R = void>
 	using flat_function_t = R( __cdecl* )( void* arg );
-	template<typename T, typename Store = char, typename Ret = decltype( std::declval<T&&>()( ) )> requires Invocable<T, void>
-	__forceinline std::tuple<flat_function_t<Ret>, void*, flat_function_t<>> flatten( T&& fn, Store* store = nullptr )
+	template<typename T, typename StorePtr = std::nullptr_t, typename Ret = decltype( std::declval<T&&>()( ) )> requires Invocable<T, void>
+	__forceinline std::tuple<flat_function_t<Ret>, void*, flat_function_t<>> flatten( T&& fn, StorePtr store = nullptr )
 	{
 		using F = std::decay_t<T>;
 
@@ -669,13 +669,14 @@ namespace xstd
 				delete ( F* ) &argument;
 			};
 		}
-		// If function fits the pre-allocated store inline:
+		// If a preallocated store is given:
 		//
-		else if ( sizeof( Store ) >= sizeof( F ) && store )
+		else if constexpr ( !std::is_same_v<StorePtr, std::nullptr_t> )
 		{
-			new ( store ) F( std::forward<T>( fn ) );
-
-			argument = store;
+			using Store = std::remove_pointer_t<StorePtr>;
+			static_assert( sizeof( Store ) >= sizeof( F ) );
+			
+			argument = new ( store ) F( std::forward<T>( fn ) );
 			functor = [ ] ( void* argument ) -> Ret
 			{
 				F* pfn = ( F* ) argument;
