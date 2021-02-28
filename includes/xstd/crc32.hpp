@@ -12,7 +12,7 @@ namespace xstd
 	//
 	struct crc32_hash_t
 	{
-		// Magic constants for 64-bit FNV-1 .
+		// Magic constants for 32-bit CRC.
 		//
 		using value_t = uint32_t;
 		static constexpr value_t default_seed = { 0 };

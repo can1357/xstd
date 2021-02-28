@@ -12,7 +12,7 @@ namespace xstd
 	//
 	struct fnv64_hash_t
 	{
-		// Magic constants for 64-bit FNV-1 .
+		// Magic constants for 64-bit FNV-1.
 		//
 		using value_t = uint64_t;
 		static constexpr value_t default_seed = { 0xCBF29CE484222325 };

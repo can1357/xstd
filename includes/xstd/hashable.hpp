@@ -140,7 +140,7 @@ namespace xstd
 				res ^= rotr( res - v1, ( res & v1 ) & 63 );
 				res = ( res << 4 ) | ( v0 & 15 );
 				res = rotr( ~( res + v2 ), ( res ^ v2 ) & 63 );
-				return hash_t{ ( uint64_t ) res };
+				return hash_t{ res };
 			}
 			// If register sized integral type, use a special hasher.
 			//
@@ -148,19 +148,19 @@ namespace xstd
 			{
 				// Pick a random key per size to prevent collisions accross different types.
 				//
-				int64_t res = sizeof( T ) == 8 ? 0x350dfbdfde7d6d48 : 0xee89825303c1cce1;;
+				uint64_t res = sizeof( T ) == 8 ? 0x350dfbdfde7d6d48 : 0xee89825303c1cce1;
 
 				// Combine the value with the key.
 				//
 				if constexpr ( std::is_signed_v<T> )
-					res -= ( int64_t ) value;
+					res -= value;
 				else
-					res += ( int64_t ) ( std::make_signed_t<T> ) value;
+					res += ( int64_t ) bit_cast<std::make_signed_t<T>>( value );
 				
 				// Randomly rotate, combine once more and return.
 				//
 				res ^= rotl( res, res & 63 );
-				return hash_t{ ( uint64_t ) res };
+				return hash_t{ res };
 			}
 			// If trivial type, hash each byte.
 			//
