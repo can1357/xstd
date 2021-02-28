@@ -122,8 +122,45 @@ namespace xstd
 			//
 			else if constexpr ( std::is_pointer_v<T> || std::is_same_v<T, any_ptr> )
 			{
-				uint64_t identifier = ( ( uint64_t ) value ) & ( ( 1ull << 48 ) - 1 );
-				return hash_t{ ( identifier << 16 ) ^ ( identifier ) };
+				// Pick a random key based on the link time type identifier of the base type.
+				//
+				using B = std::remove_pointer_t<std::conditional_t<std::is_same_v<T, any_ptr>, void*, T>>;
+				uint64_t key = 0x4f9f74a0ce517dbb ^ ~impl::hash_combination_keys[ lt_typeid<B>::get_weak() & 63 ];
+
+				// Extract the identifiers, most systems use 48-bit address spaces in reality with rest sign extended.
+				//
+				uint64_t v0 = uint64_t( value ) & 0xFFF;
+				uint64_t v1 = ( uint64_t( value ) >> (12+9*0) ) & 0x3FFFF;
+				uint64_t v2 = ( uint64_t( value ) >> (12+9*2) ) & 0x3FFFF;
+
+				// Combine the values with the key and return.
+				//
+				uint64_t res = key;
+				res -= ( res & v0 ) * 0xb8653052cd4a068b;
+				res ^= rotr( res - v1, ( res & v1 ) & 63 );
+				res = ( res << 4 ) | ( v0 & 15 );
+				res = rotr( ~( res + v2 ), ( res ^ v2 ) & 63 );
+				return hash_t{ ( uint64_t ) res };
+			}
+			// If register sized integral type, use a special hasher.
+			//
+			else if constexpr ( std::is_integral_v<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) )
+			{
+				// Pick a random key per size to prevent collisions accross different types.
+				//
+				int64_t res = sizeof( T ) == 8 ? 0x350dfbdfde7d6d48 : 0xee89825303c1cce1;;
+
+				// Combine the value with the key.
+				//
+				if constexpr ( std::is_signed_v<T> )
+					res -= ( int64_t ) value;
+				else
+					res += ( int64_t ) ( std::make_signed_t<T> ) value;
+				
+				// Randomly rotate, combine once more and return.
+				//
+				res ^= rotl( res, res & 63 );
+				return hash_t{ ( uint64_t ) res };
 			}
 			// If trivial type, hash each byte.
 			//
