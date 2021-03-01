@@ -11,20 +11,20 @@
 
 // Required imports.
 //
-#if WINDOWS_TARGET
-#pragma warning( push )
-#pragma warning( disable: 4005)
-#define INVALID_HANDLE_VALUE ((void*)(long long)-1)
-#define OPEN_EXISTING                   3
-#define GENERIC_READ                    0x80000000L
-#define FILE_SHARE_READ                 0x00000001  
-#define FILE_SHARE_WRITE                0x00000002  
-#define FILE_SHARE_DELETE               0x00000004  
-#define FILE_FLAG_RANDOM_ACCESS         0x10000000
-#define INVALID_FILE_SIZE               0xFFFFFFFFu
-#define PAGE_READONLY                   0x02
-#define SECTION_MAP_READ                0x0004
-#pragma warning( pop )
+#if ( WINDOWS_TARGET && not defined( GENERIC_READ ) )
+	#pragma warning( push )
+	#pragma warning( disable: 4005)
+		#define INVALID_HANDLE_VALUE ((void*)(long long)-1)
+		#define OPEN_EXISTING                   3
+		#define GENERIC_READ                    0x80000000L
+		#define FILE_SHARE_READ                 0x00000001  
+		#define FILE_SHARE_WRITE                0x00000002  
+		#define FILE_SHARE_DELETE               0x00000004  
+		#define FILE_FLAG_RANDOM_ACCESS         0x10000000
+		#define INVALID_FILE_SIZE               0xFFFFFFFFu
+		#define PAGE_READONLY                   0x02
+		#define SECTION_MAP_READ                0x0004
+	#pragma warning( pop )
 extern "C"
 {
 	typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, * PSECURITY_ATTRIBUTES, * LPSECURITY_ATTRIBUTES;
