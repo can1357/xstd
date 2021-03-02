@@ -1,6 +1,7 @@
 #pragma once
 #include <initializer_list>
 #include <iterator>
+#include <memory>
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
@@ -61,50 +62,55 @@ namespace xstd
 		//
 		inline small_vector( small_vector&& o ) noexcept
 		{
-			swap( o );
+			length = std::exchange( o.length, 0 );
+			std::uninitialized_move_n( o.begin(), length, begin() );
 		}
-		inline small_vector( const small_vector& o )
+		inline small_vector( const small_vector& o ) requires std::is_copy_constructible_v<T>
 		{
-			insert( begin(), o.begin(), o.end() );
+			length = o.length;
+			std::uninitialized_copy_n( o.begin(), length, begin() );
 		}
 		inline small_vector& operator=( small_vector&& o ) noexcept
 		{
-			swap( o );
+			clear();
+			length = std::exchange( o.length, 0 );
+			std::uninitialized_move_n( o.begin(), length, begin() );
 			return *this;
 		}
-		inline small_vector& operator=( const small_vector& o )
+		inline small_vector& operator=( const small_vector& o ) requires std::is_copy_constructible_v<T>
 		{
 			clear();
-			insert( begin(), o.begin(), o.end() );
+			length = o.length;
+			std::uninitialized_copy_n( o.begin(), length, begin() );
 			return *this;
 		}
 		inline void swap( small_vector& o )
 		{
-			size_t pmin = std::min( length, o.length );
-			std::swap( length, o.length );
-			
-			size_t n = 0;
-			for ( ; n != pmin; n++ )
-				std::swap( at( n ), o.at( n ) );
-			for ( ; n < length; n++ )
-				new ( &at( n ) ) T( std::move( o.at( n ) ) );
-			for ( ; n < o.length; n++ )
-				new ( &o.at( n ) ) T( std::move( at( n ) ) );
+			if constexpr ( TriviallySwappable<T> )
+			{
+				std::swap( bytes( *this ), bytes( o ) );
+			}
+			else
+			{
+				std::swap( length, o.length );
+
+				size_t n = 0;
+				for ( ; n != std::min<size_t>( length, o.length ); n++ )
+					std::swap( at( n ), o.at( n ) );
+				if ( n < length )
+					std::uninitialized_move( o.begin() + n, o.end(), begin() + n );
+				else if ( n < o.length )
+					std::uninitialized_move( begin() + n, end(), o.begin() + n );
+			}
 		}
 
 		// Value removal.
 		//
 		inline iterator erase( const_iterator first, const_iterator last )
 		{
-			for ( auto it = first; it != last; ++it )
-				std::destroy_at( it );
-			if ( last != end() )
-			{
-				size_t shift_count = last - first;
-				for ( auto it = last; it != end(); ++it )
-					new ( ( void* ) first++ ) T( std::move( *it ) );
-			}
-			length = first - &at( 0 );
+			std::destroy_n( first, last - first );
+			std::uninitialized_move( ( iterator ) last, end(), ( iterator ) first );
+			length -= ( last - first );
 			return ( iterator ) first;
 		}
 		inline iterator erase( const_iterator pos )
@@ -117,9 +123,7 @@ namespace xstd
 		}
 		inline void clear()
 		{
-			for ( size_t n = 0; n != length; n++ )
-				std::destroy_at( &at( n ) );
-			length = 0;
+			std::destroy_n( begin(), std::exchange( length, 0 ) );
 		}
 
 		// Value insertion.
@@ -127,24 +131,22 @@ namespace xstd
 		template<typename... Tx>
 		inline reference emplace( const_iterator pos, Tx&&... args )
 		{
-			++length;
-			auto it = end();
-			for ( ; it != pos; --it )
-				new ( it ) T( std::move( *( it - 1 ) ) );
-			return *new ( it ) T( std::forward<Tx>( args )... );
+			std::uninitialized_move_n( end() - 1, 1, end() );
+			reference& ref = *new ( end() ) T( std::forward<Tx>( args )... );
+			length++;
+			return ref;
 		}
 		template<typename It1, typename It2>
 		inline iterator insert( const_iterator pos, It1 first, const It2& last )
 		{
+			fassert( ( length + 1 ) <= N );
 			auto count = ( size_type ) std::distance( first, last );
-			auto last_pos = pos + count;
 			if ( ( length + count ) > N )
 				return nullptr;
+			for ( size_t i = 0; i != count; i++ )
+				std::uninitialized_move_n( end() - i, 1, end() - i + 1 );
+			std::uninitialized_copy( first, last, ( iterator ) pos );
 			length += count;
-			for ( auto it = end(); it >= last_pos; --it )
-				new ( it ) T( std::move( *( it - count ) ) );
-			for ( auto it = pos; it != last_pos; ++it )
-				new ( ( void* ) it ) T( *first++ );
 			return ( iterator ) pos;
 		}
 		inline iterator insert( const_iterator pos, const T& value )
@@ -164,29 +166,19 @@ namespace xstd
 		{
 			fassert( n <= N );
 			if ( n > length )
-			{
-				while( length != n )
-					new ( &at( length++ ) ) T();
-			}
+				std::uninitialized_default_construct( end(), begin() + n );
 			else
-			{
-				while ( length != n )
-					new ( &at( --length ) ) T();
-			}
+				std::destroy_n( begin() + n, length - n );
+			length = n;
 		}
 		inline void resize( size_t n, const T& value )
 		{
 			fassert( n <= N );
 			if ( n > length )
-			{
-				while ( length != n )
-					new ( &at( length++ ) ) T( value );
-			}
+				std::uninitialized_fill_n( begin() + length, n - length, value );
 			else
-			{
-				while ( length != n )
-					new ( &at( --length ) ) T( value );
-			}
+				std::destroy_n( begin() + n, length - n );
+			length = n;
 		}
 
 		// Clear the vector at destruction.

@@ -197,6 +197,12 @@ namespace xstd
 
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
+	template<typename T>
+	concept TriviallyMoveAssignable = std::is_trivially_move_assignable_v<T>;
+	template<typename T>
+	concept TriviallyMoveConstructable = std::is_trivially_move_constructible_v<T>;
+	template<typename T>
+	concept TriviallySwappable = TriviallyMoveConstructable<T> && TriviallyMoveConstructable<T>;
 	template<typename From, typename To>
 	concept TriviallyAssignable = std::is_trivially_assignable_v<From, To>;
 	template<typename T>
