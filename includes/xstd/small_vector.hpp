@@ -119,7 +119,8 @@ namespace xstd
 		}
 		inline void pop_back()
 		{
-			std::destroy_at( &at( --length ) );
+			std::destroy_at( &back() );
+			--length;
 		}
 		inline void clear()
 		{
@@ -195,8 +196,8 @@ namespace xstd
 		inline const_iterator data() const { return begin(); }
 		inline iterator begin() { return &at( 0 ); }
 		inline const_iterator begin() const { return &at( 0 ); }
-		inline iterator end() { return &at( length ); }
-		inline const_iterator end() const { return &at( length ); }
+		inline iterator end() { return begin() + length; }
+		inline const_iterator end() const { return begin() + length; }
 		inline reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
 		inline reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
 		inline const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
