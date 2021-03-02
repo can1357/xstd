@@ -269,6 +269,17 @@ namespace xstd
 		}
 	};
 
+	// Overload for std::monostate.
+	//
+	template<>
+	struct hasher<std::monostate>
+	{
+		__forceinline constexpr size_t operator()( const std::monostate& ) const noexcept
+		{
+			return type_tag<std::monostate>::hash();
+		}
+	};
+
 	// Overload default instance.
 	//
 	template<>

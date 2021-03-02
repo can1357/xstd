@@ -107,11 +107,10 @@ namespace xstd
 		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
 	}
 	template<Integral T = uint64_t>
-	static constexpr T make_crandom( size_t offset = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		uint64_t value = impl::crandom_default_seed;
-		while ( offset-- != 0 ) lce_64( value );
-		return impl::uniform_eval( lce_64( value ), min, max );
+		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		return impl::uniform_eval( key, min, max );
 	}
 
 	// Fills the given range with randoms.
@@ -123,12 +122,11 @@ namespace xstd
 			v = make_random<T>( min, max );
 	}
 	template<Iterable It, Integral T = iterator_value_type_t<It>>
-	static constexpr void fill_crandom( It&& cnt, size_t offset = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static constexpr void fill_crandom( It&& cnt, uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		uint64_t value = impl::crandom_default_seed;
-		while ( offset-- != 0 ) lce_64( value );
+		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		for ( auto& v : cnt )
-			v = impl::uniform_eval<T>( lce_64( value ), min, max );
+			v = impl::uniform_eval<T>( lce_64( key ), min, max );
 	}
 
 	// Enum equivalents.
@@ -140,10 +138,10 @@ namespace xstd
 		return ( T ) make_random<V>( V( min ), V( max ) );
 	}
 	template<Enum T>
-	static constexpr T make_crandom( size_t offset, T min, T max )
+	static constexpr T make_crandom( uint64_t key, T min, T max )
 	{
 		using V = std::underlying_type_t<T>;
-		return ( T ) make_crandom<V>( offset, V( min ), V( max ) );
+		return ( T ) make_crandom<V>( key, V( min ), V( max ) );
 	}
 
 	// Generates an array of random numbers.
@@ -154,11 +152,10 @@ namespace xstd
 		return { ( I, make_random<T>( min ,max ) )... };
 	}
 	template<typename T, size_t... I>
-	static constexpr std::array<T, sizeof...( I )> make_crandom_n( size_t offset, T min, T max, std::index_sequence<I...> )
+	static constexpr std::array<T, sizeof...( I )> make_crandom_n( uint64_t key, T min, T max, std::index_sequence<I...> )
 	{
-		uint64_t value = impl::crandom_default_seed;
-		while ( offset-- != 0 ) lce_64( value );
-		return { impl::uniform_eval( lce_64( ( I, value ) ), min, max )... };
+		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		return { impl::uniform_eval( lce_64( ( I, key ) ), min, max )... };
 	}
 	template<typename T, size_t N>
 	static std::array<T, N> make_random_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
@@ -166,9 +163,9 @@ namespace xstd
 		return make_random_n<T>( min, max, std::make_index_sequence<N>{} );
 	}
 	template<typename T, size_t N>
-	static constexpr std::array<T, N> make_crandom_n( size_t offset = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static constexpr std::array<T, N> make_crandom_n( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		return make_crandom_n<T>( offset, min, max, std::make_index_sequence<N>{} );
+		return make_crandom_n<T>( key, min, max, std::make_index_sequence<N>{} );
 	}
 
 	// Picks a random item from the initializer list / argument pack.
@@ -185,16 +182,16 @@ namespace xstd
 		return *std::next( std::begin( source ), make_random<size_t>( 0, size - 1 ) );
 	}
 
-	template<size_t offset, typename... Tx>
+	template<uint64_t key, typename... Tx>
 	static constexpr decltype( auto ) pick_crandom( Tx&&... args )
 	{
-		return std::get<make_crandom<size_t>( offset, 0, sizeof...( args ) - 1 )>( std::tuple<Tx&&...>{ std::forward<Tx>( args )... } );
+		return std::get<make_crandom<size_t>( key, 0, sizeof...( args ) - 1 )>( std::tuple<Tx&&...>{ std::forward<Tx>( args )... } );
 	}
-	template<size_t offset, Iterable T>
+	template<uint64_t key, Iterable T>
 	static constexpr decltype( auto ) pick_crandomi( T& source )
 	{
 		auto size = std::size( source );
-		return *std::next( std::begin( source ), make_crandom<size_t>( offset, 0, size - 1 ) );
+		return *std::next( std::begin( source ), make_crandom<size_t>( key, 0, size - 1 ) );
 	}
 
 	// Shuffles a container in a random manner.
@@ -216,20 +213,18 @@ namespace xstd
 		}
 	}
 	template<Iterable T>
-	static constexpr void shuffle_crandom( size_t offset, T& source )
+	static constexpr void shuffle_crandom( uint64_t key, T& source )
 	{
 		if ( std::size( source ) <= 1 )
 			return;
-
-		uint64_t value = impl::crandom_default_seed;
-		while ( offset-- != 0 ) lce_64( value );
+		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 
 		size_t n = 1;
 		auto beg = std::begin( source );
 		auto end = std::end( source );
 		for ( auto it = std::next( beg ); it != end; ++n, ++it )
 		{
-			size_t off = lce_64( value ) % ( n + 1 );
+			size_t off = lce_64( key ) % ( n + 1 );
 			if ( off != n )
 				std::iter_swap( it, std::next( beg, off ) );
 		}
