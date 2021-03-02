@@ -2,6 +2,7 @@
 #include <initializer_list>
 #include <iterator>
 #include <memory>
+#include <vector>
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
@@ -37,16 +38,16 @@ namespace xstd
 
 		// Construction by value.
 		//
-		small_vector( const std::initializer_list<T>& list )
-		{
-			insert( end(), list.begin(), list.end() );
-		}
 		template<typename It1, typename It2>
 		small_vector( It1&& first, It2&& last )
 		{
-			insert( end(), std::forward<It1>( first ), std::forward<It1>( last ) );
+			dassert( std::distance( first, last ) <= N );
+			length = ( size_type ) std::distance( first, last );
+			std::uninitialized_copy( first, last, begin() );
 		}
-
+		template<Iterable C = std::initializer_list<T>>
+		small_vector( const C& source ) : small_vector( std::begin( source ), std::end( list ) ) {}
+		
 		// Construction by length.
 		//
 		small_vector( size_t n ) requires DefaultConstructable<T>
@@ -108,9 +109,10 @@ namespace xstd
 		//
 		inline iterator erase( const_iterator first, const_iterator last )
 		{
-			std::destroy_n( first, last - first );
+			size_t count = ( size_type ) std::distance( first, last );
+			std::destroy_n( first, count );
 			std::uninitialized_move( ( iterator ) last, end(), ( iterator ) first );
-			length -= ( last - first );
+			length -= count;
 			return ( iterator ) first;
 		}
 		inline iterator erase( const_iterator pos )
@@ -133,20 +135,20 @@ namespace xstd
 		inline reference emplace( const_iterator pos, Tx&&... args )
 		{
 			dassert( ( length + 1 ) <= N );
-			for ( auto it = end(); it != pos; --it )
-				std::uninitialized_move_n( it - 1, 1, it );
+			for ( auto it = end(); it >= pos; --it )
+				std::uninitialized_move_n( it, 1, it + 1 );
 			std::construct_at( ( iterator ) pos, std::forward<Tx>( args )... );
 			length++;
 			return *( iterator ) pos;
 		}
 		template<typename It1, typename It2>
-		inline iterator insert( const_iterator pos, It1 first, const It2& last )
+		inline iterator insert( const_iterator pos, It1&& first, It2&& last )
 		{
 			auto count = ( size_type ) std::distance( first, last );
 			if ( ( length + count ) > N )
 				return nullptr;
-			for ( auto it = end() + count - 1; it != pos; --it )
-				std::uninitialized_move_n( it - count, 1, it );
+			for ( auto it = end(); it >= pos; --it )
+				std::uninitialized_move_n( it, 1, it + count );
 			std::uninitialized_copy( first, last, ( iterator ) pos );
 			length += count;
 			return ( iterator ) pos;
@@ -195,14 +197,31 @@ namespace xstd
 		constexpr inline size_t capacity() const { return N; }
 		inline iterator data() { return &at( 0 ); }
 		inline const_iterator data() const { return &at( 0 ); }
+
 		inline iterator begin() { return data(); }
 		inline const_iterator begin() const { return data(); }
+		inline const_iterator cbegin() const { return data(); }
+
 		inline iterator end() { return data() + length; }
 		inline const_iterator end() const { return data() + length; }
+		inline const_iterator cend() const { return data() + length; }
+
 		inline reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
-		inline reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
 		inline const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
+		inline const_reverse_iterator crbegin() const { return std::reverse_iterator{ end() }; }
+
+		inline reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
 		inline const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
+		inline const_reverse_iterator crend() const { return std::reverse_iterator{ begin() }; }
+
+		// No-ops.
+		//
+		constexpr inline void shrink_to_fit() {}
+		constexpr inline void reserve( size_t ) {}
+
+		// Decay to vector.
+		//
+		constexpr operator std::vector<T>() requires DefaultConstructable<T> { return { begin(), end() }; }
 
 		// Indexing.
 		//
