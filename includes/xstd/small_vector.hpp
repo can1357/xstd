@@ -115,7 +115,7 @@ namespace xstd
 		}
 		inline iterator erase( const_iterator pos )
 		{
-			erase( pos, pos + 1 );
+			return erase( pos, pos + 1 );
 		}
 		inline void pop_back()
 		{
@@ -132,20 +132,21 @@ namespace xstd
 		template<typename... Tx>
 		inline reference emplace( const_iterator pos, Tx&&... args )
 		{
-			std::uninitialized_move_n( end() - 1, 1, end() );
-			reference& ref = *new ( end() ) T( std::forward<Tx>( args )... );
+			dassert( ( length + 1 ) <= N );
+			for ( auto it = end(); it != pos; --it )
+				std::uninitialized_move_n( it - 1, 1, it );
+			std::construct_at( ( iterator ) pos, std::forward<Tx>( args )... );
 			length++;
-			return ref;
+			return *( iterator ) pos;
 		}
 		template<typename It1, typename It2>
 		inline iterator insert( const_iterator pos, It1 first, const It2& last )
 		{
-			fassert( ( length + 1 ) <= N );
 			auto count = ( size_type ) std::distance( first, last );
 			if ( ( length + count ) > N )
 				return nullptr;
-			for ( size_t i = 0; i != count; i++ )
-				std::uninitialized_move_n( end() - i, 1, end() - i + 1 );
+			for ( auto it = end() + count - 1; it != pos; --it )
+				std::uninitialized_move_n( it - count, 1, it );
 			std::uninitialized_copy( first, last, ( iterator ) pos );
 			length += count;
 			return ( iterator ) pos;
@@ -165,7 +166,7 @@ namespace xstd
 		}
 		inline void resize( size_t n ) requires DefaultConstructable<T>
 		{
-			fassert( n <= N );
+			dassert( n <= N );
 			if ( n > length )
 				std::uninitialized_default_construct( end(), begin() + n );
 			else
@@ -174,7 +175,7 @@ namespace xstd
 		}
 		inline void resize( size_t n, const T& value )
 		{
-			fassert( n <= N );
+			dassert( n <= N );
 			if ( n > length )
 				std::uninitialized_fill_n( begin() + length, n - length, value );
 			else
@@ -192,12 +193,12 @@ namespace xstd
 		constexpr inline size_t size() const { return length; }
 		constexpr inline size_t max_size() const { return N; }
 		constexpr inline size_t capacity() const { return N; }
-		inline iterator data() { return begin(); }
-		inline const_iterator data() const { return begin(); }
-		inline iterator begin() { return &at( 0 ); }
-		inline const_iterator begin() const { return &at( 0 ); }
-		inline iterator end() { return begin() + length; }
-		inline const_iterator end() const { return begin() + length; }
+		inline iterator data() { return &at( 0 ); }
+		inline const_iterator data() const { return &at( 0 ); }
+		inline iterator begin() { return data(); }
+		inline const_iterator begin() const { return data(); }
+		inline iterator end() { return data() + length; }
+		inline const_iterator end() const { return data() + length; }
 		inline reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
 		inline reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
 		inline const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
