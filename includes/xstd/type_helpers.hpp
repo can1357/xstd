@@ -617,6 +617,26 @@ namespace xstd
 		return impl::make_constant_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
 	}
 
+	// Implement helper for visit on numeric range.
+	//
+	template<auto First, auto Last, typename T, typename K = decltype( First )>
+	static constexpr bool visit_range( K key, T&& f )
+	{
+		if constexpr ( key >= Last )
+		{
+			return false;
+		}
+		else if constexpr ( key == First )
+		{
+			f( const_tag<First>{} );
+			return true;
+		}
+		else
+		{
+			return visit_range<K( size_t( First ) + 1 ), Last, T, K>( key, std::forward<T>( f ) );
+		}
+	}
+
 	// Converts any type to their trivial equivalents.
 	//
 	template<size_t N>
