@@ -54,6 +54,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\small_vector.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\spinlock.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stack_containers.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\static_warning.hpp" />

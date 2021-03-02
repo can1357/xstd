@@ -81,7 +81,9 @@ namespace xstd
 	template<auto v>
 	struct const_tag
 	{
-		static constexpr auto value = v;
+		using value_type = decltype( v );
+		static constexpr value_type value = v;
+		constexpr operator value_type() const noexcept { return value; }
 
 		template<auto vvvv__identifier__vvvv = v>
 		static constexpr std::string_view to_string()
@@ -250,10 +252,15 @@ namespace xstd
 	template<typename T, typename O> concept Xorable = requires( T&& x, O&& y ) { x ^ y; };
 	template<typename T> concept Signed =   std::is_signed_v<T>;
 	template<typename T> concept Unsigned = std::is_unsigned_v<T>;
+
 	template<Integral T1, Integral T2> requires ( Signed<T1> == Signed<T2> )
 	using integral_max_t = std::conditional_t<( sizeof( T1 ) > sizeof( T2 ) ), T1, T2>;
 	template<FloatingPoint T1, FloatingPoint T2>
 	using floating_max_t = std::conditional_t<( sizeof( T1 ) > sizeof( T2 ) ), T1, T2>;
+	template<Integral T1, Integral T2> requires ( Signed<T1> == Signed<T2> )
+	using integral_min_t = std::conditional_t<( sizeof( T1 ) < sizeof( T2 ) ), T1, T2>;
+	template<FloatingPoint T1, FloatingPoint T2>
+	using floating_min_t = std::conditional_t<( sizeof( T1 ) < sizeof( T2 ) ), T1, T2>;
 
 	// Functor traits.
 	//
@@ -645,6 +652,31 @@ namespace xstd
 	template<typename T> using convert_uint_t = typename trivial_converter<sizeof( T )>::integral_unsigned;
 	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
 	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
+	
+	// Helper for resolving the minimum integer type that can store the given value.
+	//
+	namespace impl
+	{
+		template<auto V>
+		static constexpr auto integral_compress()
+		{
+			if constexpr ( V < 0 )
+			{
+				using T = decltype( integral_compressu<-V>() );
+				return ( std::make_signed_t<T> ) V;
+			}
+			else if constexpr ( V <= UINT8_MAX )
+				return ( uint8_t ) V;
+			else if constexpr ( V <= UINT16_MAX )
+				return ( uint16_t ) V;
+			else if constexpr ( V <= UINT32_MAX )
+				return ( uint32_t ) V;
+			else
+				return ( size_t ) V;
+		}
+	};
+	template<auto V>
+	using integral_compress_t = decltype( impl::integral_compress<V>() );
 
 	// Flattens the lambda function to a function pointer, a pointer sized argument and a manual destroyer in case it is needed.
 	//
