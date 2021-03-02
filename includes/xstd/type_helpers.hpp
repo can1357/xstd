@@ -622,19 +622,19 @@ namespace xstd
 	template<auto First, auto Last, typename T, typename K = decltype( First )>
 	static constexpr bool visit_range( K key, T&& f )
 	{
-		if constexpr ( key >= Last )
+		if constexpr( First < Last )
 		{
-			return false;
+			if ( key == First )
+			{
+				f( const_tag<First>{} );
+				return true;
+			}
+			else
+			{
+				return visit_range<K( size_t( First ) + 1 ), Last, T, K>( key, std::forward<T>( f ) );
+			}
 		}
-		else if constexpr ( key == First )
-		{
-			f( const_tag<First>{} );
-			return true;
-		}
-		else
-		{
-			return visit_range<K( size_t( First ) + 1 ), Last, T, K>( key, std::forward<T>( f ) );
-		}
+		return false;
 	}
 
 	// Converts any type to their trivial equivalents.
