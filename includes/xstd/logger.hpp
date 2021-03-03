@@ -14,7 +14,7 @@
 
 // [Configuration]
 // XSTD_CON_THREAD_LOCAL: If set, will use a mutex to protect the writes into console.
-// XSTD_CON_ENFORCE_UTF8_WINDOWS: If set, will enforce the command-line to output UTF8 on Windows platform.
+// XSTD_CON_ENFORCE_MODE_WINDOWS: If set, will enforce the command-line to output UTF8 on Windows platform.
 // XSTD_CON_NO_COLORS: If set, disables colors.
 // XSTD_CON_NO_WARNINGS: If set, disables warnings.
 // XSTD_CON_NO_LOGS: If set, disables logs.
@@ -29,8 +29,8 @@
 #ifndef XSTD_CON_THREAD_LOCAL
 	#define XSTD_CON_THREAD_LOCAL 1
 #endif
-#ifndef XSTD_CON_ENFORCE_UTF8_WINDOWS
-	#define XSTD_CON_ENFORCE_UTF8_WINDOWS 1
+#ifndef XSTD_CON_ENFORCE_MODE_WINDOWS
+	#define XSTD_CON_ENFORCE_MODE_WINDOWS 1
 #endif
 #ifndef XSTD_CON_NO_COLORS
 	#define XSTD_CON_NO_COLORS 0
@@ -61,7 +61,7 @@
 	#endif
 #endif
 
-#if ( WINDOWS_TARGET && ( XSTD_CON_ENFORCE_UTF8_WINDOWS || !XSTD_CON_NO_COLORS ) )
+#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_MODE_WINDOWS )
 extern "C" 
 {
 	__declspec( dllimport ) int __stdcall SetConsoleOutputCP( unsigned int code_page_id );
@@ -114,11 +114,9 @@ namespace xstd
 		//
 		logger_state_t()
 		{
-#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_UTF8_WINDOWS )
+#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_MODE_WINDOWS )
 			constexpr uint32_t _CP_UTF8 = 65001;
 			SetConsoleOutputCP( _CP_UTF8 );
-#endif
-#if ( WINDOWS_TARGET && !XSTD_CON_NO_COLORS )
 			constexpr uint32_t _ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
 			constexpr uint32_t _STD_OUTPUT_HANDLE = ( uint32_t ) -11;
 			unsigned long mode;
@@ -127,18 +125,15 @@ namespace xstd
 #endif
 		}
 
-#if XSTD_CON_THREAD_LOCAL
 		// Lock of the stream.
 		//
+#if XSTD_CON_THREAD_LOCAL
 		std::recursive_timed_mutex mtx;
-
 		void lock() { mtx.lock(); }
 		void unlock() { mtx.unlock(); }
 		bool try_lock() { return mtx.try_lock(); }
 		bool try_lock( duration max_wait ) { return mtx.try_lock_for( 100ms ); }
 #else
-
-
 		void lock() {}
 		void unlock() {}
 		bool try_lock() { return true; }
