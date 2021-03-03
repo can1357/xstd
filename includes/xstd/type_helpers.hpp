@@ -136,9 +136,9 @@ namespace xstd
 	template <template<typename...> typename Tmp, typename T>
 	static constexpr bool is_specialization_v = impl::is_specialization_v<Tmp, std::remove_cvref_t<T>>;
 	template <typename T>
-	static constexpr bool is_std_array_v = impl::is_std_array<T>::value;
+	static constexpr bool is_std_array_v = impl::is_std_array<std::remove_cvref_t<T>>::value;
 	template <typename T>
-	static constexpr bool is_small_vector_v = impl::is_small_vector<T>::value;
+	static constexpr bool is_small_vector_v = impl::is_small_vector<std::remove_cvref_t<T>>::value;
 
 	// Check whether data is stored contiguously in the iterable.
 	//
