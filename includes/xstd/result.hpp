@@ -12,7 +12,7 @@ namespace xstd
 	// Status traits.
 	//
 	template<typename T>
-	struct status_traits;
+	struct status_traits : T {};
 
 	template<>
 	struct status_traits<bool>
