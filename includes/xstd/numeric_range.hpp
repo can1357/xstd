@@ -194,5 +194,5 @@ namespace xstd
 	static constexpr numeric_range<> iindices = { 0ull, SIZE_MAX };
 
 	template<typename T>
-	static numeric_range<T> iiota( T x ) { return { x, SIZE_MAX }; }
+	static numeric_range<T> iiota( T x ) { return { T(0), x }; }
 };
