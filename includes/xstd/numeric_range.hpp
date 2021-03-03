@@ -205,5 +205,5 @@ namespace xstd
 	static constexpr numeric_range<> iindices = { 0ull, SIZE_MAX };
 
 	template<Integral T> static numeric_range<T> liota( T x ) { return { T{}, x }; } // Limitting iota.
-	template<Integral T> static numeric_range<T> iiota( T x ) { return { T{}, x }; } // Iota towards inf.
+	template<Integral T> static numeric_range<T> iiota( T x ) { return { x, std::numeric_limits<T>::max() }; } // Iota towards inf.
 };

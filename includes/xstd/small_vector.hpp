@@ -46,7 +46,7 @@ namespace xstd
 			std::uninitialized_copy( first, last, begin() );
 		}
 		template<Iterable C = std::initializer_list<T>>
-		small_vector( const C& source ) : small_vector( std::begin( source ), std::end( list ) ) {}
+		small_vector( const C& source ) : small_vector( std::begin( source ), std::end( source ) ) {}
 		
 		// Construction by length.
 		//

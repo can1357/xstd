@@ -177,7 +177,7 @@ namespace xstd
 		return range<It, void>( std::forward<It1>( begin ), std::forward<It2>( end ) );
 	}
 	template<Iterable C, typename Fn>
-	static constexpr auto make_view( C&& container, Fn&& f )
+	static constexpr auto map( C&& container, Fn&& f )
 	{
 		return range<iterator_type_t<C>, Fn>(
 			std::begin( container ),
@@ -186,7 +186,7 @@ namespace xstd
 		);
 	}
 	template<Iterable C, typename B, typename F>
-	static constexpr auto make_view( C&& container, member_reference_t<B, F> ref )
+	static constexpr auto map( C&& container, member_reference_t<B, F> ref )
 	{
 		auto fn = [ ref = std::move( ref ) ] <typename T> ( T && v ) -> decltype( auto )
 		{
