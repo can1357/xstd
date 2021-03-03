@@ -58,6 +58,7 @@ namespace xstd
 		//
 		std::string to_string() const { return fmt::as_string( at ); }
 	};
+	template<typename T> numeric_iterator( T )->numeric_iterator<T>;
 
 	// Define a psueodo-container storing numeric ranges.
 	//
