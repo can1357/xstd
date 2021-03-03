@@ -8,54 +8,65 @@
 
 namespace xstd
 {
+	// Define a pseudo-iterator type for integers.
+	//
+	template<Integral T = size_t, typename D = std::make_signed_t<T>>
+	struct numeric_iterator
+	{
+		// Generic iterator typedefs.
+		//
+		using iterator_category = std::random_access_iterator_tag;
+		using difference_type =   D;
+		using value_type =        T;
+		using reference =         T&;
+		using const_reference =   const T&;
+		using pointer =           T*;
+		using const_pointer =     const T*;
+
+		value_type at;
+
+		// Support random iteration.
+		//
+		constexpr numeric_iterator& operator++() { at++; return *this; }
+		constexpr numeric_iterator& operator--() { at--; return *this; }
+		constexpr numeric_iterator operator++( int ) { auto s = *this; operator++(); return s; }
+		constexpr numeric_iterator operator--( int ) { auto s = *this; operator--(); return s; }
+		constexpr numeric_iterator& operator+=( difference_type d ) { at += d; return *this; }
+		constexpr numeric_iterator& operator-=( difference_type d ) { at -= d; return *this; }
+		constexpr numeric_iterator operator+( difference_type d ) const { auto s = *this; operator+=( d ); return s; }
+		constexpr numeric_iterator operator-( difference_type d ) const { auto s = *this; operator-=( d ); return s; }
+
+		// Comparison and difference against another iterator.
+		//
+		constexpr difference_type operator-( const numeric_iterator& other ) const { return at - other.at; }
+		constexpr bool operator<( const numeric_iterator& other ) const { return at < other.at; }
+		constexpr bool operator<=( const numeric_iterator& other ) const { return at <= other.at; }
+		constexpr bool operator>( const numeric_iterator& other ) const { return at > other.at; }
+		constexpr bool operator>=( const numeric_iterator& other ) const { return at >= other.at; }
+		constexpr bool operator==( const numeric_iterator& other ) const { return at == other.at; }
+		constexpr bool operator!=( const numeric_iterator& other ) const { return at != other.at; }
+		
+		// Redirect dereferencing to the number, decay to it as well.
+		//
+		constexpr pointer operator->() { return &at; }
+		constexpr const_pointer operator->() const { return &at; }
+		constexpr reference operator*() { return at; }
+		constexpr const_reference operator*() const { return at; }
+		constexpr operator value_type() const { return at; }
+
+		// String conversion.
+		//
+		std::string to_string() const { return fmt::as_string( at ); }
+	};
+
+	// Define a psueodo-container storing numeric ranges.
+	//
 	template<Integral T = size_t>
 	struct numeric_range
 	{
-		// Declare the iterator type.
-		//
-		struct iterator
-		{
-			// Generic iterator typedefs.
-			//
-			using iterator_category = std::random_access_iterator_tag;
-			using difference_type =   std::make_signed_t<T>;
-			using value_type =        T;
-			using reference =         T&;
-			using pointer =           void*;
-
-			value_type at;
-
-			// Support random iteration.
-			//
-			constexpr iterator& operator++() { at++; return *this; }
-			constexpr iterator& operator--() { at--; return *this; }
-			constexpr iterator operator++( int ) { auto s = *this; operator++(); return s; }
-			constexpr iterator operator--( int ) { auto s = *this; operator--(); return s; }
-			constexpr iterator& operator+=( difference_type d ) { at += d; return *this; }
-			constexpr iterator& operator-=( difference_type d ) { at -= d; return *this; }
-			constexpr iterator operator+( difference_type d ) const { auto s = *this; operator+=( d ); return s; }
-			constexpr iterator operator-( difference_type d ) const { auto s = *this; operator-=( d ); return s; }
-
-			// Comparison and difference against another iterator.
-			//
-			constexpr difference_type operator-( const iterator& other ) const { return at - other.at; }
-			constexpr bool operator<( const iterator& other ) const { return at < other.at; }
-			constexpr bool operator<=( const iterator& other ) const { return at <= other.at; }
-			constexpr bool operator>( const iterator& other ) const { return at > other.at; }
-			constexpr bool operator>=( const iterator& other ) const { return at >= other.at; }
-			constexpr bool operator==( const iterator& other ) const { return at == other.at; }
-			constexpr bool operator!=( const iterator& other ) const { return at != other.at; }
-			
-			// Redirect dereferencing to the number, decay to it as well.
-			//
-			constexpr value_type operator*() const { return at; }
-			constexpr operator value_type() const { return at; }
-
-			// String conversion.
-			//
-			std::string to_string() const { return fmt::as_string( at ); }
-		};
-		using const_iterator = iterator;
+		using iterator =       numeric_iterator<T>;
+		using const_iterator = numeric_iterator<T>;
+		using value_type =     T;
 
 		// Beginning and the end of the range.
 		//
@@ -193,6 +204,6 @@ namespace xstd
 	//
 	static constexpr numeric_range<> iindices = { 0ull, SIZE_MAX };
 
-	template<typename T>
-	static numeric_range<T> iiota( T x ) { return { T(0), x }; }
+	template<Integral T> static numeric_range<T> liota( T x ) { return { T{}, x }; } // Limitting iota.
+	template<Integral T> static numeric_range<T> iiota( T x ) { return { T{}, x }; } // Iota towards inf.
 };
