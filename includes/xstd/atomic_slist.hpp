@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <memory>
 #include "intrinsics.hpp"
 
 namespace xstd

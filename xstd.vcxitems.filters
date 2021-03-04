@@ -184,9 +184,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_hashmap.hpp">
-      <Filter>Containers</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
@@ -198,6 +195,12 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared.hpp">
       <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_hashmap.hpp">
+      <Filter>Containers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -22,14 +22,14 @@ namespace xstd
 		};
 
 		template<typename K, typename V>
-		struct atomic_hashmap_entry : std::pair<const K, V>, reference_counted<atomic_hashmap_entry<K, V>>
+		struct concurrent_hashmap_entry : std::pair<const K, V>, reference_counted<concurrent_hashmap_entry<K, V>>
 		{
 			using base_type = std::pair<const K, V>;
 			using std::pair<const K, V>::pair;
 		};
 
 		template<typename T>
-		struct atomic_hashmap_bucket
+		struct concurrent_hashmap_bucket
 		{
 			// Entry type.
 			//
@@ -40,11 +40,11 @@ namespace xstd
 
 				inline entry( std::nullptr_t _ = {} ) : is_entry( false ), pointer( 0 ) {}
 				inline entry( T* ptr ) : is_entry( true ), pointer( ( ( uint64_t ) ptr ) >> 1 ) {}
-				inline entry( atomic_hashmap_bucket* ptr ) : is_entry( false ), pointer( ( ( uint64_t ) ptr ) >> 1 ) {}
+				inline entry( concurrent_hashmap_bucket* ptr ) : is_entry( false ), pointer( ( ( uint64_t ) ptr ) >> 1 ) {}
 
-				inline atomic_hashmap_bucket* get_bucket()
+				inline concurrent_hashmap_bucket* get_bucket()
 				{
-					return is_entry == 0 ? ( atomic_hashmap_bucket* ) ( pointer << 1 ) : nullptr;
+					return is_entry == 0 ? ( concurrent_hashmap_bucket* ) ( pointer << 1 ) : nullptr;
 				}
 				inline T* get_entry()
 				{
@@ -66,7 +66,7 @@ namespace xstd
 
 			// Back-link to the owner.
 			//
-			atomic_hashmap_bucket* upper_link = nullptr;
+			concurrent_hashmap_bucket* upper_link = nullptr;
 			uint32_t               upper_index = 0;
 
 			// List of entries.
@@ -78,7 +78,7 @@ namespace xstd
 
 			// Constructed by the backlink and the size.
 			//
-			inline atomic_hashmap_bucket( atomic_hashmap_bucket* upper_link, uint32_t upper_index, uint32_t count, uint32_t divisor )
+			inline concurrent_hashmap_bucket( concurrent_hashmap_bucket* upper_link, uint32_t upper_index, uint32_t count, uint32_t divisor )
 				: upper_link( upper_link ), upper_index( upper_index ), count( count ), divisor( divisor ), non_null_count( 0 )
 			{
 				std::uninitialized_fill_n( entries, count, entry{} );
@@ -93,7 +93,7 @@ namespace xstd
 
 			// Destructor destroys recursively.
 			//
-			inline ~atomic_hashmap_bucket()
+			inline ~concurrent_hashmap_bucket()
 			{
 				refs.lock();
 				for ( auto& entry : *this )
@@ -103,15 +103,15 @@ namespace xstd
 
 			// Allocation helper.
 			//
-			inline static atomic_hashmap_bucket* allocate( atomic_hashmap_bucket* upper_link, size_t upper_index, uint32_t count, uint32_t divisor = 0 )
+			inline static concurrent_hashmap_bucket* allocate( concurrent_hashmap_bucket* upper_link, size_t upper_index, uint32_t count, uint32_t divisor = 0 )
 			{
-				size_t size = sizeof( atomic_hashmap_bucket ) + sizeof( entry ) * count;
-				return new ( new uint64_t[ ( size + 7 ) / 8 ] ) atomic_hashmap_bucket( upper_link, upper_index, count, divisor ? divisor : count );
+				size_t size = sizeof( concurrent_hashmap_bucket ) + sizeof( entry ) * count;
+				return new ( new uint64_t[ ( size + 7 ) / 8 ] ) concurrent_hashmap_bucket( upper_link, upper_index, count, divisor ? divisor : count );
 			}
 		};
 
 		template<typename T>
-		struct alignas(16) atomic_hashmap_iterator
+		struct alignas(16) concurrent_hashmap_iterator
 		{
 			// Iterator traits.
 			//
@@ -121,32 +121,32 @@ namespace xstd
 			using reference =         typename T::base_type&;
 			using pointer =           std::shared_ptr<T>;
 
-			using hashmap_entry_type = typename atomic_hashmap_bucket<T>::entry;
+			using hashmap_entry_type = typename concurrent_hashmap_bucket<T>::entry;
 			
 			// Current position, iterator holds a shared lock on bucket.
 			//
-			atomic_hashmap_bucket<T>* bucket;
+			concurrent_hashmap_bucket<T>* bucket;
 			size_t                    hash;
 			std::shared_ptr<T>        value_reference;
 
 			// Implement the constructors.
 			//
-			inline atomic_hashmap_iterator() : bucket( nullptr ), hash( 0 ) {}
-			inline atomic_hashmap_iterator( atomic_hashmap_bucket<T>* bucket, size_t hash ) : bucket( bucket ), hash( hash ) { if ( bucket ) { bucket->refs.lock_shared(); normalize(); } }
-			inline atomic_hashmap_iterator( atomic_hashmap_bucket<T>* bucket, size_t hash, std::adopt_lock_t adopt ) : bucket( bucket ), hash( hash ) { if ( bucket ) normalize(); }
-			inline atomic_hashmap_iterator( atomic_hashmap_iterator&& o ) noexcept : bucket( std::exchange( o.bucket, nullptr ) ), hash( o.hash ), value_reference( std::move( o.value_reference ) ) {}
-			inline atomic_hashmap_iterator( const atomic_hashmap_iterator& o ) : atomic_hashmap_iterator( o.bucket, o.hash ) {}
+			inline concurrent_hashmap_iterator() : bucket( nullptr ), hash( 0 ) {}
+			inline concurrent_hashmap_iterator( concurrent_hashmap_bucket<T>* bucket, size_t hash ) : bucket( bucket ), hash( hash ) { if ( bucket ) { bucket->refs.lock_shared(); normalize(); } }
+			inline concurrent_hashmap_iterator( concurrent_hashmap_bucket<T>* bucket, size_t hash, std::adopt_lock_t adopt ) : bucket( bucket ), hash( hash ) { if ( bucket ) normalize(); }
+			inline concurrent_hashmap_iterator( concurrent_hashmap_iterator&& o ) noexcept : bucket( std::exchange( o.bucket, nullptr ) ), hash( o.hash ), value_reference( std::move( o.value_reference ) ) {}
+			inline concurrent_hashmap_iterator( const concurrent_hashmap_iterator& o ) : concurrent_hashmap_iterator( o.bucket, o.hash ) {}
 
 			// Implement copy/move assignment.
 			//
-			inline atomic_hashmap_iterator& operator=( atomic_hashmap_iterator&& o ) noexcept
+			inline concurrent_hashmap_iterator& operator=( concurrent_hashmap_iterator&& o ) noexcept
 			{
 				std::swap( bucket, o.bucket );
 				std::swap( hash, o.hash );
 				std::swap( value_reference, o.value_reference );
 				return *this;
 			}
-			inline atomic_hashmap_iterator& operator=( const atomic_hashmap_iterator& o ) noexcept
+			inline concurrent_hashmap_iterator& operator=( const concurrent_hashmap_iterator& o ) noexcept
 			{
 				reset();
 				bucket = o.bucket;
@@ -205,7 +205,7 @@ namespace xstd
 			}
 			inline hashmap_entry_type* normalize() const { return xstd::make_mutable( this )->normalize(); }
 
-			inline atomic_hashmap_iterator& advance( difference_type direction, difference_type offset = 0 )
+			inline concurrent_hashmap_iterator& advance( difference_type direction, difference_type offset = 0 )
 			{
 				auto index = difference_type( hash % bucket->divisor ) + direction + offset;
 				do
@@ -274,15 +274,15 @@ namespace xstd
 
 			// Support bidirectional iteration.
 			//
-			inline atomic_hashmap_iterator& operator++() { return advance( +1 ); }
-			inline atomic_hashmap_iterator& operator--() { return advance( -1 ); }
-			inline atomic_hashmap_iterator operator++( int ) { auto s = *this; operator++(); return s; }
-			inline atomic_hashmap_iterator operator--( int ) { auto s = *this; operator--(); return s; }
+			inline concurrent_hashmap_iterator& operator++() { return advance( +1 ); }
+			inline concurrent_hashmap_iterator& operator--() { return advance( -1 ); }
+			inline concurrent_hashmap_iterator operator++( int ) { auto s = *this; operator++(); return s; }
+			inline concurrent_hashmap_iterator operator--( int ) { auto s = *this; operator--(); return s; }
 
 			// Iterator comparison.
 			//
-			inline bool operator==( const atomic_hashmap_iterator& other ) const { return bucket == other.bucket && hash == other.hash; }
-			inline bool operator!=( const atomic_hashmap_iterator& other ) const { return !operator==( other ); }
+			inline bool operator==( const concurrent_hashmap_iterator& other ) const { return bucket == other.bucket && hash == other.hash; }
+			inline bool operator!=( const concurrent_hashmap_iterator& other ) const { return !operator==( other ); }
 
 			// Decay to a shared pointer.
 			//
@@ -292,12 +292,12 @@ namespace xstd
 
 			// Unlock on destruction.
 			//
-			inline ~atomic_hashmap_iterator() { reset(); }
+			inline ~concurrent_hashmap_iterator() { reset(); }
 		};
 	};
 
 	template<typename K, typename V, typename Hs = hasher<K>, typename Eq = std::equal_to<K>>
-	struct atomic_hashmap
+	struct concurrent_hashmap
 	{
 		// Container traits.
 		//
@@ -311,12 +311,12 @@ namespace xstd
 		using pointer =         value_type*;
 		using const_pointer =   const value_type*;
 
-		using iterator =        impl::atomic_hashmap_iterator<impl::atomic_hashmap_entry<K ,V>>; //
-		using const_iterator =  impl::atomic_hashmap_iterator<const impl::atomic_hashmap_entry<K ,V>>; //
+		using iterator =        impl::concurrent_hashmap_iterator<impl::concurrent_hashmap_entry<K ,V>>; //
+		using const_iterator =  impl::concurrent_hashmap_iterator<const impl::concurrent_hashmap_entry<K ,V>>; //
 
 		// Internal traits.
 		//
-		using bucket_type =     impl::atomic_hashmap_bucket<impl::atomic_hashmap_entry<K, V>>; //impl::atomic_hashmap_bucket<mut_value_type>;
+		using bucket_type =     impl::concurrent_hashmap_bucket<impl::concurrent_hashmap_entry<K, V>>; //impl::concurrent_hashmap_bucket<mut_value_type>;
 		using entry_type =      typename bucket_type::entry;
 
 		// Base bucket and the number of elements.
@@ -331,7 +331,7 @@ namespace xstd
 		
 		// Constructed by estimate capacity.
 		//
-		inline atomic_hashmap( size_t estimate_capacity = 0, size_t maximum_nesting_level = 3 ) : maximum_nesting_level( maximum_nesting_level )
+		inline concurrent_hashmap( size_t estimate_capacity = 0, size_t maximum_nesting_level = 3 ) : maximum_nesting_level( maximum_nesting_level )
 		{
 			// Determine the first-layer width.
 			//
@@ -346,7 +346,7 @@ namespace xstd
 
 		// Constructed by initializer list.
 		//
-		inline atomic_hashmap( const std::initializer_list<std::pair<K, V>>& list ) : atomic_hashmap( list.size() * 4 )
+		inline concurrent_hashmap( const std::initializer_list<std::pair<K, V>>& list ) : concurrent_hashmap( list.size() * 4 )
 		{
 			for ( const auto& pair : list )
 				insert( pair.first, pair.second );
@@ -355,15 +355,15 @@ namespace xstd
 		// Copy/Move construction and assignment.
 		// - Not atomic!
 		//
-		inline atomic_hashmap( const atomic_hashmap& o ) : primes( o.primes ), maximum_nesting_level( o.maximum_nesting_level )
+		inline concurrent_hashmap( const concurrent_hashmap& o ) : primes( o.primes ), maximum_nesting_level( o.maximum_nesting_level )
 		{
 			for ( const auto& pair : o )
 				insert( pair.first, pair.second );
 		}
-		inline atomic_hashmap( atomic_hashmap&& o ) noexcept : base( std::exchange( o.base, nullptr ) ), count( std::exchange( o.count, 0 ) ),  primes( o.primes ), maximum_nesting_level( o.maximum_nesting_level ) 
+		inline concurrent_hashmap( concurrent_hashmap&& o ) noexcept : base( std::exchange( o.base, nullptr ) ), count( std::exchange( o.count, 0 ) ),  primes( o.primes ), maximum_nesting_level( o.maximum_nesting_level ) 
 		{
 		}
-		inline atomic_hashmap& operator=( const atomic_hashmap& o )
+		inline concurrent_hashmap& operator=( const concurrent_hashmap& o )
 		{
 			primes = o.primes;
 			maximum_nesting_level = o.maximum_nesting_level;
@@ -372,7 +372,7 @@ namespace xstd
 				insert( pair.first, pair.second );
 			return *this;
 		}
-		inline atomic_hashmap& operator=( atomic_hashmap&& o ) noexcept
+		inline concurrent_hashmap& operator=( concurrent_hashmap&& o ) noexcept
 		{
 			std::swap( base, o.base );
 			std::swap( count, o.count );
@@ -466,12 +466,12 @@ namespace xstd
 			if ( !base ) clear();
 
 			entry_type new_entry = {};
-			shared<impl::atomic_hashmap_entry<K, V>> sptr;
+			shared<impl::concurrent_hashmap_entry<K, V>> sptr;
 			auto make_entry = [ & ] () -> auto&
 			{
 				if ( !new_entry.pointer )
 				{
-					sptr = xstd::make_shared<impl::atomic_hashmap_entry<K, V>>( key, fetch_value() );
+					sptr = xstd::make_shared<impl::concurrent_hashmap_entry<K, V>>( key, fetch_value() );
 					new_entry = entry_type{ sptr.get() };
 				}
 				return new_entry;
@@ -672,6 +672,6 @@ namespace xstd
 
 		// Delete base on destruction.
 		//
-		inline ~atomic_hashmap() { if ( base ) delete base; }
+		inline ~concurrent_hashmap() { if ( base ) delete base; }
 	};
 };
