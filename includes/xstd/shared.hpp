@@ -10,72 +10,86 @@
 
 namespace xstd
 {
+	namespace impl
+	{
+		// Store that prefixes the type with reference counting headers.
+		//
+		template<NonVoid T>
+		struct ref_store
+		{
+			std::atomic<uint32_t> strong_ref_count = 1;
+			std::atomic<uint32_t> weak_ref_count =   0;
+		
+			// -- Prevents call to T's destructor on our destructor.
+			union
+			{
+				T                 value;
+				char              raw[];
+			};
+			inline ~ref_store() {}
+
+			// Constructor redirects to type.
+			//
+			template<typename... Tx> 
+			inline ref_store( Tx&&... args ) : value( std::forward<Tx>( args )... ) {}
+
+			// No copy/move.
+			//
+			ref_store( ref_store&& ) = delete;
+			ref_store( const ref_store& ) = delete;
+			ref_store& operator=( ref_store&& ) = delete;
+			ref_store& operator=( const ref_store& ) = delete;
+
+			// Reference management:
+			//
+			inline bool inc_ref()
+			{
+				dassert( strong_ref_count.load() >= 0 );
+				if ( strong_ref_count++ != 0 )
+					return true;
+				--strong_ref_count;
+				return false;
+			}
+			inline bool dec_ref()
+			{
+				dassert( strong_ref_count.load() > 0 );
+				if ( !--strong_ref_count )
+				{
+					std::destroy_at( &value );
+					if ( !weak_ref_count )
+					{
+						delete this;
+						return true;
+					}
+				}
+				return false;
+			}
+			inline void inc_weak_ref()
+			{
+				dassert( ( weak_ref_count.load() + strong_ref_count.load() ) >= 0 );
+				++weak_ref_count;
+			}
+			inline bool dec_weak_ref()
+			{
+				dassert( weak_ref_count.load() > 0 );
+				if ( !--weak_ref_count && !strong_ref_count )
+				{
+					delete this;
+					return true;
+				}
+				return false;
+			}
+		};
+	};
+
 	// Implements fast and atomic shared objects with with no type erasure, also allows manual 
 	// management of reference counters for more complex scenarios.
 	//
 	template<NonVoid T>
 	struct shared
 	{
-		// Store that prefixes the type with reference counting headers.
-		//
-		struct store_type
-		{
-			using allocator = std::allocator<store_type>;
-
-			std::atomic<uint32_t> strong_ref_count = 1;
-			std::atomic<uint32_t> weak_ref_count =   0;
-			T                     value;
-
-			// Constructor redirects to type.
-			//
-			template<typename... Tx> 
-			inline constexpr store_type( Tx&&... args ) : value( std::forward<Tx>( args )... ) {}
-			
-			// No copy/move.
-			//
-			store_type( store_type&& ) = delete;
-			store_type( const store_type& ) = delete;
-			store_type& operator=( store_type&& ) = delete;
-			store_type& operator=( const store_type& ) = delete;
-
-			// Reference management:
-			//
-			__forceinline bool inc_ref()
-			{
-				if ( strong_ref_count++ != 0 )
-					return true;
-				--strong_ref_count;
-				return false;
-			}
-			__forceinline bool dec_ref()
-			{
-				if ( !--strong_ref_count )
-				{
-					std::destroy_at( &value );
-					if ( !weak_ref_count )
-					{
-						allocator{}.deallocate( this, 1 );
-						return true;
-					}
-				}
-				return false;
-			}
-			__forceinline void inc_weak_ref()
-			{
-				++weak_ref_count;
-			}
-			__forceinline bool dec_weak_ref()
-			{
-				if ( !--weak_ref_count && !strong_ref_count )
-				{
-					allocator{}.deallocate( this, 1 );
-					return true;
-				}
-				return false;
-			}
-		};
 		using value_type = T;
-		using allocator =  typename store_type::allocator;
+		using store_type = impl::ref_store<std::remove_cv_t<T>>;
 
 		// Store the pointer.
 		//
@@ -85,36 +99,32 @@ namespace xstd
 		//
 		inline constexpr shared() : entry( nullptr ) {}
 		inline constexpr shared( std::nullptr_t ) : shared() {}
-		inline constexpr shared( std::nullopt_t ) : shared() {}
 
 		// Explicit construction by entry pointer, adopts the reference by default.
 		//
 		explicit inline constexpr shared( store_type* entry ) : entry( entry ) {}
 
-		// Explicit construction by constructor arguments.
-		//
-		template<typename T1, typename... Tx> requires ( !Same<T1, store_type*> )
-		explicit inline shared( T1&& a1, Tx&&... rest ) : shared( new ( allocator{}.allocate( 1 ) ) store_type( std::forward<T1>( a1 ), std::forward<Tx>( rest )... ) ) {}
-		
 		// Copy construction/assignment.
 		//
-		inline shared( const shared& ref )
+		inline shared( const shared& o )
 		{
-			if ( ref.entry && ref.entry->inc_ref() )
-				entry = ref.entry;
+			if ( o.entry && o.entry->inc_ref() )
+				entry = o.entry;
+			else
+				entry = nullptr;
 		}
 		inline shared& operator=( const shared& o )
-		{ 
-			// If object is null, reset and return.
-			//
-			if ( !o.entry )
-				return reset();
-
+		{
 			// Return as is if same entry.
 			//
 			store_type* prev = entry;
 			if ( prev == o.entry )
 				return *this;
+
+			// If object is null, reset and return.
+			//
+			if ( !o.entry )
+				return reset();
 
 			// Copy entry and increment reference.
 			//
@@ -132,18 +142,10 @@ namespace xstd
 
 		// Move construction/assignment.
 		//
-		inline shared( shared&& ref ) noexcept
-			: entry( std::exchange( ref.entry, nullptr ) ) {}
-		inline shared& operator=( shared&& o ) noexcept
-		{
-			store_type* value = std::exchange( o.entry, nullptr );
-			reset().entry = value;
-			return *this;
-		}
-		inline void swap( shared& o )
-		{
-			std::swap( o.entry, entry );
-		}
+		template<typename Ty> requires Same<std::remove_cvref_t<T>, Ty>
+		inline shared( shared<Ty>&& ref ) noexcept : entry( std::exchange( ref.entry, nullptr ) ) {}
+		inline shared& operator=( shared&& o ) noexcept { swap( o ); return *this; }
+		inline void swap( shared& o ) { std::swap( o.entry, entry ); }
 
 		// Simple observers.
 		//
@@ -157,18 +159,14 @@ namespace xstd
 		inline constexpr bool alive() const { return entry; }
 		inline constexpr explicit operator bool() const { return alive(); }
 
-		// Decay to const type.
-		//
-		inline operator const shared<const T>&() const { return *( const shared<const T>* ) this; }
-
 		// Basic comparison operators.
 		//
 		inline constexpr bool operator==( const shared& o ) const { return entry == o.entry; }
 		inline constexpr bool operator<( const shared& o ) const { return entry < o.entry; }
-
+		
 		// Redirect pointer and dereferencing operator.
 		//
-		inline constexpr T* get() const { return &entry->value; }
+		inline constexpr T* get() const { return entry ? &entry->value : nullptr; }
 		inline constexpr T* operator->() const { return get(); }
 		inline constexpr T& operator*() const { return *get(); }
 
@@ -197,7 +195,7 @@ namespace xstd
 	struct weak
 	{
 		using value_type = T;
-		using store_type = typename shared<T>::store_type;
+		using store_type = impl::ref_store<std::remove_cv_t<T>>;
 		
 		// Store the pointer.
 		//
@@ -207,52 +205,69 @@ namespace xstd
 		//
 		inline constexpr weak() : entry( nullptr ) {}
 		inline constexpr weak( std::nullptr_t ) : entry( nullptr ) {}
-		
-		// Borrowing constructor/assignment.
+
+		// Explicit construction by entry pointer, adopts the reference by default.
 		//
-		inline constexpr weak( const shared<T>& ref )
-			: entry( ref.entry )
-		{
-			if ( entry ) 
-				entry->inc_weak_ref();
-		}
-		inline constexpr weak& operator=( const shared<T>& ref ) 
-		{
-			reset().entry = ref.entry;
-			if ( entry )
-				entry->inc_weak_ref();
-			return *this;
-		}
+		explicit inline constexpr weak( store_type* entry ) : entry( entry ) {}
+
+		// Move construction/assignment.
+		//
+		template<typename Ty> requires Same<std::remove_cvref_t<T>, Ty>
+		inline weak( weak<Ty>&& ref ) noexcept : entry( std::exchange( ref.entry, nullptr ) ) {}
+		inline weak& operator=( weak&& o ) noexcept { swap( o ); return *this; }
+		inline void swap( weak& o ) { std::swap( o.entry, entry ); }
 
 		// Copy constructor/assignment.
 		//
-		inline constexpr weak( const weak& ref )
-			: entry( ref.entry )
-		{
-			if ( entry ) 
-				entry->inc_weak_ref();
-		}
-		inline constexpr weak& operator=( const weak& ref )
+		inline weak( const weak& ref ) : entry( ref.entry ) { if ( entry )  entry->inc_weak_ref(); }
+		inline weak( const shared<T>& o ) : entry( o.entry ) { if ( entry ) entry->inc_weak_ref(); }
+		inline weak& operator=( const weak& o )
 		{ 
-			reset().entry = ref.entry;
-			if ( entry )
-				entry->inc_weak_ref();
+			// Return as is if same entry.
+			//
+			store_type* prev = entry;
+			if ( prev == o.entry )
+				return *this;
+
+			// If object is null, reset and return.
+			//
+			if ( !o.entry )
+				return reset();
+
+			// Copy entry and increment reference.
+			//
+			o.entry->inc_weak_ref();
+			entry = o.entry;
+
+			// Dereference previous entry.
+			//
+			if ( prev )
+				prev->dec_weak_ref();
 			return *this;
 		}
-		
-		// Move construction/assignment.
-		//
-		inline weak( weak&& ref ) noexcept
-			: entry( std::exchange( ref.entry, nullptr ) ) {}
-		inline weak& operator=( weak&& o ) noexcept
+		inline constexpr weak& operator=( const shared<T>& o ) 
 		{
-			store_type* value = std::exchange( o.entry, nullptr );
-			reset().entry = value;
+			// Return as is if same entry.
+			//
+			store_type* prev = entry;
+			if ( prev == o.entry )
+				return *this;
+
+			// If object is null, reset and return.
+			//
+			if ( !o.entry )
+				return reset();
+
+			// Copy entry and increment reference.
+			//
+			o.entry->inc_weak_ref();
+			entry = o.entry;
+
+			// Dereference previous entry.
+			//
+			if ( prev )
+				prev->dec_weak_ref();
 			return *this;
-		}
-		inline void swap( weak& o )
-		{
-			std::swap( o.entry, entry );
 		}
 
 		// Basic comparison operators are redirected to the pointer type.
@@ -262,13 +277,9 @@ namespace xstd
 		inline constexpr bool operator<( const shared<T>& o ) const { return entry < o.entry; }
 		inline constexpr bool operator==( const shared<T>& o ) const { return entry == o.entry; }
 
-		// Decay to const type.
-		//
-		inline operator const weak<const T>&() const { return *( const weak<const T>* ) this; }
-
 		// Redirect pointer and dereferencing operator.
 		//
-		inline constexpr T* get() const { return &entry->value; }
+		inline constexpr T* get() const { return entry ? &entry->value : nullptr; }
 		inline constexpr T* operator->() const { return get(); }
 		inline constexpr T& operator*() const { return *get(); }
 
@@ -278,7 +289,7 @@ namespace xstd
 		inline size_t ref_count() const
 		{
 			if ( !entry ) return 0;
-			uint64_t combined_count = ( ( std::atomic<uint64_t>* ) & entry->strong_ref_count )->load();
+			uint64_t combined_count = ( ( std::atomic<uint64_t>* ) &entry->strong_ref_count )->load();
 			return uint32_t( combined_count >> 32 ) + uint32_t( combined_count );
 		}
 		inline constexpr bool alive() const { return entry && entry->strong_ref_count.load() != 0; }
@@ -317,7 +328,8 @@ namespace xstd
 	template<typename T>
 	struct reference_counted
 	{
-		using store_type = typename shared<T>::store_type;
+		using value_type = T;
+		using store_type = impl::ref_store<std::remove_cv_t<T>>;
 
 		// Creation of shared / weak from this.
 		//
@@ -329,21 +341,19 @@ namespace xstd
 		}
 		weak<T> weak_from_this()
 		{
-			if ( inc_weak_ref() )
-				return weak<T>{ get_store() };
-			return nullptr;
+			inc_weak_ref();
+			return weak<T>{ get_store() };
 		}
 		shared<const T> shared_from_this() const
 		{
 			if ( inc_ref() )
-				return shared<T>{ get_store() };
+				return shared<const T>{ get_store() };
 			return nullptr;
 		}
 		weak<const T> weak_from_this() const
 		{
-			if ( inc_weak_ref() )
-				return weak<T>{ get_store() };
-			return nullptr;
+			inc_weak_ref();
+			return weak<const T>{ get_store() };
 		}
 
 		// Manual reference management.
@@ -360,7 +370,8 @@ namespace xstd
 	template<NonVoid T>
 	struct inline_shared
 	{
-		using store_type = typename shared<T>::store_type;
+		using value_type = T;
+		using store_type = impl::ref_store<std::remove_cv_t<T>>;
 
 		shared<T> base;
 		alignas( store_type ) uint8_t storage[ sizeof( store_type ) ];
@@ -405,10 +416,8 @@ namespace xstd
 	// Creates a reference counted object.
 	//
 	template<typename T, typename... Tx>
-	__forceinline static constexpr shared<T> make_shared( Tx&&... args ) 
+	inline static shared<T> make_shared( Tx&&... args ) 
 	{
-		using allocator = typename shared<T>::allocator;
-		using store_type = typename shared<T>::store_type;
-		return shared<T>{ new ( allocator{}.allocate( 1 ) ) store_type( std::forward<Tx>( args )... ) };
+		return shared<T>{ new impl::ref_store<std::remove_cv_t<T>>( std::forward<Tx>( args )... ) };
 	}
 };
