@@ -119,7 +119,7 @@ namespace xstd
 			inline static atomic_hashmap_bucket* allocate( atomic_hashmap_bucket* upper_link, size_t upper_index, uint32_t count, uint32_t divisor = 0 )
 			{
 				size_t size = sizeof( atomic_hashmap_bucket ) + sizeof( entry ) * count;
-				return new ( new uint64_t[ ( size + 7 ) & ~7 ] ) atomic_hashmap_bucket( upper_link, upper_index, count, divisor ? divisor : count );
+				return new ( new uint64_t[ ( size + 7 ) / 8 ] ) atomic_hashmap_bucket( upper_link, upper_index, count, divisor ? divisor : count );
 			}
 		};
 
