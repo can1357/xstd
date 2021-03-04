@@ -1,10 +1,11 @@
 #pragma once
-#include "intrinsics.hpp"
-#include "type_helpers.hpp"
 #include <mutex>
 #include <shared_mutex>
 #include <memory>
 #include <functional>
+#include "intrinsics.hpp"
+#include "type_helpers.hpp"
+#include "shared.hpp"
 
 // [Configuration]
 // XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the atomic waits.
@@ -71,9 +72,9 @@ namespace xstd
 		template<Duration T> 
 		bool wait_for( T duration ) const { return event_primitive::wait_for( duration / 1ms ); }
 	};
-	using event = std::shared_ptr<event_base>;
+	using event = shared<event_base>;
 
 	// Creates an event object.
 	//
-	inline event make_event() { return std::make_shared<event_base>(); }
+	inline event make_event() { return xstd::make_shared<event_base>(); }
 };

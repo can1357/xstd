@@ -8,6 +8,7 @@
 #include "hashable.hpp"
 #include "spinlock.hpp"
 #include "assert.hpp"
+#include "shared.hpp"
 
 namespace xstd
 {
@@ -21,24 +22,10 @@ namespace xstd
 		};
 
 		template<typename K, typename V>
-		struct atomic_hashmap_entry : std::pair<const K, V>, std::enable_shared_from_this<atomic_hashmap_entry<K, V>>
+		struct atomic_hashmap_entry : std::pair<const K, V>, reference_counted<atomic_hashmap_entry<K, V>>
 		{
 			using base_type = std::pair<const K, V>;
 			using std::pair<const K, V>::pair;
-
-			// Manual inc/dec ref.
-			//
-			inline void inc_ref() const
-			{
-				std::shared_ptr<const atomic_hashmap_entry<K, V>> leaked = this->shared_from_this();
-				std::uninitialized_default_construct_n( &leaked, 1 );
-			}
-			inline void dec_ref() const
-			{
-				std::shared_ptr<const atomic_hashmap_entry<K,V>> leaked = this->shared_from_this();
-				std::shared_ptr<const atomic_hashmap_entry<K, V>> copy;
-				bytes( copy ) = bytes( leaked );
-			}
 		};
 
 		template<typename T>

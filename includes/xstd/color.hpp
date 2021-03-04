@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <algorithm>
+#include <bit>
 #include "type_helpers.hpp"
 
 namespace xstd
@@ -149,7 +150,7 @@ namespace xstd
 	template<>
 	FORCE_INLINE constexpr argb_t to_argb<color_model::xrgb>( const xrgb_t& src )
 	{
-		return std::bit_cast<argb_t>( src );
+		return bit_cast<argb_t>( src );
 	}
 	template<>
 	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
@@ -204,7 +205,7 @@ namespace xstd
 	template<>
 	FORCE_INLINE constexpr xrgb_t from_argb<color_model::xrgb>( const argb_t& src )
 	{
-		return std::bit_cast<xrgb_t>( src );
+		return bit_cast<xrgb_t>( src );
 	}
 	template<>
 	constexpr ahsv_t from_argb<color_model::ahsv>( const argb_t& src )

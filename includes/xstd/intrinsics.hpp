@@ -169,7 +169,6 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
     #undef _CONSTINIT
     #define _CONSTINIT
     #define register
-    #define is_constant_evaluated() true_type::value
 #endif
 
 // Determine RTTI support.
@@ -604,8 +603,8 @@ __forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desir
 {
 #if !MS_COMPILER
     using Y = std::array<uint8_t, sizeof( T )>;
-    #if __has_feature(c_atomic)
-        static_assert( __c11_atomic_is_lock_free( sizeof( Y ) ), "Compare exchange of this size is not supported." );
+    //#if __has_feature(c_atomic)
+        static_assert( __c11_atomic_is_lock_free( sizeof( Y ) ), "Compare exchange of this size cannot be lock-free." );
         return __c11_atomic_compare_exchange_strong(
             ( _Atomic( Y ) * ) &data,
             ( Y* ) &expected,
@@ -613,9 +612,9 @@ __forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desir
             __ATOMIC_SEQ_CST, 
             __ATOMIC_SEQ_CST
         );
-    #else
-        return ( ( std::atomic<Y>* ) &data )->compare_exchange_strong( *( Y* ) expected, *( const Y* ) desired );
-    #endif
+    //#else
+    //    return ( ( std::atomic<Y>* ) &data )->compare_exchange_strong( *( Y* ) &expected, *( const Y* ) &desired );
+    //#endif
 #else
 
 #define __CMPXCHG_BASE(fn , type)              \
