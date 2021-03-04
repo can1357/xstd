@@ -64,6 +64,11 @@ namespace xstd
 			int32_t expected = 0;
 			return counter.compare_exchange_strong( expected, -1, std::memory_order::acquire );
 		}
+		FORCE_INLINE bool try_upgrade()
+		{
+			int32_t expected = 1;
+			return counter.compare_exchange_strong( expected, -1, std::memory_order::acquire );
+		}
 		FORCE_INLINE bool try_lock_shared()
 		{
 			int32_t value = counter.load();
@@ -86,6 +91,11 @@ namespace xstd
 			while ( !try_lock_shared() )
 				yield_cpu();
 		}
+		FORCE_INLINE void upgrade()
+		{
+			while ( !try_upgrade() )
+				yield_cpu();
+		}
 
 		FORCE_INLINE void unlock()
 		{
@@ -94,7 +104,8 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock_shared()
 		{
-			dassert_s( counter-- >= 0 );
+			fassert( counter != 0 );
+			dassert_s( --counter >= 0 );
 		}
 	};
 };
