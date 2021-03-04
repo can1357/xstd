@@ -20,6 +20,7 @@ namespace xstd
 		template<typename K, typename V>
 		struct atomic_hashmap_entry : std::pair<const K, V>, std::enable_shared_from_this<atomic_hashmap_entry<K, V>>
 		{
+			using base_type = std::pair<const K, V>;
 			using std::pair<const K, V>::pair;
 
 			// Manual inc/dec ref.
@@ -126,8 +127,8 @@ namespace xstd
 			//
 			using iterator_category = std::bidirectional_iterator_tag;
 			using difference_type =   int64_t;
-			using value_type =        T;
-			using reference =         T&;
+			using value_type =        typename T::base_type;
+			using reference =         typename T::base_type&;
 			using pointer =           std::shared_ptr<T>;
 
 			using hashmap_entry_type = typename atomic_hashmap_bucket<T>::entry;
@@ -296,7 +297,7 @@ namespace xstd
 			// Decay to a shared pointer.
 			//
 			inline pointer operator->() const { return value_reference; }
-			inline reference operator*() const { return *value_reference; }
+			inline reference operator*() const { return ( reference ) value_reference->first; }
 			inline operator const pointer&() const { return value_reference; }
 
 			// Unlock on destruction.
@@ -330,7 +331,7 @@ namespace xstd
 
 		// Base bucket and the number of elements.
 		//
-		std::unique_ptr<bucket_type> base = {};
+		bucket_type* base = nullptr;
 		std::atomic<size_t> count = 0;
 
 		// The bucket configuration.
@@ -351,22 +352,47 @@ namespace xstd
 				if ( ( primes + maximum_nesting_level ) > std::end( impl::primes ) )
 					xstd::error( XSTD_ESTR( "Invalid hashmap size." ) );
 			}
-			
-			// Allocate the base bucket.
-			//
-			base.reset( bucket_type::allocate( nullptr, 0, primes[ 0 ] ) );
+		}
+
+		// Copy/Move construction and assignment.
+		// - Not atomic!
+		//
+		inline atomic_hashmap( const atomic_hashmap& o ) : primes( o.primes ), maximum_nesting_level( o.maximum_nesting_level )
+		{
+			for ( const auto& pair : o )
+				insert( pair.first, pair.second );
+		}
+		inline atomic_hashmap( atomic_hashmap&& o ) noexcept : base( std::exchange( o.base, nullptr ) ), count( std::exchange( o.count, 0 ) ),  primes( o.primes ), maximum_nesting_level( o.maximum_nesting_level ) 
+		{
+		}
+		inline atomic_hashmap& operator=( const atomic_hashmap& o )
+		{
+			primes = o.primes;
+			maximum_nesting_level = o.maximum_nesting_level;
+			clear();
+			for ( const auto& pair : o )
+				insert( pair.first, pair.second );
+			return *this;
+		}
+		inline atomic_hashmap& operator=( atomic_hashmap&& o ) noexcept
+		{
+			std::swap( base, o.base );
+			std::swap( count, o.count );
+			std::swap( primes, o.primes );
+			std::swap( maximum_nesting_level, o.maximum_nesting_level );
+			return *this;
 		}
 
 		// Implement the STL map interface.
+		// - Note: Bucket details do not take multi-levelness of this container into account.
 		//
-		inline iterator begin() { return iterator{ base.get(), base->divisor }.advance( +1, -1 ); }
-		inline iterator end() { return iterator{ base.get(), base->count }; }
+		inline iterator begin() { if ( !base ) clear(); return iterator{ base, base->divisor }.advance( +1, -1 ); }
+		inline iterator end() { if ( !base ) clear(); return iterator{ base, base->count }; }
 		inline const_iterator begin() const { return ( const_iterator&& ) make_mutable( this )->begin(); }
 		inline const_iterator cbegin() const { return begin(); }
 		inline const_iterator end() const { return ( const_iterator&& ) make_mutable( this )->end(); }
 		inline const_iterator cend() const { return end(); }
 		inline size_t size() const { return count; }
-
 
 		template<typename... Tx>
 		inline std::pair<iterator, bool> emplace( const K& key, Tx&&... args ) { return get_node_with_default( key, [ & ] ()-> V { return V{ std::forward<Tx>( args )... }; }, false, true ); }
@@ -374,12 +400,6 @@ namespace xstd
 		inline std::pair<iterator, bool> insert( const K& key, const V& value ) { return get_node_with_default( key, [ & ] ()-> const V& { return value; }, false, true ); }
 		inline std::pair<iterator, bool> insert_or_assign( const K& key, V&& value ) { return get_node_with_default( key, [ & ] ()-> V&& { return std::move( value ); }, true, true ); }
 		inline std::pair<iterator, bool> insert_or_assign( const K& key, const V& value ) { return get_node_with_default( key, [ & ] ()-> const V& { return value; }, true, true ); }
-
-		inline iterator find( const K& key ) { return make_mutable( this )->get_node_with_default( key, [ ] { return V{}; }, false, false ).first; }
-		inline const_iterator find( const K& key ) const { return ( const_iterator&& ) make_mutable( this )->find( key ); }
-		inline auto at( const K& key ) const { return find( key ).value_reference; }
-		inline auto operator[]( const K& key ) { return get_node_with_default( key, [ ] { return V{}; }, false, true ).first.value_reference; }
-		inline bool contains( const K& key ) const { return find( key ) != end(); }
 		inline iterator erase( const iterator& it )
 		{
 			while ( true )
@@ -399,6 +419,7 @@ namespace xstd
 		}
 		inline size_t erase( const K& key )
 		{
+			if ( !base ) return 0;
 			auto it = find( key );
 			if ( it != end() )
 			{
@@ -407,8 +428,16 @@ namespace xstd
 			}
 			return 0;
 		}
+
+		inline iterator find( const K& key ) { return make_mutable( this )->get_node_with_default( key, [ ] { return V{}; }, false, false ).first; }
+		inline const_iterator find( const K& key ) const { return ( const_iterator&& ) make_mutable( this )->find( key ); }
+		inline auto at( const K& key ) const { return find( key ).value_reference; }
+		inline auto operator[]( const K& key ) { return get_node_with_default( key, [ ] { return V{}; }, false, true ).first.value_reference; }
+		inline bool contains( const K& key ) const { return find( key ) != end(); }
+
 		inline float load_factor() const
 		{
+			if ( !base ) return 0;
 			size_t n_max = 0;
 			size_t n_used = 0;
 			auto rec_discover = [ & ] ( auto&& self, auto* bucket ) -> void
@@ -422,11 +451,11 @@ namespace xstd
 						self( self, sub );
 				}
 			};
-			rec_discover( rec_discover, base.get() );
+			rec_discover( rec_discover, base );
 			return float( n_used ) / float( n_max );
 		}
 		inline constexpr float max_load_factor() const { return 1.0f; }
-		inline size_t bucket_count() const { return base->count; }
+		inline size_t bucket_count() const { return primes[ 0 ]; }
 		inline size_t max_bucket_count() const { return primes[ maximum_nesting_level - 1 ]; }
 		inline constexpr key_equal key_eq() const { return key_equal{}; }
 		inline constexpr hasher hash_function() const { return hasher{}; }
@@ -436,6 +465,8 @@ namespace xstd
 		template<typename F>
 		std::pair<iterator, bool> get_node_with_default( const K& key, F&& fetch_value, bool assign, bool set_default )
 		{
+			if ( !base ) clear();
+
 			entry_type new_entry = {};
 			std::shared_ptr<impl::atomic_hashmap_entry<K, V>> sptr;
 			auto make_entry = [ & ] () -> auto&
@@ -450,7 +481,7 @@ namespace xstd
 
 			// Get the base iterator.
 			//
-			bucket_type* bucket = base.get();
+			bucket_type* bucket = base;
 			bucket->refs.lock_shared();
 
 			// Search for the bucket:
@@ -631,16 +662,18 @@ namespace xstd
 			unreachable();
 		}
 
-		// Observers.
-		// - Note: Bucket count related functions do not take multi-levelness of this container into account.
-		//
-
-		// Removes every entry from the map.
+		// Resets the state.
 		//
 		inline void clear()
 		{
-			base.reset( bucket_type::allocate( nullptr, 0, primes[ 0 ] ) );
+			auto old = std::exchange( base, bucket_type::allocate( nullptr, 0, primes[ 0 ] ) );
 			count = 0;
+			if ( old )
+				delete old;
 		}
+
+		// Delete base on destruction.
+		//
+		inline ~atomic_hashmap() { if ( base ) delete base; }
 	};
 };
