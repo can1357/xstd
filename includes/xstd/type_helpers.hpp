@@ -454,7 +454,24 @@ namespace xstd
 	//
 	template<typename T> __forceinline static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
 	
-	// Helper used to replace types within parameter packs.
+	// Extracts types from a parameter pack.
+	//
+	namespace impl
+	{
+		template<size_t N, typename... Tx>
+		struct extract { using type = void; };
+		template<size_t N, typename T, typename... Tx>
+		struct extract<N, T, Tx...> { using type = typename extract<N - 1, Tx...>::type; };
+		template<typename T, typename... Tx>
+		struct extract<0, T, Tx...> { using type = T; };
+	};
+	template<size_t N, typename... Tx>
+	using extract_t = typename impl::extract<N, Tx...>::type;
+
+	template<typename... Tx> using first_of_t = extract_t<0, Tx...>;
+	template<typename... Tx> using last_of_t =  extract_t<sizeof...(Tx)-1, Tx...>;
+
+	// Replace types within parameter packs.
 	//
 	template<typename T, typename O>
 	using swap_type_t = O;
