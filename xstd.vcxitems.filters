@@ -184,6 +184,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_hashmap.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp">
       <Filter>Containers</Filter>
     </ClInclude>

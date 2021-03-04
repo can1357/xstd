@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
     <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -17,6 +17,7 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_hashmap.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\base_n.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp" />
