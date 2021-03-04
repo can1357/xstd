@@ -1,10 +1,13 @@
 #pragma once
 #include <atomic>
 #include <tuple>
+#include <iterator>
 #include <shared_mutex>
+#include <initializer_list>
 #include "intrinsics.hpp"
 #include "hashable.hpp"
 #include "spinlock.hpp"
+#include "assert.hpp"
 
 namespace xstd
 {
@@ -352,6 +355,14 @@ namespace xstd
 				if ( ( primes + maximum_nesting_level ) > std::end( impl::primes ) )
 					xstd::error( XSTD_ESTR( "Invalid hashmap size." ) );
 			}
+		}
+
+		// Constructed by initializer list.
+		//
+		inline atomic_hashmap( const std::initializer_list<std::pair<K, V>>& list ) : atomic_hashmap( list.size() * 4 )
+		{
+			for ( const auto& pair : list )
+				insert( pair.first, pair.second );
 		}
 
 		// Copy/Move construction and assignment.
