@@ -35,14 +35,9 @@ namespace xstd
 
 		// Compare exchange primitive.
 		//
-		FORCE_INLINE bool cmpxchg( versioned_pointer& expected, const versioned_pointer& desired )
+		FORCE_INLINE bool cmpxchg_head( versioned_pointer& expected, const versioned_pointer& desired )
 		{
-			return _InterlockedCompareExchange128(
-				( volatile long long* ) &head,
-				( ( long long* ) &desired )[ 1 ],
-				( ( long long* ) &desired )[ 0 ],
-				( long long* ) &expected
-			);
+			return cmpxchg( &head, expected, desired );
 		}
 
 		// Atomic add/remove element(s).
@@ -54,7 +49,7 @@ namespace xstd
 			{
 				versioned_pointer new_head = { node, curr_head.version + 1, curr_head.length + 1 };
 				node->next = curr_head.pointer;
-				if ( cmpxchg( curr_head, new_head ) )
+				if ( cmpxchg_head( curr_head, new_head ) )
 					break;
 				yield_cpu();
 			}
@@ -72,7 +67,7 @@ namespace xstd
 			{
 				versioned_pointer new_head = { first, curr_head.version + 1, curr_head.length + count };
 				last->next = curr_head.pointer;
-				if ( cmpxchg( curr_head, new_head ) )
+				if ( cmpxchg_head( curr_head, new_head ) )
 					break;
 				yield_cpu();
 			}
@@ -83,7 +78,7 @@ namespace xstd
 			while ( curr_head.pointer != nullptr )
 			{
 				versioned_pointer new_head = { curr_head.pointer->next, curr_head.version + 1, curr_head.length - 1 };
-				if ( cmpxchg( curr_head, new_head ) )
+				if ( cmpxchg_head( curr_head, new_head ) )
 					break;
 				yield_cpu();
 			}
@@ -101,7 +96,7 @@ namespace xstd
 		FORCE_INLINE T* exchange( const atomic_slist& other )
 		{
 			versioned_pointer val = head;
-			while ( !cmpxchg( val, {} ) )
+			while ( !cmpxchg_head( val, {} ) )
 				yield_cpu();
 			return val.pointer;
 		}

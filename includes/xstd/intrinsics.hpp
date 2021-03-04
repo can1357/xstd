@@ -366,7 +366,7 @@ __forceinline static uintptr_t get_task_priority()
 
 // Declare 128-bit multiplication.
 //
-#ifndef MS_COMPILER
+#if !MS_COMPILER
         using int128_t = __int128;
         using uint128_t = unsigned __int128;
         __forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
@@ -396,7 +396,6 @@ __forceinline static uintptr_t get_task_priority()
             return HighProduct;
         }
 #else
-
         __forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
         {
             return _umul128( _Multiplier, _Multiplicand, _HighProduct );
@@ -563,4 +562,91 @@ __forceinline static constexpr T bswap( T value ) noexcept
         return value;
     else
         unreachable();
+}
+
+// Declare cmpxchg primitive.
+//
+#if MS_COMPILER
+    char _InterlockedCompareExchange8(
+        char volatile* Destination,
+        char Exchange,
+        char Comparand
+    );
+    #pragma intrinsic(_InterlockedCompareExchange8)
+    short _InterlockedCompareExchange16(
+        short volatile* Destination,
+        short Exchange,
+        short Comparand
+    );
+    #pragma intrinsic(_InterlockedCompareExchange16)
+    long _InterlockedCompareExchange(
+        long volatile* Destination,
+        long Exchange,
+        long Comparand
+    );
+    #pragma intrinsic(_InterlockedCompareExchange)
+    __int64 _InterlockedCompareExchange64(
+        __int64 volatile* Destination,
+        __int64 Exchange,
+        __int64 Comparand
+    );
+    #pragma intrinsic(_InterlockedCompareExchange64)
+    unsigned char _InterlockedCompareExchange128(
+        __int64 volatile* _Destination,
+        __int64 _ExchangeHigh,
+        __int64 _ExchangeLow,
+        __int64* _ComparandResult
+    );
+    #pragma intrinsic(_InterlockedCompareExchange128)
+#endif
+template<typename T>
+__forceinline static bool cmpxchg( volatile T* data, T& expected, const T& desired )
+{
+#if !MS_COMPILER
+    #if __has_feature(c_atomic)
+        static_assert( __c11_atomic_is_lock_free( sizeof( T ) ), "Compare exchange of this size is not supported." );
+        return __c11_atomic_compare_exchange_strong(
+            ( _Atomic( T ) * )data,
+            ( T* ) &expected,
+            *( T* ) &desired, 
+            __ATOMIC_SEQ_CST, 
+            __ATOMIC_SEQ_CST
+        );
+    #else
+        return ( ( std::atomic<T>* ) data )->compare_exchange_strong( expected, desired );
+    #endif
+#else
+#define __CMPXCHG_BASE(f, type) {              \
+    auto iexpected = *( type* ) &expected;     \
+    auto value = f(                            \
+        ( volatile type* ) &data,              \
+        *( type* ) &desired,                   \
+        iexpected                              \
+    );                                         \
+    *( type* ) &expected = value;              \
+    return value == iexpected; }
+
+    if constexpr ( sizeof( T ) == 1 )
+        __CMPXCHG_BASE( _InterlockedCompareExchange8, char );
+    else if constexpr ( sizeof( T ) == 2 )
+        __CMPXCHG_BASE( _InterlockedCompareExchange16, short );
+    else if constexpr ( sizeof( T ) == 4 )
+        __CMPXCHG_BASE( _InterlockedCompareExchange, long );
+    else if constexpr ( sizeof( T ) == 8 )
+        __CMPXCHG_BASE( _InterlockedCompareExchange64, __int64 );
+    else if constexpr ( sizeof( T ) == 16 )
+    {
+        return _InterlockedCompareExchange128(
+            ( volatile long long* ) &data,
+            ( ( long long* ) &desired )[ 1 ],
+            ( ( long long* ) &desired )[ 0 ],
+            ( long long* ) &expected
+        );
+    }
+    else
+    {
+        static_assert( sizeof( T ) == 1, "Compare exchange of this size is not supported." )
+    }
+#undef __CMPXCHG_BASE
+#endif
 }

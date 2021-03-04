@@ -28,6 +28,9 @@
     <Filter Include="Thread">
       <UniqueIdentifier>{c1a44b87-75db-486e-848d-9bfcc80596bc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Containers">
+      <UniqueIdentifier>{525f5d4d-50c1-4360-b352-383a36cc32e9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp">
@@ -69,14 +72,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp">
       <Filter>Types</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stack_containers.hpp">
-      <Filter>Types</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp">
       <Filter>Types</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp">
-      <Filter>Numeric</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitwise.hpp">
       <Filter>Numeric</Filter>
@@ -160,9 +157,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp">
-      <Filter>Thread</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
@@ -187,8 +181,17 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\small_vector.hpp">
-      <Filter>Types</Filter>
+      <Filter>Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stack_containers.hpp">
+      <Filter>Containers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
