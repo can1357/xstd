@@ -466,12 +466,12 @@ namespace xstd
 			if ( !base ) clear();
 
 			entry_type new_entry = {};
-			std::shared_ptr<impl::atomic_hashmap_entry<K, V>> sptr;
+			shared<impl::atomic_hashmap_entry<K, V>> sptr;
 			auto make_entry = [ & ] () -> auto&
 			{
 				if ( !new_entry.pointer )
 				{
-					sptr = std::make_shared<impl::atomic_hashmap_entry<K, V>>( key, fetch_value() );
+					sptr = xstd::make_shared<impl::atomic_hashmap_entry<K, V>>( key, fetch_value() );
 					new_entry = entry_type{ sptr.get() };
 				}
 				return new_entry;

@@ -127,6 +127,7 @@ namespace xstd
 			//
 			if ( prev )
 				prev->dec_ref();
+			return *this;
 		}
 
 		// Move construction/assignment.
@@ -352,6 +353,53 @@ namespace xstd
 		inline void inc_weak_ref() const { get_store()->inc_weak_ref(); }
 		inline bool dec_ref() const { return get_store()->dec_ref(); }
 		inline bool dec_weak_ref() const { return get_store()->dec_weak_ref(); }
+	};
+
+	// Inline storage of shared objects, will throw an error if there are references at destruction.
+	//
+	template<NonVoid T>
+	struct inline_shared
+	{
+		using store_type = typename shared<T>::store_type;
+
+		shared<T> base;
+		alignas( store_type ) uint8_t storage[ sizeof( store_type ) ];
+
+		// Construct arguments are passed to the stored type.
+		//
+		template<typename... Tx>
+		inline inline_shared( Tx&&... args ) : base( new ( &storage[ 0 ] ) store_type( std::forward<Tx>( args )... ) ) {}
+		
+		// No move/copy assignment/construction allowed.
+		//
+		inline_shared( inline_shared&& ) = delete;
+		inline_shared( const inline_shared& ) = delete;
+		inline_shared& operator=( inline_shared&& ) = delete;
+		inline_shared& operator=( const inline_shared& ) = delete;
+
+		// Decay to shared.
+		//
+		inline operator const shared<T>&() { return *( const shared<T>* ) &base; }
+		inline operator const shared<const T>&() const { return *( const shared<const T>* ) &base; }
+		inline store_type* get_store() const { return ( store_type* ) &storage[ 0 ]; }
+		inline T* get() { return &get_store()->value; }
+		inline const T* get() const { return &get_store()->value; }
+		inline T* operator->() { return get(); }
+		inline const T* operator->() const { return get(); }
+		inline T& operator*() { return *get(); }
+		inline const T& operator*() const { return *get(); }
+
+		// String conversion.
+		//
+		inline std::string to_string() const { return fmt::as_string( *get() ); }
+
+		// Destruction ensures there are no refences, skips deallocation and destroys the object.
+		//
+		inline ~inline_shared()
+		{
+			fassert( base.entry->strong_ref_count == 1 && base.entry->weak_ref_count == 0 );
+			std::destroy_at( &base.release()->value );
+		}
 	};
 
 	// Creates a reference counted object.
