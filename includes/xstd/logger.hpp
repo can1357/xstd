@@ -341,7 +341,7 @@ namespace xstd
 	FORCE_INLINE static int finspect( FILE* dst, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
-		return log( dst, color, result.c_str() );
+		return flog( dst, color, result.c_str() );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
 	FORCE_INLINE static int inspect( Tx&&... objects )
