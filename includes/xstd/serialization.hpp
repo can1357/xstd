@@ -10,6 +10,7 @@
 #include "bitwise.hpp"
 #include "hashable.hpp"
 #include "narrow_cast.hpp"
+#include "shared.hpp"
 
 namespace xstd
 {
@@ -57,7 +58,10 @@ namespace xstd
         {
             std::vector<uint8_t> raw_data = {};
             std::shared_ptr<void> deserialized = {};
+            void* xdeserialized = nullptr;
+            std::function<void()> destroy_xptr = {};
             bool is_lifted = false;
+            ~rpointer_record() { if ( destroy_xptr ) destroy_xptr(); }
         };
 
         // Shared raw data.
@@ -182,6 +186,36 @@ namespace xstd
                 offset = su;
             }
             return std::reinterpret_pointer_cast<T>( rec.deserialized );
+        }
+        template<impl::SafeObj T>
+        shared<T> deserialize_xpointer()
+        {
+            uint32_t index = deserialize<uint32_t>( *this );
+            if ( !index ) return nullptr;
+
+            auto& rec = rpointers.at( index );
+            if ( !rec.is_lifted )
+            {
+                auto* ref = std::allocator<impl::ref_store<T>>{}.allocate( 1 );
+                rec.xdeserialized = ref;
+                ref->strong_ref_count = 1;
+                ref->weak_ref_count = 0;
+                rec.is_lifted = true;
+                std::swap( raw_data, rec.raw_data );
+                size_t su = std::exchange( offset, 0 );
+                new ( ref->value ) T( deserialize<T>( *this ) );
+                raw_data = std::move( rec.raw_data );
+                offset = su;
+                rec.destroy_xptr = [ = ] () { ref->dec_ref(); };
+            }
+            if ( auto* p = ( impl::ref_store<T>* ) rec.xdeserialized )
+            {
+                shared<T> ret{ p };
+                ret.entry->inc_ref();
+                ret.entry->value
+                return ret;
+            }
+            return nullptr;
         }
 
         // Helpers for readers.
@@ -369,20 +403,8 @@ namespace xstd
         }
     };
 
-    // Implement it for shared_ptr and weak_ptr where the type is final.
+    // Implement it for pointer types the type is final.
     //
-    template<impl::SafeObj T>
-    struct serializer<std::shared_ptr<T>>
-    {
-        static inline void apply( serialization& ctx, const std::shared_ptr<T>& value )
-        {
-            ctx.serialize_pointer( value.get(), true );
-        }
-        static inline std::shared_ptr<T> reflect( serialization& ctx )
-        {
-            return ctx.deserialize_pointer<T>();
-        }
-    };
     template<impl::SafeObj T>
     struct serializer<T*>
     {
@@ -408,6 +430,30 @@ namespace xstd
         }
     };
     template<impl::SafeObj T>
+    struct serializer<std::shared_ptr<T>>
+    {
+        static inline void apply( serialization& ctx, const std::shared_ptr<T>& value )
+        {
+            ctx.serialize_pointer( value.get(), true );
+        }
+        static inline std::shared_ptr<T> reflect( serialization& ctx )
+        {
+            return ctx.deserialize_pointer<T>();
+        }
+    };
+    template<impl::SafeObj T>
+    struct serializer<shared<T>>
+    {
+        static inline void apply( serialization& ctx, const shared<T>& value )
+        {
+            ctx.serialize_pointer( value.get(), true );
+        }
+        static inline shared<T> reflect( serialization& ctx )
+        {
+            return ctx.deserialize_xpointer<T>();
+        }
+    };
+    template<impl::SafeObj T>
     struct serializer<std::weak_ptr<T>>
     {
         static inline void apply( serialization& ctx, const std::weak_ptr<T>& value )
@@ -417,6 +463,18 @@ namespace xstd
         static inline std::weak_ptr<T> reflect( serialization& ctx )
         {
             return ctx.deserialize_pointer<T>();
+        }
+    };
+    template<impl::SafeObj T>
+    struct serializer<weak<T>>
+    {
+        static inline void apply( serialization& ctx, const weak<T>& value )
+        {
+            ctx.serialize_pointer( value.lock().get(), false );
+        }
+        static inline weak<T> reflect( serialization& ctx )
+        {
+            return ctx.deserialize_xpointer<T>();
         }
     };
     template<impl::SafeObj T>
@@ -431,6 +489,9 @@ namespace xstd
             return ctx.deserialize_pointer_u<T>();
         }
     };
+
+    // Implement custom serializables.
+    //
     template<typename T> requires ( CustomSerializable<T> || CustomDeserializable<T> )
     struct serializer<T>
     {
@@ -443,6 +504,9 @@ namespace xstd
             return T::deserialize( ctx );
         }
     };
+
+    // Implement auto serializables.
+    //
     template<AutoSerializable O>
     struct serializer<O>
     {
@@ -468,6 +532,9 @@ namespace xstd
             return value;
         }
     };
+
+    // Implement monostate as no-op.
+    //
     template<>
     struct serializer<std::monostate>
     {
