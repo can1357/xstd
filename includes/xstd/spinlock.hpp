@@ -97,6 +97,11 @@ namespace xstd
 				yield_cpu();
 		}
 
+		FORCE_INLINE void downgrade()
+		{
+			int32_t expected = -1;
+			dassert_s( counter.compare_exchange_strong( expected, 1, std::memory_order::release ) );
+		}
 		FORCE_INLINE void unlock()
 		{
 			int32_t expected = -1;
@@ -104,7 +109,6 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock_shared()
 		{
-			fassert( counter != 0 );
 			dassert_s( --counter >= 0 );
 		}
 	};
