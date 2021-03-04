@@ -603,37 +603,47 @@ template<typename T>
 __forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desired )
 {
 #if !MS_COMPILER
+    using Y = std::array<uint8_t, sizeof( T )>;
     #if __has_feature(c_atomic)
-        static_assert( __c11_atomic_is_lock_free( sizeof( T ) ), "Compare exchange of this size is not supported." );
+        static_assert( __c11_atomic_is_lock_free( sizeof( Y ) ), "Compare exchange of this size is not supported." );
         return __c11_atomic_compare_exchange_strong(
-            ( _Atomic( T ) * ) &data,
-            ( T* ) &expected,
-            *( T* ) &desired, 
+            ( _Atomic( Y ) * ) &data,
+            ( Y* ) &expected,
+            *( Y* ) &desired,
             __ATOMIC_SEQ_CST, 
             __ATOMIC_SEQ_CST
         );
     #else
-        return ( ( std::atomic<T>* ) &data )->compare_exchange_strong( expected, desired );
+        return ( ( std::atomic<Y>* ) &data )->compare_exchange_strong( *( Y* ) expected, *( const Y* ) desired );
     #endif
 #else
-#define __CMPXCHG_BASE(f, type) {              \
+
+#define __CMPXCHG_BASE(fn , type)              \
     auto iexpected = *( type* ) &expected;     \
-    auto value = f(                            \
+    auto value = fn (                          \
         ( volatile type* ) &data,              \
         *( type* ) &desired,                   \
         iexpected                              \
     );                                         \
     *( type* ) &expected = value;              \
-    return value == iexpected; }
+    return value == iexpected;
 
     if constexpr ( sizeof( T ) == 1 )
+    {
         __CMPXCHG_BASE( _InterlockedCompareExchange8, char );
+    }
     else if constexpr ( sizeof( T ) == 2 )
+    {
         __CMPXCHG_BASE( _InterlockedCompareExchange16, short );
+    }
     else if constexpr ( sizeof( T ) == 4 )
+    {
         __CMPXCHG_BASE( _InterlockedCompareExchange, long );
+    }
     else if constexpr ( sizeof( T ) == 8 )
+    {
         __CMPXCHG_BASE( _InterlockedCompareExchange64, __int64 );
+    }
     else if constexpr ( sizeof( T ) == 16 )
     {
         return _InterlockedCompareExchange128(
@@ -645,9 +655,10 @@ __forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desir
     }
     else
     {
-        static_assert( sizeof( T ) == 1, "Compare exchange of this size is not supported." )
+        static_assert( sizeof( T ) == 1, "Compare exchange of this size is not supported." );
     }
 #undef __CMPXCHG_BASE
+
 #endif
 }
 template<typename T>

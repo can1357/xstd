@@ -18,10 +18,8 @@ namespace xstd
 		using iterator_category = std::random_access_iterator_tag;
 		using difference_type =   D;
 		using value_type =        T;
-		using reference =         T&;
-		using const_reference =   const T&;
-		using pointer =           T*;
-		using const_pointer =     const T*;
+		using reference =         const T&;
+		using pointer =           const T*;
 
 		value_type at;
 
@@ -48,10 +46,8 @@ namespace xstd
 		
 		// Redirect dereferencing to the number, decay to it as well.
 		//
-		constexpr pointer operator->() { return &at; }
-		constexpr const_pointer operator->() const { return &at; }
-		constexpr reference operator*() { return at; }
-		constexpr const_reference operator*() const { return at; }
+		constexpr pointer operator->() const { return &at; }
+		constexpr reference operator*() const { return at; }
 		constexpr operator value_type() const { return at; }
 
 		// String conversion.
