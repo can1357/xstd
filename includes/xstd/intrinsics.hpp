@@ -600,20 +600,20 @@ __forceinline static constexpr T bswap( T value ) noexcept
     #pragma intrinsic(_InterlockedCompareExchange128)
 #endif
 template<typename T>
-__forceinline static bool cmpxchg( volatile T* data, T& expected, const T& desired )
+__forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desired )
 {
 #if !MS_COMPILER
     #if __has_feature(c_atomic)
         static_assert( __c11_atomic_is_lock_free( sizeof( T ) ), "Compare exchange of this size is not supported." );
         return __c11_atomic_compare_exchange_strong(
-            ( _Atomic( T ) * )data,
+            ( _Atomic( T ) * ) &data,
             ( T* ) &expected,
             *( T* ) &desired, 
             __ATOMIC_SEQ_CST, 
             __ATOMIC_SEQ_CST
         );
     #else
-        return ( ( std::atomic<T>* ) data )->compare_exchange_strong( expected, desired );
+        return ( ( std::atomic<T>* ) &data )->compare_exchange_strong( expected, desired );
     #endif
 #else
 #define __CMPXCHG_BASE(f, type) {              \
@@ -649,4 +649,9 @@ __forceinline static bool cmpxchg( volatile T* data, T& expected, const T& desir
     }
 #undef __CMPXCHG_BASE
 #endif
+}
+template<typename T>
+__forceinline static bool cmpxchg( std::atomic<T>& data, T& expected, const T& desired )
+{
+    return cmpxchg( *( volatile T* ) &data, expected, desired );
 }

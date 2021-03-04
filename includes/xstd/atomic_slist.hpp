@@ -37,7 +37,7 @@ namespace xstd
 		//
 		FORCE_INLINE bool cmpxchg_head( versioned_pointer& expected, const versioned_pointer& desired )
 		{
-			return cmpxchg( &head, expected, desired );
+			return cmpxchg( head, expected, desired );
 		}
 
 		// Atomic add/remove element(s).
