@@ -14,13 +14,13 @@ namespace xstd
 	{
 		// Magic constants for 64-bit FNV-1.
 		//
-		using value_t = uint64_t;
-		static constexpr value_t default_seed = { 0xCBF29CE484222325 };
-		static constexpr value_t prime =        { 0x00000100000001B3 };
+		using value_type = uint64_t;
+		static constexpr uint64_t default_seed = { 0xCBF29CE484222325 };
+		static constexpr uint64_t prime =        { 0x00000100000001B3 };
 
 		// Current value of the hash.
 		//
-		value_t value;
+		uint64_t value;
 
 		// Construct a new hash from an optional seed of 64-bit value.
 		//
@@ -31,13 +31,15 @@ namespace xstd
 		//
 		constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
-			value_t tmp = value;
+#ifndef __INTELLISENSE__
+			uint64_t tmp = value;
 			while( n-- )
 			{
-				tmp ^= *data++;
+				tmp ^= ( uint64_t ) *data++;
 				tmp *= prime;
 			}
 			value = tmp;
+#endif
 		}
 
 		// Appends the given trivial value as bytes into the hash value.

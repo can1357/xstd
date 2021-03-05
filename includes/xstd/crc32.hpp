@@ -14,13 +14,13 @@ namespace xstd
 	{
 		// Magic constants for 32-bit CRC.
 		//
-		using value_t = uint32_t;
-		static constexpr value_t default_seed = { 0 };
-		static constexpr value_t polynomial =   { 0xEDB88320 };
+		using value_type = uint32_t;
+		static constexpr uint32_t default_seed = { 0 };
+		static constexpr uint32_t polynomial =   { 0xEDB88320 };
 
 		// Current value of the hash.
 		//
-		value_t value;
+		uint32_t value;
 
 		// Construct a new hash from an optional seed of 64-bit value.
 		//
@@ -31,17 +31,19 @@ namespace xstd
 		//
 		constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
-			value_t crc = ~value;
+#ifndef __INTELLISENSE__
+			uint32_t crc = ~value;
 			while( n-- )
 			{
 				crc ^= *data++;
 				for ( size_t j = 0; j != 8; j++ )
 				{
-					value_t mask = -( crc & 1 );
+					uint32_t mask = -( crc & 1 );
 					crc = ( crc >> 1 ) ^ ( polynomial & mask );
 				}
 			}
 			value = ~crc;
+#endif
 		}
 
 		// Appends the given trivial value as bytes into the hash value.

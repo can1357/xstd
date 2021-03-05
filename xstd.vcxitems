@@ -39,6 +39,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\formatting.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guarded.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\gzip.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hashable.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\http.hpp" />
