@@ -6,6 +6,7 @@
 #include "type_helpers.hpp"
 #include "formatting.hpp"
 #include "fnv64.hpp"
+#include "shared.hpp"
 
 // [Configuration]
 // XSTD_DEFAULT_HASHER: If set, changes the type of default hash_t.
@@ -225,6 +226,25 @@ namespace xstd
 			hash_t res = std::visit( [ ] ( auto&& arg ) { return make_hash( arg ); }, value );
 			res.add_bytes( value.index() );
 			return res;
+		}
+	};
+
+	// Overload for XSTD smart pointers.
+	//
+	template<typename T>
+	struct hasher<shared<T>>
+	{
+		__forceinline constexpr hash_t operator()( const shared<T>& value ) const noexcept
+		{
+			return make_hash( &value->entry );
+		}
+	};
+	template<typename T>
+	struct hasher<weak<T>>
+	{
+		__forceinline constexpr hash_t operator()( const weak<T>& value ) const noexcept
+		{
+			return make_hash( &value->entry );
 		}
 	};
 
