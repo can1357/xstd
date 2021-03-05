@@ -8,6 +8,7 @@
 #include <optional>
 #include <tuple>
 #include <variant>
+#include <cwchar>
 #include <memory>
 #include <filesystem>
 #include <numeric>
@@ -381,19 +382,19 @@ namespace xstd::fmt
 		}
 	}
 
-	// Returns formatted string according to <fms>.
+	// Returns a formatted string.
 	//
-	template<typename... Tx>
-	static std::string str( const char* fmt_str, Tx&&... ps )
+	template<typename C, typename F, typename... Tx>
+	static std::basic_string<C> vstr( F&& provider, const C* fmt_str, Tx&&... ps )
 	{
 		if constexpr ( sizeof...( Tx ) > 0 )
 		{
-			auto print_to_buffer = [ ] ( const char* fmt_str, auto&&... args )
+			auto print_to_buffer = [ & ] ( const C* fmt_str, auto&&... args )
 			{
-				std::string buffer( 128, ' ' );
-				buffer.resize( snprintf( buffer.data(), buffer.size() + 1, fmt_str, args... ) );
-				if ( buffer.size() >= 128 )
-					snprintf( buffer.data(), buffer.size() + 1, fmt_str, args... );
+				std::basic_string<C> buffer( 64, C{} );
+				buffer.resize( provider( buffer.data(), buffer.size() + 1, fmt_str, args... ) );
+				if ( buffer.size() >= 64 )
+					provider( buffer.data(), buffer.size() + 1, fmt_str, args... );
 				return buffer;
 			};
 			auto buf = create_string_buffer_for<Tx...>();
@@ -403,6 +404,16 @@ namespace xstd::fmt
 		{
 			return fmt_str;
 		}
+	}
+	template<typename... Tx>
+	__forceinline static std::string str( const char* fmt_str, Tx&&... ps ) 
+	{ 
+		return vstr<char>( [ ] <typename... T> ( char* o, size_t n, const char* f, T... args ) { return snprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
+	}
+	template<typename... Tx>
+	__forceinline static std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps ) 
+	{ 
+		return vstr<wchar_t>( [] <typename... T> ( wchar_t* o, size_t n, const wchar_t* f, T... args ) { return swprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
 	}
 
 	// Formats the integer into a signed hexadecimal.
