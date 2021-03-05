@@ -32,14 +32,9 @@ namespace xstd
     template<typename T> concept CustomSerializable = requires( const T & x ) { x.serialize( std::declval<serialization&>() ); };
     template<typename T> concept CustomDeserializable = requires { T::deserialize( std::declval<serialization&>() ); };
 
-    // Implement auto serializable types.
-    // => std::tuple<&...> T::tie()
-    //
-    template<typename T> concept AutoSerializable = requires( T & x ) { x.tie(); };
-
     // If none fits, type is considered default serialized.
     //
-    template<typename T> concept DefaultSerialized = !( AutoSerializable<T> || CustomSerializable<T> || CustomDeserializable<T> );
+    template<typename T> concept DefaultSerialized = !( Tiable<T> || CustomSerializable<T> || CustomDeserializable<T> );
 
     // Serialization context.
     //
@@ -505,9 +500,9 @@ namespace xstd
         }
     };
 
-    // Implement auto serializables.
+    // Implement automatically for tiables.
     //
-    template<AutoSerializable O>
+    template<Tiable O>
     struct serializer<O>
     {
         using T = decltype( std::declval<O&>().tie() );

@@ -325,6 +325,12 @@ namespace xstd::fmt
 			}
 			else return type_tag<T>{};
 		}
+		// Finally check for tiable types.
+		//
+		else if constexpr ( Tiable<T> )
+		{
+			return as_string( make_mutable( x ).tie() );
+		}
 		else return type_tag<T>{};
 	}
 	template<typename T, typename... Tx>

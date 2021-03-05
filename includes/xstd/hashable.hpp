@@ -23,8 +23,6 @@ namespace xstd
 	//
 	template<typename T>
 	concept CustomHashable = requires( T v ) { v.hash(); };
-	template<typename T>
-	concept CxprReducable = requires( T v ) { v.template cxreduce<true>(); };
 
 	// Checks if std::hash is specialized to hash the type.
 	//
@@ -74,11 +72,6 @@ namespace xstd
 				if ( !std::is_constant_evaluated() || is_constexpr( [ &value ] () { value.hash(); } ) )
 				{
 					return hash_t{ value.hash() };
-				}
-				else if constexpr ( CxprReducable<T> )
-				{
-					auto tuple = value.template cxreduce<true>();
-					return hasher<decltype( tuple )>{}( std::move( tuple ) );
 				}
 			}
 			// If STL container or array, hash each element and add container information.
@@ -160,6 +153,13 @@ namespace xstd
 			else if constexpr ( StdHashable<T> )
 			{
 				return hash_t{ std::hash<T>{}( value ) };
+			}
+			// If tiable, redirect.
+			//
+			else if constexpr ( Tiable<T> )
+			{
+				auto tuple = make_mutable( value ).tie();
+				return hasher<decltype( tuple )>{}( std::move( tuple ) );
 			}
 
 			// Fail.

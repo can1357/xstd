@@ -66,12 +66,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hashable.hpp">
       <Filter>Types</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\reducable.hpp">
-      <Filter>Types</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp">
-      <Filter>Types</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp">
       <Filter>Types</Filter>
     </ClInclude>

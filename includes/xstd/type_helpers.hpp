@@ -364,6 +364,11 @@ namespace xstd
 	concept Duration = is_specialization_v<std::chrono::duration, T>;
 	template<typename T>
 	concept Timestamp = is_specialization_v<std::chrono::time_point, T>;
+    
+	// XSTD traits, Tiable types have a mutable functor called tie which returns a list of members tied.
+    // => std::tuple<&...> T::tie()
+    //
+    template<typename T> concept Tiable = requires( T& x ) { x.tie(); };
 
 	// Constructs a static constant given the type and parameters, returns a reference to it.
 	//
@@ -373,14 +378,14 @@ namespace xstd
 		struct static_allocator { inline static const T value = { params... }; };
 	};
 	template<typename T, auto... params>
-	static constexpr const T& make_static() noexcept { return impl::static_allocator<T, params...>::value; }
+	__forceinline static constexpr const T& make_static() noexcept { return impl::static_allocator<T, params...>::value; }
 
 	// Default constructs the type and returns a reference to the static allocator. 
 	// This useful for many cases, like:
 	//  1) Function with return value of (const T&) that returns an external reference or if not applicable, a default value.
 	//  2) Using non-constexpr types in constexpr structures by deferring the construction.
 	//
-	template<typename T> static constexpr const T& make_default() noexcept { return make_static<T>(); }
+	template<typename T> __forceinline static constexpr const T& make_default() noexcept { return make_static<T>(); }
 
 	// Special type that decays to a constant reference to the default constructed value of the type.
 	//
@@ -418,34 +423,34 @@ namespace xstd
 	// Converts from a non-const qualified ref/ptr to a const-qualified ref/ptr.
 	//
 	template<typename T> using make_const_t = typename impl::make_const<impl::decay_ptr<T>>::type;
-	template<typename T> static constexpr make_const_t<T> make_const( T&& x ) noexcept { return ( make_const_t<T> ) x; }
+	template<typename T> __forceinline static constexpr make_const_t<T> make_const( T&& x ) noexcept { return ( make_const_t<T> ) x; }
 
 	// Converts from a const qualified ref/ptr to a non-const-qualified ref/ptr.
 	// - Make sure the use is documented, this is very hacky behaviour!
 	//
 	template<typename T> using make_mutable_t = typename impl::make_mutable<impl::decay_ptr<T>>::type;
-	template<typename T> static constexpr make_mutable_t<T> make_mutable( T&& x ) noexcept { return ( make_mutable_t<T> ) x; }
+	template<typename T> __forceinline static constexpr make_mutable_t<T> make_mutable( T&& x ) noexcept { return ( make_mutable_t<T> ) x; }
 
 	// Converts from any ref/ptr to a const/mutable one based on the condition given.
 	//
 	template<bool C, typename T> using make_const_if_t = std::conditional_t<C, make_const_t<T>, T>;
 	template<bool C, typename T> using make_mutable_if_t = std::conditional_t<C, make_mutable_t<T>, T>;
-	template<bool C, typename T> static constexpr make_const_if_t<C, T> make_const_if( T&& value ) noexcept { return ( make_const_if_t<C, T> ) value; }
-	template<bool C, typename T> static constexpr make_mutable_if_t<C, T> make_mutable_if( T&& value ) noexcept { return ( make_mutable_if_t<C, T> ) value; }
+	template<bool C, typename T> __forceinline static constexpr make_const_if_t<C, T> make_const_if( T&& value ) noexcept { return ( make_const_if_t<C, T> ) value; }
+	template<bool C, typename T> __forceinline static constexpr make_mutable_if_t<C, T> make_mutable_if( T&& value ) noexcept { return ( make_mutable_if_t<C, T> ) value; }
 
 	// Carries constant qualifiers of first type into second.
 	//
 	template<typename B, typename T> using carry_const_t = std::conditional_t<is_const_underlying_v<B>, make_const_t<T>, make_mutable_t<T>>;
-	template<typename B, typename T> static constexpr carry_const_t<B, T> carry_const( B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
+	template<typename B, typename T> __forceinline static constexpr carry_const_t<B, T> carry_const( B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
 	
 	// Creates an std::atomic version of the given pointer to value.
 	//
-	template<typename T> __forceinline static auto* make_atomic( T* value ) 
+	template<typename T> __forceinline static auto& make_atomic( T& value ) 
 	{ 
 		if constexpr( std::is_const_v<T> )
-			return ( const std::atomic<std::remove_cv_t<T>>* ) value;
+			return *( const std::atomic<std::remove_cv_t<T>>* ) &value;
 		else
-			return ( std::atomic<std::remove_cv_t<T>>* ) value;
+			return *( std::atomic<std::remove_cv_t<T>>* ) &value;
 	}
 	
 	// Creates a copy of the given value.
@@ -841,6 +846,25 @@ namespace xstd
 
 		return std::tuple{ functor, argument, discard };
 	}
+
+	// Tiable comperators.
+	//
+	struct tie_equal_to
+	{
+		template<typename T>
+		bool operator()( const T& a, const T& b ) const noexcept
+		{
+			return make_mutable( a ).tie() == make_mutable( b ).tie();
+		}
+	};
+	struct tie_less_than
+	{
+		template<typename T>
+		bool operator()( const T& a, const T& b ) const noexcept
+		{
+			return make_mutable( a ).tie() < make_mutable( b ).tie();
+		}
+	};
 };
 
 // Expose literals.

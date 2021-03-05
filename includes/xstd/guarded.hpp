@@ -19,12 +19,28 @@ namespace xstd
 		template<typename... Tx>
 		inline constexpr guarded( Tx&&... args ) : value( std::forward<Tx>( args )... ) {}
 
-		// No move/copy allowed.
+		// Simple copy/move.
 		//
-		guarded( guarded&& ) noexcept = delete;
-		guarded( const guarded& ) = delete;
-		guarded& operator=( guarded&& ) noexcept = delete;
-		guarded& operator=( const guarded& ) = delete;
+		inline guarded( guarded&& o ) noexcept : value( ( o.lock(), std::move( o.value ) ) ) { o.unlock(); }
+		inline guarded( const guarded& o ) : value( ( o.lock_shared(), o.value ) ) { o.unlock_shared(); }
+		inline guarded& operator=( guarded&& o ) noexcept
+		{
+			lock();
+			o.lock();
+			std::swap( value, o.value );
+			o.unlock();
+			unlock();
+			return *this;
+		}
+		inline guarded& operator=( const guarded& o )
+		{
+			lock();
+			o.lock_shared();
+			value = o.value;
+			o.unlock_shared();
+			unlock();
+			return *this;
+		}
 
 		// Implement a mutex so it can be usable with types like std::unique_lock as well.
 		//
@@ -77,7 +93,7 @@ namespace xstd
 		// Accessors to the guarded value, returns nullptr if not locked.
 		//
 		inline T* operator->() const { return locked ? value : nullptr; }
-		inline T& operator*() const { return locked ? value : nullptr; }
+		inline T& operator*() const { dassert( locked ); return *value; }
 
 		// Wrappers around lock state.
 		//
@@ -115,7 +131,7 @@ namespace xstd
 		// Accessors to the guarded value, returns nullptr if not locked.
 		//
 		inline const T* operator->() const { return locked ? value : nullptr; }
-		inline const T& operator*() const { return locked ? value : nullptr; }
+		inline const T& operator*() const { dassert( locked ); return *value; }
 
 		// Wrappers around lock state.
 		//
