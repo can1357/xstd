@@ -8,15 +8,21 @@
 
 namespace xstd
 {
+	namespace impl
+	{
+		template<typename T>
+		concept IntegralLike = requires( T & x ) { x++; x--; x += 1; x -= 1; x - x; x <= x; x >= x; x > x; x < x; x == x; x != x; };
+	};
+
 	// Define a pseudo-iterator type for integers.
 	//
-	template<Integral T = size_t, typename D = std::make_signed_t<T>>
+	template<impl::IntegralLike T = size_t>
 	struct numeric_iterator
 	{
 		// Generic iterator typedefs.
 		//
 		using iterator_category = std::random_access_iterator_tag;
-		using difference_type =   D;
+		using difference_type =   decltype( std::declval<T>() - std::declval<T>() );
 		using value_type =        T;
 		using reference =         const T&;
 		using pointer =           const T*;
@@ -58,12 +64,13 @@ namespace xstd
 
 	// Define a psueodo-container storing numeric ranges.
 	//
-	template<Integral T = size_t>
+	template<impl::IntegralLike T = size_t>
 	struct numeric_range
 	{
-		using iterator =       numeric_iterator<T>;
-		using const_iterator = numeric_iterator<T>;
-		using value_type =     T;
+		using iterator =        numeric_iterator<T>;
+		using const_iterator =  numeric_iterator<T>;
+		using value_type =      T;
+		using difference_type = decltype( std::declval<T>() - std::declval<T>() );
 
 		// Beginning and the end of the range.
 		//
@@ -86,7 +93,8 @@ namespace xstd
 		constexpr size_t size() const { return limit - first; }
 		constexpr iterator begin() const { return { first }; }
 		constexpr iterator end() const   { return { limit }; }
-		constexpr T operator[]( size_t n ) const { return first + n; }
+		template<typename Ty> requires Addable<T, Ty>
+		constexpr auto operator[]( Ty n ) const { return first + n; }
 
 		// Finds the overlapping region if relevant.
 		//
@@ -106,16 +114,16 @@ namespace xstd
 
 		// Checks if the range contains the other, if so returns the offset.
 		//
-		constexpr std::optional<std::make_signed_t<T>> contains( T value ) const
+		constexpr std::optional<difference_type> contains( T value ) const
 		{
 			if ( first <= value && value < limit )
-				return ( std::make_signed_t<T> )( value - first );
+				return ( difference_type )( value - first );
 			return std::nullopt;
 		}
-		constexpr std::optional<std::make_signed_t<T>> contains( const numeric_range& other ) const
+		constexpr std::optional<difference_type> contains( const numeric_range& other ) const
 		{
 			if ( first <= other.first && other.limit <= limit )
-				return ( std::make_signed_t<T> )( other.first - first );
+				return ( difference_type )( other.first - first );
 			return std::nullopt;
 		}
 
@@ -194,8 +202,8 @@ namespace xstd
 		//
 		auto tie() { return std::tie( first, limit ); }
 	};
-	template<typename T>               numeric_range( T )      -> numeric_range<integral_max_t<T, T>>;  // Max'd to enforce the concept, intellisense does not like concepts here.
-	template<typename T1, typename T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;
+	template<typename T>               numeric_range( T )      -> numeric_range<T>;
+	template<Integral T1, Integral T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;
 
 	// Simple range creation wrapper.
 	//
