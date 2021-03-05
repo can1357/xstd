@@ -78,12 +78,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\static_warning.hpp">
       <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\finally.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
@@ -92,9 +86,6 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\narrow_cast.hpp">
       <Filter>Numeric</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp">
-      <Filter>Misc</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\file_view.hpp">
       <Filter>I/O</Filter>
@@ -187,9 +178,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stack_containers.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
@@ -198,6 +186,21 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guarded.hpp">
       <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp">
+      <Filter>Types</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

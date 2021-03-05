@@ -52,6 +52,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\random.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp" />
