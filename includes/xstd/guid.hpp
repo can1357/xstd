@@ -9,6 +9,10 @@ namespace xstd
 	//
 	struct guid
 	{
+		static constexpr size_t string_length = 36;
+
+		// Store the value.
+		//
 		uint64_t low;
 		uint64_t high;
 
@@ -30,29 +34,44 @@ namespace xstd
 
 		// String conversion.
 		//
+		template<typename C>
+		constexpr void to_string( C&& buffer ) const
+		{
+			constexpr auto tochr = [ ] ( auto digit )
+			{
+				digit &= 0xF;
+				if ( digit <= 9 ) return ( char ) ( '0' + digit );
+				else              return ( char ) ( 'a' + ( digit - 0xA ) );
+			};
+			uint16_t high_lo = bswap( ( uint16_t ) high );
+			uint64_t high_hi = bswap( high >> 16 ) >> 16;
+			size_t i = 0;
+			for ( int n = 32-4; n >= 0; n -= 4 )
+				buffer[ i++ ] = tochr( ( low >> n ) );
+			buffer[ i++ ] = '-';
+			for ( int n = 48-4; n >= 32; n -= 4 )
+				buffer[ i++ ] = tochr( ( low >> n ) );
+			buffer[ i++ ] = '-';
+			for ( int n = 64-4; n >= 48; n -= 4 )
+				buffer[ i++ ] = tochr( ( low >> n ) );
+			buffer[ i++ ] = '-';
+			for ( int n = 16-4; n >= 0; n -= 4 )
+				buffer[ i++ ] = tochr( ( high_lo >> n ) );
+			buffer[ i++ ] = '-';
+			for ( int n = 48-4; n >= 0; n -= 4 )
+				buffer[ i++ ] = tochr( ( high_hi >> n ) );
+		}
 		std::string to_string() const
 		{
-			return xstd::fmt::str(
-				"%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-				( low >> 0 ) & 0xFFFFFFFF, ( low >> 32 ) & 0xFFFF,
-				( low >> 48 ) & 0xFFFF,    ( high >> 8 * 0 ) & 0xFF,
-				( high >> 8 * 1 ) & 0xFF,  ( high >> 8 * 2 ) & 0xFF,
-				( high >> 8 * 3 ) & 0xFF,  ( high >> 8 * 4 ) & 0xFF,
-				( high >> 8 * 5 ) & 0xFF,  ( high >> 8 * 6 ) & 0xFF,
-				( high >> 8 * 7 ) & 0xFF
-			);
+			std::string out( string_length, '\x0' );
+			to_string( out );
+			return out;
 		}
 		std::wstring to_wstring() const
 		{
-			return xstd::fmt::wstr(
-				L"%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-				( low >> 0 ) & 0xFFFFFFFF, ( low >> 32 ) & 0xFFFF,
-				( low >> 48 ) & 0xFFFF,    ( high >> 8 * 0 ) & 0xFF,
-				( high >> 8 * 1 ) & 0xFF,  ( high >> 8 * 2 ) & 0xFF,
-				( high >> 8 * 3 ) & 0xFF,  ( high >> 8 * 4 ) & 0xFF,
-				( high >> 8 * 5 ) & 0xFF,  ( high >> 8 * 6 ) & 0xFF,
-				( high >> 8 * 7 ) & 0xFF
-			);
+			std::wstring out( string_length, L'\x0' );
+			to_string( out );
+			return out;
 		}
 
 		// Make tiable for serialization.
