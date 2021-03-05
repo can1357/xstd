@@ -8,15 +8,9 @@
 
 namespace xstd
 {
-	namespace impl
-	{
-		template<typename T>
-		concept IntegralLike = requires( T & x ) { x++; x--; x += 1; x -= 1; x - x; x <= x; x >= x; x > x; x < x; x == x; x != x; };
-	};
-
 	// Define a pseudo-iterator type for integers.
 	//
-	template<impl::IntegralLike T = size_t>
+	template<typename T = size_t>
 	struct numeric_iterator
 	{
 		// Generic iterator typedefs.
@@ -64,7 +58,7 @@ namespace xstd
 
 	// Define a psueodo-container storing numeric ranges.
 	//
-	template<impl::IntegralLike T = size_t>
+	template<typename T = size_t>
 	struct numeric_range
 	{
 		using iterator =        numeric_iterator<T>;
@@ -76,7 +70,7 @@ namespace xstd
 		//
 		T first;
 		T limit;
-		constexpr numeric_range() : first( 0 ), limit( 0 ) {}
+		constexpr numeric_range() : first( T{} ), limit( T{} ) {}
 		constexpr numeric_range( T first, T limit ) 
 			: first( first ), limit( limit ) {}
 
@@ -203,12 +197,10 @@ namespace xstd
 		auto tie() { return std::tie( first, limit ); }
 	};
 	template<typename T>               numeric_range( T )      -> numeric_range<T>;
-	template<Integral T1, Integral T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;
+	template<typename T1, typename T2> numeric_range( T1, T2 ) -> numeric_range<integral_max_t<T1, T2>>;
 
 	// Simple range creation wrapper.
 	//
 	static constexpr numeric_range<> iindices = { 0ull, SIZE_MAX };
-
-	template<Integral T> static numeric_range<T> liota( T x ) { return { T{}, x }; } // Limitting iota.
-	template<Integral T> static numeric_range<T> iiota( T x ) { return { x, std::numeric_limits<T>::max() }; } // Iota towards inf.
+	template<typename T> static numeric_range<T> iota( T x, T offset = T{} ) { return { offset, offset + x }; }
 };

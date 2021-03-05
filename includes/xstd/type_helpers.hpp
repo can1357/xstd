@@ -542,8 +542,11 @@ namespace xstd
 	struct any_ptr
 	{
 		uint64_t address;
-
-		inline constexpr any_ptr( std::nullptr_t = {} ) : address( 0 ) {}
+		
+		// Constructed by any kind of pointer or a number.
+		//
+		inline constexpr any_ptr() : address( 0 ) {}
+		inline constexpr any_ptr( std::nullptr_t ) : address( 0 ) {}
 		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
 		inline constexpr any_ptr( const void* address ) : address( bit_cast<uint64_t>( address ) ) {}
 		inline constexpr any_ptr( const volatile void* address ) : address( bit_cast<uint64_t>( address ) ) {}
@@ -552,28 +555,31 @@ namespace xstd
 		template<typename C, typename R, typename... A>
 		inline constexpr any_ptr( member_function_t<C, R, A...> fn ) : address( bit_cast<uint64_t>( fn ) ) {}
 
+		// Default copy and move.
+		//
 		constexpr any_ptr( any_ptr&& ) noexcept = default;
 		constexpr any_ptr( const any_ptr& ) = default;
 		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
 		constexpr any_ptr& operator=( const any_ptr& ) = default;
 
+		// Can decay to any pointer or an integer.
+		//
 		template<typename T>
 		inline constexpr operator T*() const { return bit_cast<T*>( address ); }
 		template<typename R, typename... A>
 		inline constexpr operator static_function_t<R, A...>() const { return bit_cast<static_function_t<R, A...>>( address ); }
 		template<typename C, typename R, typename... A>
 		inline constexpr operator member_function_t<C, R, A...>() const { return bit_cast<member_function_t<C, R, A...>>( address ); }
-
 		inline constexpr operator uint64_t() const { return address; }
-
+		
 		inline constexpr any_ptr& operator++() { address++; return *this; }
 		inline constexpr any_ptr operator++( int ) { auto s = *this; operator++(); return s; }
-		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
-		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
-
 		inline constexpr any_ptr& operator--() { address--; return *this; }
 		inline constexpr any_ptr operator--( int ) { auto s = *this; operator--(); return s; }
+
+		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
 		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
+		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
 		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
 	};
 

@@ -202,6 +202,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_hashmap.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guarded.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
