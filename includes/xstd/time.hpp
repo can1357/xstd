@@ -34,12 +34,12 @@ namespace xstd
 		// Declare prefered clock and units.
 		//
 		using base_clock =   XSTD_DEFAULT_CLOCK;
-		using stamp =        base_clock::time_point;
+		using timestamp =    base_clock::time_point;
 		using duration =     base_clock::duration;
 
 		// Wrap around base clock.
 		//
-		inline static stamp now() { return base_clock::now(); }
+		inline static timestamp now() { return base_clock::now(); }
 
 		// Declare conversion to string.
 		//
@@ -89,7 +89,7 @@ namespace xstd
 			return ++mimpl::tcounter;
 		}
 	};
-	using timestamp = time::stamp;
+	using timestamp = time::timestamp;
 	using duration =  time::duration;
 
 	// Wrappers around std::this_thread::sleep_*.

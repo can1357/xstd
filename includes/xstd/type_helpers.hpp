@@ -391,7 +391,7 @@ namespace xstd
 	//
 	struct static_default
 	{
-		template<typename T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+		template<typename T> requires ( !Reference<T> )
 		constexpr operator const T&() const noexcept { return make_default<T>(); }
 	};
 
@@ -865,6 +865,20 @@ namespace xstd
 			return make_mutable( a ).tie() < make_mutable( b ).tie();
 		}
 	};
+
+	// A null type that takes no space, ignores assignments and always decays to the default value.
+	//
+	template<typename T>
+	struct null_store
+	{
+		template<typename... Tx>
+		constexpr null_store( [[maybe_unused]] Tx&&... args ) {}
+		template<typename Ty>
+		constexpr null_store& operator=( [[maybe_unused]] Ty&& arg ) { return *this; }
+		constexpr operator const T&() const noexcept { return make_default<T>(); }
+	};
+	template<typename T, bool C>
+	using conditional_store = std::conditional_t<C, T, null_store<T>>;
 };
 
 // Expose literals.

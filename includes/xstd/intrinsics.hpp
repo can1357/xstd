@@ -184,16 +184,17 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 #endif
 inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 
-// Declare inlining primitives.
+// Declare function attributes.
 //
 #if GNU_COMPILER
+    #define PURE         __attribute__((pure))
     #define FORCE_INLINE __attribute__((always_inline))
     #define NO_INLINE    __attribute__((noinline))
 #else
+    #define PURE         
     #define FORCE_INLINE __forceinline
     #define NO_INLINE    __declspec(noinline)
 #endif
-
 #ifndef RINLINE
     #if RELEASE_BUILD
         #define RINLINE     FORCE_INLINE
