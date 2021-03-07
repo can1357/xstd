@@ -657,22 +657,35 @@ namespace xstd
 
 	// Implement helper for visit on numeric range.
 	//
-	template<auto First, auto Last, typename T, typename K = decltype( First )>
-	static constexpr bool visit_range( K key, T&& f )
+	template<auto First, auto Last, typename T, typename K = decltype( First ), typename R = decltype( std::declval<T>()( const_tag<K(First)>{} ) )>
+	static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<std::is_void_v<R>, bool, std::optional<R>>
 	{
-		if constexpr( First < Last )
+		if constexpr( First <= Last )
 		{
 			if ( key == First )
 			{
-				f( const_tag<First>{} );
-				return true;
+				if constexpr ( std::is_void_v<R> )
+				{
+					f( const_tag<First>{} );
+					return true;
+				}
+				else
+				{
+					return std::optional{ f( const_tag<First>{} ) };
+				}
 			}
 			else
 			{
 				return visit_range<K( size_t( First ) + 1 ), Last, T, K>( key, std::forward<T>( f ) );
 			}
 		}
-		return false;
+		else
+		{
+			if constexpr ( std::is_void_v<R> )
+				return false;
+			else
+				return std::nullopt;
+		}
 	}
 
 	// Converts any type to their trivial equivalents.

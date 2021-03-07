@@ -122,6 +122,61 @@ namespace xstd
 		skip_range( C, Fn )->skip_range<iterator_type_t<C>, Fn>;
 	};
 
+	// Group by algorithm.
+	//
+	template<typename T, typename Qr>
+	static std::vector<std::vector<T>> group_by( const T& begin, const T& end, Qr&& query )
+	{
+		size_t size = std::distance( begin, end );
+
+		// Start the list with every iterator being in its own group.
+		//
+		std::vector<std::vector<T>> group_vec( size );
+		std::vector<std::vector<T>*> group_map( size );
+
+		size_t i = 0;
+		for ( auto it = begin; it != end; ++it, ++i )
+		{
+			group_vec[ i ].emplace_back( it );
+			group_map[ i ] = &group_vec[ i ];
+		}
+		auto it_to_group = [ & ] ( auto&& it ) -> std::vector<T>*& { return group_map[ std::distance( begin, it ) ]; };
+
+		// Iterate every element:
+		//
+		for ( auto it = begin; it != end; ++it )
+		{
+			auto& group = it_to_group( it );
+
+			// Query which elements we need to group this one with.
+			//
+			query( it, [ & ] ( auto&& it2 )
+			{
+				// Join groups together.
+				//
+				std::vector<T>* gr_big = group;
+				std::vector<T>* gr_small = it_to_group( it2 );
+				if ( gr_big == gr_small )
+					return;
+				if ( gr_small->size() > gr_big->size() )
+					std::swap( gr_small, gr_big );
+				for ( auto& entry : *gr_small )
+				{
+					it_to_group( entry ) = gr_big;
+					gr_big->emplace_back( entry );
+				}
+				gr_small->clear();
+			} );
+		}
+		std::erase_if( group_vec, [ ] ( auto& e ) { return e.empty(); } );
+		return group_vec;
+	}
+	template<Iterable T, typename Qr>
+	static auto group_by( T& container, Qr&& query )
+	{
+		return group_by( std::begin( container ), std::end( container ), std::forward<Qr>( query ) );
+	}
+
 	// Sort/min_element/max_element redirect taking container instead of iterator.
 	//
 	template<Iterable T, typename Pr>

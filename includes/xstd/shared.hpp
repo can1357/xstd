@@ -24,7 +24,7 @@ namespace xstd
 			union
 			{
 				T                 value;
-				char              raw[];
+				char              raw[ 1 ];
 			};
 			inline ~ref_store() {}
 

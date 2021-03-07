@@ -294,7 +294,7 @@ namespace xstd
 	template<>
 	struct hasher<std::monostate>
 	{
-		__forceinline constexpr size_t operator()( const std::monostate& ) const noexcept
+		__forceinline constexpr hash_t operator()( const std::monostate& ) const noexcept
 		{
 			return type_tag<std::monostate>::hash();
 		}
@@ -316,6 +316,20 @@ namespace xstd
 	//
 	template<typename T>
 	concept Hashable = requires( T v ) { !std::is_void_v<decltype( hasher<>{}( v ) )>; };
+
+	// Implement a hasher that hashes pointers by their contents rather than the pointer themselves.
+	//
+	struct dereferencing_hasher
+	{
+		template<typename T>
+		__forceinline constexpr size_t operator()( const T& value ) const noexcept
+		{
+			if constexpr( Dereferencable<T> )
+				return make_hash( *value ).as64();
+			else
+				return make_hash( value ).as64();
+		}
+	};
 };
 
 // Redirect from std::hash.

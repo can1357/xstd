@@ -7,7 +7,7 @@
 
 namespace xstd
 {
-	template<TriviallyMoveConstructable T>
+	template<TriviallyMoveConstructable T = uint8_t>
 	struct concurrent_arena
 	{
 		// Brief container traits.

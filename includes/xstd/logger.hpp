@@ -431,11 +431,10 @@ namespace xstd
 		flog<CON_RED>( XSTD_CON_ERR_DST, error );
 		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
 
-		// Flush the file if requested so.
+		// Flush the files.
 		//
-	#if XSTD_CON_IFLUSH
+		fflush( XSTD_CON_MSG_DST );
 		fflush( XSTD_CON_ERR_DST );
-	#endif
 
 		// Unlock if previously locked.
 		//
