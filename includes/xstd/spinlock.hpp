@@ -93,8 +93,11 @@ namespace xstd
 		}
 		FORCE_INLINE void upgrade()
 		{
-			while ( !try_upgrade() )
-				yield_cpu();
+			if ( !try_upgrade() )
+			{
+				unlock_shared();
+				lock();
+			}
 		}
 
 		FORCE_INLINE void downgrade()

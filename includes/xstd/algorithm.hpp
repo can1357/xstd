@@ -248,7 +248,7 @@ namespace xstd
 		return n;
 	}
 	template<Iterable T, typename Pr>
-	static constexpr size_t contains_if( T&& container, Pr&& predicate )
+	static constexpr bool contains_if( T&& container, Pr&& predicate )
 	{
 		for ( auto&& other : container )
 			if ( predicate( other ) )
@@ -263,7 +263,7 @@ namespace xstd
 	template<Iterable T, typename V>
 	static constexpr bool contains( T&& container, V&& value )
 	{
-		return contains_if( std::forward<T>( container ), [ & ] ( const auto& v ) { return v == value; } );
+		return std::find( std::begin( container ), std::end( container ), std::forward<V>( value ) ) != std::end( container );
 	}
 
 	// Returns a range containing only the values that pass the predicate. Collect does the 
