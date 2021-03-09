@@ -43,7 +43,7 @@ namespace xstd
 			// DOT attribute map.
 			//
 			std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
-			auto& attribute( const std::string_view& o, const std::string& v ) const { attributes.insert_or_assign( o, v ); return *this; }
+			auto& attribute( const std::string_view& o, const std::string& v ) { attributes.insert_or_assign( o, v ); return *this; }
 		};
 
 		// Clusters and subgraphs.
