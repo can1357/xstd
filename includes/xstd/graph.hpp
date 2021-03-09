@@ -42,24 +42,8 @@ namespace xstd
 
 			// DOT attribute map.
 			//
-			mutable std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
+			std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
 			auto& attribute( const std::string_view& o, const std::string& v ) const { attributes.insert_or_assign( o, v ); return *this; }
-
-			// Hashing and comparison, property map is discarded.
-			//
-			hash_t hash() const
-			{
-				if constexpr ( directed )
-					return make_hash( src, dst );
-				else
-					return make_unordered_hash( src, dst );
-			}
-			bool operator==( const edge_entry& o ) const
-			{
-				if ( src == o.src && dst == o.dst )
-					return true;
-				return !directed && src == o.dst && dst == o.src;
-			}
 		};
 
 		// Clusters and subgraphs.
@@ -70,7 +54,7 @@ namespace xstd
 		// Mapping of all node entries and their edges.
 		//
 		std::vector<std::unique_ptr<node_entry>> nodes;
-		std::unordered_set<edge_entry, hasher<>> edges;
+		std::vector<edge_entry> edges;
 
 		// DOT default attribute map.
 		//
@@ -130,17 +114,9 @@ namespace xstd
 		{ 
 			return *find_node( value, true ).first;
 		}
-		const edge_entry& edge( const value_type& src, const value_type& dst ) 
+		edge_entry& edge( const value_type& src, const value_type& dst ) 
 		{
-			auto [nsrc, gs] = find_node( src, true );
-			auto [ndst, gd] = find_node( dst, true );
-
-			edge_entry edge{ nsrc, ndst };
-			if ( auto it = gs->edges.find( edge ); it != gs->edges.end() )
-				return *it;
-			if ( auto it = gd->edges.find( edge ); it != gd->edges.end() )
-				return *it;
-			return *( ( gs == gd ? gs : this )->edges.insert( edge ).first );
+			return edges.emplace_back( &node( src ), &node( dst ) );
 		}
 
 		// Prints the graph.
