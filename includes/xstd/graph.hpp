@@ -31,7 +31,7 @@ namespace xstd
 			// DOT attribute map.
 			//
 			std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
-			auto& attribute( const std::string_view& o, const std::string& v = {} ) { attributes.insert_or_assign( o, v ); return *this; }
+			auto& attribute( const std::string_view& o, const std::string& v ) { attributes.insert_or_assign( o, v ); return *this; }
 		};
 		struct edge_entry
 		{
@@ -43,7 +43,7 @@ namespace xstd
 			// DOT attribute map.
 			//
 			mutable std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
-			auto& attribute( const std::string_view& o, const std::string& v = {} ) const { attributes.insert_or_assign( o, v ); return *this; }
+			auto& attribute( const std::string_view& o, const std::string& v ) const { attributes.insert_or_assign( o, v ); return *this; }
 
 			// Hashing and comparison, property map is discarded.
 			//
@@ -64,7 +64,7 @@ namespace xstd
 
 		// Clusters and subgraphs.
 		//
-		std::vector<std::unique_ptr<base_graph>> anon_subgraphs;
+		std::vector<std::pair<std::unique_ptr<base_graph>, bool>> anon_subgraphs;
 		std::unordered_map<std::string, std::pair<std::unique_ptr<base_graph>, bool>> subgraphs;
 
 		// Mapping of all node entries and their edges.
@@ -80,14 +80,16 @@ namespace xstd
 
 		// Attribute lookup.
 		//
-		auto& attribute( const std::string_view& o, const std::string& v = {} ) { graph_attributes.insert_or_assign( o, v ); return *this; }
-		auto& node_attribute( const std::string_view& o, const std::string& v = {} ) { node_attributes.insert_or_assign( o, v ); return *this; }
-		auto& edge_attribute( const std::string_view& o, const std::string& v = {} ) { edge_attributes.insert_or_assign( o, v ); return *this; }
+		auto& attribute( const std::string_view& o, const std::string& v ) { graph_attributes.insert_or_assign( o, v ); return *this; }
+		auto& node_attribute( const std::string_view& o, const std::string& v ) { node_attributes.insert_or_assign( o, v ); return *this; }
+		auto& edge_attribute( const std::string_view& o, const std::string& v ) { edge_attributes.insert_or_assign( o, v ); return *this; }
 
 		// Cluster/Subgraph insertion and lookup.
 		//
-		base_graph& cluster( const std::string& key ) 
-		{ 
+		base_graph& cluster( const std::string& key = {} )
+		{
+			if ( key.empty() )
+				return *anon_subgraphs.emplace_back( std::make_unique<base_graph>(), true ).first;
 			auto& entry = subgraphs[ key ]; 
 			if ( !entry.first )
 				entry = { std::make_unique<base_graph>(), true };
@@ -96,7 +98,7 @@ namespace xstd
 		base_graph& subgraph( const std::string& key = {} ) 
 		{
 			if ( key.empty() )
-				return *anon_subgraphs.emplace_back( std::make_unique<base_graph>() );
+				return *anon_subgraphs.emplace_back( std::make_unique<base_graph>(), false ).first;
 			auto& entry = subgraphs[ key ];
 			if ( !entry.first )
 				entry = { std::make_unique<base_graph>(), false };
@@ -142,31 +144,6 @@ namespace xstd
 			result += " {\n";
 			++depth;
 
-			// Print subgraphs.
-			//
-			size_t cluster_count = 0;
-			for ( auto& [name, subgraph] : subgraphs )
-			{
-				if ( subgraph.second )
-				{
-					result.insert( result.size(), depth * 2, ' ' );
-					result += "subgraph cluster_" + std::to_string( ++cluster_count ) + " {\n";
-					++depth;
-				}
-				result += subgraph.first->to_string( name, depth + 1 );
-				if ( subgraph.second )
-				{
-					--depth;
-					result.insert( result.size(), depth * 2, ' ' );
-					result += "};\n";
-				}
-			}
-			for ( auto& subgraph : anon_subgraphs )
-			{
-				result += subgraph->to_string( "", depth + 1 );
-			}
-			if ( !subgraphs.empty() || !anon_subgraphs.empty() ) result += "\n";
-
 			// Print the attributes.
 			//
 			bool attr_pad = false;
@@ -190,6 +167,31 @@ namespace xstd
 				attr_pad = true;
 			}
 			if ( attr_pad ) result += "\n";
+
+			// Print subgraphs.
+			//
+			size_t cluster_count = 0;
+			auto render_subgraph = [ & ] ( auto&& name, auto&& subgraph )
+			{
+				if ( subgraph.second )
+				{
+					result.insert( result.size(), depth * 2, ' ' );
+					result += fmt::str( "subgraph cluster_%d_%llu {\n", depth, ++cluster_count );
+					++depth;
+				}
+				result += subgraph.first->to_string( name, depth + 1 );
+				if ( subgraph.second )
+				{
+					--depth;
+					result.insert( result.size(), depth * 2, ' ' );
+					result += "};\n";
+				}
+			};
+			for ( auto& [name, subgraph] : subgraphs )
+				render_subgraph( name, subgraph );
+			for ( auto& subgraph : anon_subgraphs )
+				render_subgraph( std::string_view{}, subgraph );
+			if ( !subgraphs.empty() || !anon_subgraphs.empty() ) result += "\n";
 
 			// Print the nodes.
 			//
