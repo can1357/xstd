@@ -107,29 +107,49 @@ namespace xstd
 
 		// Node/Edge insertion and lookup.
 		//
-		node_entry& node( const value_type& value )
-		{ 
-			for ( auto& [k, gr] : subgraphs )
-			{
-				for ( auto& node : gr.first->nodes )
-					if ( node->value == value )
-						return *node;
-			}
-
+		std::pair<node_entry*, base_graph*> find_node( const value_type& value, bool or_insert = false )
+		{
 			for ( auto& node : nodes )
 				if ( node->value == value )
-					return *node;
-			return *nodes.emplace_back( std::make_unique<node_entry>( node_entry{ value } ) );
+					return { node.get(), this };
+			
+			for ( auto& [k, gr] : subgraphs )
+				if ( auto pair = gr.first->find_node( value ); pair.first )
+					return pair;
+			
+			for ( auto& [gr, c] : anon_subgraphs )
+				if ( auto pair = gr->find_node( value ); pair.first )
+					return pair;
+
+			if ( or_insert )
+				return { nodes.emplace_back( std::make_unique<node_entry>( node_entry{ value } ) ).get(), this };
+			else
+				return { nullptr, nullptr };
+		}
+		node_entry& node( const value_type& value )
+		{ 
+			return *find_node( value, true ).first;
 		}
 		const edge_entry& edge( const value_type& src, const value_type& dst ) 
-		{ 
-			return *edges.insert( edge_entry{ &node( src ), &node( dst ) } ).first; 
+		{
+			auto [nsrc, gs] = find_node( src, true );
+			auto [ndst, gd] = find_node( dst, true );
+
+			edge_entry edge{ nsrc, ndst };
+			if ( auto it = gs->edges.find( edge ); it != gs->edges.end() )
+				return *it;
+			if ( auto it = gd->edges.find( edge ); it != gd->edges.end() )
+				return *it;
+			return *( ( gs == gd ? gs : this )->edges.insert( edge ).first );
 		}
 
 		// Prints the graph.
 		//
-		std::string to_string( std::string_view name = "G", size_t depth = 0 ) const
+		std::string to_string( std::string_view name = "G", size_t depth = 0, size_t* ctr = nullptr ) const
 		{
+			size_t tctr = 0;
+			if ( !ctr ) ctr = &tctr;
+
 			std::string result( depth * 2, ' ' );
 			if ( !depth )
 			{
@@ -170,22 +190,12 @@ namespace xstd
 
 			// Print subgraphs.
 			//
-			size_t cluster_count = 0;
 			auto render_subgraph = [ & ] ( auto&& name, auto&& subgraph )
 			{
-				if ( subgraph.second )
-				{
-					result.insert( result.size(), depth * 2, ' ' );
-					result += fmt::str( "subgraph cluster_%d_%llu {\n", depth, ++cluster_count );
-					++depth;
-				}
-				result += subgraph.first->to_string( name, depth + 1 );
-				if ( subgraph.second )
-				{
-					--depth;
-					result.insert( result.size(), depth * 2, ' ' );
-					result += "};\n";
-				}
+				if ( subgraph.second && !name.starts_with( "cluster_" ) )
+					result += subgraph.first->to_string( name.empty() ? fmt::str( "cluster_%d_%llu", depth, ++*ctr ) : fmt::str( "cluster_%d_%s", depth, name ), depth + 1, ctr );
+				else
+					result += subgraph.first->to_string( name, depth + 1, ctr );
 			};
 			for ( auto& [name, subgraph] : subgraphs )
 				render_subgraph( name, subgraph );
