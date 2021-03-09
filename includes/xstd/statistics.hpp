@@ -62,8 +62,24 @@ namespace xstd
 		double y = stop_p - stop_f;
 		return T( el_f + x * y );
 	}
-	template<typename I1, typename I2> 
+	template<typename I1, typename I2>
 	static constexpr auto percentile( const I1& begin, const I2& end, double n ) { return percentile<double, I1, I2>( begin, end, n ); }
+
+	// computes the percentile of a value given a sorted range.
+	// - r = [0, 1]
+	//
+	template<typename It1, typename It2, typename T>
+	static constexpr double percentile_of( const It1& begin, const It2& end, T&& element )
+	{
+		auto [lit, git] = std::equal_range( begin, end, element );
+		size_t gn = std::distance( git, end );
+		size_t ln = std::distance( lit, end );
+		size_t en = std::distance( lit, git );
+		if ( gn == ln ) return 0.5;
+		if ( !gn )      return 0.0;
+		if ( !ln )      return 1.0;
+		return ( ln + double( en / 2 ) ) / double( ln + gn + en );
+	}
 
 	// Computes the precision-strenghtened mean value given a sorted range.
 	//
@@ -175,7 +191,8 @@ namespace xstd
 	template<Iterable C> static constexpr auto mode( C&& c ) { return mode( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static constexpr auto variance( C&& c ) { return variance( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static auto stdev( C&& c ) { return stdev( std::begin( c ), std::end( c ) ); }
-	
+	template<Iterable C, typename T> static constexpr auto percentile_of( C&& c, T&& value ) { return percentile_of<iterator_type_t<C>, iterator_type_t<C>>( std::begin( c ), std::end( c ), std::forward<T>( value ) ); }
+
 	template<Iterable C> requires ( !std::is_array_v<std::remove_cvref_t<C>> && !is_std_array_v<std::remove_cvref_t<C>> )
 	static auto sorted_clone( C&& c ) 
 	{ 
