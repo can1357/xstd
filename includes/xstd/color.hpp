@@ -2,6 +2,7 @@
 #include <cmath>
 #include <algorithm>
 #include <bit>
+#include "formatting.hpp"
 #include "type_helpers.hpp"
 
 namespace xstd
@@ -66,6 +67,8 @@ namespace xstd
 
 		template<color_model dst>
 		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+
+		std::string to_string() const { return fmt::str( "#%02x%02x%02x", r, g, b ); }
 	};
 	using rgb_t = color<color_model::rgb>;
 
@@ -79,6 +82,8 @@ namespace xstd
 
 		template<color_model dst>
 		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+
+		std::string to_string() const { return fmt::str( "#%02x%02x%02x%02x", r, g, b, a ); }
 	};
 	using argb_t = color<color_model::argb>;
 
@@ -167,7 +172,14 @@ namespace xstd
 			res.a = ( uint8_t ) std::clamp<int>( src.a * 256.0f, 0, 255 );
 			return res;
 		}
-		unreachable();
+		else
+		{
+			// Tricking msvc.
+			if ( src.v == 0.0f )
+				return { 0, 0, 0, uint8_t( src.a * 256 ) };
+			else
+				unreachable();
+		}
 	}
 	template<>
 	FORCE_INLINE constexpr argb_t to_argb<color_model::hsv>( const hsv_t& src )
@@ -228,7 +240,14 @@ namespace xstd
 			res.a = as;
 			return res;
 		}
-		unreachable();
+		else
+		{
+			// Tricking msvc.
+			if ( !src.r && !src.g && !src.b )
+				return { 0, 0, 0, src.a / 256.0f };
+			else
+				unreachable();
+		}
 	}
 	template<>
 	FORCE_INLINE constexpr hsv_t from_argb<color_model::hsv>( const argb_t& src )
