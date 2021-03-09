@@ -29,6 +29,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\graph.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\enum_name.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\event.hpp" />

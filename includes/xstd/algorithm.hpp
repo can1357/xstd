@@ -179,8 +179,8 @@ namespace xstd
 
 	// Sort/min_element/max_element redirect taking container instead of iterator.
 	//
-	template<Iterable T, typename Pr>
-	static constexpr void sort( T& container, Pr&& predicate )
+	template<Iterable T, typename Pr = std::less<>>
+	static constexpr void sort( T& container, Pr&& predicate = {} )
 	{
 		std::sort( std::begin( container ), std::end( container ), std::forward<Pr>( predicate ) );
 	}
