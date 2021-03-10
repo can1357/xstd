@@ -19,13 +19,13 @@ namespace xstd
 		}
 		__forceinline void lock()
 		{
-			if ( prev < TP )
-				set_task_priority( TP );
+			dassert( prev <= TP );
+			set_task_priority( TP );
 		}
 		__forceinline void unlock()
 		{
-			if ( prev != TP )
-				set_task_priority( prev );
+			dassert( get_task_priority() == TP );
+			set_task_priority( prev );
 		}
 		__forceinline ~scope_tpr()
 		{
@@ -62,8 +62,8 @@ namespace xstd
 			else
 			{
 				uintptr_t prio = get_task_priority();
-				if ( prio < TP )
-					set_task_priority( TP );
+				dassert( get_task_priority() <= TP );
+				set_task_priority( TP );
 				return prio;
 			}
 #else
@@ -73,8 +73,7 @@ namespace xstd
 		__forceinline static void lower( uintptr_t prev )
 		{
 #if XSTD_HAS_TASK_PRIORITY
-			if ( prev < TP )
-				set_task_priority( prev );
+			set_task_priority( prev );
 #endif
 		}
 
