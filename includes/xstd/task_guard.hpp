@@ -90,7 +90,7 @@ namespace xstd
 			// If not recursive, store the previous priority.
 			//
 			if ( !ex_depth++ )
-				ex_tp.store( prev, std::memory_order::release );
+				ex_tp.store( prev, std::memory_order::acquire );
 			else
 				dassert( prev == TP );
 		}
@@ -106,7 +106,7 @@ namespace xstd
 			if ( state )
 			{
 				if ( !ex_depth++ )
-					ex_tp.store( prev, std::memory_order::release );
+					ex_tp.store( prev, std::memory_order::acquire );
 				else
 					dassert( prev == TP );
 			}

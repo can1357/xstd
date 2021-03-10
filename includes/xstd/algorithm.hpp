@@ -297,13 +297,13 @@ namespace xstd
 
 	// Filters the stream into unique values.
 	//
-	template<Iterable T>
-	static constexpr auto unique( T&& container )
+	template<Iterable T, typename Pr = std::equal_to<>>
+	static constexpr auto unique( T&& container, Pr&& predicate = {} )
 	{
-		return filter_i( std::forward<T>( container ), [ bg = std::begin( container ) ] ( const auto& cur )
+		return filter_i( std::forward<T>( container ), [ &, bg = std::begin( container ) ] ( const auto& cur )
 		{
 			for ( auto it = bg; it != cur; ++it )
-				if ( *it == *cur )
+				if ( predicate( *it, *cur ) )
 					return false;
 			return true;
 		} );

@@ -50,8 +50,11 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			if( !--depth )
-				owner.store( std::thread::id{}, std::memory_order::release );
+			if ( !--depth )
+			{
+				auto prev = owner.exchange( std::thread::id{}, std::memory_order::release );
+				dassert( prev == std::this_thread::get_id() );
+			}
 		}
 	};
 
@@ -103,16 +106,16 @@ namespace xstd
 		FORCE_INLINE void downgrade()
 		{
 			int32_t expected = -1;
-			dassert_s( counter.compare_exchange_strong( expected, 1, std::memory_order::release ) );
+			bool success = counter.compare_exchange_strong( expected, 1, std::memory_order::release );
+			dassert( success );
 		}
 		FORCE_INLINE void unlock()
 		{
-			int32_t expected = -1;
-			dassert_s( counter.compare_exchange_strong( expected, 0, std::memory_order::release ) );
+			counter = 0;
 		}
 		FORCE_INLINE void unlock_shared()
 		{
-			dassert_s( --counter >= 0 );
+			--counter;
 		}
 	};
 };

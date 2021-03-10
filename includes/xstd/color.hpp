@@ -164,12 +164,12 @@ namespace xstd
 		{
 			argb_t res;
 			float rs = 1 + src.s * ( cos( src.h ) - 1 );
-			float gs = 1 + src.s * ( cos( src.h - 2.09439 ) - 1 );
-			float bs = 1 + src.s * ( cos( src.h + 2.09439 ) - 1 );
-			res.b = ( uint8_t ) std::clamp<int>( bs * src.v * 256.0f, 0, 255 );
-			res.g = ( uint8_t ) std::clamp<int>( gs * src.v * 256.0f, 0, 255 );
-			res.r = ( uint8_t ) std::clamp<int>( rs * src.v * 256.0f, 0, 255 );
-			res.a = ( uint8_t ) std::clamp<int>( src.a * 256.0f, 0, 255 );
+			float gs = 1 + src.s * ( cos( src.h - 2.09439f ) - 1 );
+			float bs = 1 + src.s * ( cos( src.h + 2.09439f ) - 1 );
+			res.b = ( uint8_t ) std::clamp<float>( bs * src.v * 256.0f, 0, 255 );
+			res.g = ( uint8_t ) std::clamp<float>( gs * src.v * 256.0f, 0, 255 );
+			res.r = ( uint8_t ) std::clamp<float>( rs * src.v * 256.0f, 0, 255 );
+			res.a = ( uint8_t ) std::clamp<float>( src.a * 256.0f, 0, 255 );
 			return res;
 		}
 		else
