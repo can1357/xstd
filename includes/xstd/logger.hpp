@@ -369,7 +369,7 @@ namespace xstd
 		// Forward to f-log with a prefix and a color.
 		//
 		std::lock_guard _g{ logger_state };
-		flog<CON_YLW>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n[!] Warning: " ) );
+		flog<CON_YLW>( XSTD_CON_ERR_DST, XSTD_CSTR( "[!] Warning: " ) );
 		flog<CON_YLW>( XSTD_CON_ERR_DST, fmt_str, std::forward<Tx>( ps )... );
 		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
 #endif
@@ -427,7 +427,7 @@ namespace xstd
 		// Forward to f-log with a prefix and a color.
 		//
 		bool locked = logger_state.try_lock( 2s );
-		flog<CON_RED>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n[x] Error: " ) );
+		flog<CON_RED>( XSTD_CON_ERR_DST, XSTD_CSTR( "[x] Error: " ) );
 		flog<CON_RED>( XSTD_CON_ERR_DST, error );
 		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
 

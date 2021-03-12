@@ -155,7 +155,7 @@ namespace xstd::fmt
 		else if constexpr ( std::is_same_v<any_ptr, base_type> )
 		{
 			char buffer[ 17 ];
-			snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
+			snprintf( buffer, 17, XSTD_CSTR( "%p" ), ( void* ) x );
 			return std::string{ buffer };
 		}
 		else if constexpr ( std::is_same_v<base_type, int64_t> || std::is_same_v<base_type, uint64_t> )
