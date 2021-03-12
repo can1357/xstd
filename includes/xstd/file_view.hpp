@@ -11,7 +11,7 @@
 
 // Required imports.
 //
-#if ( WINDOWS_TARGET && not defined( GENERIC_READ ) )
+#if ( WINDOWS_TARGET && !defined( GENERIC_READ ) )
 	#pragma warning( push )
 	#pragma warning( disable: 4005)
 		#define INVALID_HANDLE_VALUE ((void*)(long long)-1)
