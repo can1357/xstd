@@ -29,15 +29,18 @@ namespace xstd
 		}
 	};
 
-	struct recursive_spinlock
+	template<DefaultConstructable CidGetter>
+	struct basic_recursive_spinlock
 	{
-		std::thread::id owner = {};
+		using cid_t = decltype( CidGetter{}() );
+
+		cid_t owner = {};
 		int32_t depth = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
-			recursive_spinlock expected = { {}, 0 };
-			recursive_spinlock desired = { std::this_thread::get_id(), 1 };
+			basic_recursive_spinlock expected = { {}, 0 };
+			basic_recursive_spinlock desired = { CidGetter{}(), 1 };
 			if ( cmpxchg( *this, expected, desired ) )
 			{
 				return true;
@@ -65,13 +68,18 @@ namespace xstd
 			}
 			else
 			{
-				auto thrd = std::this_thread::get_id();
-				recursive_spinlock expected = { thrd, 1 };
+				auto thrd = CidGetter{}();
+				basic_recursive_spinlock expected = { thrd, 1 };
 				bool success = cmpxchg( *this, expected, { {}, 0 } );
 				dassert( success );
 			}
 		}
 	};
+	namespace impl
+	{
+		inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); };
+	};
+	using recursive_spinlock = basic_recursive_spinlock<decltype(impl::get_tid)>;
 
 	struct shared_spinlock
 	{
