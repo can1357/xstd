@@ -59,10 +59,10 @@ namespace xstd::fmt
 		//
 		inline static std::string fix_type_name( std::string in )
 		{
-			static const std::string remove_list[] = {
-				XSTD_STR( "struct " ),
-				XSTD_STR( "class " ),
-				XSTD_STR( "enum " )
+			static const std::string_view remove_list[] = {
+				"struct ",
+				"class ",
+				"enum "
 			};
 			for ( auto& str : remove_list )
 			{
@@ -101,7 +101,7 @@ namespace xstd::fmt
 #if HAS_RTTI
 		return impl::fix_type_name( compiler_demangle_type_name( typeid( o ) ) );
 #else
-		return XSTD_STR( "???" );
+		return std::string{ "???" };
 #endif
 	}
 
@@ -173,7 +173,7 @@ namespace xstd::fmt
 		}
 		else if constexpr ( std::is_same_v<base_type, bool> )
 		{
-			return x ? XSTD_STR( "true" ) : XSTD_STR( "false" );
+			return x ? std::string{ "true" } : std::string{ "false" };
 		}
 		else if constexpr ( std::is_same_v<base_type, char> )
 		{
@@ -198,7 +198,7 @@ namespace xstd::fmt
 			if constexpr ( StringConvertible<typename std::pointer_traits<base_type>::element_type> )
 			{
 				if ( x ) return as_string( *x );
-				else     return XSTD_STR( "nullptr" );
+				else     return std::string{ "nullptr" };
 			}
 			else if constexpr ( std::is_pointer_v<base_type> )
 			{
@@ -228,7 +228,7 @@ namespace xstd::fmt
 		}
 		else if constexpr ( std::is_same_v<base_type, std::monostate> )
 		{
-			return XSTD_STR( "null" );
+			return std::string{ "null" };
 		}
 		else if constexpr ( std::is_same_v<base_type, std::filesystem::path> )
 		{
@@ -239,7 +239,7 @@ namespace xstd::fmt
 		else if constexpr ( is_specialization_v<std::pair, base_type> )
 		{
 			if constexpr ( StringConvertible<decltype( x.first )> && StringConvertible<decltype( x.second )> )
-				return '(' + as_string( x.first ) + XSTD_STR( ", " ) + as_string( x.second ) + ')';
+				return '(' + as_string( x.first ) + std::string{ ", " } + as_string( x.second ) + ')';
 			else return type_tag<T>{};
 		}
 		else if constexpr ( is_specialization_v<std::tuple, base_type> )
@@ -259,7 +259,7 @@ namespace xstd::fmt
 			}( );
 
 			if constexpr ( std::tuple_size_v<base_type> == 0 )
-				return XSTD_STR( "{}" );
+				return std::string{ "{}" };
 			else if constexpr ( is_tuple_str_cvtable )
 			{
 				std::string res = std::apply( [ ] ( auto&&... args )
@@ -287,7 +287,7 @@ namespace xstd::fmt
 			}();
 
 			if constexpr ( std::variant_size_v<base_type> == 0 )
-				return XSTD_STR( "{}" );
+				return std::string{ "{}" };
 			else if constexpr ( is_variant_str_cvtable )
 			{
 				return "{" + std::visit( [ ] ( auto&& arg )
@@ -304,7 +304,7 @@ namespace xstd::fmt
 				if ( x.has_value() )
 					return as_string( x.value() );
 				else
-					return XSTD_STR( "nullopt" );
+					return std::string{ "nullopt" };
 			}
 			else return type_tag<T>{};
 		}
@@ -320,7 +320,7 @@ namespace xstd::fmt
 			{
 				std::string items = {};
 				for ( auto&& entry : x )
-					items += as_string( entry ) + XSTD_STR( ", " );
+					items += as_string( entry ) + std::string{ ", " };
 				if ( !items.empty() ) items.resize( items.size() - 2 );
 				return '{' + items + '}';
 			}

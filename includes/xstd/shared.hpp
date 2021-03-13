@@ -172,7 +172,7 @@ namespace xstd
 
 		// String conversion.
 		//
-		inline std::string to_string() const { return alive() ? fmt::as_string( *get() ) : XSTD_STR( "nullptr" ); }
+		inline std::string to_string() const { return alive() ? fmt::as_string( *get() ) : std::string{ "nullptr" }; }
 
 		// Resets the pointer to nullptr.
 		//

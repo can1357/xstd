@@ -293,7 +293,7 @@ namespace xstd
 		std::string to_string() const
 		{
 			if ( pending() )
-				return XSTD_STR( "(Pending)" );
+				return std::string{ "(Pending)" };
 			else if ( fulfilled() )
 				return fmt::str( "(Fulfilled='%s')", fmt::as_string( result.value() ) );
 			else
