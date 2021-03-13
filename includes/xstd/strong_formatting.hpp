@@ -60,9 +60,9 @@ namespace xstd::fmt
 	struct byte_count
 	{
 		inline static const std::array unit_abbrv = {
-			XSTD_CSTR( "b" ),  XSTD_CSTR( "kb" ),
-			XSTD_CSTR( "mb" ), XSTD_CSTR( "gb" ),
-			XSTD_CSTR( "tb" ), XSTD_CSTR( "pb" )
+			"b",  "kb",
+			"mb", "gb",
+			"tb", "pb"
 		};
 		inline static const std::array unit_size = xstd::make_constant_series<std::size( unit_abbrv )>( [ ] ( auto n )
 		{
@@ -96,7 +96,7 @@ namespace xstd::fmt
 			// Convert float to string.
 			//
 			char buffer[ 32 ];
-			snprintf( buffer, 32, XSTD_CSTR( "%.1lf%s" ), fvalue / unit_size[ n ], unit_abbrv );
+			snprintf( buffer, 32, "%.1lf%s", fvalue / unit_size[ n ], unit_abbrv );
 			return buffer;
 		}
 	};
@@ -138,7 +138,7 @@ namespace xstd::fmt
 		std::string to_string() const
 		{
 			char buffer[ 32 ];
-			snprintf( buffer, 32, XSTD_CSTR( "%.2lf%%" ), double( value * 100 ) );
+			snprintf( buffer, 32, "%.2lf%%", double( value * 100 ) );
 			return buffer;
 		}
 	};

@@ -189,7 +189,7 @@ namespace xstd
 		//
 		std::string to_string() const
 		{
-			return XSTD_CSTR( "[" ) + fmt::as_string( first ) + XSTD_CSTR( ", " ) + fmt::as_string( limit ) + XSTD_CSTR( ")" );
+			return "[" + fmt::as_string( first ) + ", " + fmt::as_string( limit ) + ")";
 		}
 
 		// Automatic serialization.

@@ -295,9 +295,9 @@ namespace xstd
 			if ( pending() )
 				return XSTD_STR( "(Pending)" );
 			else if ( fulfilled() )
-				return fmt::str( XSTD_CSTR( "(Fulfilled='%s')" ), fmt::as_string( result.value() ) );
+				return fmt::str( "(Fulfilled='%s')", fmt::as_string( result.value() ) );
 			else
-				return fmt::str( XSTD_CSTR( "(Rejected='%s')" ), result.message() );
+				return fmt::str( "(Rejected='%s')", result.message() );
 		}
 
 		// Reject the promise on deconstruction if not completed.

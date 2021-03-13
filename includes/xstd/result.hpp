@@ -122,11 +122,11 @@ namespace xstd
 		std::string to_string() const
 		{
 			if ( fail() ) 
-				return fmt::str( XSTD_CSTR( "(Fail='%s')" ), message() );
+				return fmt::str( "(Fail='%s')", message() );
 			if constexpr ( StringConvertible<Value> ) 
-				return fmt::str( XSTD_CSTR( "(Result='%s')" ), fmt::as_string( result ) );
+				return fmt::str( "(Result='%s')", fmt::as_string( result ) );
 			else                                    
-				return XSTD_CSTR( "(Success)" );
+				return "(Success)";
 		}
 
 		// For accessing the value, replicate the std::optional interface.

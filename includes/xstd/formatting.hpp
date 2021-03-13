@@ -155,7 +155,7 @@ namespace xstd::fmt
 		else if constexpr ( std::is_same_v<any_ptr, base_type> )
 		{
 			char buffer[ 17 ];
-			snprintf( buffer, 17, XSTD_CSTR( "%p" ), ( void* ) x );
+			snprintf( buffer, 17, "%p", ( void* ) x );
 			return std::string{ buffer };
 		}
 		else if constexpr ( std::is_same_v<base_type, int64_t> || std::is_same_v<base_type, uint64_t> )
@@ -165,11 +165,11 @@ namespace xstd::fmt
 				if ( x < 0 )
 				{
 					char buffer[ 16 + 4 ];
-					return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), XSTD_CSTR( "-0x%llx" ), -x ) };
+					return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), "-0x%llx", -x ) };
 				}
 			}
 			char buffer[ 16 + 3 ];
-			return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), XSTD_CSTR( "0x%llx" ), x ) };
+			return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), "0x%llx", x ) };
 		}
 		else if constexpr ( std::is_same_v<base_type, bool> )
 		{
@@ -178,7 +178,7 @@ namespace xstd::fmt
 		else if constexpr ( std::is_same_v<base_type, char> )
 		{
 			char buffer[ 6 ];
-			snprintf( buffer, 6, isgraph( x ) ? XSTD_CSTR( "'%c'" ) : XSTD_CSTR( "'\\%02x'" ), x );
+			snprintf( buffer, 6, isgraph( x ) ? "'%c'" : "'\\%02x'", x );
 			return std::string{ buffer };
 		}
 		else if constexpr ( StdStringConvertible<T> )
@@ -203,7 +203,7 @@ namespace xstd::fmt
 			else if constexpr ( std::is_pointer_v<base_type> )
 			{
 				char buffer[ 17 ];
-				snprintf( buffer, 17, XSTD_CSTR( "%p" ), x );
+				snprintf( buffer, 17, "%p", x );
 				return std::string{ buffer };
 			}
 			else return type_tag<T>{};
@@ -423,12 +423,12 @@ namespace xstd::fmt
 	{
 		if constexpr ( !std::is_signed_v<T> )
 		{
-			return str( XSTD_CSTR( "0x%llx" ), value );
+			return str( "0x%llx", value );
 		}
 		else
 		{
-			if ( value >= 0 ) return str( XSTD_CSTR( "0x%llx" ), value );
-			else              return str( XSTD_CSTR( "-0x%llx" ), -value );
+			if ( value >= 0 ) return str( "0x%llx", value );
+			else              return str( "-0x%llx", -value );
 		}
 	}
 
@@ -436,8 +436,8 @@ namespace xstd::fmt
 	//
 	inline static std::string offset( int64_t value )
 	{
-		if ( value >= 0 ) return str( XSTD_CSTR( "+ 0x%llx" ), value );
-		else              return str( XSTD_CSTR( "- 0x%llx" ), -value );
+		if ( value >= 0 ) return str( "+ 0x%llx", value );
+		else              return str( "- 0x%llx", -value );
 	}
 };
 #undef HAS_RTTI

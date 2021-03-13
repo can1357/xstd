@@ -73,7 +73,7 @@ namespace xstd
 		std::string to_string() const
 		{
 			char str[ 16 + 3 ] = {};
-			snprintf( str, std::size( str ), XSTD_CSTR( "0x%llx" ), value );
+			snprintf( str, std::size( str ), "0x%llx", value );
 			return str;
 		}
 

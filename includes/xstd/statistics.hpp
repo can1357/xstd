@@ -222,7 +222,7 @@ namespace xstd
 		inline std::string stats_sorted( C&& c )
 		{
 			return str(
-				XSTD_CSTR( "{'%.2f, [%.2f], %.2f, [%.2f], %.2f' | E(x)=%.2f | var(x)=%.2f | mode(x)=%.2f}" ),
+				"{'%.2f, [%.2f], %.2f, [%.2f], %.2f' | E(x)=%.2f | var(x)=%.2f | mode(x)=%.2f}",
 				percentile<double>( c, 0 ),
 				percentile<double>( c, 0.25 ),
 				percentile<double>( c, 0.5 ),

@@ -120,14 +120,14 @@ namespace xstd::http
 		{
 			// Read the line.
 			//
-			size_t i = input.find( XSTD_CSTR( "\r\n" ) );
+			size_t i = input.find( "\r\n" );
 			if ( i == std::string::npos )
 				break;
 			std::string_view line = input.substr( 0, i );
 
 			// Find the ending of the key.
 			//
-			size_t key_end = line.find( XSTD_CSTR( ": " ) );
+			size_t key_end = line.find( ": " );
 			if ( key_end == std::string::npos )
 				break;
 
@@ -167,27 +167,27 @@ namespace xstd::http
 		//
 		dassert( header.method < method_id::maximum );
 		auto& method = method_map[ size_t( header.method ) ];
-		output.reserve( output.size() + method.size() + 1 + header.path.size() + 1 + strlen( XSTD_CSTR( "HTTP/1.1\r\n" ) ) );
+		output.reserve( output.size() + method.size() + 1 + header.path.size() + 1 + strlen( "HTTP/1.1\r\n" ) );
 		output += method;
 		output += ' ';
 		output += header.path;
 		output += ' ';
-		output += XSTD_CSTR( "HTTP/1.1\r\n" );
+		output += "HTTP/1.1\r\n";
 	}
 	template<RequestHeader T>
 	inline bool read( std::string_view& input, T& header )
 	{
 		// Read the line.
 		//
-		size_t i = input.find( XSTD_CSTR( "\r\n" ) );
+		size_t i = input.find( "\r\n" );
 		if ( i == std::string::npos ) return false;
 		std::string_view line = input.substr( 0, i );
 
 		// Check the HTTP version and erase the suffix.
 		//
-		if ( !line.ends_with( XSTD_CSTR( " HTTP/1.1\r\n" ) ) )
+		if ( !line.ends_with( " HTTP/1.1\r\n" ) )
 			return false;
-		line.remove_suffix( strlen( XSTD_CSTR( " HTTP/1.1\r\n" ) ) );
+		line.remove_suffix( strlen( " HTTP/1.1\r\n" ) );
 
 		// Read the method and hash the name.
 		//
@@ -233,27 +233,27 @@ namespace xstd::http
 		//
 		dassert( header.method < method_id::maximum );
 		auto& method = method_map[ size_t( header.method ) ];
-		output.reserve( output.size() + strlen( XSTD_CSTR( "HTTP/1.1 " ) ) + 5 + header.message.size() + 2 );
-		output += XSTD_CSTR( "HTTP/1.1 " );
+		output.reserve( output.size() + strlen( "HTTP/1.1 " ) + 5 + header.message.size() + 2 );
+		output += "HTTP/1.1 ";
 		output += std::to_string( header.status );
 		output += ' ';
 		output += header.message;
-		output += XSTD_CSTR( "\r\n" );
+		output += "\r\n";
 	}
 	template<ResponseHeader T>
 	inline bool read( std::string_view& input, T& header )
 	{
 		// Read the line.
 		//
-		size_t i = input.find( XSTD_CSTR( "\r\n" ) );
+		size_t i = input.find( "\r\n" );
 		if ( i == std::string::npos ) return false;
 		std::string_view line = input.substr( 0, i );
 
 		// Check the HTTP version and erase the prefix.
 		//
-		if ( !line.starts_with( XSTD_CSTR( "HTTP/1.1 " ) ) )
+		if ( !line.starts_with( "HTTP/1.1 " ) )
 			return false;
-		line.remove_prefix( strlen( XSTD_CSTR( "HTTP/1.1 " ) ) );
+		line.remove_prefix( strlen( "HTTP/1.1 " ) );
 
 		// Read the status and convert to an integer.
 		//
@@ -293,7 +293,7 @@ namespace xstd::http
 
 			// Find the line end and get the integer.
 			//
-			size_t i = buffer_view.find( XSTD_CSTR( "\r\n" ) );
+			size_t i = buffer_view.find( "\r\n" );
 			std::string_view integer = buffer_view.substr( i );
 
 			// Make sure it does not contain anything besides 0-9, a-f, A-F.
@@ -367,11 +367,11 @@ namespace xstd::http
 
 			// If there is a body and Content-Length is not set, do so.
 			//
-			if ( !body.empty() && !headers.contains( XSTD_CSTR( "Content-Length" ) ) )
+			if ( !body.empty() && !headers.contains( "Content-Length" ) )
 			{
-				output += XSTD_CSTR( "Content-Length: " );
+				output += "Content-Length: ";
 				output += std::to_string( body.size() );
-				output += XSTD_CSTR( "\r\n" );
+				output += "\r\n";
 			}
 			return output;
 		}
@@ -381,7 +381,7 @@ namespace xstd::http
 		std::string write() const
 		{
 			std::string result = write_headers();
-			result += XSTD_CSTR( "\r\n" );
+			result += "\r\n";
 			result.insert( result.end(), body.begin(), body.end() );
 			return result;
 		}
@@ -420,13 +420,13 @@ namespace xstd::http
 
 			// Skip the newline.
 			//
-			if ( !input.starts_with( XSTD_CSTR( "\r\n" ) ) )
+			if ( !input.starts_with( "\r\n" ) )
 				return std::nullopt;
 			input.remove_prefix( 2 );
 
 			// Get content length.
 			//
-			auto clen_it = result.headers.find( XSTD_CSTR( "Content-Length" ) );
+			auto clen_it = result.headers.find( "Content-Length" );
 			result.content_length = 0;
 			if ( clen_it != result.headers.end() )
 				result.content_length = parse_number<size_t>( clen_it->second );
@@ -441,7 +441,7 @@ namespace xstd::http
 				// Handle the transfer encodings and read the body. If not fully consumed or if size does not match, will fail. 
 				// This is a oneshot decoder, for more specialized use cases user should use the underlying details.
 				//
-				if ( auto it = result.headers.find( XSTD_CSTR( "Transfer-Encoding" ) ); it != result.headers.end() && !istrcmp( it->second, XSTD_CSTR( "chunked" ) ) )
+				if ( auto it = result.headers.find( "Transfer-Encoding" ); it != result.headers.end() && !istrcmp( it->second, "chunked" ) )
 				{
 					
 					if ( !decode_chunked( result.body, input ) || input.empty() )

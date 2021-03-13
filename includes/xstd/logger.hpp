@@ -207,15 +207,15 @@ namespace xstd
 #if !XSTD_CON_NO_COLORS
 			switch ( color )
 			{
-				case CON_BRG: return XSTD_CSTR( ANSI_ESCAPE( "1;37m" ) );
-				case CON_YLW: return XSTD_CSTR( ANSI_ESCAPE( "1;33m" ) );
-				case CON_PRP: return XSTD_CSTR( ANSI_ESCAPE( "1;35m" ) );
-				case CON_RED: return XSTD_CSTR( ANSI_ESCAPE( "1;31m" ) );
-				case CON_CYN: return XSTD_CSTR( ANSI_ESCAPE( "1;36m" ) );
-				case CON_GRN: return XSTD_CSTR( ANSI_ESCAPE( "1;32m" ) );
-				case CON_BLU: return XSTD_CSTR( ANSI_ESCAPE( "1;34m" ) );
+				case CON_BRG: return ANSI_ESCAPE( "1;37m" );
+				case CON_YLW: return ANSI_ESCAPE( "1;33m" );
+				case CON_PRP: return ANSI_ESCAPE( "1;35m" );
+				case CON_RED: return ANSI_ESCAPE( "1;31m" );
+				case CON_CYN: return ANSI_ESCAPE( "1;36m" );
+				case CON_GRN: return ANSI_ESCAPE( "1;32m" );
+				case CON_BLU: return ANSI_ESCAPE( "1;34m" );
 				case CON_DEF:
-				default:      return XSTD_CSTR( ANSI_ESCAPE( "0m" ) );
+				default:      return ANSI_ESCAPE( "0m" );
 			}
 #else
 			return "";
@@ -240,12 +240,12 @@ namespace xstd
 					{
 						if ( ( i + 1 ) == pad_by )
 						{
-							out_cnt += fprintf( dst, XSTD_CSTR( "%*c" ), log_padding_step - 1, ' ' );
+							out_cnt += fprintf( dst, "%*c", log_padding_step - 1, ' ' );
 							if ( cstr[ 0 ] == ' ' ) putchar( log_padding_c );
 						}
 						else
 						{
-							out_cnt += fprintf( dst, XSTD_CSTR( "%*c%c" ), log_padding_step - 1, ' ', log_padding_c );
+							out_cnt += fprintf( dst, "%*c%c", log_padding_step - 1, ' ', log_padding_c );
 						}
 					}
 				}
@@ -369,9 +369,9 @@ namespace xstd
 		// Forward to f-log with a prefix and a color.
 		//
 		std::lock_guard _g{ logger_state };
-		flog<CON_YLW>( XSTD_CON_ERR_DST, XSTD_CSTR( "[!] Warning: " ) );
+		flog<CON_YLW>( XSTD_CON_ERR_DST, "[!] Warning: " );
 		flog<CON_YLW>( XSTD_CON_ERR_DST, fmt_str, std::forward<Tx>( ps )... );
-		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
+		flog<CON_DEF>( XSTD_CON_ERR_DST, "\n" );
 #endif
 	}
 
@@ -427,9 +427,9 @@ namespace xstd
 		// Forward to f-log with a prefix and a color.
 		//
 		bool locked = logger_state.try_lock( 2s );
-		flog<CON_RED>( XSTD_CON_ERR_DST, XSTD_CSTR( "[x] Error: " ) );
+		flog<CON_RED>( XSTD_CON_ERR_DST, "[x] Error: " );
 		flog<CON_RED>( XSTD_CON_ERR_DST, error );
-		flog<CON_DEF>( XSTD_CON_ERR_DST, XSTD_CSTR( "\n" ) );
+		flog<CON_DEF>( XSTD_CON_ERR_DST, "\n" );
 
 		// Flush the files.
 		//

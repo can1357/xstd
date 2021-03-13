@@ -56,7 +56,7 @@ namespace xstd
 			using T = std::chrono::duration<double, Period>;
 			T fduration = std::chrono::duration_cast<T>( duration );
 
-			static constexpr std::array abbreviations = { XSTD_CSTR( "ns" ), XSTD_CSTR( "ms" ), XSTD_CSTR( "sec" ), XSTD_CSTR( "min" ), XSTD_CSTR( "hrs" ) };
+			static constexpr std::array abbreviations = { "ns", "ms", "sec", "min", "hrs" };
 			static constexpr std::array durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
 			{
 				return std::chrono::duration_cast<T>( 
@@ -77,7 +77,7 @@ namespace xstd
 			// Convert float to string.
 			//
 			char buffer[ 32 ];
-			snprintf( buffer, 32, XSTD_CSTR( "%s%.2lf%s" ), sign ? "-" : "", fduration / durations[ n ], abbreviations[ n ] );
+			snprintf( buffer, 32, "%s%.2lf%s", sign ? "-" : "", fduration / durations[ n ], abbreviations[ n ] );
 			return buffer;
 		}
 

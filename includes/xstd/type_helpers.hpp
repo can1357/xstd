@@ -88,7 +88,7 @@ namespace xstd
 		template<auto vvvv__identifier__vvvv = v>
 		static constexpr std::string_view to_string()
 		{
-			std::string_view sig = XSTD_CSTR( FUNCTION_NAME );
+			std::string_view sig = FUNCTION_NAME;
 			auto [begin, delta, end] = std::tuple{
 #if MS_COMPILER
 				std::string_view{ "<" },                      0,  ">"

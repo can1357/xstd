@@ -19,18 +19,14 @@
 #endif
 
 // [Configuration]
-// XSTD_STR, XSTD_CSTR: Easy to override macro to control any strings emitted into binary, 
-// _C prefix means it should be returning a C string instead.
+// XSTD_STR, XSTD_ESTR: Easy to override macro to control any strings emitted into binary, 
 // _E prefix means that this is an error string in the form of a C string.
 //
 #ifndef XSTD_STR
     #define XSTD_STR(x) std::string{x}
 #endif
-#ifndef XSTD_CSTR
-    #define XSTD_CSTR(x) (x)
-#endif
 #ifndef XSTD_ESTR
-    #define XSTD_ESTR(x) XSTD_CSTR(x)
+    #define XSTD_ESTR(x) (x)
 #endif
 
 // Determine compiler support for C++20 constant evaluation.
