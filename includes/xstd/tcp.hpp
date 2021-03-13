@@ -27,7 +27,7 @@ namespace xstd::tcp
 
 		// Transmission queues.
 		//
-		xstd::recursive_spinlock tx_lock;
+		xstd::spinlock tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::string, size_t>> tx_queue;
@@ -66,6 +66,18 @@ namespace xstd::tcp
 		{
 			if ( this->is_closed() ) return;
 			std::lock_guard _g{ tx_lock };
+
+			// Clear the acknowledgment queue.
+			//
+			for ( auto it = ack_queue.begin(); it != ack_queue.end(); )
+			{
+				if ( it->second > last_ack_id )
+					break;
+				it = ack_queue.erase( it );
+			}
+
+			// Write back the transaction queue.
+			//
 			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
 			{
 				// Try writing it to the socket.
@@ -116,16 +128,7 @@ namespace xstd::tcp
 		{
 			if ( this->is_closed() ) return;
 
-			// Delete every entry from acknowledgment queue where the id is below the new one.
-			//
-			std::lock_guard _g{ tx_lock };
-			size_t new_id = ( last_ack_id += n );
-			for ( auto it = ack_queue.begin(); it != ack_queue.end(); )
-			{
-				if ( it->second > new_id )
-					break;
-				it = ack_queue.erase( it );
-			}
+			last_ack_id += n;
 		}
 
 		// Invoked by network layer to indicate the socket received data.
