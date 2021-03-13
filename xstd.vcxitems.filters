@@ -7,9 +7,6 @@
     <Filter Include="Misc">
       <UniqueIdentifier>{e4b12102-ba84-4791-87d6-9693f3c4c95c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Numeric">
-      <UniqueIdentifier>{d2c97606-7bf3-4c20-9d7b-675b7c25e27d}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Ranges">
       <UniqueIdentifier>{16e6d8ed-60e2-4e49-9445-aa6de7892f3f}</UniqueIdentifier>
     </Filter>
@@ -30,6 +27,9 @@
     </Filter>
     <Filter Include="Containers">
       <UniqueIdentifier>{525f5d4d-50c1-4360-b352-383a36cc32e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Numeric">
+      <UniqueIdentifier>{d2c97606-7bf3-4c20-9d7b-675b7c25e27d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
