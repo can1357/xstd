@@ -240,9 +240,10 @@ MUST_MATCH( DEBUG_BUILD );
     #endif
 #endif
 
-// Define unreachable() / debugbreak() / fastfail(x).
+// Define assume() / unreachable() / debugbreak() / fastfail(x).
 //
 #if MS_COMPILER
+    #define assume(...) __assume(__VA_ARGS__)
     #define unreachable() __assume(0)
     #define debugbreak() __debugbreak()
     __forceinline static void fastfail [[noreturn]] ( int status )
@@ -251,6 +252,7 @@ MUST_MATCH( DEBUG_BUILD );
         unreachable();
     }
 #else
+    #define assume(...) __builtin_assume(__VA_ARGS__)
     #if __has_builtin(__builtin_unreachable)
         #define unreachable() __builtin_unreachable()
     #elif __has_builtin(__builtin_trap)

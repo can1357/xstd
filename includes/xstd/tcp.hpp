@@ -127,7 +127,6 @@ namespace xstd::tcp
 		void on_socket_ack( size_t n )
 		{
 			if ( this->is_closed() ) return;
-
 			last_ack_id += n;
 		}
 
