@@ -4,6 +4,7 @@
 #include <array>
 #include <mutex>
 #include <string_view>
+#include "spinlock.hpp"
 #include "type_helpers.hpp"
 #include "promise.hpp"
 
@@ -22,11 +23,11 @@ namespace xstd::tcp
 		//
 		size_t rx_buffer_offset = 0;
 		std::string rx_buffer;
-		std::mutex rx_lock;
+		xstd::spinlock rx_lock;
 
 		// Transmission queues.
 		//
-		std::mutex tx_lock;
+		xstd::spinlock tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::string, size_t>> tx_queue;

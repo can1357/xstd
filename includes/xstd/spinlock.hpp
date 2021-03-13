@@ -18,7 +18,10 @@ namespace xstd
 		FORCE_INLINE void lock()
 		{
 			while ( !try_lock() )
-				yield_cpu();
+			{
+				while ( value )
+					yield_cpu();
+			}
 		}
 		FORCE_INLINE void unlock()
 		{
@@ -46,7 +49,10 @@ namespace xstd
 		FORCE_INLINE void lock()
 		{
 			while ( !try_lock() )
-				yield_cpu();
+			{
+				while( owner != std::thread::id{} )
+					yield_cpu();
+			}
 		}
 		FORCE_INLINE void unlock()
 		{
@@ -87,12 +93,18 @@ namespace xstd
 		FORCE_INLINE void lock()
 		{
 			while ( !try_lock() )
-				yield_cpu();
+			{
+				while ( counter != 0 )
+					yield_cpu();
+			}
 		}
 		FORCE_INLINE void lock_shared()
 		{
 			while ( !try_lock_shared() )
-				yield_cpu();
+			{
+				while ( counter == -1 )
+					yield_cpu();
+			}
 		}
 		FORCE_INLINE void upgrade()
 		{

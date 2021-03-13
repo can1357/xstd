@@ -1,7 +1,6 @@
 #pragma once
 #include <atomic>
 #include <memory>
-#include <mutex>
 #include <functional>
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
@@ -43,7 +42,7 @@ namespace xstd
 		using waiter_type =    std::function<void( store_type&, duration )>;
 		static constexpr bool has_value = !std::is_same_v<value_type, std::monostate>;
 		
-		// List of callbacks guarded by a mutex.
+		// List of callbacks guarded by a spinlock.
 		//
 		spinlock cb_lock = {};
 		std::vector<callback_type> cb_list;

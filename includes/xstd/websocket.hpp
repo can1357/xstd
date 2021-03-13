@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 #include <optional>
-#include <mutex>
+#include "spinlock.hpp"
 #include "time.hpp"
 #include "random.hpp"
 #include "tcp.hpp"
@@ -223,7 +223,7 @@ namespace xstd::ws
 
 		// Receive buffer and the state of the fragmentation handlers.
 		//
-		std::mutex receive_mutex;
+		xstd::spinlock receive_spinlock;
 		std::optional<std::pair<header, std::vector<uint8_t>>> fragmented_packet;
 
 		// Implemented by the application layer.
@@ -380,7 +380,7 @@ namespace xstd::ws
 			//
 			else if ( hdr.op == opcode::continuation )
 			{
-				std::unique_lock lock{ receive_mutex };
+				std::unique_lock lock{ receive_spinlock };
 
 				// If no unfinished packet exists, terminate due to corrupt stream.
 				//
@@ -424,7 +424,7 @@ namespace xstd::ws
 
 				// Save the fragmented packet.
 				//
-				std::unique_lock lock{ receive_mutex };
+				std::unique_lock lock{ receive_spinlock };
 				auto& buf = fragmented_packet.emplace( std::pair{ hdr, std::vector<uint8_t>{} } ).second;
 				buf.insert( buf.end(), data_buffer.begin(), data_buffer.end() );
 			}
