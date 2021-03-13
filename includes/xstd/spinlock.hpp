@@ -31,35 +31,44 @@ namespace xstd
 
 	struct recursive_spinlock
 	{
-		std::atomic<std::thread::id> owner = {};
+		std::thread::id owner = {};
 		int32_t depth = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
-			std::thread::id expected = {};
-			std::thread::id desired = std::this_thread::get_id();
-			if ( !owner.compare_exchange_strong( expected, desired, std::memory_order::acquire ) )
+			recursive_spinlock expected = { {}, 0 };
+			recursive_spinlock desired = { std::this_thread::get_id(), 1 };
+			if ( cmpxchg( *this, expected, desired ) )
 			{
-				if ( desired != expected )
-					return false;
+				return true;
 			}
-			++depth;
-			return true;
+			else if ( desired.owner == expected.owner )
+			{
+				++depth;
+				return true;
+			}
+			return false;
 		}
 		FORCE_INLINE void lock()
 		{
 			while ( !try_lock() )
 			{
-				while( owner != std::thread::id{} )
+				while( depth != 0 )
 					yield_cpu();
 			}
 		}
 		FORCE_INLINE void unlock()
 		{
-			if ( !--depth )
+			if ( depth != 1 )
 			{
-				auto prev = owner.exchange( std::thread::id{}, std::memory_order::release );
-				dassert( prev == std::this_thread::get_id() );
+				--depth;
+			}
+			else
+			{
+				auto thrd = std::this_thread::get_id();
+				recursive_spinlock expected = { thrd, 1 };
+				bool success = cmpxchg( *this, expected, { {}, 0 } );
+				dassert( success );
 			}
 		}
 	};
