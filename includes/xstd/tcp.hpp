@@ -27,7 +27,7 @@ namespace xstd::tcp
 
 		// Transmission queues.
 		//
-		xstd::spinlock tx_lock;
+		xstd::recursive_spinlock tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::string, size_t>> tx_queue;
