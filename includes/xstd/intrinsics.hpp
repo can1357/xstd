@@ -179,11 +179,11 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 // Declare function attributes.
 //
 #if GNU_COMPILER
-    #define PURE         __attribute__((pure))
+    #define PURE_FN      __attribute__((pure))
     #define FORCE_INLINE __attribute__((always_inline))
     #define NO_INLINE    __attribute__((noinline))
 #else
-    #define PURE         
+    #define PURE_FN
     #define FORCE_INLINE __forceinline
     #define NO_INLINE    __declspec(noinline)
 #endif

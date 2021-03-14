@@ -358,7 +358,7 @@ namespace xstd
 
 		// Manual reference management.
 		//
-		inline store_type* get_store() const { return ( store_type* ) this; }
+		inline store_type* get_store() const { return xstd::ptr_at( this, -xstd::make_offset( &store_type::value ) ); }
 		inline bool inc_ref() const { return get_store()->inc_ref(); }
 		inline void inc_weak_ref() const { get_store()->inc_weak_ref(); }
 		inline bool dec_ref() const { return get_store()->dec_ref(); }
