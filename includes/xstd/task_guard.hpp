@@ -83,25 +83,32 @@ namespace xstd
 		{
 			// Raise the priority and lock.
 			//
+#if XSTD_HAS_TASK_PRIORITY
 			auto prev = raise( raised );
+#endif
 			mutex.lock();
 
+#if XSTD_HAS_TASK_PRIORITY
 			// If not recursive, store the previous priority.
 			//
 			if ( !ex_depth++ )
 				ex_tp.store( prev, std::memory_order::acquire );
 			else
 				dassert( prev == TP );
+#endif
 		}
 		__forceinline bool try_lock( bool raised = false ) requires TryLockable<Mutex>
 		{
 			// Raise the prioriy and attempt at locking.
 			//
+#if XSTD_HAS_TASK_PRIORITY
 			auto prev = raise( raised );
+#endif
 			bool state = mutex.try_lock();
 
 			// If successful, store the priority if not recursive.
 			//
+#if XSTD_HAS_TASK_PRIORITY
 			if ( state )
 			{
 				if ( !ex_depth++ )
@@ -115,6 +122,7 @@ namespace xstd
 			{
 				lower( prev );
 			}
+#endif
 			return state;
 		}
 
@@ -128,6 +136,7 @@ namespace xstd
 			auto prev = raise( raised );
 			bool state = mutex.try_lock_for( dur );
 
+#if XSTD_HAS_TASK_PRIORITY
 			// If successful, store the priority if not recursive.
 			//
 			if ( state )
@@ -143,6 +152,7 @@ namespace xstd
 			{
 				lower( prev );
 			}
+#endif
 			return state;
 		}
 		template<Timestamp T>
@@ -151,8 +161,9 @@ namespace xstd
 			// Raise the prioriy and attempt at locking.
 			//
 			auto prev = raise( raised );
-			bool state = mutex.try_lock_for( st );
+			bool state = mutex.try_lock_until( st );
 
+#if XSTD_HAS_TASK_PRIORITY
 			// If successful, store the priority if not recursive.
 			//
 			if ( state )
@@ -168,6 +179,7 @@ namespace xstd
 			{
 				lower( prev );
 			}
+#endif
 			return state;
 		}
 		__forceinline void unlock()
@@ -175,11 +187,15 @@ namespace xstd
 			// Load the previous task priority, if we're last in the recursive chain (if relevant at all), 
 			// lower to the previous task priority.
 			//
+#if XSTD_HAS_TASK_PRIORITY
 			auto prev = ex_tp.load( std::memory_order::acquire );
 			auto ndepth = --ex_depth;
+#endif
 			mutex.unlock();
+#if XSTD_HAS_TASK_PRIORITY
 			if ( !ndepth )
 				lower( prev );
+#endif
 		}
 
 		// Shared redirects ignore task priority checks.

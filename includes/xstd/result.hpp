@@ -160,9 +160,6 @@ namespace xstd
 			else
 				return &value(); 
 		}
-		constexpr Value& operator*() & { return value(); }
-		constexpr Value&& operator*() && { return std::move( *this ).value(); }
-		constexpr const Value& operator*() const & { return value(); }
 		constexpr decltype( auto ) operator->() const
 		{
 			if constexpr ( PointerLike<Value> )
@@ -170,6 +167,9 @@ namespace xstd
 			else
 				return &value();
 		}
+		constexpr Value& operator*() & { return value(); }
+		constexpr Value&& operator*() && { return std::move( *this ).value(); }
+		constexpr const Value& operator*() const & { return value(); }
 	};
 
 	template<typename T = std::monostate, typename S = bool>
