@@ -207,7 +207,6 @@ namespace xstd
             {
                 shared<T> ret{ p };
                 ret.entry->inc_ref();
-                ret.entry->value
                 return ret;
             }
             return nullptr;
