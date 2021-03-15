@@ -10,7 +10,6 @@
 #include "event.hpp"
 #include "time.hpp"
 #include "spinlock.hpp"
-#include "shared.hpp"
 
 // [[Configuration]]
 // XSTD_NO_AWAIT: If set disables the macro-based await keyword.
@@ -25,12 +24,12 @@ namespace xstd
 	template<typename T = std::monostate, template<typename> typename R = string_result>
 	struct promise_base;
 	template<typename T = std::monostate, template<typename> typename R = string_result>
-	using promise = shared<promise_base<T, R>>;
+	using promise = std::shared_ptr<promise_base<T, R>>;
 
 	// Declare the base promise implementation.
 	//
 	template<typename T, template<typename> typename R>
-	struct promise_base : reference_counted<promise_base<T, R>>
+	struct promise_base : std::enable_shared_from_this<promise_base<T, R>>
 	{
 		// Promise traits.
 		//
@@ -45,11 +44,11 @@ namespace xstd
 		// List of callbacks guarded by a spinlock.
 		//
 		spinlock cb_lock = {};
-		std::vector<callback_type> cb_list;
+		std::vector<callback_type> cb_list = {};
 
 		// Resulting value or the status, constant after flag is set.
 		//
-		store_type result;
+		store_type result = {};
 		
 		// Event for when the store gets set.
 		//
@@ -310,7 +309,7 @@ namespace xstd
 	template<typename T = std::monostate, template<typename> typename R = string_result, typename... Tx>
 	inline promise<T, R> make_promise( Tx&&... args )
 	{
-		return xstd::make_shared<promise_base<T, R>>( std::forward<Tx>( args )... );
+		return std::make_shared<promise_base<T, R>>( std::forward<Tx>( args )... );
 	}
 	template<typename T = std::monostate, template<typename> typename R = string_result, typename... Tx>
 	inline promise<T, R> make_rejected_promise( Tx&&... status )
