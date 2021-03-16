@@ -135,8 +135,7 @@ namespace xstd
 		FORCE_INLINE void downgrade()
 		{
 			int32_t expected = -1;
-			bool success = counter.compare_exchange_strong( expected, 1, std::memory_order::release );
-			dassert( success );
+			dassert_s( counter.compare_exchange_strong( expected, 1, std::memory_order::release ) );
 		}
 		FORCE_INLINE void unlock()
 		{
