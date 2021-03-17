@@ -180,10 +180,12 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 //
 #if GNU_COMPILER
     #define PURE_FN      __attribute__((pure))
+    #define FLATTEN      __attribute__((flatten))
     #define FORCE_INLINE __attribute__((always_inline))
     #define NO_INLINE    __attribute__((noinline))
 #else
     #define PURE_FN
+    #define FLATTEN
     #define FORCE_INLINE __forceinline
     #define NO_INLINE    __declspec(noinline)
 #endif

@@ -625,7 +625,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename Ti, template<typename...> typename Tr, typename T, Ti... I>
-		static constexpr auto make_tuple_series( T&& f, std::integer_sequence<Ti, I...> )
+		FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f, std::integer_sequence<Ti, I...> )
 		{
 			if constexpr ( std::is_void_v<decltype( f( const_tag<(Ti)0>{} ) )> )
 				( ( f( const_tag<I>{} ) ), ... );
@@ -633,7 +633,7 @@ namespace xstd
 				return Tr{ f( const_tag<I>{} )... };
 		}
 		template<typename Ti, typename T, Ti... I>
-		static constexpr auto make_constant_series( T&& f, std::integer_sequence<Ti, I...> )
+		FLATTEN __forceinline static constexpr auto make_constant_series( T&& f, std::integer_sequence<Ti, I...> )
 		{
 			if constexpr ( std::is_void_v<decltype( f( const_tag<(Ti)0>{} ) )> )
 				( ( f( const_tag<I>{} ) ), ... );
@@ -642,7 +642,7 @@ namespace xstd
 		}
 	};
 	template<auto N, template<typename...> typename Tr = std::tuple, typename T>
-	static constexpr auto make_tuple_series( T&& f )
+	FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f )
 	{
 		if constexpr ( N != 0 )
 			return impl::make_tuple_series<decltype( N ), Tr>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
@@ -650,7 +650,7 @@ namespace xstd
 			return Tr<>{};
 	}
 	template<auto N, typename T>
-	static constexpr auto make_constant_series( T&& f )
+	FLATTEN __forceinline static constexpr auto make_constant_series( T&& f )
 	{
 		return impl::make_constant_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
 	}
@@ -658,7 +658,7 @@ namespace xstd
 	// Implement helper for visit on numeric range.
 	//
 	template<auto First, auto Last, typename T, typename K = decltype( First ), typename R = decltype( std::declval<T>()( const_tag<K(First)>{} ) )>
-	static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<std::is_void_v<R>, bool, std::optional<R>>
+	FLATTEN __forceinline static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<std::is_void_v<R>, bool, std::optional<R>>
 	{
 		if constexpr( First <= Last )
 		{
