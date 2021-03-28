@@ -77,10 +77,6 @@ namespace xstd::fmt
 		}
 	};
 
-	// Suffixes used to indicate registers of N bytes.
-	//
-	static constexpr char suffix_map[] = { 0, 'b', 'w', 0, 'd', 0, 0, 0, 'q' };
-
 	// Returns the type name of the object passed, dynamic type name will
 	// redirect to static type name if RTTI is not supported.
 	//
@@ -105,10 +101,13 @@ namespace xstd::fmt
 #endif
 	}
 
-	// XSTD string-convertable types implement [std::string T::to_string() const];
+	// XSTD string-convertable types implement [std::string T::to_string() const] or override the custom_string_converter.
 	//
-	template<typename T>
-	concept CustomStringConvertible = requires( T v ) { v.to_string(); };
+	template<typename T, typename = void> struct custom_string_converter;
+	template<typename T> struct custom_string_converter<T> { inline constexpr void operator()( const T& ) const noexcept {} };
+	template<typename T> concept CustomStringConvertibleMember = requires( T v ) { v.to_string(); };
+	template<typename T> concept CustomStringConvertibleExternal = String<decltype( custom_string_converter<std::decay_t<T>>{}( std::declval<T>() ) )>;
+	template<typename T> concept CustomStringConvertible = CustomStringConvertibleExternal<T> || CustomStringConvertibleMember<T>;
 
 	// Checks if std::to_string is specialized to convert type into string.
 	//
@@ -126,13 +125,19 @@ namespace xstd::fmt
 	__forceinline static auto as_string( const T& x )
 	{
 		using base_type = std::decay_t<T>;
-		
-		// String and langauge primitives:
+
+		// Custom conversion.
 		//
-		if constexpr ( CustomStringConvertible<T> )
+		if constexpr ( CustomStringConvertibleMember<T> )
 		{
 			return x.to_string();
 		}
+		else if constexpr ( CustomStringConvertibleExternal<T> )
+		{
+			return custom_string_converter<std::decay_t<T>>{}( x );
+		}
+		// String and langauge primitives:
+		//
 		else if constexpr ( std::is_same_v<std::string, base_type> )
 		{
 			return x;
@@ -346,10 +351,16 @@ namespace xstd::fmt
 	__forceinline static auto fix_parameter( std::vector<std::string>& buffer, T&& x )
 	{
 		using base_type = std::remove_cvref_t<T>;
-
+		
+		// If custom string convertible:
+		//
+		if constexpr ( CustomStringConvertibleExternal<T> )
+		{
+			return buffer.emplace_back( as_string( std::forward<T>( x ) ) ).data();
+		}
 		// If fundamental type, return as is.
 		//
-		if constexpr ( std::is_fundamental_v<base_type> || std::is_enum_v<base_type> || 
+		else if constexpr ( std::is_fundamental_v<base_type> || std::is_enum_v<base_type> || 
 					   std::is_pointer_v<base_type> || std::is_array_v<base_type>  )
 		{
 			return x;
