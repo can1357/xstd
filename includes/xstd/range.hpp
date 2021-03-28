@@ -126,7 +126,7 @@ namespace xstd
 		// Construct by container.
 		//
 		template<Iterable C>
-		constexpr range( const C& container )
+		constexpr range( C&& container )
 			: ibegin( std::begin( container ) ), iend( std::end( container ) ) {}
 
 		// Default copy and move.

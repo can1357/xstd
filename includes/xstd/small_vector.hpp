@@ -233,5 +233,16 @@ namespace xstd
 		inline const_reference back() const { return at( length - 1 ); }
 		inline reference operator[]( size_t n ) { return at( n ); }
 		inline const_reference operator[]( size_t n ) const { return at( n ); }
+
+		// Comparison.
+		//
+		template<Iterable C>
+		inline bool operator==( const C& c ) const
+		{
+			if ( std::size( c ) != size() )
+				return false;
+			return std::equal( std::begin( c ), std::end( c ), begin() );
+		}
+		template<Iterable C> inline bool operator!=( const C& c ) const { return !operator==( C ); }
 	};
 };

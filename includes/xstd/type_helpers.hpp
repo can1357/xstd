@@ -26,7 +26,7 @@ namespace xstd
 
 		// Returns a 64-bit hash that can be used to identify the type.
 		//
-		template<typename vvvv__identifier__vvvv = T>
+		template<typename __id__ = T>
 		static _CONSTEVAL size_t _hasher()
 		{
 			const char* sig = FUNCTION_NAME;
@@ -45,7 +45,7 @@ namespace xstd
 
 		// Returns the name of the type.
 		//
-		template<typename vvvv__identifier__vvvv = T>
+		template<typename __id__ = T>
 		static _CONSTEVAL std::string_view to_string()
 		{
 			std::string_view sig = FUNCTION_NAME;
@@ -53,7 +53,7 @@ namespace xstd
 #if MS_COMPILER
 				std::string_view{ "<" },                      0,  ">"
 #else
-				std::string_view{ "vvvv__identifier__vvvv" }, +3, "];"
+				std::string_view{ "__id__" },                 +3, "];"
 #endif
 			};
 
@@ -85,7 +85,7 @@ namespace xstd
 		static constexpr value_type value = v;
 		constexpr operator value_type() const noexcept { return value; }
 
-		template<auto vvvv__identifier__vvvv = v>
+		template<auto __id__ = v>
 		static constexpr std::string_view to_string()
 		{
 			std::string_view sig = FUNCTION_NAME;
@@ -93,7 +93,7 @@ namespace xstd
 #if MS_COMPILER
 				std::string_view{ "<" },                      0,  ">"
 #else
-				std::string_view{ "vvvv__identifier__vvvv" }, +3, "];"
+				std::string_view{ "__id__" },                 +3, "];"
 #endif
 			};
 
