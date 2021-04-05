@@ -31,6 +31,9 @@
     <Filter Include="Numeric">
       <UniqueIdentifier>{d2c97606-7bf3-4c20-9d7b-675b7c25e27d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="IA32">
+      <UniqueIdentifier>{ab273180-b1d8-4950-8681-e8f6683e0f78}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp">
@@ -207,6 +210,12 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp">
       <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32.hpp">
+      <Filter>IA32</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\perfmon.hpp">
+      <Filter>IA32</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

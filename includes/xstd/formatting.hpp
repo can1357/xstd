@@ -81,7 +81,7 @@ namespace xstd::fmt
 	// redirect to static type name if RTTI is not supported.
 	//
 	template<typename T>
-	static const std::string& static_type_name()
+	static std::string_view static_type_name()
 	{
 #if HAS_RTTI
 		static const std::string value = impl::fix_type_name( compiler_demangle_type_name( typeid( T ) ) );
@@ -132,7 +132,7 @@ namespace xstd::fmt
 		{
 			return x.to_string();
 		}
-		else if constexpr ( CustomStringConvertibleExternal<T> )
+		else if constexpr ( CustomStringConvertibleExternal<std::decay_t<T>> )
 		{
 			return custom_string_converter<std::decay_t<T>>{}( x );
 		}
@@ -350,11 +350,11 @@ namespace xstd::fmt
 	template<typename T>
 	__forceinline static auto fix_parameter( std::vector<std::string>& buffer, T&& x )
 	{
-		using base_type = std::remove_cvref_t<T>;
+		using base_type = std::decay_t<T>;
 		
 		// If custom string convertible:
 		//
-		if constexpr ( CustomStringConvertibleExternal<T> )
+		if constexpr ( CustomStringConvertibleExternal<base_type> )
 		{
 			return buffer.emplace_back( as_string( std::forward<T>( x ) ) ).data();
 		}
@@ -365,7 +365,7 @@ namespace xstd::fmt
 		{
 			return x;
 		}
-		else if constexpr ( Atomic<std::decay_t<T>> )
+		else if constexpr ( Atomic<base_type> )
 		{
 			return fix_parameter( buffer, x.load() );
 		}
