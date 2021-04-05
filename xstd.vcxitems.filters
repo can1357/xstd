@@ -217,6 +217,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\perfmon.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\memory.hpp">
+      <Filter>IA32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

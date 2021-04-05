@@ -250,12 +250,12 @@ namespace ia32::perfmon
 			//
 			if ( update_global && traits::global_control != 0 )
 			{
-				auto global_ctrl = ia32::read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+				auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
 				if ( flags & ctr_enable )
 					global_ctrl.en_pmcn |= 1ull << index;
 				else
 					global_ctrl.en_pmcn &= ~( 1ull << index );
-				ia32::write_msr( traits::global_control, global_ctrl );
+				write_msr( traits::global_control, global_ctrl );
 			}
 			success = true;
 		} );
@@ -306,7 +306,7 @@ namespace ia32::perfmon
 
 				// Update the fixed control register.
 				//
-				auto fixed_ctrl = ia32::read_msr( traits::fixed_control );
+				auto fixed_ctrl = read_msr( traits::fixed_control );
 				fixed_ctrl &= ~xstd::fill_bits( 4, iindex * 4 );
 				ia32_fixed_ctr_ctrl_register ctrl = { .flags = 0 };
 				if ( flags & ctr_enable )
@@ -317,18 +317,18 @@ namespace ia32::perfmon
 					ctrl.any_thread0 = ( flags & ctr_any_thread ) != 0;
 					fixed_ctrl |= ctrl.flags << ( iindex * 4 );
 				}
-				ia32::write_msr( traits::fixed_control, fixed_ctrl );
+				write_msr( traits::fixed_control, fixed_ctrl );
 
 				// Update the global control register if requested.
 				//
 				if ( update_global && traits::global_control != 0 )
 				{
-					auto global_ctrl = ia32::read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+					auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
 					if ( flags & ctr_enable )
 						global_ctrl.en_fixed_ctrn |= 1ull << iindex;
 					else
 						global_ctrl.en_fixed_ctrn &= ~( 1ull << iindex );
-					ia32::write_msr( traits::global_control, global_ctrl );
+					write_msr( traits::global_control, global_ctrl );
 				}
 
 				// Indicate success by setting the index.
@@ -363,7 +363,7 @@ namespace ia32::perfmon
 			{
 				// If performance counter is disabled at the global level, return zero as well.
 				//
-				auto global_ctrl = ia32::read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+				auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
 				if ( !( global_ctrl.en_pmcn & ( 1ull << index ) ) )
 					return counter_flags( 0 );
 			}
@@ -391,14 +391,14 @@ namespace ia32::perfmon
 			{
 				// If performance counter is disabled at the global level, return zero as well.
 				//
-				auto global_ctrl = ia32::read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+				auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
 				if ( !( global_ctrl.en_fixed_ctrn & ( 1ull << index ) ) )
 					return counter_flags( 0 );
 			}
 
 			// Read the fixed control register, return zero if disabled for all CPLs.
 			//
-			ia32_fixed_ctr_ctrl_register ctrl{ .flags = ( ia32::read_msr( cfg ) >> ( index * 4 ) ) };
+			ia32_fixed_ctr_ctrl_register ctrl{ .flags = ( read_msr( cfg ) >> ( index * 4 ) ) };
 			if ( !ctrl.en0_os && !ctrl.en0_usr )
 				return counter_flags( 0 );
 
