@@ -20,10 +20,26 @@ namespace xstd
 		//
 		_CONSTEVAL guid() : low( 0 ), high( 0 ) {}
 
+		// Manual construction from the GUID value.
+		//
+		constexpr guid( uint64_t low, uint64_t high ) : low( low ), high( high ) {}
+		constexpr guid( const uint8_t( &value )[ 16 ] ) : low( 0 ), high( 0 )
+		{
+			for ( size_t n = 0; n != 8; n++ )
+				low |= uint64_t( value[ n ] ) << ( 8 * n );
+			for ( size_t n = 0; n != 8; n++ )
+				high |= uint64_t( value[ n + 8 ] ) << ( 8 * n );
+		}
+
 		// Constructed by any hashable type as a constant expression.
 		//
 		template<typename T> requires ( !Same<std::decay_t<T>, guid> )
-		_CONSTEVAL guid( T&& obj ) : low( make_hash( 0x49c54a9166f5c01cull, obj ).as64() ), high( make_hash( 0x7b0b6b0f8933b6a5ull, obj ).as64() ) {}
+		constexpr guid( const T& obj ) : low( make_hash( 0x49c54a9166f5c01cull, obj ).as64() ), high( make_hash( 0x7b0b6b0f8933b6a5ull, obj ).as64() ) {}
+
+		// Static helper that guarantees const evaluation.
+		//
+		template<typename T>
+		static _CONSTEVAL guid constant( const T& obj ) { return guid{ obj }; }
 
 		// Default copy/move.
 		//
