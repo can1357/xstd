@@ -17,6 +17,7 @@
 #include "time.hpp"
 #include "intrinsics.hpp"
 #include "enum_name.hpp"
+#include "fields.hpp"
 
 // [Configuration]
 // Macro wrapping ANSI escape codes, can be replaced by '#define ANSI_ESCAPE(...)' in legacy Windows to disable colors completely.
@@ -132,9 +133,36 @@ namespace xstd::fmt
 		{
 			return x.to_string();
 		}
-		else if constexpr ( CustomStringConvertibleExternal<std::decay_t<T>> )
+		else if constexpr ( CustomStringConvertibleExternal<base_type> )
 		{
-			return custom_string_converter<std::decay_t<T>>{}( x );
+			return custom_string_converter<base_type>{}( x );
+		}
+		else if constexpr ( FieldMappable<base_type> )
+		{
+			using field_list = typename base_type::field_list;
+
+			std::string result = { '{', ' ' };
+			make_constant_series<std::tuple_size_v<field_list>>( [ & ] <size_t N> ( const_tag<N> tag )
+			{
+				using E = std::tuple_element_t<N, field_list>;
+
+				if constexpr ( !E::is_function )
+				{
+					auto&& value = E::get( x );
+					if constexpr ( StringConvertible<decltype( value )> )
+					{
+						const char* volatile name = &E::name[ 0 ];
+						result += name;
+						result += ": ";
+						result += as_string( value );
+						result += ", ";
+					}
+				}
+			} );
+			if ( result.size() > 2 )
+				result.erase( result.end() - 2, result.end() );
+			result += " }";
+			return result;
 		}
 		// String and langauge primitives:
 		//
