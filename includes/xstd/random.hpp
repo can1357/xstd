@@ -24,12 +24,6 @@
 #endif
 namespace xstd
 {
-#if XSTD_RANDOM_THREAD_LOCAL
-	#define _XSTD_RANDOM_RNG_QUALIFIERS thread_local
-#else
-	#define _XSTD_RANDOM_RNG_QUALIFIERS 
-#endif
-
 	namespace impl
 	{
 #ifndef XSTD_RANDOM_FIXED_SEED
@@ -45,20 +39,31 @@ namespace xstd
 
 		// Declare a random engine state per thread.
 		//
-		inline auto& get_runtime_rng()
-		{
-			static _XSTD_RANDOM_RNG_QUALIFIERS std::mt19937_64 local_rng( std::random_device{}( ) );
-			return local_rng;
-		}
+		#if XSTD_RANDOM_THREAD_LOCAL
+			inline auto& get_runtime_rng()
+			{
+				static thread_local std::mt19937_64 local_rng( std::random_device{}() ^ crandom_default_seed );
+				return local_rng;
+			}
+		#else
+			inline std::mt19937_64 global_rng( std::random_device{}() ^ crandom_default_seed );
+			__forceinline auto& get_runtime_rng() { return global_rng; }
+		#endif
 #else
 		// Declare both random generators with a fixed seed.
 		//
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
-		inline auto& get_runtime_rng()
-		{
-			static _XSTD_RANDOM_RNG_QUALIFIERS std::default_random_engine local_rng( XSTD_RANDOM_FIXED_SEED );
-			return local_rng;
-		}
+		
+		#if XSTD_RANDOM_THREAD_LOCAL
+			inline auto& get_runtime_rng()
+			{
+				static thread_local std::mt19937_64 local_rng( XSTD_RANDOM_FIXED_SEED );
+				return local_rng;
+			}
+		#else
+			inline std::mt19937_64 global_rng( XSTD_RANDOM_FIXED_SEED );
+			__forceinline auto& get_runtime_rng() { return global_rng; }
+		#endif
 #endif
 		// Constexpr uniform integer distribution.
 		//
