@@ -36,7 +36,7 @@ namespace ia32::mem
 		void* ptr = map_physical_memory_range( physical_address, length, cached );
 		if ( !ptr )
 			return {};
-		return { ( T* ) ptr, [ length ] ( T* ptr ) { unmap_physical_memory_range( ( void* ) ptr, length ); } };
+		return { ( std::add_pointer_t<std::remove_extent_t<T>> ) ptr, [ length ] ( auto* ptr ) { unmap_physical_memory_range( ( void* ) ptr, length ); } };
 	}
 
 	//

@@ -220,6 +220,15 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\memory.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\iospace.hpp">
+      <Filter>IA32</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\pci.hpp">
+      <Filter>IA32</Filter>
+    </ClInclude>
+    <ClInclude Include="S:\Projects\Libraries\xstd\includes\xstd\fields.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

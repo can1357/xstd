@@ -16,7 +16,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\iospace.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\memory.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\pci.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\perfmon.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
@@ -32,6 +34,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\graph.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\enum_name.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp" />
