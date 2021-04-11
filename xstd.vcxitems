@@ -20,6 +20,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\memory.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\pci.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\perfmon.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\smbios.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp" />
