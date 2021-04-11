@@ -61,7 +61,11 @@ namespace xstd
 				if constexpr ( sizeof...( Name ) > L || Last == '\x0' )
 					return field<Ref, Name...>{};
 				else
-					return ( typename auto_field_gen<L, P, Ref, field_name<Ref>::at( sizeof...( Name ) + 1 - P ), Name..., Last>::type ) {};
+				{
+					using T = typename auto_field_gen<L, P, Ref, field_name<Ref>::at( sizeof...( Name ) + 1 - P ), Name..., Last>::type;
+					return T{};
+				}
+		
 			}
 			using type = decltype( dummy() );
 		};
