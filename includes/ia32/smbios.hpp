@@ -1,13 +1,14 @@
 #pragma once
-// Implements an SMBIOS parser.
-//
 #include <stdint.h>
 #include <optional>
 #include <string_view>
 #include <xstd/small_vector.hpp>
 #include <xstd/guid.hpp>
 #include <xstd/result.hpp>
-namespace smbios
+
+// Implements an SMBIOS parser.
+//
+namespace ia32::smbios
 {
 	// Magic numbers used during the anchor discovery.
 	//
