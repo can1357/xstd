@@ -45,7 +45,7 @@ namespace xstd::gzip
 	}
 	
 	template<Iterable T> requires is_contiguous_iterable_v<T>
-	inline static string_result<std::vector<uint8_t>> compress( T&& cont, int level = Z_DEFAULT_COMPRESSION, int strategy = Z_DEFAULT_STRATEGY )
+	inline static string_result<std::vector<uint8_t>> compress( T&& cont, int level = Z_BEST_COMPRESSION, int strategy = Z_DEFAULT_STRATEGY )
 	{
 		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterator_value_type_t<T> ), level, strategy );
 	}
