@@ -21713,7 +21713,7 @@ using irql_t = uint16_t;
 
 #define CHECK_IRQL( ... ) dassert( ia32::get_effective_irql() __VA_ARGS__ )
 
-#define _LINKAGE __attribute__((always_inline)) static
+#define _LINKAGE FORCE_INLINE static
 
 namespace ia32
 {

@@ -24,8 +24,8 @@ namespace xstd
 
 		// Construct a new hash from an optional seed of 64-bit value.
 		//
-		constexpr crc32_hash_t( uint64_t seed64 = default_seed ) noexcept
-			: value{ seed64 } {}
+		constexpr crc32_hash_t( uint32_t seed32 = default_seed ) noexcept
+			: value{ seed32 } {}
 
 		// Appends the given array of bytes into the hash value.
 		//
@@ -38,7 +38,7 @@ namespace xstd
 				crc ^= *data++;
 				for ( size_t j = 0; j != 8; j++ )
 				{
-					uint32_t mask = -( crc & 1 );
+					uint32_t mask = ( uint32_t ) ( -int32_t( crc & 1 ) );
 					crc = ( crc >> 1 ) ^ ( polynomial & mask );
 				}
 			}
@@ -70,6 +70,7 @@ namespace xstd
 		// Implicit conversion to 32-bit values.
 		//
 		constexpr uint32_t as32() const noexcept { return value; }
+		constexpr uint64_t as64() const noexcept { return value; }
 		constexpr operator uint32_t() const noexcept { return as32(); }
 
 		// Conversion to human-readable format.

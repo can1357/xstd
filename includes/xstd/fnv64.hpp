@@ -31,7 +31,6 @@ namespace xstd
 		//
 		constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
-#ifndef __INTELLISENSE__
 			uint64_t tmp = value;
 			while( n-- )
 			{
@@ -39,7 +38,6 @@ namespace xstd
 				tmp *= prime;
 			}
 			value = tmp;
-#endif
 		}
 
 		// Appends the given trivial value as bytes into the hash value.

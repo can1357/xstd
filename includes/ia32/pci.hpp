@@ -179,8 +179,8 @@ namespace ia32::pci
 			uint32_t     subsystem = 0;
 			struct
 			{
-				uint16_t subsystem_id;
 				uint16_t subsystem_vendor_id;
+				uint16_t subsystem_id;
 			};
 		};
 
