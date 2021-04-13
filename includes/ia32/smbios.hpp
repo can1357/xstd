@@ -5,6 +5,7 @@
 #include <xstd/small_vector.hpp>
 #include <xstd/guid.hpp>
 #include <xstd/result.hpp>
+#include <xstd/text.hpp>
 
 // Implements an SMBIOS parser.
 //
@@ -314,8 +315,109 @@ namespace ia32::smbios
 
 			// Add to the result list and skip.
 			//
-			result.emplace_back( range.substr( 0, it ) );
+			auto& str = result.emplace_back( range.substr( 0, it ) );
 			range.remove_prefix( it + 1 );
+
+			// Null it out if it looks like a default string.
+			//
+			if ( str.find_first_not_of( "x0 " ) == std::string::npos )
+				str = {};
+			if ( xstd::ifind( str, "asset" ) != std::string::npos ||
+				 xstd::ifind( str, "serial" ) != std::string::npos ||
+				 xstd::ifind( str, "sernum" ) != std::string::npos )
+				str = {};
+
+			switch ( xstd::make_ihash( str ) )
+			{
+				case "Default string"_ihash:
+					
+				// Attempts at sanity.
+				//
+				// - Void group
+				case "Unknown"_ihash:
+				case "Undefined"_ihash:
+				case "Empty"_ihash:
+				case "[Empty]"_ihash:
+				// - No group
+				case "No DIMM"_ihash:
+				case "No Module Installed"_ihash:
+				// - Not group
+				case "N/A"_ihash:
+				case "Not Settable"_ihash:
+				case "Not Provided"_ihash:
+				case "Not Specified"_ihash:
+				case "Not Available"_ihash:
+				case "None"_ihash:
+				case "NULL"_ihash:
+
+				// All hail the OEM.
+				//
+				case "To Be Filled By O.E.M."_ihash:
+				case "To Be Filled By OEM"_ihash:
+				case "Fill By OEM"_ihash:
+				case "OEM"_ihash:
+				case "OEM_Define0"_ihash:
+				case "OEM_Define1"_ihash:
+				case "OEM_Define2"_ihash:
+				case "OEM_Define3"_ihash:
+				case "OEM_Define4"_ihash:
+				case "OEM_Define5"_ihash:
+				case "OEM_Define6"_ihash:
+				case "OEM_Define7"_ihash:
+				case "OEM_Define8"_ihash:
+				case "OEM_Define9"_ihash:
+				case "OEM String"_ihash:
+				case "OEM Define 0"_ihash:
+				case "OEM Define 1"_ihash:
+				case "OEM Define 2"_ihash:
+				case "OEM Define 3"_ihash:
+				case "OEM Define 4"_ihash:
+				case "OEM Define 5"_ihash:
+				case "OEM Define 6"_ihash:
+				case "OEM Define 7"_ihash:
+				case "OEM Define 8"_ihash:
+				case "OEM Define 9"_ihash:
+				case "OEM-specific"_ihash:
+				case "<OUT OF SPEC>"_ihash:
+
+				// Autism friendly placeholders.
+				//
+				case "System Product Name"_ihash:
+				case "System Version"_ihash:
+				case "Base Board"_ihash:
+				case "SKU Number"_ihash:
+				case "SKU"_ihash:
+
+				// Credit card numbers.
+				//
+				case "0"_ihash:
+				case "1.0"_ihash:
+				case "1234567"_ihash:
+				case "12345678"_ihash:
+				case "0123456789"_ihash:
+				case "1234567890"_ihash:
+				case "9876543210"_ihash:
+				case "0987654321"_ihash:
+				case "03142563"_ihash:
+				case "FFFF"_ihash:
+				case "FFFFFFFF"_ihash:
+				case "FFFFFFFFFFFFFFFF"_ihash:
+				
+				// Brain damage.
+				//
+				case "*"_ihash:
+				case "BSN12345678901234567"_ihash:
+				case "SQUARE"_ihash:
+					str = {};
+					break;
+				default:
+					break;
+			}
+
+			// Normalize the string.
+			//
+			while ( !str.empty() && str.back() == ' ' )
+				str.remove_suffix( 1 );
 		}
 
 		// Improperly terminated descriptor.
