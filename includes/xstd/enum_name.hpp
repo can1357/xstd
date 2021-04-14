@@ -86,4 +86,12 @@ namespace xstd
 			return std::to_string( value );
 		}
 	};
+
+	// Simple wrapper around enum_name for convenience.
+	//
+	template<Enum T>
+	static constexpr std::string name_enum( T value )
+	{
+		return enum_name<T>::resolve( value );
+	}
 };

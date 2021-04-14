@@ -478,6 +478,83 @@ namespace xstd::fmt
 		if ( value >= 0 ) return str( "+ 0x%llx", value );
 		else              return str( "- 0x%llx", -value );
 	}
+
+	// Hex dump of byte arrays.
+	//
+	struct hex_dump_config
+	{
+		char col_delimiter = ' ';
+		bool ascii_column = false;
+		size_t row_length = std::numeric_limits<size_t>::max();
+		bool uppercase = true;
+	};
+	template<typename C>
+	inline static std::string hex_dump( C&& container, hex_dump_config cfg = {} )
+	{
+		std::string result = {};
+		auto print_digit = [ u = cfg.uppercase ] ( uint8_t r ) -> char
+		{
+			if ( r <= 9 ) return '0' + r;
+			return ( r - 0xa ) + ( u ? 'A' : 'a' );
+		};
+		auto add_delimiter = [ & ] ( char c, size_t n )
+		{
+			if ( c )
+				result.insert( result.end(), n, c );
+		};
+
+
+		auto it = std::begin( container );
+		auto end = std::end( container );
+		size_t length = end - it;
+		cfg.row_length = std::min( length, cfg.row_length );
+
+		for ( size_t n = 0; n < length; n += cfg.row_length )
+		{
+			auto it2 = it;
+			for ( size_t j = 0; j != cfg.row_length; j++ )
+			{
+				if ( it2 == end )
+				{
+					add_delimiter( cfg.col_delimiter, 2 );
+				}
+				else
+				{
+					result += print_digit( ( *it2 & 0xF0 ) >> 4 );
+					result += print_digit( *it2 & 0xF );
+					it2++;
+				}
+				if ( j != ( cfg.row_length - 1 ) )
+					add_delimiter( cfg.col_delimiter, 1 );
+			}
+
+			if ( cfg.ascii_column )
+			{
+				add_delimiter( cfg.col_delimiter, 4 );
+
+				it2 = it;
+				for ( size_t j = 0; j != cfg.row_length; j++ )
+				{
+					if ( it2 == end )
+					{
+						add_delimiter( cfg.col_delimiter, 1 );
+					}
+					else
+					{
+						char c = char( *it2++ );
+						result += isprint( c ) ? c : '.';
+					}
+					if ( j != ( cfg.row_length - 1 ) )
+						add_delimiter( cfg.col_delimiter, 1 );
+				}
+			}
+			it = it2;
+
+			if ( ( n + cfg.row_length ) < length )
+				add_delimiter( '\n', 1 );
+		}
+		return result;
+	}
 };
 #undef HAS_RTTI
 
