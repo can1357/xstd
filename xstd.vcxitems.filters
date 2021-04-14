@@ -233,6 +233,9 @@
       <Filter>IA32</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\utf.hpp">
+      <Filter>I/O</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
