@@ -143,6 +143,28 @@ namespace xstd
 		constexpr size_t size() const { return ( size_t ) std::distance( ibegin, iend ); }
 		constexpr bool empty() const { return ibegin == iend; }
 		constexpr decltype( auto ) operator[]( size_t n ) const { return  *std::next( ibegin, n ); }
+
+		// Range operations similar to string_view.
+		//
+		constexpr range slice( size_t pos, size_t count = std::string::npos ) const
+		{
+			if ( count == std::string::npos )
+				return { ibegin + pos, iend };
+			else
+				return { ibegin + pos, ibegin + pos + count };
+		}
+		constexpr range substr( size_t pos, size_t count = std::string::npos ) const
+		{
+			return slice( pos, count );
+		}
+		constexpr void remove_prefix( size_t count )
+		{
+			ibegin += count;
+		}
+		constexpr void remove_suffix( size_t count )
+		{
+			iend -= count;
+		}
 	};
 
 	// Declare the deduction guides.
