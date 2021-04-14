@@ -5,14 +5,22 @@
 
 namespace xstd
 {
+    namespace impl
+    {
+        template<typename T> concept Char8 = Same<T, char> || Same<T, char8_t>;
+        template<typename T> concept Char16 = Same<T, wchar_t> || Same<T, char16_t>;
+    };
+
     template<typename C>
     struct codepoint_cvt;
     
     // UTF-8.
     //
-    template<>
-    struct codepoint_cvt<char>
+    template<impl::Char8 T>
+    struct codepoint_cvt<T>
     {
+        static constexpr size_t max_out = 7;
+
         inline static size_t length( uint32_t cp )
         {
             // Can be encoded with a single character if MSB unset.
@@ -34,31 +42,29 @@ namespace xstd
                 cp >>= 5, n++;
             return n;
         }
-        inline static void encode( uint32_t cp, std::string& out )
+        inline static void encode( uint32_t cp, T*& out )
         {
             size_t n = length( cp );
-            out.resize( out.size() + n );
-            char* pout = out.data() + out.size() - n;
 
             // Handle single character case.
             //
             if ( n == 1 )
             {
-                *pout = char( cp );
+                *out++ = T( cp );
                 return;
             }
     
             // Write the initial byte.
             //
             bitcnt_t i = 8 - ( n + 1 );
-            *pout++ = char( fill_bits( n, i + 1 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( i ) ) );
+            *out++ = T( fill_bits( n, i + 1 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( i ) ) );
     
             // Write the extended bytes.
             //
             while ( --n )
-                *pout++ = char( ( 0b10 << 6 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( 6 ) ) );
+                *out++ = T( ( 0b10 << 6 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( 6 ) ) );
         }
-        inline static uint32_t decode( std::string_view& in )
+        inline static uint32_t decode( std::basic_string_view<T>& in )
         {
             // Erroneous cases return 0. 
             //
@@ -100,29 +106,32 @@ namespace xstd
 
     // UTF-16.
     //
-    template<>
-    struct codepoint_cvt<wchar_t>
+    template<impl::Char16 T>
+    struct codepoint_cvt<T>
     {
+        static constexpr size_t max_out = 2;
+
         inline static size_t length( uint32_t cp )
         {
             return cp <= 0xFFFF ? 1 : 2;
         }
-        inline static void encode( uint32_t cp, std::wstring& out )
+        inline static void encode( uint32_t cp, T*& out )
         {
             if ( cp <= 0xFFFF )
             {
-                out.push_back( ( wchar_t ) cp );
+                *out++ = ( T ) cp;
+                *out = 0; // Hint to vectorization that this address is available.
             }
             else
             {
                 cp -= 0x10000;
                 uint32_t lo = 0xD800 + ( ( cp >> 10 ) & fill_bits( 10 ) );
                 uint32_t hi = 0xDC00 + ( cp & fill_bits( 10 ) );
-                out.push_back( ( wchar_t ) lo );
-                out.push_back( ( wchar_t ) hi );
+                *out++ = ( T ) lo;
+                *out++ = ( T ) hi;
             }
         }
-        inline static uint32_t decode( std::wstring_view& in )
+        inline static uint32_t decode( std::basic_string_view<T>& in )
         {
             // Erroneous cases return 0. 
             //
@@ -156,13 +165,15 @@ namespace xstd
     template<>
     struct codepoint_cvt<char32_t>
     {
+        static constexpr size_t max_out = 1;
+
         inline static size_t length( uint32_t cp )
         {
             return 1;
         }
-        inline static void encode( uint32_t cp, std::u32string& out )
+        inline static void encode( uint32_t cp, char32_t*& out )
         {
-            out.push_back( cp );
+            *out++ = cp;
         }
         inline static uint32_t decode( std::u32string_view& in )
         {
@@ -182,7 +193,7 @@ namespace xstd
         using D = string_unit_t<S>;
 
         string_view_t<S> view = { in };
-        if constexpr ( sizeof( C ) == sizeof( D ) )
+        if constexpr ( Same<C, D> )
         {
             return std::basic_string<C>{ std::forward<S>( in ) };
         }
@@ -191,9 +202,11 @@ namespace xstd
             // Reserve an estimate size.
             //
             std::basic_string<C> result = {};
-            result.reserve( ( view.size() * sizeof( C ) ) / sizeof( D ) );
+            result.resize( view.size() * codepoint_cvt<C>::max_out );
+            C* out = result.data();
             while ( !view.empty() )
-                codepoint_cvt<C>::encode( codepoint_cvt<D>::decode( view ), result );
+                codepoint_cvt<C>::encode( codepoint_cvt<D>::decode( view ), out );
+            result.resize( out - result.data() );
             return result;
         }
     }
