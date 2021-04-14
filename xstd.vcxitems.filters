@@ -226,15 +226,13 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\pci.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
-    <ClInclude Include="S:\Projects\Libraries\xstd\includes\xstd\fields.hpp">
-      <Filter>Types</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\smbios.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\apic.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
