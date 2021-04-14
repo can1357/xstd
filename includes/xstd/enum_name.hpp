@@ -90,7 +90,7 @@ namespace xstd
 	// Simple wrapper around enum_name for convenience.
 	//
 	template<Enum T>
-	static constexpr std::string name_enum( T value )
+	static std::string name_enum( T value )
 	{
 		return enum_name<T>::resolve( value );
 	}

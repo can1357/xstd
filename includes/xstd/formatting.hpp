@@ -18,6 +18,7 @@
 #include "intrinsics.hpp"
 #include "enum_name.hpp"
 #include "fields.hpp"
+#include "utf.hpp"
 
 // [Configuration]
 // Macro wrapping ANSI escape codes, can be replaced by '#define ANSI_ESCAPE(...)' in legacy Windows to disable colors completely.
@@ -172,14 +173,11 @@ namespace xstd::fmt
 		}
 		else if constexpr ( CppString<base_type> || CppStringView<base_type> )
 		{
-			return std::string{ x.begin(), x.end() };
+			return utf_convert<char>( x );
 		}
 		else if constexpr ( CString<base_type> )
 		{
-			return std::string{
-				x,
-				x + std::char_traits<string_unit_t<base_type>>::length( x )
-			};
+			return utf_convert<char>( string_view_t<string_unit_t<base_type>>{ x } );
 		}
 		else if constexpr ( Enum<T> )
 		{
@@ -554,6 +552,10 @@ namespace xstd::fmt
 				add_delimiter( '\n', 1 );
 		}
 		return result;
+	}
+	inline static std::string hex_dump( xstd::any_ptr p, size_t n, hex_dump_config cfg = {} )
+	{
+		return hex_dump( std::string_view{ ( const char* ) p, n }, cfg );
 	}
 };
 #undef HAS_RTTI

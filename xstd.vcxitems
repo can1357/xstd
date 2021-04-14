@@ -81,6 +81,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\utf.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zip.hpp" />
   </ItemGroup>
   <ItemGroup>

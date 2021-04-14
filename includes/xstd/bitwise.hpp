@@ -6,7 +6,6 @@
 #include <numeric>
 #include "type_helpers.hpp"
 #include "intrinsics.hpp"
-#include "assert.hpp"
 
 using bitcnt_t = int;
 
@@ -19,7 +18,6 @@ namespace xstd
 	{
 		using I = convert_int_t<T>;
 		using U = convert_uint_t<T>;
-		dassert( alignment != 0 );
 
 		if ( std::is_constant_evaluated() )
 		{
@@ -38,8 +36,6 @@ namespace xstd
 	__forceinline static constexpr T align_down( T value, size_t alignment )
 	{
 		using U = convert_uint_t<T>;
-		dassert( alignment != 0 );
-
 		if ( std::is_constant_evaluated() )
 		{
 			U uval = bit_cast<U>( value );
@@ -57,8 +53,6 @@ namespace xstd
 	__forceinline static constexpr bool is_aligned( T value, size_t alignment )
 	{		
 		using U = convert_uint_t<T>;
-		dassert( alignment != 0 );
-
 		if ( std::is_constant_evaluated() )
 			return !( bit_cast<U>( value ) % alignment );
 		else
@@ -269,8 +263,6 @@ namespace xstd
 	//
 	__forceinline static constexpr uint64_t fill_bits( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
 	{
-		dassert( bit_count <= 64 );
-
 		// If bit offset is negative, substract from bit count 
 		// and zero it out.
 		//
@@ -319,8 +311,6 @@ namespace xstd
 	//
 	__forceinline static constexpr uint64_t zero_extend( uint64_t value, bitcnt_t bcnt_src )
 	{
-		dassert( 0 < bcnt_src && bcnt_src <= 64 );
-
 		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
 		//
 		if ( std::is_constant_evaluated() )
@@ -341,8 +331,6 @@ namespace xstd
 	//
 	__forceinline static constexpr int64_t sign_extend( uint64_t value, bitcnt_t bcnt_src )
 	{
-		dassert( 0 < bcnt_src && bcnt_src <= 64 );
-
 		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
 		//
 		if ( std::is_constant_evaluated() )
