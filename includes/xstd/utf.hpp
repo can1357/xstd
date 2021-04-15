@@ -210,4 +210,18 @@ namespace xstd
             return result;
         }
     }
+
+    // UTF aware string-length calculation.
+    //
+    template<String S>
+    static size_t utf_length( S&& in )
+    {
+        using D = string_unit_t<S>;
+
+        string_view_t<S> view = { in };
+        size_t n = 0;
+        while ( !view.empty() )
+            codepoint_cvt<D>::decode( view ), n++;
+        return n;
+    }
 }
