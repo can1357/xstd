@@ -82,23 +82,31 @@ namespace xstd
 
 				if constexpr ( !std::is_void_v<decltype( hasher<value_type>{}( std::declval<value_type&>() ) ) > )
 				{
-					hash_t hash = {};
-					size_t i = 0;
-					for ( auto&& entry : value )
-						hash = combine_hash( hash, hasher<value_type>{}( entry ) ), i++;
-					hash.add_bytes( i );
-					return hash;
+					if constexpr ( Trivial<value_type> )
+					{
+						hash_t hash = {};
+						for ( const auto& entry : value )
+							hash.add_bytes( entry );
+						return hash;
+					}
+					else
+					{
+						hash_t hash = {};
+						for ( const auto& entry : value )
+							hash = combine_hash( hash, hasher<value_type>{}( entry ) );
+						return hash;
+					}
 				}
 			}
 			// If hash, combine with default seed.
 			//
-			else if constexpr ( std::is_same_v<T, hash_t> )
+			else if constexpr ( Same<T, hash_t> )
 			{
 				return combine_hash( value, {} );
 			}
 			// If pointer, use a special hasher.
 			//
-			else if constexpr ( std::is_pointer_v<T> || std::is_same_v<T, any_ptr> )
+			else if constexpr ( Pointer<T> || Same<T, any_ptr> )
 			{
 				// Pick a random key based on the link time type identifier of the base type.
 				//
@@ -122,7 +130,7 @@ namespace xstd
 			}
 			// If register sized integral type, use a special hasher.
 			//
-			else if constexpr ( std::is_integral_v<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) )
+			else if constexpr ( Integral<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) )
 			{
 				// Pick a random key per size to prevent collisions accross different types.
 				//
@@ -142,7 +150,7 @@ namespace xstd
 			}
 			// If trivial type, hash each byte.
 			//
-			else if constexpr ( std::is_trivial_v<T> )
+			else if constexpr ( Trivial<T> )
 			{
 				hash_t hash = {};
 				hash.add_bytes( value );
