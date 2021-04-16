@@ -116,11 +116,11 @@ namespace xstd
 		}
 		else
 		{
-
 			timestamp t0 = time::now();
-			result_t res = f( std::forward<Tx>( args )... );
+			std::pair<result_t, duration> result = { f( std::forward<Tx>( args )... ), duration{} };
 			timestamp t1 = time::now();
-			return std::make_pair( res, t1 - t0 );
+			result.second = t1 - t0;
+			return result;
 		}
 	}
 
