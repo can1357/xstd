@@ -12,7 +12,7 @@
 // XSTD_DEFAULT_HASHER: If set, changes the type of default hash_t.
 //
 #ifndef XSTD_DEFAULT_HASHER
-	#define XSTD_DEFAULT_HASHER xstd::fnv64_hash_t
+	#define XSTD_DEFAULT_HASHER xstd::fnv64
 #endif
 
 namespace xstd

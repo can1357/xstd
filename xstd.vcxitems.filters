@@ -236,6 +236,13 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\utf.hpp">
       <Filter>I/O</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp">
+      <Filter>Algorithms</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha1.hpp">
+      <Filter>Algorithms</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

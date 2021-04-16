@@ -5,12 +5,13 @@
 #include <cstring>
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
+#include "hexdump.hpp"
 
 namespace xstd
 {
 	// Defines a 32-bit hash type based on CRC.
 	//
-	struct crc32_hash_t
+	struct crc32
 	{
 		// Magic constants for 32-bit CRC.
 		//
@@ -24,7 +25,7 @@ namespace xstd
 
 		// Construct a new hash from an optional seed of 64-bit value.
 		//
-		constexpr crc32_hash_t( uint32_t seed32 = default_seed ) noexcept
+		constexpr crc32( uint32_t seed32 = default_seed ) noexcept
 			: value{ seed32 } {}
 
 		// Appends the given array of bytes into the hash value.
@@ -67,26 +68,29 @@ namespace xstd
 			}
 		}
 
-		// Implicit conversion to 32-bit values.
+		// Finalization of the hash.
 		//
-		constexpr uint32_t as32() const noexcept { return value; }
-		constexpr uint64_t as64() const noexcept { return value; }
+		constexpr void finalize() noexcept {}
+		constexpr uint32_t digest() const noexcept { return value; }
+
+		// Explicit conversions.
+		//
+		constexpr uint32_t as32() const noexcept { return digest(); }
+		constexpr uint64_t as64() const noexcept { return digest(); }
+
+		// Implicit conversions.
+		//
 		constexpr operator uint32_t() const noexcept { return as32(); }
 
 		// Conversion to human-readable format.
 		//
-		std::string to_string() const
-		{
-			char str[ 8 + 3 ] = {};
-			snprintf( str, std::size( str ), "0x%x", value );
-			return str;
-		}
+		std::string to_string() const { return fmt::const_hex_dump( bswap( digest() ) ); }
 
 		// Basic comparison operators.
 		//
-		constexpr bool operator<( const crc32_hash_t& o ) const noexcept { return value < o.value; }
-		constexpr bool operator==( const crc32_hash_t& o ) const noexcept { return value == o.value; }
-		constexpr bool operator!=( const crc32_hash_t& o ) const noexcept { return value != o.value; }
+		constexpr bool operator<( const crc32& o ) const noexcept { return digest() < o.digest(); }
+		constexpr bool operator==( const crc32& o ) const noexcept { return digest() == o.digest(); }
+		constexpr bool operator!=( const crc32& o ) const noexcept { return digest() != o.digest(); }
 	};
 };
 
@@ -95,8 +99,8 @@ namespace xstd
 namespace std
 {
 	template<>
-	struct hash<xstd::crc32_hash_t>
+	struct hash<xstd::crc32>
 	{
-		size_t operator()( const xstd::crc32_hash_t& value ) const { return ( size_t ) value.as32(); }
+		size_t operator()( const xstd::crc32& value ) const { return ( size_t ) value.as32(); }
 	};
 };

@@ -51,6 +51,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\gzip.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hashable.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\http.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\image_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
@@ -65,6 +66,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha1.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\small_vector.hpp" />
