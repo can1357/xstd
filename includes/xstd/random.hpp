@@ -85,8 +85,9 @@ namespace xstd
 	}
 	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
 	{
-		while ( offset-- )
+		do
 			lce_64( value );
+		while ( offset-- );
 		return value;
 	}
 

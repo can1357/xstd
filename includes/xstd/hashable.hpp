@@ -84,9 +84,9 @@ namespace xstd
 				{
 					hash_t hash = {};
 					size_t i = 0;
-					for ( const auto& entry : value )
+					for ( auto&& entry : value )
 						hash = combine_hash( hash, hasher<value_type>{}( entry ) ), i++;
-					hash.add_bytes( sizeof( T ) + i );
+					hash.add_bytes( i );
 					return hash;
 				}
 			}
