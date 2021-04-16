@@ -21,7 +21,7 @@ namespace xstd
     {
         static constexpr size_t max_out = 7;
 
-        inline static size_t length( uint32_t cp )
+        inline static constexpr size_t length( uint32_t cp )
         {
             // Can be encoded with a single character if MSB unset.
             //
@@ -42,7 +42,7 @@ namespace xstd
                 cp >>= 5, n++;
             return n;
         }
-        inline static void encode( uint32_t cp, T*& out )
+        inline static constexpr void encode( uint32_t cp, T*& out )
         {
             size_t n = length( cp );
 
@@ -64,7 +64,7 @@ namespace xstd
             while ( --n )
                 *out++ = T( ( 0b10 << 6 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( 6 ) ) );
         }
-        inline static uint32_t decode( std::basic_string_view<T>& in )
+        inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
         {
             // Erroneous cases return 0. 
             //
@@ -111,11 +111,11 @@ namespace xstd
     {
         static constexpr size_t max_out = 2;
 
-        inline static size_t length( uint32_t cp )
+        inline static constexpr size_t length( uint32_t cp )
         {
             return cp <= 0xFFFF ? 1 : 2;
         }
-        inline static void encode( uint32_t cp, T*& out )
+        inline static constexpr void encode( uint32_t cp, T*& out )
         {
             if ( cp <= 0xFFFF )
             {
@@ -131,7 +131,7 @@ namespace xstd
                 *out++ = ( T ) hi;
             }
         }
-        inline static uint32_t decode( std::basic_string_view<T>& in )
+        inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
         {
             // Erroneous cases return 0. 
             //
@@ -167,15 +167,15 @@ namespace xstd
     {
         static constexpr size_t max_out = 1;
 
-        inline static size_t length( uint32_t cp )
+        inline static constexpr size_t length( uint32_t cp )
         {
             return 1;
         }
-        inline static void encode( uint32_t cp, char32_t*& out )
+        inline static constexpr void encode( uint32_t cp, char32_t*& out )
         {
             *out++ = cp;
         }
-        inline static uint32_t decode( std::u32string_view& in )
+        inline static constexpr uint32_t decode( std::u32string_view& in )
         {
             if ( in.empty() )
                 return 0;
@@ -188,7 +188,7 @@ namespace xstd
     // Generic conversion.
     //
     template<typename C, String S>
-    static std::basic_string<C> utf_convert( S&& in )
+    inline static std::basic_string<C> utf_convert( S&& in )
     {
         using D = string_unit_t<S>;
 
@@ -214,10 +214,9 @@ namespace xstd
     // UTF aware string-length calculation.
     //
     template<String S>
-    static size_t utf_length( S&& in )
+    inline static constexpr size_t utf_length( S&& in )
     {
         using D = string_unit_t<S>;
-
         string_view_t<S> view = { in };
         size_t n = 0;
         while ( !view.empty() )

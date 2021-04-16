@@ -35,11 +35,11 @@ namespace xstd
 
 		// Implement the compression functor mixing the data.
 		//
-		static void compress( value_type& iv, const block_type& block )
+		static constexpr void compress( value_type& iv, const block_type& block )
 		{
-			static constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return z ^ ( x & ( y ^ z ) ); };
-			static constexpr auto f2 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return x ^ y ^ z; };
-			static constexpr auto f3 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return ( x & y ) | ( x & z ) | ( y & z ); };
+			constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return z ^ ( x & ( y ^ z ) ); };
+			constexpr auto f2 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return x ^ y ^ z; };
+			constexpr auto f3 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return ( x & y ) | ( x & z ) | ( y & z ); };
 
 			uint32_t workspace[ 80 ] = { 0 };
 			for ( size_t i = 0; i != 16; i++ )

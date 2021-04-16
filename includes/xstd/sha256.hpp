@@ -46,7 +46,7 @@ namespace xstd
 
 		// Implement the compression functor mixing the data.
 		//
-		static void compress( value_type& iv, const block_type& block )
+		static constexpr void compress( value_type& iv, const block_type& block )
 		{
 			constexpr auto e0 = [ ] ( uint32_t v ) { return rotr( v, 2 ) ^ rotr( v, 13 ) ^ rotr( v, 22 ); };
 			constexpr auto e1 = [ ] ( uint32_t v ) { return rotr( v, 6 ) ^ rotr( v, 11 ) ^ rotr( v, 25 ); };
