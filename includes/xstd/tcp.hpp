@@ -61,10 +61,13 @@ namespace xstd::tcp
 		virtual bool socket_set_nagle( bool state ) { return false; }
 
 		// Invoked by network layer to do periodic operations.
+		// -- Returns true if we still have pending packets to indicate that caller
+		// should be calling again as soon as possible instead of delaying it with the
+		// usual timer.
 		//
-		virtual void on_timer()
+		virtual bool on_timer()
 		{
-			if ( this->is_closed() ) return;
+			if ( this->is_closed() ) return false;
 			std::lock_guard _g{ tx_lock };
 
 			// Clear the acknowledgment queue.
@@ -103,6 +106,7 @@ namespace xstd::tcp
 					ack_queue.emplace_back( std::move( buffer ), last_tx_id );
 				it = tx_queue.erase( it );
 			}
+			return !tx_queue.empty();
 		}
 
 		// Invoked by application to write data to the socket.

@@ -195,8 +195,12 @@ namespace xstd
 	static constexpr auto make_range( It1&& begin, It2&& end )
 	{
 		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
-
 		return range<It, void>( std::forward<It1>( begin ), std::forward<It2>( end ) );
+	}
+	template<Iterable C>
+	static constexpr auto make_range( C& container )
+	{
+		return make_range( std::begin( container ), std::end( container ) );
 	}
 	template<Iterable C, typename Fn>
 	static constexpr auto map( C& container, Fn&& f )
