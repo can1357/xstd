@@ -56,6 +56,7 @@ namespace xstd
 			auto mix = [ & ] <auto N> ( const_tag<N>, auto&& f )
 			{
 				auto& [a, b, c, d, e] = ivd;
+
 				for ( size_t i = 0; i != 4; i++ )
 				{
 					size_t offset = 5 * ( i + N * 4 );

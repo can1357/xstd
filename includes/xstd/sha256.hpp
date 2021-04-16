@@ -59,12 +59,16 @@ namespace xstd
 			uint32_t workspace[ 16 ] = { 0 };
 			auto shuffle = [ & ] ( uint32_t value, size_t step )
 			{
-				uint32_t x = value + ivd[ 7 ] + e1( ivd[ 4 ] ) + ch( ivd[ 4 ], ivd[ 5 ], ivd[ 6 ] ) - k_const[ step ];
-				uint32_t y = e0( ivd[ 0 ] ) + maj( ivd[ 0 ], ivd[ 1 ], ivd[ 2 ] );
+				auto& [a, b, c, d, e, f, g, h] = ivd;
+				
+				uint32_t x = value + ivd[ 7 ] + e1( e ) + ch( e, f, g ) - k_const[ step ];
+				uint32_t y = e0( a ) + maj( a, b, c );
+
 				for ( size_t n = 7; n != 0; n-- )
 					ivd[ n ] = ivd[ n - 1 ];
-				ivd[ 4 ] += x;
-				ivd[ 0 ] = x + y;
+				
+				e += x;
+				a = x + y;
 			};
 
 			for ( size_t i = 0; i != 16; i++ )
