@@ -446,9 +446,9 @@ namespace ia32::smbios
 			// Validate the entry, forward the iterator.
 			//
 			if ( hdr->length < sizeof( entry_header ) )
-				return std::string{ "Invalid SMBIOS entry header."_ss };
+				return std::string{ XSTD_ESTR( "Invalid SMBIOS entry header." ) };
 			if ( range.size() < hdr->length )
-				return std::string{ "SMBIOS entry overflows the range."_ss };
+				return std::string{ XSTD_ESTR( "SMBIOS entry overflows the range." ) };
 
 			// Parse the strings, save the entry and forward the iterator.
 			//
@@ -457,7 +457,7 @@ namespace ia32::smbios
 			range.remove_prefix( hdr->length );
 			auto strings = parse_strings( range );
 			if ( !strings )
-				return std::string{ "Failed parsing SMBIOS entry strings."_ss };
+				return std::string{ XSTD_ESTR( "Failed parsing SMBIOS entry strings." ) };
 			tbl_entry.strings = std::move( strings ).value();
 		}
 		return result;
