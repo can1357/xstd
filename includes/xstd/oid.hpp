@@ -191,6 +191,24 @@ namespace xstd
 			return true;
 		}
 
+		// Comparison operators.
+		//
+		inline constexpr bool operator<( const oid& o ) const
+		{
+			if ( length < o.length )      return true;
+			else if ( length > o.length ) return false;
+			for ( size_t n = 0; n != length; n++ )
+			{
+				if ( data[ n ] < o.data[ n ] )
+					return true;
+				if ( data[ n ] > o.data[ n ] )
+					return false;
+			}
+			return false;
+		}
+		inline constexpr bool operator==( const oid& o ) const { return length == o.length && std::equal( data.begin(), data.begin() + length, o.begin() ); }
+		inline constexpr bool operator!=( const oid& o ) const { return length != o.length || !std::equal( data.begin(), data.begin() + length, o.begin() ); }
+
 		// Range of the raw tag.
 		//
 		inline constexpr const uint8_t* begin() const { return &data[ 0 ]; }
