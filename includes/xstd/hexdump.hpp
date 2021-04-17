@@ -33,7 +33,7 @@ namespace xstd::fmt
 
 	// Optimized hexdump for constant size input with no configuration.
 	//
-	template<Trivial T, typename C = char>
+	template<typename T, typename C = char>
 	inline static std::string const_hex_dump( const T& value )
 	{
 		std::basic_string<C> out( sizeof( T ) * 2, '\x0' );
@@ -43,7 +43,7 @@ namespace xstd::fmt
 			print_hex_digit( p + n * 2, i[ n ] );
 		return out;
 	}
-	template<Trivial T, typename C = char>
+	template<typename T, typename C = char>
 	inline static constexpr std::array<C, 2*sizeof(T)> cexpr_hex_dump( const T& value )
 	{
 		std::array<C, sizeof( T ) * 2> result = {};

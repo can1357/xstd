@@ -23,6 +23,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\perfmon.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\smbios.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\asn1.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_hashmap.hpp" />
@@ -60,6 +61,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\narrow_cast.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\nested_range.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\oid.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\random.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range.hpp" />

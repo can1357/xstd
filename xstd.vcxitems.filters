@@ -208,9 +208,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\graph.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
@@ -239,10 +236,21 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
+    <ClInclude Include="S:\Projects\Libraries\xstd\includes\xstd\hexdump.hpp">
+      <Filter>I/O</Filter>
+    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha1.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\oid.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\asn1.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
