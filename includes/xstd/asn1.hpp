@@ -10,6 +10,7 @@
 #include "oid.hpp"
 #include "formatting.hpp"
 #include "hexdump.hpp"
+#include "time.hpp"
 
 // Implements a barebones ASN1 parser.
 //
@@ -146,6 +147,7 @@ namespace xstd::asn1
 		bool is_null() const { return tag_value.is_universal() && tag_value.tag_number == tag_null; }
 		bool is_set() const { return tag_value.is_universal() && tag_value.tag_number == tag_set; }
 		bool is_sequence() const { return tag_value.is_universal() && tag_value.tag_number == tag_sequence; }
+		bool is_timepoint() const { return tag_value.is_universal() && ( tag_value.tag_number == tag_generalized_time || tag_value.tag_number == tag_utc_time ); }
 		bool is_string() const 
 		{ 
 			if ( !tag_value.is_universal() )
@@ -207,6 +209,47 @@ namespace xstd::asn1
 			else if constexpr ( Same<oid, T> )
 			{
 				return oid{ raw_data.data(), raw_data.size() };
+			}
+			// Time/date.
+			//
+			else if constexpr ( Timestamp<T> || Duration<T> )
+			{
+				auto get_digit = [ &, i = 0 ] () mutable
+				{
+					if ( raw_data.size() < ( i + 2 ) )
+						return 0;
+					if ( raw_data[ i ] == 'Z' || raw_data[ i + 1 ] == 'Z' ||
+						 raw_data[ i ] == '.' || raw_data[ i + 1 ] == '.' )
+						return 0;
+					auto val = ( raw_data[ i + 1 ] - '0' ) + ( raw_data[ i ] - '0' ) * 10;
+					i += 2;
+					return val;
+				};
+
+				int y = 0;
+				if ( tag_value.tag_number == tag_generalized_time )
+					y = get_digit() * 100 + get_digit();
+				else
+					y = 2000 + get_digit();
+				int m = get_digit();
+				int d = get_digit();
+				inspect( y, m, d );
+
+				y -= m <= 2;
+				uint32_t era = y / 400;
+				uint32_t yoe = uint32_t( y - era * 400 );
+				uint32_t doy = ( 153 * ( m + ( m > 2 ? -3 : 9 ) ) + 2 ) / 5 + d - 1;
+				uint32_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+
+				time::seconds result = ( era * 146097 + int32_t( doe ) - 719468 ) * 24h;
+				result += get_digit() * 1h;
+				result += get_digit() * 1min;
+				result += get_digit() * 1s;
+
+				if constexpr ( Duration<T> )
+					return std::chrono::duration_cast< T >( result );
+				else
+					return T( std::chrono::duration_cast< typename T::clock::duration >( result ) );
 			}
 			else
 			{
@@ -270,6 +313,8 @@ namespace xstd::asn1
 						result += fmt::str( "0x%llx\n", as<size_t>() );
 					}
 				}
+				else if ( is_timepoint() )
+					result += fmt::str( "{ Epoch + %llu }\n", as<time::seconds>().count() );
 				else if ( is_oid() )
 					result += as<oid>().to_string() + "\n";
 				else if ( is_string() )
