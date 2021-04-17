@@ -14,6 +14,8 @@ namespace xstd
 	//
 	struct sha256
 	{
+		struct iv_tag {};
+
 		// Digest / Block traits for SHA-256.
 		//
 		static constexpr size_t block_size = 64;
@@ -100,8 +102,19 @@ namespace xstd
 
 		// Construct a new hash from an optional IV of 256-bit value.
 		//
-		constexpr sha256( value_type iv256 = default_iv ) noexcept
+		constexpr sha256() noexcept
+			: iv{ default_iv } {}
+		constexpr sha256( value_type result ) noexcept
+			: iv{ result }, finalized( true ) {}
+		constexpr sha256( value_type iv256, iv_tag _ ) noexcept
 			: iv{ iv256 } {}
+
+		// Default copy/move.
+		//
+		constexpr sha256( sha256&& ) noexcept = default;
+		constexpr sha256( const sha256& ) = default;
+		constexpr sha256& operator=( sha256&& ) noexcept = default;
+		constexpr sha256& operator=( const sha256& ) = default;
 
 		// Appends the given array of bytes into the hash value.
 		//

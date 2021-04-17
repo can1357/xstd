@@ -14,6 +14,8 @@ namespace xstd
 	//
 	struct sha1
 	{
+		struct iv_tag {};
+
 		// Digest / Block traits for SHA-1.
 		//
 		static constexpr size_t block_size = 64;
@@ -86,8 +88,19 @@ namespace xstd
 
 		// Construct a new hash from an optional IV of 160-bit value.
 		//
-		constexpr sha1( value_type iv160 = default_iv ) noexcept
+		constexpr sha1() noexcept
+			: iv{ default_iv } {}
+		constexpr sha1( value_type result ) noexcept
+			: iv{ result }, finalized( true ) {}
+		constexpr sha1( value_type iv160, iv_tag _ ) noexcept
 			: iv{ iv160 } {}
+
+		// Default copy/move.
+		//
+		constexpr sha1( sha1&& ) noexcept = default;
+		constexpr sha1( const sha1& ) = default;
+		constexpr sha1& operator=( sha1&& ) noexcept = default;
+		constexpr sha1& operator=( const sha1& ) = default;
 
 		// Appends the given array of bytes into the hash value.
 		//

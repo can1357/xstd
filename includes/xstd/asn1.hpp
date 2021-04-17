@@ -115,7 +115,7 @@ namespace xstd::asn1
 
 	// Object body.
 	//
-	struct object
+	struct object : std::enable_shared_from_this<object>
 	{
 		// Link to the parent object.
 		//
@@ -199,8 +199,13 @@ namespace xstd::asn1
 			//
 			else if constexpr ( CppString<T> )
 			{
-				if( tag_value.tag_number == tag_bmp_string )
-					return utf_convert<string_unit_t<T>>( std::wstring_view{ ( wchar_t* ) raw_data.data(), raw_data.size() / sizeof( wchar_t ) } );
+				if ( tag_value.tag_number == tag_bmp_string )
+				{
+					std::wstring swapped = { ( wchar_t* ) raw_data.data(), raw_data.size() / sizeof( wchar_t ) };
+					for ( auto& res : swapped )
+						res = bswap( res );
+					return utf_convert<string_unit_t<T>>( std::move( swapped ) );
+				}
 				else
 					return utf_convert<string_unit_t<T>>( std::string_view{ ( char* ) raw_data.data(), raw_data.size() } );
 			}
@@ -296,6 +301,8 @@ namespace xstd::asn1
 			{
 				if ( is_boolean() )
 					result += as<bool>() ? "true\n" : "false\n";
+				else if ( is_null() )
+					result += "null\n";
 				else if ( is_enum() )
 					result += fmt::str( "Enum(0x%llx)\n", as<size_t>() );
 				else if ( is_integer() )
