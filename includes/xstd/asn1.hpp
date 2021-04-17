@@ -118,7 +118,7 @@ namespace xstd::asn1
 	{
 		// Link to the parent object.
 		//
-		std::weak_ptr<object> parent = {};
+		object* parent = nullptr;
 
 		// Reference to the source range described.
 		//
@@ -165,7 +165,7 @@ namespace xstd::asn1
 				case tag_bmp_string:
 					return true;
 				default:
-					break;
+					return false;
 			}
 		}
 
@@ -197,24 +197,10 @@ namespace xstd::asn1
 			//
 			else if constexpr ( CppString<T> )
 			{
-				switch ( tag_value.tag_number )
-				{
-					case tag_bit_string:
-					case tag_octet_string:
-					case tag_utf8_string:
-					case tag_numeric_string:
-					case tag_printable_string:
-					case tag_teletex_string:
-					case tag_videotex_string:
-					case tag_ia5_string:
-					case tag_visible_string:
-					case tag_general_string:
-						return utf_convert<string_unit_t<T>>( std::string_view{ ( char* ) raw_data.data(), raw_data.size() } );
-					case tag_bmp_string:
-						return utf_convert<string_unit_t<T>>( std::wstring_view{ ( wchar_t* ) raw_data.data(), raw_data.size() / sizeof( wchar_t ) } );
-					default:
-						return T{};
-				}
+				if( tag_value.tag_number == tag_bmp_string )
+					return utf_convert<string_unit_t<T>>( std::wstring_view{ ( wchar_t* ) raw_data.data(), raw_data.size() / sizeof( wchar_t ) } );
+				else
+					return utf_convert<string_unit_t<T>>( std::string_view{ ( char* ) raw_data.data(), raw_data.size() } );
 			}
 			// OID.
 			//
@@ -452,7 +438,7 @@ namespace xstd::asn1
 				{
 					auto child = decode( sub_range );
 					if ( !child ) return nullptr;
-					child->parent = result;
+					child->parent = result.get();
 					result->children.emplace_back( std::move( child ) );
 				}
 			}
@@ -479,12 +465,17 @@ namespace xstd::asn1
 					//
 					auto child = decode( range );
 					if ( !child ) return nullptr;
-					child->parent = result;
+					child->parent = result.get();
 					result->children.emplace_back( std::move( child ) );
 				}
 			}
 		}
 		result->source.remove_suffix( range.size() );
 		return result;
+	}
+	static std::shared_ptr<object> decode( xstd::any_ptr ptr, size_t len )
+	{
+		std::string_view rng{ ( char* ) ptr, ( char* ) ptr + len };
+		return decode( rng );
 	}
 };
