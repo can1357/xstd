@@ -5,20 +5,26 @@
 
 namespace xstd
 {
-	namespace impl { struct literal_hint_t {}; };
-
 	// OID helper.
 	//
 	struct oid
 	{
+		// Traits.
+		//
 		static constexpr size_t max_length = 32;
+		
+		// Tag used when dispatching string with known length.
+		//
+		struct string_literal_t {};
 
+		// Raw data.
+		//
 		size_t length = 0;
 		std::array<uint8_t, max_length> data = { 0 };
 
 		// Construction from a string.
 		//
-		inline constexpr oid( const char* str, size_t n, impl::literal_hint_t _ )
+		inline constexpr oid( const char* str, size_t n, string_literal_t _ )
 		{
 			// Until we reach the end of the string:
 			//
@@ -73,7 +79,7 @@ namespace xstd
 				}
 			}
 		}
-		inline constexpr oid( const char* str ) : oid( str, strlen( str ), impl::literal_hint_t{} ) {}
+		inline constexpr oid( const char* str ) : oid( str, strlen( str ), oid::string_literal_t{} ) {}
 
 		// Constructon from bytes.
 		//
@@ -219,4 +225,4 @@ namespace xstd
 
 // OID literals.
 //
-static constexpr xstd::oid operator ""_oid( const char* str, size_t n ) { return { str, n, xstd::impl::literal_hint_t{} }; }
+static constexpr xstd::oid operator ""_oid( const char* str, size_t n ) { return { str, n, xstd::oid::string_literal_t{} }; }
