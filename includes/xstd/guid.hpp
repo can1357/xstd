@@ -1,6 +1,7 @@
 #pragma once
 #include <tuple>
-#include "formatting.hpp"
+#include <string>
+#include "intrinsics.hpp"
 #include "hashable.hpp"
 
 namespace xstd
