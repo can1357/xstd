@@ -480,8 +480,10 @@ namespace xstd
 
 	// Replace types within parameter packs.
 	//
-	template<typename T, typename O>
-	using swap_type_t = O;
+	template<typename T, typename O> using swap_type_t = O;
+	template<auto V, typename O>     using swap_to_type = O;
+	template<auto V, auto O>         static constexpr auto swap_value = O;
+	template<auto V, auto O>         static constexpr auto swap_to_value = O;
 
 	// Bitcasting.
 	//
