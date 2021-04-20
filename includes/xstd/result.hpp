@@ -77,6 +77,25 @@ namespace xstd
 		template<typename T, typename S>  requires ( Constructable<Value, T&&> && Constructable<Status, S&&> )
 		constexpr basic_result( T&& value, S&& status ) : result( std::forward<T>( value ) ), status( std::forward<S>( status ) ) {}
 
+		// Result conversion.
+		//
+		template<typename T> requires( !Same<T, Value> && ( Constructable<Value, const T&> || Same<Value, std::monostate> ) )
+		constexpr basic_result( const basic_result<T, Status>& other )
+		{
+			if constexpr ( Same<Value, std::monostate> )
+			{
+				status = other.status;
+				if ( traits::is_success( status ) )
+					result.emplace();
+			}
+			else
+			{
+				status = other.status;
+				if ( traits::is_success( status ) )
+					result.emplace( other.value() );
+			}
+		}
+
 		// Default copy and move.
 		//
 		constexpr basic_result( basic_result&& ) noexcept = default;
