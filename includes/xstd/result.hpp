@@ -142,7 +142,7 @@ namespace xstd
 		{
 			if ( fail() ) 
 				return fmt::str( "(Fail='%s')", message() );
-			if constexpr ( StringConvertible<Value> ) 
+			if constexpr ( StringConvertible<Value> && !Same<std::monostate, Value> ) 
 				return fmt::str( "(Result='%s')", fmt::as_string( result ) );
 			else                                    
 				return "(Success)";
