@@ -37,19 +37,19 @@ namespace xstd
 	template<typename... Tx>
 	__forceinline static constexpr void assert_that( bool condition, const char* fmt_str, Tx&&... ps )
 	{
-		// If condition met:
-		//
 		if ( !condition ) [[unlikely]]
 		{
-			// Throw exception if consteval, else throw runtime error.
-			//
 			if ( std::is_constant_evaluated() ) unreachable();
 			else                                error( fmt_str, std::forward<Tx>( ps )... );
 		}
 	}
 	__forceinline static constexpr void assert_that( bool condition )
 	{
-		return assert_that( condition, XSTD_ESTR( "Assertation failed." ) );
+		if ( !condition ) [[unlikely]]
+		{
+			if ( std::is_constant_evaluated() ) unreachable();
+			else                                error( XSTD_ESTR( "Assertation failed." ) );
+		}
 	}
 
 	// Same as the one above but takes the format string as a lambda to avoid failure where the the string
