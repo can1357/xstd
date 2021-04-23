@@ -48,7 +48,7 @@ namespace xstd
 
 		// Implement the compression functor mixing the data.
 		//
-		static constexpr void compress( value_type& iv, const block_type& block )
+		__forceinline static constexpr void compress( value_type& iv, const block_type& block )
 		{
 			constexpr auto e0 = [ ] ( uint32_t v ) { return rotr( v, 2 ) ^ rotr( v, 13 ) ^ rotr( v, 22 ); };
 			constexpr auto e1 = [ ] ( uint32_t v ) { return rotr( v, 6 ) ^ rotr( v, 11 ) ^ rotr( v, 25 ); };
@@ -118,7 +118,7 @@ namespace xstd
 
 		// Appends the given array of bytes into the hash value.
 		//
-		constexpr void add_bytes( const uint8_t* data, size_t n )
+		__forceinline constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
 			while ( n-- )
 			{
@@ -136,7 +136,7 @@ namespace xstd
 		// Appends the given trivial value as bytes into the hash value.
 		//
 		template<typename T>
-		constexpr void add_bytes( const T& data ) noexcept
+		__forceinline constexpr void add_bytes( const T& data ) noexcept
 		{
 			if ( std::is_constant_evaluated() )
 			{
@@ -156,7 +156,7 @@ namespace xstd
 
 		// Finalization of the hash.
 		//
-		constexpr void finalize() noexcept
+		__forceinline constexpr void finalize() noexcept
 		{
 			if ( finalized ) [[likely]]
 				return;
@@ -197,7 +197,7 @@ namespace xstd
 				v = bswap( v );
 			finalized = true;
 		}
-		constexpr value_type digest() const noexcept
+		__forceinline constexpr value_type digest() const noexcept
 		{
 			if ( finalized ) [[likely]]
 				return iv;
