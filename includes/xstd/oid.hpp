@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <string>
+#include "text.hpp"
 #include "bitwise.hpp"
 
 namespace xstd
@@ -79,7 +80,7 @@ namespace xstd
 				}
 			}
 		}
-		inline constexpr oid( const char* str ) : oid( str, strlen( str ), oid::string_literal_t{} ) {}
+		inline constexpr oid( const char* str ) : oid( str, xstd::strlen( str ), oid::string_literal_t{} ) {}
 
 		// Constructon from bytes.
 		//
