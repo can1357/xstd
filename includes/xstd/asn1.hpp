@@ -267,15 +267,27 @@ namespace xstd::asn1
 		auto end() const { return children.end(); }
 		size_t size() const { return children.size(); }
 
-		// Recursive enumeration helper.
+		// Non-recursive enumeration helper.
 		//
 		template<typename F> requires Invocable<F, void, std::shared_ptr<object>>
 		void enumerate( const F& func ) const
 		{
-			for ( auto& child : children )
+			std::list<std::shared_ptr<object>> stack = { children.rbegin(), children.rend() };
+			for ( bool first = true; !stack.empty() ; first = false )
 			{
-				func( child );
-				child->enumerate( func );
+				// Pop the top item.
+				//
+				auto top = std::move( stack.back() );
+				stack.pop_back();
+
+				// Push children.
+				//
+				for ( auto it = top->children.rbegin(); it != top->children.rend(); ++it )
+					stack.emplace_back( *it );
+
+				// Invoke the callback.
+				//
+				func( std::move( top ) );
 			}
 		}
 
