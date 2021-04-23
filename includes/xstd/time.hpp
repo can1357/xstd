@@ -12,7 +12,7 @@
 // [Configuration]
 // XSTD_DEFAULT_CLOCK: Changes the default high-accuracy clock.
 #ifndef XSTD_DEFAULT_CLOCK
-	#define XSTD_DEFAULT_CLOCK std::chrono::steady_clock
+	#define XSTD_DEFAULT_CLOCK std::chrono::high_resolution_clock
 #endif
 
 // No-bloat chrono interface with some helpers and a profiler.
