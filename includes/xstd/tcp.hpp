@@ -60,16 +60,10 @@ namespace xstd::tcp
 		//
 		virtual bool socket_set_nagle( bool state ) { return false; }
 
-		// Invoked by network layer to do periodic operations.
-		// -- Returns true if we still have pending packets to indicate that caller
-		// should be calling again as soon as possible instead of delaying it with the
-		// usual timer.
+		// Internal function used to flush the queues, must be called with the lock.
 		//
-		virtual bool on_timer()
+		void flush_queues()
 		{
-			if ( this->is_closed() ) return false;
-			std::lock_guard _g{ tx_lock };
-
 			// Clear the acknowledgment queue.
 			//
 			for ( auto it = ack_queue.begin(); it != ack_queue.end(); )
@@ -81,6 +75,7 @@ namespace xstd::tcp
 
 			// Write back the transaction queue.
 			//
+			bool wb_retry = true;
 			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
 			{
 				// Try writing it to the socket.
@@ -92,8 +87,12 @@ namespace xstd::tcp
 
 				// If none were written, invoke writeback to flush.
 				//
-				if ( !count )
+				if ( !count && wb_retry )
+				{
 					socket_writeback();
+					wb_retry = false;
+					continue;
+				}
 
 				// If we've not written the entire buffer, break.
 				//
@@ -106,7 +105,18 @@ namespace xstd::tcp
 					ack_queue.emplace_back( std::move( buffer ), last_tx_id );
 				it = tx_queue.erase( it );
 			}
-			return !tx_queue.empty();
+		}
+
+		// Invoked by network layer to do periodic operations.
+		//
+		virtual void on_timer()
+		{
+			if ( this->is_closed() ) return;
+
+			// Flush all queues.
+			//
+			std::lock_guard _g{ tx_lock };
+			flush_queues();
 		}
 
 		// Invoked by application to write data to the socket.
@@ -115,23 +125,24 @@ namespace xstd::tcp
 		{
 			if ( this->is_closed() ) return;
 
-			// Append the data onto tx queue.
+			// Append the data onto tx queue and try submitting to the network layer.
 			//
 			tx_lock.lock();
 			tx_queue.emplace_back( std::move( data ), 0 );
+			flush_queues();
 			tx_lock.unlock();
-
-			// Invoke socket timer to exhaust the queue.
-			//
-			client::on_timer();
 		}
 
 		// Invoked by network layer to indicate the target acknowledged a number of bytes from our output queue.
+		// - if has_ack == 0, can be used to indicate an arbitrary amount of data can be written again.
 		//
 		void on_socket_ack( size_t n )
 		{
 			if ( this->is_closed() ) return;
 			last_ack_id += n;
+
+			std::lock_guard _g{ tx_lock };
+			flush_queues();
 		}
 
 		// Invoked by network layer to indicate the socket received data.
