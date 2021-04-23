@@ -96,7 +96,7 @@ namespace xstd::fmt
 			// Convert float to string.
 			//
 			char buffer[ 32 ];
-			snprintf( buffer, 32, "%.1lf%s", fvalue / unit_size[ n ], unit_abbrv );
+			snprintf( buffer, 32, "%.1lf%s", fvalue / unit_size[ n ], unit_abbrv[ n ] );
 			return buffer;
 		}
 	};
