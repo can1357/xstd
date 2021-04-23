@@ -30,7 +30,7 @@ namespace xstd
 	};
 
 	template<DefaultConstructable CidGetter>
-	struct basic_recursive_spinlock
+	alignas( 0x10 ) struct basic_recursive_spinlock
 	{
 		using cid_t = decltype( CidGetter{}() );
 
