@@ -87,6 +87,7 @@ namespace xstd
         // Helpers to load from a byte vector and dump into one.
         //
         std::vector<uint8_t> dump() const;
+        std::vector<uint8_t> dump();
         serialization& load( const void* data, size_t length, bool no_header = false );
         template<Iterable T> requires ( is_contiguous_iterable_v<T> && Trivial<iterator_value_type_t<T>> )
         serialization& load( T&& container, bool no_header = false ) 
@@ -580,6 +581,34 @@ namespace xstd
         // Insert the raw data and return.
         //
         result.insert( result.end(), raw_data.begin(), raw_data.end() );
+        return result;
+    }
+    inline std::vector<uint8_t> serialization::dump()
+    {
+        // Validate pointer ownership.
+        //
+        for ( auto& ptr : pointers )
+            if ( ptr.second.index && !ptr.second.is_backed )
+                throw_fmt( XSTD_ESTR( "Dangling pointer serialized!" ) );
+        auto result = std::move( raw_data );
+
+        // Emit the serialization flag and the pointer table.
+        //
+        if ( !pointers.empty() )
+        {
+            serialization subctx;
+            subctx.raw_data = { ( uint8_t ) true };
+            serialize( subctx, pointers );
+            fassert( subctx.pointers.empty() );
+            result.insert( result.begin(), subctx.raw_data.begin(), subctx.raw_data.end() );
+        }
+        else
+        {
+            result.insert( result.begin(), ( uint8_t ) false );
+        }
+        
+        // Insert the raw data and return.
+        //
         return result;
     }
     inline serialization& serialization::load( const void* data, size_t length, bool no_header )
