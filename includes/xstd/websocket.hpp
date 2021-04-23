@@ -164,11 +164,11 @@ namespace xstd::ws
 		buffer = it;
 		return 0;
 	}
-	inline void write( std::string& buffer, header& hdr )
+	inline void write( std::vector<uint8_t>& buffer, header& hdr )
 	{
 		auto write = [ & ] <typename T> ( const T& v )
 		{
-			buffer.insert( buffer.end(), ( char* ) &v, ( char* ) std::next( &v ) );
+			buffer.insert( buffer.end(), ( uint8_t* ) &v, ( uint8_t* ) std::next( &v ) );
 		};
 
 		// Reserve enough space to hold the maximum header length and the data implied by the header.
@@ -253,7 +253,7 @@ namespace xstd::ws
 			{
 				// Send a pong and continue.
 				//
-				send_packet( opcode::pong, data );
+				send_packet( opcode::pong, data.data(), data.size() );
 			}
 			else if ( hdr.op == opcode::pong )
 			{
@@ -275,7 +275,7 @@ namespace xstd::ws
 
 		// Sends a websocket packet.
 		//
-		void send_packet( opcode op, any_ptr data, size_t length )
+		void send_packet( opcode op, std::vector<uint8_t> data = {} )
 		{
 			if ( transport_layer::is_closed() ) return;
 
@@ -283,7 +283,7 @@ namespace xstd::ws
 			//
 			header hdr = {
 				.op = op,
-				.length = length,
+				.length = data.size(),
 				.finished = true,
 				.mask_key = make_random<uint32_t>( 1, UINT32_MAX )
 			};
@@ -291,20 +291,20 @@ namespace xstd::ws
 
 			// Serialize the header into the transmit buffer.
 			//
-			std::string tx_buffer = {};
-			ws::write( tx_buffer, hdr );
+			std::vector<uint8_t> hdr_buffer = {};
+			hdr_buffer.reserve( 14 );
+			ws::write( hdr_buffer, hdr );
 
 			// Append the data as well and mask it.
 			//
-			size_t p = tx_buffer.size();
-			tx_buffer.insert( tx_buffer.end(), ( char* ) data, ( char* ) data + length );
-			mask_buffer( tx_buffer.data() + p, length, hdr.mask_key );
+			data.insert( data.begin(), hdr_buffer.begin(), hdr_buffer.end() );
+			mask_buffer( data.data() + hdr_buffer.size(), data.size() - hdr_buffer.size(), hdr.mask_key );
 			
 			// Write to the TCP socket.
 			//
-			transport_layer::write( std::move( tx_buffer ) );
+			transport_layer::write( std::move( data ) );
 		}
-		void send_packet( opcode op, std::string_view str = {} ) { send_packet( op, str.data(), str.size() ); }
+		void send_packet( opcode op, const void* data, size_t length ) { return send_packet( op, std::vector<uint8_t>{ ( uint8_t* ) data, ( uint8_t* ) data + length } ); }
 
 		// Ping-pong helper, returns latest measured latency or zero.
 		//

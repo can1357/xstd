@@ -22,7 +22,7 @@ namespace xstd::tcp
 		// Receive buffer.
 		//
 		size_t rx_buffer_offset = 0;
-		std::string rx_buffer;
+		std::vector<uint8_t> rx_buffer;
 		xstd::spinlock rx_lock;
 
 		// Transmission queues.
@@ -30,8 +30,8 @@ namespace xstd::tcp
 		xstd::spinlock tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
-		std::list<std::pair<std::string, size_t>> tx_queue;
-		std::list<std::pair<std::string, size_t>> ack_queue;
+		std::list<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
+		std::list<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
 
 		// Implemented by application, tries parsing the given data range as a singular 
 		// packet returns non-zero size if data is (partially?) consumed, else returns zero 
@@ -111,7 +111,7 @@ namespace xstd::tcp
 
 		// Invoked by application to write data to the socket.
 		//
-		void write( std::string data )
+		void write( std::vector<uint8_t> data )
 		{
 			if ( this->is_closed() ) return;
 
@@ -170,7 +170,7 @@ namespace xstd::tcp
 
 				// While packets are parsed:
 				//
-				std::string_view it = { rx_buffer.begin() + rx_buffer_offset, rx_buffer.end() };
+				std::string_view it = { ( char* ) rx_buffer.data() + rx_buffer_offset, ( char* ) rx_buffer.data() + rx_buffer.size() };
 				while ( size_t n = packet_parse( it ) )
 				{
 					// Remove the consumed.
@@ -189,7 +189,7 @@ namespace xstd::tcp
 				// If rx buffer has leftover segments, adjust the offset, this is done to 
 				// avoid unnecessary memory movement.
 				//
-				rx_buffer_offset = it.data() - rx_buffer.data();
+				rx_buffer_offset = ( uint8_t* ) it.data() - rx_buffer.data();
 			}
 		}
 
