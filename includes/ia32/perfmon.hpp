@@ -127,11 +127,11 @@ namespace ia32::pmu
 		// Control MSRs.
 		// - AMD does not use a global config space nor have fixed counters.
 		//
-		static constexpr uint32_t global_control = is_intel ? IA32_PERF_GLOBAL_CTRL : 0;
-		static constexpr uint32_t fixed_control = is_intel ? IA32_FIXED_CTR_CTRL : 0;
-		static constexpr uint32_t fixed_counter_base = is_intel ? IA32_FIXED_CTR0 : 0;
-		static constexpr uint32_t fixed_counter_limit = is_intel ? 3 : 0;
-		static constexpr uint32_t fixed_counter_stride = is_intel ? 1 : 0;
+		static constexpr uint32_t global_control = is_intel ? IA32_PERF_GLOBAL_CTRL : UINT32_MAX;
+		static constexpr uint32_t fixed_control = is_intel ? IA32_FIXED_CTR_CTRL : UINT32_MAX;
+		static constexpr uint32_t fixed_counter_base = is_intel ? IA32_FIXED_CTR0 : UINT32_MAX;
+		static constexpr uint32_t fixed_counter_limit = is_intel ? 3 : UINT32_MAX;
+		static constexpr uint32_t fixed_counter_stride = is_intel ? 1 : UINT32_MAX;
 
 		// CPU capability information.
 		//
