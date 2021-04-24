@@ -102,6 +102,11 @@ namespace ia32::pmu
 	template<bool is_intel>
 	struct traits_of
 	{
+		// Shortcuts.
+		//
+		template<event_id evt> static constexpr size_t   fixed_counter_v =    fixed_counter<is_intel, evt>::value;
+		template<event_id evt> static constexpr evtsel_t dynamic_selector_v = dynamic_selector<is_intel, evt>::value;
+
 		// Counter MSRs.
 		//
 		static constexpr uint32_t config_base = is_intel ? IA32_PERFEVTSEL0 : IA32_PERFEVTSEL0_AMD;
@@ -159,7 +164,7 @@ namespace ia32::pmu
 		// - Null MSRs indicate failure.
 		// - Note: Fixed counter control MSR is a bitset.
 		//
-		inline static std::pair<uint32_t, uint32_t> resolve_dynamic_counter( size_t index )
+		inline static std::pair<uint32_t, uint32_t> resolve_dynamic( size_t index )
 		{
 			// Validate the counter index.
 			//
@@ -184,7 +189,7 @@ namespace ia32::pmu
 				return { aliasing_config_base + offset, aliasing_counter_base + offset };
 			}
 		}
-		inline static std::pair<uint32_t, uint32_t> resolve_fixed_counter( size_t index )
+		inline static std::pair<uint32_t, uint32_t> resolve_fixed( size_t index )
 		{
 			// Validate the counter index.
 			//
@@ -219,7 +224,7 @@ namespace ia32::pmu
 		ctr_interrupt =  IA32_PERFEVTSEL_INTR_FLAG,
 	};
 
-	// Changes the state configuration given the dynamic/fixed counter. 
+	// Changes the state configuration given the dynamic/fixed counter.
 	// - Returns false/npos on failure, else true/counter index.
 	//
 	FORCE_INLINE inline bool dynamic_set_state( size_t index, evtsel_t selector, uint32_t flags, bool update_global = false )
@@ -233,7 +238,7 @@ namespace ia32::pmu
 
 			// Resolve the counter.
 			//
-			auto [cfg, cnt] = traits::resolve_dynamic_counter( index );
+			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			if ( !cfg )
 				return;
 
@@ -340,8 +345,7 @@ namespace ia32::pmu
 		} );
 		return index;
 	}
-	FORCE_INLINE inline bool dynamic_disable( size_t index, bool update_global = false ) { return dynamic_set_state( index, event_id::none, 0, update_global ); }
-
+	
 	// Queries the state configuration given the dynamic/fixed counter.
 	// - Returns zero on failure.
 	//
@@ -355,7 +359,7 @@ namespace ia32::pmu
 
 			// Returns zero (disabled) if the dynamic counter index is invalid.
 			//
-			auto [cfg, cnt] = traits::resolve_dynamic_counter( index );
+			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			if ( !cfg )
 				return counter_flags( 0 );
 
@@ -383,7 +387,7 @@ namespace ia32::pmu
 
 			// Returns zero (disabled) if the fixed counter index is invalid.
 			//
-			auto [cfg, cnt] = traits::resolve_fixed_counter( index );
+			auto [cfg, cnt] = traits::resolve_fixed( index );
 			if ( !cfg )
 				return counter_flags( 0 );
 
@@ -428,7 +432,7 @@ namespace ia32::pmu
 
 			// Return false if the dynamic counter index is invalid.
 			//
-			auto [cfg, cnt] = traits::resolve_dynamic_counter( index );
+			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			if ( !cnt )
 				return false;
 
@@ -448,7 +452,7 @@ namespace ia32::pmu
 
 			// Return false if the fixed counter index is invalid.
 			//
-			auto [cfg, cnt] = traits::resolve_fixed_counter( index );
+			auto [cfg, cnt] = traits::resolve_fixed( index );
 			if ( !cnt )
 				return false;
 
@@ -468,7 +472,7 @@ namespace ia32::pmu
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> uint64_t
 		{
 			using traits = traits_of<is_intel>;
-			auto [cfg, cnt] = traits::resolve_dynamic_counter( index );
+			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
 	}
@@ -477,8 +481,14 @@ namespace ia32::pmu
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> uint64_t
 		{
 			using traits = traits_of<is_intel>;
-			auto [cfg, cnt] = traits::resolve_fixed_counter( index );
+			auto [cfg, cnt] = traits::resolve_fixed( index );
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
 	}
+
+	// Quick disable shortcuts.
+	// - Returns false/npos on failure, else true/counter index.
+	//
+	FORCE_INLINE inline bool dynamic_disable( size_t index, bool update_global = false ) { return dynamic_set_state( index, event_id::none, 0, update_global ); }
+	FORCE_INLINE inline size_t fixed_disable( event_id event, bool update_global = false ) { return fixed_set_state( event, 0, update_global ); }
 };
