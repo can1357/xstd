@@ -21526,8 +21526,28 @@ typedef union
 
 // Some missing enumerations.
 //
-#define IA32_MSR_SMI_COUNT 0x0000000034
-#define IA32_IRPERF        0x000000E9 // (AMD)
+// SMI
+#define IA32_MSR_SMI_COUNT              0x00000034
+// AMD profiling extensions.
+#define IA32_IRPERF                     0x000000E9
+#define IA32_PERFEVTSEL0_AMD            0xC0010000
+#define IA32_PMC0_AMD                   0xC0010004
+#define IA32_A_PERFEVTSEL0_AMD          0xC0010200
+#define IA32_A_PMC0_AMD                 0xC0010201
+// CPUD faulting.
+#define MSR_INTEL_PLATFORM_INFO         0x000000ce
+#define MSR_INTEL_MISC_FEATURES_ENABLES 0x00000140
+#define PLATFORM_INFO_CPUID_FAULTING    (1ull << 31)
+#define MISC_FEATURES_CPUID_FAULTING    (1ull <<  0)
+// More complete EFER.
+#define EFER_SCE                        (1ull <<  0) /* SYSCALL Enable */
+#define EFER_LME                        (1ull <<  8) /* Long Mode Enable */
+#define EFER_LMA                        (1ull << 10) /* Long Mode Active */
+#define EFER_NXE                        (1ull << 11) /* No Execute Enable */
+#define EFER_SVME                       (1ull << 12) /* Secure Virtual Machine Enable */
+#define EFER_LMSLE                      (1ull << 13) /* Long Mode Segment Limit Enable */
+#define EFER_FFXSR                      (1ull << 14) /* Fast FXSAVE/FXRSTOR */
+#define EFER_TCE                        (1ull << 15) /* Translation Cache Extension */
 
 // Fixed versions of some structures and some missing ones.
 //
@@ -22238,6 +22258,90 @@ namespace ia32
     // Checks if the CPU vendor is Intel.
     //
     _LINKAGE bool is_intel() { return static_cpuid<0, 0, cpuid_eax_00>::result.ecx_value_ntel == bswap( 'ntel' ); };
+
+    // TSC/MSR/PMC based profiling in the style of xstd::profile.
+    //
+	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
+	FLATTEN static auto uprofile_tsc( T&& f, Tx&&... args )
+	{
+		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
+
+		if constexpr ( std::is_same_v<result_t, void> )
+		{
+            lfence();
+            uint64_t t0 = read_tsc();
+            lfence();
+			f( std::forward<Tx>( args )... );
+            uint64_t t1 = read_tsc();
+            lfence();
+            return t1 - t0;
+		}
+		else
+		{
+            lfence();
+            uint64_t t0 = read_tsc();
+            lfence();
+			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
+            uint64_t t1 = read_tsc();
+            lfence();
+			result.second = t1 - t0;
+			return result;
+		}
+	}
+	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
+	FLATTEN static auto uprofile_msr( uint64_t id, T&& f, Tx&&... args )
+	{
+		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
+
+		if constexpr ( std::is_same_v<result_t, void> )
+		{
+            lfence();
+            uint64_t t0 = read_msr( id );
+            lfence();
+			f( std::forward<Tx>( args )... );
+            uint64_t t1 = read_msr( id );
+            lfence();
+            return t1 - t0;
+		}
+		else
+		{
+            lfence();
+            uint64_t t0 = read_msr( id );
+            lfence();
+			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
+            uint64_t t1 = read_msr( id );
+            lfence();
+			result.second = t1 - t0;
+			return result;
+		}
+	}
+	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
+	FLATTEN static auto uprofile_pmc( uint64_t id, T&& f, Tx&&... args )
+	{
+		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
+
+		if constexpr ( std::is_same_v<result_t, void> )
+		{
+            lfence();
+            uint64_t t0 = read_pmc( id );
+            lfence();
+			f( std::forward<Tx>( args )... );
+            uint64_t t1 = read_pmc( id );
+            lfence();
+            return t1 - t0;
+		}
+		else
+		{
+            lfence();
+            uint64_t t0 = read_pmc( id );
+            lfence();
+			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
+            uint64_t t1 = read_pmc( id );
+            lfence();
+			result.second = t1 - t0;
+			return result;
+		}
+	}
 };
 #undef _LINKAGE
 #endif
