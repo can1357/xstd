@@ -245,7 +245,7 @@ namespace ia32::pmu
 			// Create the event selector register and write it.
 			// - User-passed flags are bitwise compatible.
 			//
-			ia32_perfevtsel_register sel = { .flags = flags };
+			perfevtsel_register sel = { .flags = flags };
 			sel.event_select = selector.event_select;
 			sel.u_mask = selector.unit_mask;
 			sel.edge = selector.edge;
@@ -257,7 +257,7 @@ namespace ia32::pmu
 			//
 			if ( update_global && traits::global_control != 0 )
 			{
-				auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+				auto global_ctrl = read_msr<perf_global_ctrl_register>( traits::global_control );
 				if ( flags & ctr_enable )
 					global_ctrl.en_pmcn |= 1ull << index;
 				else
@@ -315,7 +315,7 @@ namespace ia32::pmu
 				//
 				auto fixed_ctrl = read_msr( traits::fixed_control );
 				fixed_ctrl &= ~xstd::fill_bits( 4, iindex * 4 );
-				ia32_fixed_ctr_ctrl_register ctrl = { .flags = 0 };
+				fixed_ctr_ctrl_register ctrl = { .flags = 0 };
 				if ( flags & ctr_enable )
 				{
 					ctrl.en0_os = ( flags & ctr_supervisor ) != 0;
@@ -330,7 +330,7 @@ namespace ia32::pmu
 				//
 				if ( update_global && traits::global_control != 0 )
 				{
-					auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+					auto global_ctrl = read_msr<perf_global_ctrl_register>( traits::global_control );
 					if ( flags & ctr_enable )
 						global_ctrl.en_fixed_ctrn |= 1ull << iindex;
 					else
@@ -369,7 +369,7 @@ namespace ia32::pmu
 			{
 				// If performance counter is disabled at the global level, return zero as well.
 				//
-				auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+				auto global_ctrl = read_msr<perf_global_ctrl_register>( traits::global_control );
 				if ( !( global_ctrl.en_pmcn & ( 1ull << index ) ) )
 					return counter_flags( 0 );
 			}
@@ -397,14 +397,14 @@ namespace ia32::pmu
 			{
 				// If performance counter is disabled at the global level, return zero as well.
 				//
-				auto global_ctrl = read_msr<ia32_perf_global_ctrl_register>( traits::global_control );
+				auto global_ctrl = read_msr<perf_global_ctrl_register>( traits::global_control );
 				if ( !( global_ctrl.en_fixed_ctrn & ( 1ull << index ) ) )
 					return counter_flags( 0 );
 			}
 
 			// Read the fixed control register, return zero if disabled for all CPLs.
 			//
-			ia32_fixed_ctr_ctrl_register ctrl{ .flags = ( read_msr( cfg ) >> ( index * 4 ) ) };
+			fixed_ctr_ctrl_register ctrl{ .flags = ( read_msr( cfg ) >> ( index * 4 ) ) };
 			if ( !ctrl.en0_os && !ctrl.en0_usr )
 				return counter_flags( 0 );
 
