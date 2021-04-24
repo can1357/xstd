@@ -99,13 +99,15 @@ namespace ia32::pmu
 
 	// Configuration traits for each platform.
 	//
-	template<bool is_intel>
+	template<bool _is_intel>
 	struct traits_of
 	{
+		static constexpr bool is_intel = _is_intel;
+
 		// Shortcuts.
 		//
-		template<event_id evt> static constexpr size_t   fixed_counter_v =    fixed_counter<is_intel, evt>::value;
-		template<event_id evt> static constexpr evtsel_t dynamic_selector_v = dynamic_selector<is_intel, evt>::value;
+		template<event_id evt> static constexpr size_t fixed_counter() { return fixed_counter_v<is_intel, evt>; }
+		template<event_id evt> static constexpr evtsel_t dynamic_selector() { return dynamic_selector_v<is_intel, evt>; }
 
 		// Counter MSRs.
 		//
@@ -212,6 +214,17 @@ namespace ia32::pmu
 	using intel_traits = traits_of<true>;
 	using amd_traits =   traits_of<false>;
 
+	// Implement a simple visitor.
+	//
+	template<typename T>
+	FORCE_INLINE inline decltype( auto ) visit_traits( T&& fn )
+	{
+		if ( is_intel() )
+			return fn( intel_traits{} );
+		else
+			return fn( amd_traits{} );
+	}
+
 	// Counter flags.
 	// - Maps to perfevtsel bits 1:1 for convenience.
 	//
@@ -232,10 +245,8 @@ namespace ia32::pmu
 		// Visit the platform.
 		//
 		bool success = false;
-		xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> )
+		visit_traits( [ & ] <typename traits> ( traits )
 		{
-			using traits = traits_of<is_intel>;
-
 			// Resolve the counter.
 			//
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
@@ -273,13 +284,13 @@ namespace ia32::pmu
 		// Visit the event identifier.
 		//
 		bool success = false;
-		xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> )
+		visit_traits( [ & ] <typename traits> ( traits )
 		{
 			xstd::visit_range<event_id::none, event_id::max>( event, [ & ] <event_id evt> ( xstd::const_tag<evt> )
 			{
 				// Map and validate the selector.
 				//
-				evtsel_t selector = dynamic_selector_v<is_intel, evt>;
+				evtsel_t selector = traits::template dynamic_selector<evt>();
 				if ( !selector && evt != event_id::none )
 					return;
 				success = dynamic_set_state( index, selector, flags, update_global );
@@ -292,10 +303,8 @@ namespace ia32::pmu
 		// Visit the platform.
 		//
 		size_t index = std::string::npos;
-		xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> )
+		visit_traits( [ & ] <typename traits> ( traits )
 		{
-			using traits = traits_of<is_intel>;
-
 			// Validate the fixed control register.
 			//
 			if ( !traits::fixed_control )
@@ -307,7 +316,7 @@ namespace ia32::pmu
 			{
 				// Map and validate the selector.
 				//
-				size_t iindex = fixed_counter_v<is_intel, evt>;
+				size_t iindex = traits::template fixed_counter<evt>();
 				if ( iindex == std::string::npos )
 					return;
 
@@ -353,10 +362,8 @@ namespace ia32::pmu
 	{
 		// Visit the platform.
 		//
-		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> counter_flags
+		return visit_traits( [ & ] <typename traits> ( traits ) -> counter_flags
 		{
-			using traits = traits_of<is_intel>;
-
 			// Returns zero (disabled) if the dynamic counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
@@ -381,10 +388,8 @@ namespace ia32::pmu
 	}
 	FORCE_INLINE inline counter_flags fixed_query_state( size_t index, bool query_global = true )
 	{
-		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> counter_flags
+		return visit_traits( [ & ] <typename traits> ( traits ) -> counter_flags
 		{
-			using traits = traits_of<is_intel>;
-
 			// Returns zero (disabled) if the fixed counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_fixed( index );
@@ -426,10 +431,8 @@ namespace ia32::pmu
 	{
 		// Visit the platform.
 		//
-		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> bool
+		return visit_traits( [ & ] <typename traits> ( traits ) -> bool
 		{
-			using traits = traits_of<is_intel>;
-
 			// Return false if the dynamic counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
@@ -446,10 +449,8 @@ namespace ia32::pmu
 	{
 		// Visit the platform.
 		//
-		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> bool
+		return visit_traits( [ & ] <typename traits> ( traits ) -> bool
 		{
-			using traits = traits_of<is_intel>;
-
 			// Return false if the fixed counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_fixed( index );
@@ -469,18 +470,16 @@ namespace ia32::pmu
 	//
 	FORCE_INLINE inline uint64_t dynamic_query_value( size_t index )
 	{
-		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> uint64_t
+		return visit_traits( [ & ] <typename traits> ( traits ) -> uint64_t
 		{
-			using traits = traits_of<is_intel>;
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
 	}
 	FORCE_INLINE inline uint64_t fixed_query_value( size_t index )
 	{
-		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> uint64_t
+		return visit_traits( [ & ] <typename traits> ( traits ) -> uint64_t
 		{
-			using traits = traits_of<is_intel>;
 			auto [cfg, cnt] = traits::resolve_fixed( index );
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
