@@ -177,7 +177,7 @@ namespace ia32::apic
 	{
 		// Fail if APIC is not enabled.
 		//
-		auto apic_info = ia32::read_msr<ia32::apic_base_register>( IA32_APIC_BASE );
+		auto apic_info = read_msr<apic_base_register>( IA32_APIC_BASE );
 		if ( !apic_info.apic_global_enable )
 			return false;
 
@@ -186,7 +186,7 @@ namespace ia32::apic
 		if ( !apic_info.enable_x2apic_mode )
 		{
 			static std::shared_ptr<volatile uint32_t> base;
-			base = ia32::mem::map_physical<volatile uint32_t>( apic_info.apic_base, 0x1000 );
+			base = mem::map_physical<volatile uint32_t>( apic_info.apic_base << 12, 0x1000 );
 			apic_base = base.get();
 		}
 		return true;
