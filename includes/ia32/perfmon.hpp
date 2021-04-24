@@ -100,7 +100,7 @@ namespace ia32::pmu
 	// Configuration traits for each platform.
 	//
 	template<bool is_intel>
-	struct unit
+	struct traits_of
 	{
 		// Counter MSRs.
 		//
@@ -204,8 +204,8 @@ namespace ia32::pmu
 			return { fixed_control, fixed_counter_base + offset };
 		}
 	};
-	using intel = unit<true>;
-	using amd =   unit<false>;
+	using intel_traits = traits_of<true>;
+	using amd_traits =   traits_of<false>;
 
 	// Counter flags.
 	// - Maps to perfevtsel bits 1:1 for convenience.
@@ -229,7 +229,7 @@ namespace ia32::pmu
 		bool success = false;
 		xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> )
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 
 			// Resolve the counter.
 			//
@@ -289,7 +289,7 @@ namespace ia32::pmu
 		size_t index = std::string::npos;
 		xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> )
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 
 			// Validate the fixed control register.
 			//
@@ -351,7 +351,7 @@ namespace ia32::pmu
 		//
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> counter_flags
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 
 			// Returns zero (disabled) if the dynamic counter index is invalid.
 			//
@@ -379,7 +379,7 @@ namespace ia32::pmu
 	{
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> counter_flags
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 
 			// Returns zero (disabled) if the fixed counter index is invalid.
 			//
@@ -424,7 +424,7 @@ namespace ia32::pmu
 		//
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> bool
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 
 			// Return false if the dynamic counter index is invalid.
 			//
@@ -444,7 +444,7 @@ namespace ia32::pmu
 		//
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> bool
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 
 			// Return false if the fixed counter index is invalid.
 			//
@@ -467,7 +467,7 @@ namespace ia32::pmu
 	{
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> uint64_t
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 			auto [cfg, cnt] = traits::resolve_dynamic_counter( index );
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
@@ -476,7 +476,7 @@ namespace ia32::pmu
 	{
 		return *xstd::visit_range<false, true>( is_intel(), [ & ] <bool is_intel> ( xstd::const_tag<is_intel> ) -> uint64_t
 		{
-			using traits = unit<is_intel>;
+			using traits = traits_of<is_intel>;
 			auto [cfg, cnt] = traits::resolve_fixed_counter( index );
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
