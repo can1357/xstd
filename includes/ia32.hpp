@@ -6454,7 +6454,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_platform_id_register;
+} platform_id_register;
 
 
 /**
@@ -6511,7 +6511,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_apic_base_register;
+} apic_base_register;
 
 
 /**
@@ -6643,7 +6643,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_feature_control_register;
+} feature_control_register;
 
 
 /**
@@ -6659,7 +6659,7 @@ typedef struct
    * local offset in IA32_TSC_ADJUST and the content of IA32_TSC, but does not affect the internal invariant TSC hardware.
    */
   uint64_t thread_adjust;
-} ia32_tsc_adjust_register;
+} tsc_adjust_register;
 
 
 /**
@@ -6713,7 +6713,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_bios_update_signature_register;
+} bios_update_signature_register;
 
 /**
  * @defgroup ia32_sgxlepubkeyhash \
@@ -6795,7 +6795,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_smm_monitor_ctl_register;
+} smm_monitor_ctl_register;
 
 typedef struct
 {
@@ -6837,7 +6837,7 @@ typedef struct
   uint32_t eip_offset;
   uint32_t esp_offset;
   uint32_t cr3_offset;
-} ia32_mseg_header;
+} mseg_header;
 
 
 /**
@@ -6883,7 +6883,7 @@ typedef struct
    * wrap-around of IA32_APERF.
    */
   uint64_t c0_mcnt;
-} ia32_mperf_register;
+} mperf_register;
 
 
 /**
@@ -6901,7 +6901,7 @@ typedef struct
    * overflow / wrap-around of IA32_MPERF.
    */
   uint64_t c0_acnt;
-} ia32_aperf_register;
+} aperf_register;
 
 
 /**
@@ -6965,7 +6965,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mtrr_capabilities_register;
+} mtrr_capabilities_register;
 
 
 /**
@@ -7015,7 +7015,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_sysenter_cs_register;
+} sysenter_cs_register;
 
 
 /**
@@ -7145,7 +7145,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mcg_cap_register;
+} mcg_cap_register;
 
 
 /**
@@ -7203,7 +7203,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mcg_status_register;
+} mcg_status_register;
 
 
 /**
@@ -7334,7 +7334,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perfevtsel_register;
+} perfevtsel_register;
 
 /**
  * @}
@@ -7364,7 +7364,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_status_register;
+} perf_status_register;
 
 
 /**
@@ -7404,7 +7404,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_ctl_register;
+} perf_ctl_register;
 
 
 /**
@@ -7458,7 +7458,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_clock_modulation_register;
+} clock_modulation_register;
 
 
 /**
@@ -7589,7 +7589,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_therm_interrupt_register;
+} therm_interrupt_register;
 
 
 /**
@@ -7819,7 +7819,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_therm_status_register;
+} therm_status_register;
 
 
 /**
@@ -7997,7 +7997,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_misc_enable_register;
+} misc_enable_register;
 
 
 /**
@@ -8025,7 +8025,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_energy_perf_bias_register;
+} energy_perf_bias_register;
 
 
 /**
@@ -8162,7 +8162,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_package_therm_status_register;
+} package_therm_status_register;
 
 
 /**
@@ -8265,7 +8265,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_package_therm_interrupt_register;
+} package_therm_interrupt_register;
 
 
 /**
@@ -8417,7 +8417,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_debugctl_register;
+} debugctl_register;
 
 
 /**
@@ -8456,7 +8456,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_smrr_physbase_register;
+} smrr_physbase_register;
 
 
 /**
@@ -8494,7 +8494,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_smrr_physmask_register;
+} smrr_physmask_register;
 
 
 /**
@@ -8590,7 +8590,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_dca_0_cap_register;
+} dca_0_cap_register;
 
 /**
  * @defgroup ia32_mtrr_physbase \
@@ -8630,7 +8630,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mtrr_physbase_register;
+} mtrr_physbase_register;
 
 #define IA32_MTRR_PHYSBASE0                                          0x00000200
 #define IA32_MTRR_PHYSBASE1                                          0x00000202
@@ -8700,7 +8700,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mtrr_physmask_register;
+} mtrr_physmask_register;
 
 #define IA32_MTRR_PHYSMASK0                                          0x00000201
 #define IA32_MTRR_PHYSMASK1                                          0x00000203
@@ -8887,7 +8887,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_pat_register;
+} pat_register;
 
 /**
  * @defgroup ia32_mc_ctl2 \
@@ -8957,7 +8957,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mc_ctl2_register;
+} mc_ctl2_register;
 
 /**
  * @}
@@ -9005,7 +9005,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mtrr_def_type_register;
+} mtrr_def_type_register;
 
 /**
  * @defgroup ia32_fixed_ctr \
@@ -9102,7 +9102,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_capabilities_register;
+} perf_capabilities_register;
 
 
 /**
@@ -9239,7 +9239,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_fixed_ctr_ctrl_register;
+} fixed_ctr_ctrl_register;
 
 
 /**
@@ -9416,7 +9416,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_global_status_register;
+} perf_global_status_register;
 
 
 /**
@@ -9443,7 +9443,7 @@ typedef struct
    * @remarks If CPUID.0AH: EDX[4:0] > n
    */
   uint32_t en_fixed_ctrn;
-} ia32_perf_global_ctrl_register;
+} perf_global_ctrl_register;
 
 
 /**
@@ -9560,7 +9560,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_global_status_reset_register;
+} perf_global_status_reset_register;
 
 
 /**
@@ -9667,7 +9667,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_global_status_set_register;
+} perf_global_status_set_register;
 
 
 /**
@@ -9712,7 +9712,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_perf_global_inuse_register;
+} perf_global_inuse_register;
 
 
 /**
@@ -9758,7 +9758,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_pebs_enable_register;
+} pebs_enable_register;
 
 /**
  * @defgroup ia32_mc_ctl \
@@ -10059,7 +10059,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_basic_register;
+} vmx_basic_register;
 
 
 /**
@@ -10149,7 +10149,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_pinbased_ctls_register;
+} vmx_pinbased_ctls_register;
 
 
 /**
@@ -10437,7 +10437,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_procbased_ctls_register;
+} vmx_procbased_ctls_register;
 
 
 /**
@@ -10589,7 +10589,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_exit_ctls_register;
+} vmx_exit_ctls_register;
 
 
 /**
@@ -10736,7 +10736,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_entry_ctls_register;
+} vmx_entry_ctls_register;
 
 
 /**
@@ -10900,7 +10900,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_misc_register;
+} vmx_misc_register;
 
 
 /**
@@ -10991,7 +10991,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_vmcs_enum_register;
+} vmx_vmcs_enum_register;
 
 
 /**
@@ -11304,7 +11304,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_procbased_ctls2_register;
+} vmx_procbased_ctls2_register;
 
 
 /**
@@ -11497,7 +11497,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_ept_vpid_cap_register;
+} vmx_ept_vpid_cap_register;
 
 /**
  * @defgroup ia32_vmx_true_ctls \
@@ -11547,7 +11547,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_true_ctls_register;
+} vmx_true_ctls_register;
 
 /**
  * @}
@@ -11580,7 +11580,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_vmx_vmfunc_register;
+} vmx_vmfunc_register;
 
 /**
  * @defgroup ia32_a_pmc \
@@ -11624,7 +11624,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_mcg_ext_ctl_register;
+} mcg_ext_ctl_register;
 
 
 /**
@@ -11677,7 +11677,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_sgx_svn_status_register;
+} sgx_svn_status_register;
 
 
 /**
@@ -11717,7 +11717,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_rtit_output_base_register;
+} rtit_output_base_register;
 
 
 /**
@@ -11786,7 +11786,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_rtit_output_mask_ptrs_register;
+} rtit_output_mask_ptrs_register;
 
 
 /**
@@ -12158,7 +12158,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_rtit_ctl_register;
+} rtit_ctl_register;
 
 
 /**
@@ -12298,7 +12298,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_rtit_status_register;
+} rtit_status_register;
 
 
 /**
@@ -12329,7 +12329,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_rtit_cr3_match_register;
+} rtit_cr3_match_register;
 
 /**
  * @defgroup ia32_rtit_addr \
@@ -12401,7 +12401,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_rtit_addr_register;
+} rtit_addr_register;
 
 /**
  * @}
@@ -12453,7 +12453,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_pm_enable_register;
+} pm_enable_register;
 
 
 /**
@@ -12517,7 +12517,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_hwp_capabilities_register;
+} hwp_capabilities_register;
 
 
 /**
@@ -12593,7 +12593,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_hwp_request_pkg_register;
+} hwp_request_pkg_register;
 
 
 /**
@@ -12633,7 +12633,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_hwp_interrupt_register;
+} hwp_interrupt_register;
 
 
 /**
@@ -12721,7 +12721,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_hwp_request_register;
+} hwp_request_register;
 
 
 /**
@@ -12762,7 +12762,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_hwp_status_register;
+} hwp_status_register;
 
 
 /**
@@ -13023,7 +13023,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_debug_interface_register;
+} debug_interface_register;
 
 
 /**
@@ -13050,7 +13050,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_l3_qos_cfg_register;
+} l3_qos_cfg_register;
 
 
 /**
@@ -13077,7 +13077,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_l2_qos_cfg_register;
+} l2_qos_cfg_register;
 
 
 /**
@@ -13117,7 +13117,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_qm_evtsel_register;
+} qm_evtsel_register;
 
 
 /**
@@ -13163,7 +13163,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_qm_ctr_register;
+} qm_ctr_register;
 
 
 /**
@@ -13204,7 +13204,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_pqr_assoc_register;
+} pqr_assoc_register;
 
 
 /**
@@ -13247,7 +13247,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_bndcfgs_register;
+} bndcfgs_register;
 
 
 /**
@@ -13274,7 +13274,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_xss_register;
+} xss_register;
 
 
 /**
@@ -13304,7 +13304,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_pkg_hdc_ctl_register;
+} pkg_hdc_ctl_register;
 
 
 /**
@@ -13334,7 +13334,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_pm_ctl1_register;
+} pm_ctl1_register;
 
 
 /**
@@ -13354,7 +13354,7 @@ typedef struct
    * @see Vol3B[14.5.4.1(IA32_THREAD_STALL)]
    */
   uint64_t stall_cycle_count;
-} ia32_thread_stall_register;
+} thread_stall_register;
 
 
 /**
@@ -13414,7 +13414,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_efer_register;
+} efer_register;
 
 
 /**
@@ -13492,7 +13492,7 @@ typedef union
   };
 
   uint64_t flags;
-} ia32_tsc_aux_register;
+} tsc_aux_register;
 
 /**
  * @}

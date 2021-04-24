@@ -177,7 +177,7 @@ namespace ia32::apic
 	{
 		// Fail if APIC is not enabled.
 		//
-		auto apic_info = ia32::read_msr<ia32::ia32_apic_base_register>( IA32_APIC_BASE );
+		auto apic_info = ia32::read_msr<ia32::apic_base_register>( IA32_APIC_BASE );
 		if ( !apic_info.apic_global_enable )
 			return false;
 
