@@ -107,7 +107,7 @@ namespace xstd
 		using V = std::conditional_t<sizeof( T ) < 4, int32_t, T>;
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}
-	template<FloatingPoint T = float>
+	template<FloatingPoint T>
 	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
