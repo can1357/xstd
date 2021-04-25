@@ -22290,7 +22290,7 @@ namespace ia32
 		}
 	}
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
-	_LINKAGE FLATTEN static auto uprofile_msr( uint64_t id, T&& f, Tx&&... args )
+	_LINKAGE FLATTEN auto uprofile_msr( uint64_t id, T&& f, Tx&&... args )
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
@@ -22317,7 +22317,7 @@ namespace ia32
 		}
 	}
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
-	_LINKAGE FLATTEN static auto uprofile_pmc( uint64_t id, T&& f, Tx&&... args )
+	_LINKAGE FLATTEN auto uprofile_pmc( uint64_t id, T&& f, Tx&&... args )
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
