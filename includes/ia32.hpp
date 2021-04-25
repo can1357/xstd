@@ -14916,10 +14916,10 @@ typedef union
 #define PT_ENTRY_64_WRITE_MASK                                       0x01
 #define PT_ENTRY_64_WRITE(_)                                         (((_) >> 1) & 0x01)
     uint64_t user                                                    : 1;
-#define PT_ENTRY_64_USER_BIT                                   2
-#define PT_ENTRY_64_USER_FLAG                                  0x04
-#define PT_ENTRY_64_USER_MASK                                  0x01
-#define PT_ENTRY_64_USER(_)                                    (((_) >> 2) & 0x01)
+#define PT_ENTRY_64_USER_BIT                                         2
+#define PT_ENTRY_64_USER_FLAG                                        0x04
+#define PT_ENTRY_64_USER_MASK                                        0x01
+#define PT_ENTRY_64_USER(_)                                          (((_) >> 2) & 0x01)
     uint64_t page_level_write_through                                : 1;
 #define PT_ENTRY_64_PAGE_LEVEL_WRITE_THROUGH_BIT                     3
 #define PT_ENTRY_64_PAGE_LEVEL_WRITE_THROUGH_FLAG                    0x08
@@ -21974,21 +21974,22 @@ namespace ia32
     _LINKAGE void invd() { asm volatile( "invd" ::: "memory" ); }
     _LINKAGE void wbinvd() { asm volatile( "wbinvd" ::: "memory" ); }
 
-    // IDT/LDT/GDT.
+    // IDT/GDT.
     //
     _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void write_ldtr( const void* ptr ) { asm volatile( "lldt (%0)":: "r" ( ptr ) : "memory" ); }
     _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt (%0)":: "r" ( ptr ) : "memory" ); }
     _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void read_ldtr( void* ptr ) { asm volatile( "sldt (%0)":: "r" ( ptr ) : "memory" ); }
     _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt (%0)":: "r" ( ptr ) : "memory" ); }
-
+    
     _LINKAGE std::pair<idt_entry*, size_t> get_idt() { segment_descriptor_register_64 desc; read_idtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 16 }; }
-    _LINKAGE std::pair<gdt_entry*, size_t> get_ldt() { segment_descriptor_register_64 desc; read_ldtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 8 }; }
     _LINKAGE std::pair<gdt_entry*, size_t> get_gdt() { segment_descriptor_register_64 desc; read_gdtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 8 }; }
     _LINKAGE void set_idt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 16 - 1 ); write_idtr( &desc ); }
-    _LINKAGE void set_ldt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 8 - 1 );  write_ldtr( &desc ); }
     _LINKAGE void set_gdt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 8 - 1 );  write_gdtr( &desc ); }
+
+    // LDT.
+    //
+    _LINKAGE void write_ldtr( ia32::segment_selector value ) { asm volatile( "lldt %0" :: "r" ( value.flags ) : ); }
+    _LINKAGE ia32::segment_selector read_ldtr() { uint16_t value; asm volatile( "sldt %0" : "=r" ( value ) :: ); return { .flags = value }; }
 
     // Segment selectors.
     //
@@ -22012,7 +22013,7 @@ namespace ia32
     _LINKAGE xstd::any_ptr get_sp()
     {
         uint64_t out;
-        asm( R"(
+        asm volatile( R"(
 			0:
 			movq %%rsp, %0
 		)": "=r" ( out ) );
@@ -22021,7 +22022,7 @@ namespace ia32
     _LINKAGE xstd::any_ptr get_ip()
     {
         uint64_t out;
-        asm( R"(
+        asm volatile( R"(
 			0:
 			leaq (%%rip), %0
 		)": "=r" ( out ) );
@@ -22034,7 +22035,7 @@ namespace ia32
     _LINKAGE T rdrand()
     {
         T out;
-        asm( R"(
+        asm volatile( R"(
 			0:
 			rdrand %0
 			jnc 0b
@@ -22045,7 +22046,7 @@ namespace ia32
     _LINKAGE T rdseed()
     {
         T out;
-        asm( R"(
+        asm volatile( R"(
 			0:
 			rdseed %0
 			jnc 0b
@@ -22262,7 +22263,7 @@ namespace ia32
     // TSC/MSR/PMC based profiling in the style of xstd::profile.
     //
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
-	FLATTEN static auto uprofile_tsc( T&& f, Tx&&... args )
+	_LINKAGE FLATTEN auto uprofile_tsc( T&& f, Tx&&... args )
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
@@ -22289,7 +22290,7 @@ namespace ia32
 		}
 	}
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
-	FLATTEN static auto uprofile_msr( uint64_t id, T&& f, Tx&&... args )
+	_LINKAGE FLATTEN static auto uprofile_msr( uint64_t id, T&& f, Tx&&... args )
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
@@ -22316,7 +22317,7 @@ namespace ia32
 		}
 	}
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
-	FLATTEN static auto uprofile_pmc( uint64_t id, T&& f, Tx&&... args )
+	_LINKAGE FLATTEN static auto uprofile_pmc( uint64_t id, T&& f, Tx&&... args )
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
