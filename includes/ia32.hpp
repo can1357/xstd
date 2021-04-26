@@ -21815,12 +21815,12 @@ namespace ia32
     _LINKAGE uint32_t read_mxcsr()
     {
         uint32_t value;
-        asm volatile( "stmxcsr %0" :: "m" ( value ) : "memory" );
+        asm volatile( "stmxcsr %0" :: "m" ( value ) );
         return value;
     }
     _LINKAGE void write_mxcsr( const uint32_t& value )
     {
-        asm volatile( "ldmxcsr %0" :: "m" ( value ) : "memory" );
+        asm volatile( "ldmxcsr %0" :: "m" ( value ) );
     }
 
     // GS/FS base wrappers.
@@ -21882,7 +21882,7 @@ namespace ia32
         register uint32_t low asm( "eax" );
         register uint32_t high asm( "edx" );
 		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "rdpmc" : "=r" (low), "=r" (high) : "r" (_id) : );
+		asm volatile( "rdpmc" : "=r" (low), "=r" (high) : "r" (_id) );
        return low | ( uint64_t( high ) << 32 );
 	}
 
@@ -21894,7 +21894,7 @@ namespace ia32
         register uint32_t low asm( "eax" );
         register uint32_t high asm( "edx" );
 		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "rdmsr" : "=r" (low), "=r" (high) : "r" (_id) : );
+		asm volatile( "rdmsr" : "=r" (low), "=r" (high) : "r" (_id) );
         uint64_t value = low | ( uint64_t( high ) << 32 );
         return *( T* ) &value;
 	}
@@ -21906,7 +21906,7 @@ namespace ia32
         register uint32_t low asm( "eax" ) = uint32_t( value );
         register uint32_t high asm( "edx" ) = uint32_t( value >> 32 );
 		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "wrmsr" :: "r" ( low ), "r" ( high ), "r" ( _id ) : "memory" );
+		asm volatile( "wrmsr" :: "r" ( low ), "r" ( high ), "r" ( _id ) );
 	}
 
     // Extended control registers.
@@ -21929,7 +21929,7 @@ namespace ia32
 		register uint32_t low asm( "eax" ) = uint32_t( value );
 		register uint32_t high asm( "edx" ) = uint32_t( value >> 32 );
 		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "xsetbv" :: "r" ( low ), "r" ( high ), "r" ( _id ) : "memory" );
+		asm volatile( "xsetbv" :: "r" ( low ), "r" ( high ), "r" ( _id ) );
 	}
 
 	// Memory intrinsics.
@@ -21972,20 +21972,15 @@ namespace ia32
 
     // IDT/GDT.
     //
-    _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt (%0)":: "r" ( ptr ) : "memory" ); }
+    _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt (%0)":: "r" ( ptr ) ); }
+    _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt (%0)":: "r" ( ptr ) ); }
+    _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt (%0)":: "r" ( ptr ) ); }
+    _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt (%0)":: "r" ( ptr ) ); }
     
     _LINKAGE std::pair<idt_entry*, size_t> get_idt() { segment_descriptor_register_64 desc; read_idtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 16 }; }
     _LINKAGE std::pair<gdt_entry*, size_t> get_gdt() { segment_descriptor_register_64 desc; read_gdtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 8 }; }
     _LINKAGE void set_idt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 16 - 1 ); write_idtr( &desc ); }
     _LINKAGE void set_gdt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 8 - 1 );  write_gdtr( &desc ); }
-
-    // LDT.
-    //
-    _LINKAGE void write_ldtr( ia32::segment_selector value ) { asm volatile( "lldt %0" :: "r" ( value.flags ) : ); }
-    _LINKAGE ia32::segment_selector read_ldtr() { uint16_t value; asm volatile( "sldt %0" : "=r" ( value ) :: ); return { .flags = value }; }
 
     // Segment selectors.
     //
@@ -21996,6 +21991,7 @@ namespace ia32
     _LINKAGE segment_selector get_fs() { segment_selector value; asm volatile( "mov %%fs, %0" : "=r" ( value.flags ) :: ); return value; }
     _LINKAGE segment_selector get_gs() { segment_selector value; asm volatile( "mov %%gs, %0" : "=r" ( value.flags ) :: ); return value; }
     _LINKAGE segment_selector get_tr() { segment_selector value; asm volatile( "str %0" : "=r" ( value.flags ) :: ); return value; }
+    _LINKAGE segment_selector get_ldtr() { segment_selector value; asm volatile( "sldt %0" : "=r" ( value.flags ) :: ); return value; }
     _LINKAGE void set_cs( segment_selector value ) { asm volatile( "mov %0, %%cs" :: "r" ( value.flags ) : ); }
     _LINKAGE void set_ss( segment_selector value ) { asm volatile( "mov %0, %%ss" :: "r" ( value.flags ) : ); }
     _LINKAGE void set_ds( segment_selector value ) { asm volatile( "mov %0, %%ds" :: "r" ( value.flags ) : ); }
@@ -22003,6 +21999,7 @@ namespace ia32
     _LINKAGE void set_fs( segment_selector value ) { asm volatile( "mov %0, %%fs" :: "r" ( value.flags ) : ); }
     _LINKAGE void set_gs( segment_selector value ) { asm volatile( "mov %0, %%gs" :: "r" ( value.flags ) : ); }
     _LINKAGE void set_tr( segment_selector value ) { asm volatile( "ltr %0" :: "r" ( value.flags ) : ); }
+    _LINKAGE void set_ldtr( segment_selector value ) { asm volatile( "lldt %0" :: "r" ( value.flags ) : ); }
 
     // IP/SP.
     //
