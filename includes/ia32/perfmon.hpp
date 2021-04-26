@@ -171,12 +171,12 @@ namespace ia32::pmu
 			// Validate the counter index.
 			//
 			if ( index >= aliasing_counter_limit )
-				return { 0, 0 };
+				return { UINT32_MAX, UINT32_MAX };
 
 			// Validate against the index limit of the current CPU.
 			//
 			if ( index >= get_dynamic_counter_count() )
-				return { 0, 0 };
+				return { UINT32_MAX, UINT32_MAX };
 
 			// Return the mapping MSRs.
 			//
@@ -195,15 +195,15 @@ namespace ia32::pmu
 		{
 			// Validate the counter index.
 			//
-			if constexpr ( !fixed_control || !fixed_counter_base )
-				return { 0, 0 };
+			if constexpr ( fixed_control == UINT32_MAX || fixed_counter_base == UINT32_MAX )
+				return { UINT32_MAX, UINT32_MAX };
 			if ( index >= fixed_counter_limit )
-				return { 0, 0 };
+				return { UINT32_MAX, UINT32_MAX };
 
 			// Validate against the index limit of the current CPU.
 			//
 			if ( index >= get_fixed_counter_count() )
-				return { 0, 0 };
+				return { UINT32_MAX, UINT32_MAX };
 
 			// Return the mapping MSRs.
 			//
@@ -250,7 +250,7 @@ namespace ia32::pmu
 			// Resolve the counter.
 			//
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
-			if ( !cfg )
+			if ( cfg == UINT32_MAX )
 				return;
 
 			// Create the event selector register and write it.
@@ -266,7 +266,7 @@ namespace ia32::pmu
 
 			// Update the global control register if requested.
 			//
-			if ( update_global && traits::global_control != 0 )
+			if ( update_global && traits::global_control != UINT32_MAX )
 			{
 				auto global_ctrl = read_msr<perf_global_ctrl_register>( traits::global_control );
 				if ( flags & ctr_enable )
@@ -307,7 +307,7 @@ namespace ia32::pmu
 		{
 			// Validate the fixed control register.
 			//
-			if ( !traits::fixed_control )
+			if ( traits::fixed_control == UINT32_MAX )
 				return;
 
 			// Visit the event identifier.
@@ -337,7 +337,7 @@ namespace ia32::pmu
 
 				// Update the global control register if requested.
 				//
-				if ( update_global && traits::global_control != 0 )
+				if ( update_global && traits::global_control != UINT32_MAX )
 				{
 					auto global_ctrl = read_msr<perf_global_ctrl_register>( traits::global_control );
 					if ( flags & ctr_enable )
@@ -367,12 +367,12 @@ namespace ia32::pmu
 			// Returns zero (disabled) if the dynamic counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
-			if ( !cfg )
+			if ( cfg == UINT32_MAX )
 				return counter_flags( 0 );
 
 			// Query global state if requested and relevant.
 			//
-			if ( query_global && traits::global_control != 0 )
+			if ( query_global && traits::global_control != UINT32_MAX )
 			{
 				// If performance counter is disabled at the global level, return zero as well.
 				//
@@ -393,12 +393,12 @@ namespace ia32::pmu
 			// Returns zero (disabled) if the fixed counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_fixed( index );
-			if ( !cfg )
+			if ( cfg == UINT32_MAX )
 				return counter_flags( 0 );
 
 			// Query global state if requested and relevant.
 			//
-			if ( query_global && traits::global_control != 0 )
+			if ( query_global && traits::global_control != UINT32_MAX )
 			{
 				// If performance counter is disabled at the global level, return zero as well.
 				//
@@ -436,7 +436,7 @@ namespace ia32::pmu
 			// Return false if the dynamic counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
-			if ( !cnt )
+			if ( cnt == UINT32_MAX )
 				return false;
 
 			// Write the value and indicate success.
@@ -454,7 +454,7 @@ namespace ia32::pmu
 			// Return false if the fixed counter index is invalid.
 			//
 			auto [cfg, cnt] = traits::resolve_fixed( index );
-			if ( !cnt )
+			if ( cnt == UINT32_MAX )
 				return false;
 
 			// Write the value and indicate success.
