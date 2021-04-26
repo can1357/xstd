@@ -21852,38 +21852,38 @@ namespace ia32
 
     // Timestamping / Performance counters.
     //
+    _LINKAGE uint32_t read_tsc_low()
+    {
+        register uint32_t low asm( "eax" );
+        register uint32_t high asm( "edx" );
+        asm volatile( "rdtsc" : "=r" ( low ), "=r" ( high ) :: );
+        return low;
+    }
 	_LINKAGE uint64_t read_tsc()
 	{
-        register uint64_t low asm( "rax" );
-        register uint64_t high asm( "rdx" );
+        register uint32_t low asm( "eax" );
+        register uint32_t high asm( "edx" );
 		asm volatile( "rdtsc" : "=r" (low), "=r" (high) :: );
-        assume( low <= 0xFFFFFFFF );
-        assume( high <= 0xFFFFFFFF );
-        return low | ( high << 32 );
+        return low | ( uint64_t( high ) << 32 );
 	}
     _LINKAGE std::pair<uint64_t, uint32_t> read_tscp()
     {
-        register uint64_t low asm( "rax" );
-        register uint64_t high asm( "rdx" );
-        register uint32_t pid asm( "rcx" );
+        register uint32_t low asm( "eax" );
+        register uint32_t high asm( "edx" );
+        register uint32_t pid asm( "ecx" );
         asm volatile( "rdtscp" : "=r" ( low ), "=r" ( pid ), "=r" ( high ) :: );
-        assume( low <= 0xFFFFFFFF );
-        assume( high <= 0xFFFFFFFF );
-        uint64_t value = low | ( high << 32 );
-        return { value, pid };
+        return { low | ( uint64_t( high ) << 32 ), pid };
     }
 	_LINKAGE uint64_t read_pmc( uint64_t id, bool fixed = false, bool fast = false )
 	{
         if ( fast ) id |= 1ull << 31;
         if ( fixed ) id |= 1ull << 30;
 
-        register uint64_t low asm( "rax" );
-        register uint64_t high asm( "rdx" );
+        register uint32_t low asm( "eax" );
+        register uint32_t high asm( "edx" );
 		register uint64_t _id asm( "rcx" ) = id;
 		asm volatile( "rdpmc" : "=r" (low), "=r" (high) : "r" (_id) : );
-        assume( low <= 0xFFFFFFFF );
-        assume( high <= 0xFFFFFFFF );
-       return low | ( high << 32 );
+       return low | ( uint64_t( high ) << 32 );
 	}
 
 	// Read write model-specific registers.
@@ -21891,13 +21891,11 @@ namespace ia32
     template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
 	_LINKAGE T read_msr( uint64_t id )
 	{
-        register uint64_t low asm( "rax" );
-        register uint64_t high asm( "rdx" );
+        register uint32_t low asm( "eax" );
+        register uint32_t high asm( "edx" );
 		register uint64_t _id asm( "rcx" ) = id;
 		asm volatile( "rdmsr" : "=r" (low), "=r" (high) : "r" (_id) : );
-        assume( low <= 0xFFFFFFFF );
-        assume( high <= 0xFFFFFFFF );
-        uint64_t value = low | ( high << 32 );
+        uint64_t value = low | ( uint64_t( high ) << 32 );
         return *( T* ) &value;
 	}
     template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
@@ -21916,13 +21914,11 @@ namespace ia32
     template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
 	_LINKAGE T read_xcr( uint64_t id )
 	{
-		register uint64_t low asm( "rax" );
-		register uint64_t high asm( "rdx" );
+        register uint32_t low asm( "eax" );
+        register uint32_t high asm( "edx" );
 		register uint64_t _id asm( "rcx" ) = id;
 		asm volatile( "xgetbv" : "=r" (low), "=r" (high) : "r" (_id) : );
-        assume( low <= 0xFFFFFFFF );
-        assume( high <= 0xFFFFFFFF );
-        uint64_t value = low | ( high << 32 );
+        uint64_t value = low | ( uint64_t( high ) << 32 );
         return *( T* ) &value;
 	}
     template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
@@ -22093,7 +22089,9 @@ namespace ia32
     template<typename T = std::array<uint32_t, 4>>
     _LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
     {
-        uint64_t info[ 4 ];
+        static_assert( sizeof( T ) == ( 4 * 4 ), "Invalid type size." );
+
+        uint32_t info[ 4 ];
         asm volatile(
             "movq %%rbx, %%rsi;"
             "cpuid;"
@@ -22101,22 +22099,7 @@ namespace ia32
             : "=a"( info[ 0 ] ), "=S"( info[ 1 ] ), "=c"( info[ 2 ] ), "=d"( info[ 3 ] )
             : "a"( leaf ), "c"( subleaf )
         );
-
-        if constexpr ( sizeof( T ) == ( 8 * 4 ) )
-        {
-            return *( T* ) &info[ 0 ];
-        }
-        else if constexpr ( sizeof( T ) == ( 4 * 4 ) )
-        {
-            uint32_t low_info[ 4 ];
-            for ( size_t n = 0; n != 4; n++ )
-                low_info[ n ] = ( uint32_t ) info[ n ];
-            return *( T* ) &low_info[ 0 ];
-        }
-        else
-        {
-            unreachable();
-        }
+        return *( T* ) &info[ 0 ];
     }
     template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
     struct static_cpuid
@@ -22181,19 +22164,23 @@ namespace ia32
     //
     _LINKAGE void nop()
     {
-        asm volatile( "nop" ::: );
+        asm volatile( "nop" );
     }
     _LINKAGE void pause()
     {
-        asm volatile( "pause" ::: );
+        asm volatile( "pause" );
     }
     _LINKAGE void halt()
     {
-        asm volatile( "hlt" ::: );
+        asm volatile( "hlt" );
     }
-    _LINKAGE void mwait()
+    _LINKAGE void monitor( xstd::any_ptr adr, uint32_t extensions, uint32_t hints )
     {
-        asm volatile( "mwait" ::: );
+        __builtin_ia32_monitor( (void*)adr, extensions, hints );
+    }
+    _LINKAGE void mwait( uint32_t extensions, uint32_t hints )
+    {
+        __builtin_ia32_mwait( extensions, hints );
     }
     _LINKAGE void spin()
     {
@@ -22270,20 +22257,20 @@ namespace ia32
 		if constexpr ( std::is_same_v<result_t, void> )
 		{
             lfence();
-            uint64_t t0 = read_tsc();
+            uint32_t t0 = read_tsc_low();
             lfence();
 			f( std::forward<Tx>( args )... );
-            uint64_t t1 = read_tsc();
+            uint32_t t1 = read_tsc_low();
             lfence();
             return t1 - t0;
 		}
 		else
 		{
             lfence();
-            uint64_t t0 = read_tsc();
+            uint32_t t0 = read_tsc_low();
             lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
-            uint64_t t1 = read_tsc();
+            uint32_t t1 = read_tsc_low();
             lfence();
 			result.second = t1 - t0;
 			return result;
