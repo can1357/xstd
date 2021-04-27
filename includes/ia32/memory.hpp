@@ -30,13 +30,21 @@ namespace ia32::mem
 
 	// Maps the requested physical memory range and returns a smart pointer.
 	//
+	struct phys_memory_deleter
+	{
+		size_t length;
+		template<typename T> void operator()( T* ptr ) const { unmap_physical_memory_range( ( void* ) ptr, length ); }
+	};
 	template<typename T = uint8_t>
-	FORCE_INLINE inline std::shared_ptr<T> map_physical( uint64_t physical_address, size_t length = sizeof( T ), bool cached = false )
+	using phys_ptr = std::unique_ptr<T, phys_memory_deleter>;
+	
+	template<typename T = uint8_t>
+	FORCE_INLINE inline phys_ptr<T> map_physical( uint64_t physical_address, size_t length = sizeof( T ), bool cached = false )
 	{
 		void* ptr = map_physical_memory_range( physical_address, length, cached );
 		if ( !ptr )
 			return {};
-		return { ( std::add_pointer_t<std::remove_extent_t<T>> ) ptr, [ length ] ( auto* ptr ) { unmap_physical_memory_range( ( void* ) ptr, length ); } };
+		return { ( std::add_pointer_t<std::remove_extent_t<T>> ) ptr, phys_memory_deleter{ length } };
 	}
 
 	//
