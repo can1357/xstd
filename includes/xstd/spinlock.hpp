@@ -35,7 +35,7 @@ namespace xstd
 		using cid_t = decltype( CidGetter{}() );
 
 		cid_t owner = {};
-		int32_t depth = 0;
+		std::atomic<int32_t> depth = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
@@ -45,7 +45,7 @@ namespace xstd
 			{
 				return true;
 			}
-			else if ( desired.owner == expected.owner )
+			else if ( desired.owner == expected.owner && expected.depth )
 			{
 				++depth;
 				return true;
