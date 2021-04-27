@@ -22217,9 +22217,10 @@ namespace ia32
         scope_irql( scope_irql&& ) noexcept = delete;
         scope_irql( const scope_irql& ) = delete;
 
-        void reset()
+        void reset( bool state = false )
         {
-            set_irql( prev );
+            if ( state ) set_irql( new_irql );
+            else set_irql( prev );
         }
 
         ~scope_irql()
@@ -22239,10 +22240,13 @@ namespace ia32
         scope_irql( scope_irql&& ) noexcept = delete;
         scope_irql( const scope_irql& ) = delete;
 
-        void reset()
+        void reset( bool state = false )
         {
             if ( prev_flags.interrupt_enable_flag )
-                enable();
+            {
+                if ( state ) disable();
+                else enable();
+            }
         }
 
         ~scope_irql()
