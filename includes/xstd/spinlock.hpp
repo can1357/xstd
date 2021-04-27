@@ -33,24 +33,34 @@ namespace xstd
 	struct alignas( 16 ) basic_recursive_spinlock
 	{
 		using cid_t = decltype( CidGetter{}() );
-
+		
+		// Current owner of the lock and the depth.
+		//
 		cid_t owner = {};
-		std::atomic<int32_t> depth = 0;
+		std::atomic<uint32_t> depth = 0;
+		
+		// Dummy constructor for template deduction.
+		//
+		FORCE_INLINE basic_recursive_spinlock( CidGetter ) {}
 
+		// Default constructor.
+		//
+		FORCE_INLINE basic_recursive_spinlock() {}
+		FORCE_INLINE basic_recursive_spinlock( cid_t owner, int32_t depth ) : owner( owner ), depth( depth ) {}
+
+		// Implement the standard mutex interface.
+		//
 		FORCE_INLINE bool try_lock()
 		{
-			basic_recursive_spinlock expected = { {}, 0 };
-			basic_recursive_spinlock desired = { CidGetter{}(), 1 };
-			if ( cmpxchg( *this, expected, desired ) )
-			{
-				return true;
-			}
-			else if ( desired.owner == expected.owner && expected.depth )
+			cid_t cid = CidGetter{}();
+			if ( owner == cid && depth )
 			{
 				++depth;
 				return true;
 			}
-			return false;
+
+			basic_recursive_spinlock expected = { {}, 0 };
+			return cmpxchg( *this, expected, { cid, 1 } );
 		}
 		FORCE_INLINE void lock()
 		{
@@ -62,43 +72,32 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			if ( depth != 1 )
-			{
-				--depth;
-			}
-			else
-			{
-				auto thrd = CidGetter{}();
-				basic_recursive_spinlock expected = { thrd, 1 };
-				bool success = cmpxchg( *this, expected, { {}, 0 } );
-				dassert( success );
-			}
+			dassert( owner == CidGetter{}() && depth );
+			if ( !--depth )
+				owner = {};
 		}
 	};
-	namespace impl
-	{
-		inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); };
-	};
+	namespace impl { inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); }; };
 	using recursive_spinlock = basic_recursive_spinlock<decltype(impl::get_tid)>;
 
 	struct shared_spinlock
 	{
-		std::atomic<int32_t> counter = 0;
+		std::atomic<uint16_t> counter = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
-			int32_t expected = 0;
-			return counter.compare_exchange_strong( expected, -1, std::memory_order::acquire );
+			uint16_t expected = 0;
+			return counter.compare_exchange_strong( expected, UINT16_MAX, std::memory_order::acquire );
 		}
 		FORCE_INLINE bool try_upgrade()
 		{
-			int32_t expected = 1;
-			return counter.compare_exchange_strong( expected, -1, std::memory_order::acquire );
+			uint16_t expected = 1;
+			return counter.compare_exchange_strong( expected, UINT16_MAX, std::memory_order::acquire );
 		}
 		FORCE_INLINE bool try_lock_shared()
 		{
-			int32_t value = counter.load();
-			while ( value >= 0 )
+			uint16_t value = counter.load();
+			while ( value != UINT16_MAX )
 			{
 				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
 					return true;
@@ -119,7 +118,7 @@ namespace xstd
 		{
 			while ( !try_lock_shared() )
 			{
-				while ( counter == -1 )
+				while ( counter == UINT16_MAX )
 					yield_cpu();
 			}
 		}
@@ -134,7 +133,7 @@ namespace xstd
 
 		FORCE_INLINE void downgrade()
 		{
-			int32_t expected = -1;
+			uint16_t expected = UINT16_MAX;
 			dassert_s( counter.compare_exchange_strong( expected, 1, std::memory_order::release ) );
 		}
 		FORCE_INLINE void unlock()
