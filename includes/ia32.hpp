@@ -21885,7 +21885,7 @@ namespace ia32
 		asm volatile( "rdpmc" : "=r" (low), "=r" (high) : "r" (_id) );
        return low | ( uint64_t( high ) << 32 );
 	}
-    _LINKAGE uint32_t get_pcid()
+    _LINKAGE uint32_t read_pcid()
     {
         register uint32_t pid asm( "ecx" );
         asm volatile( "rdtscp" : "=r" ( pid ) :: "rax", "rdx" );

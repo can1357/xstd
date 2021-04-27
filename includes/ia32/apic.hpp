@@ -44,7 +44,15 @@ namespace ia32::apic
 	constexpr uint64_t timer_register =         0x390;
 	constexpr uint64_t end_of_int_register =    0x0B0;
 	constexpr uint64_t logical_dst_register =   0x0D0;
-	constexpr uint64_t dest_fmt_register =      0x0E0;
+	constexpr uint64_t dest_fmt_register =      0x0E0; 
+	constexpr uint64_t lvt_timer_register =       0x320;
+	constexpr uint64_t lvt_thermal_register =     0x330;
+	constexpr uint64_t lvt_pmi_register =         0x340;
+	constexpr uint64_t lvt_lint0_register =       0x350;
+	constexpr uint64_t lvt_lint1_register =       0x360;
+	constexpr uint64_t lvt_error_register =       0x370;
+	constexpr uint64_t lvt_init_count_register =  0x380;
+	constexpr uint64_t lvt_curr_count_register =  0x390;
 
 	// Global APIC mapping if relevant.
 	//
