@@ -22086,6 +22086,11 @@ namespace ia32
         else
             unreachable();
     }
+    _LINKAGE void usleep( xstd::time::microseconds u )
+    {
+        for ( long long n = 0; n < u.count(); n++ )
+            write_io<uint8_t>( 0x80, 0 );
+    }
 
     // CPUID:
     //

@@ -28,8 +28,9 @@ namespace xstd
 		using minutes =      std::chrono::minutes;
 		using seconds =      std::chrono::seconds;
 		using milliseconds = std::chrono::milliseconds;
+		using microseconds = std::chrono::microseconds;
 		using nanoseconds =  std::chrono::nanoseconds;
-		using basic_units =  std::tuple<nanoseconds, milliseconds, seconds, minutes, hours>;
+		using basic_units =  std::tuple<nanoseconds, microseconds, milliseconds, seconds, minutes, hours>;
 
 		// Declare prefered clock and units.
 		//
@@ -56,7 +57,7 @@ namespace xstd
 			using T = std::chrono::duration<double, Period>;
 			T fduration = std::chrono::duration_cast<T>( duration );
 
-			static constexpr std::array abbreviations = { "ns", "ms", "sec", "min", "hrs" };
+			static constexpr std::array abbreviations = { "ns", "us", "ms", "sec", "min", "hrs" };
 			static constexpr std::array durations = make_constant_series<std::tuple_size_v<basic_units>>( [ ] ( auto x )
 			{
 				return std::chrono::duration_cast<T>( 
