@@ -38,7 +38,7 @@ namespace xstd
 
 	// Raises caller to a specific task priority upon lock and lowers on unlock. Ignored for shared lockers.
 	//
-	template<Lockable Mutex, uintptr_t TP>
+	template<Lockable Mutex, uintptr_t TaskPriority, bool Optimized = false>
 	struct task_guard
 	{
 		Mutex mutex;
@@ -56,14 +56,14 @@ namespace xstd
 #if XSTD_HAS_TASK_PRIORITY
 			if ( raised )
 			{
-				dassert( get_task_priority() == TP );
-				return TP;
+				dassert( get_task_priority() == TaskPriority );
+				return TaskPriority;
 			}
 			else
 			{
 				uintptr_t prio = get_task_priority();
-				dassert( get_task_priority() <= TP );
-				set_task_priority( TP );
+				dassert( get_task_priority() <= TaskPriority );
+				set_task_priority( TaskPriority );
 				return prio;
 			}
 #else
@@ -81,40 +81,67 @@ namespace xstd
 		//
 		__forceinline void lock( bool raised = false )
 		{
-			// Raise the priority and lock.
-			//
-#if XSTD_HAS_TASK_PRIORITY
-			auto prev = raise( raised );
-#endif
+#if !XSTD_HAS_TASK_PRIORITY
 			mutex.lock();
+#else
+			// Raise the task priority.
+			//
+			auto prev = raise( raised );
 
-#if XSTD_HAS_TASK_PRIORITY
+			// If optimization requested and mutex is capable:
+			//
+			bool locked = false;
+			if constexpr ( TryLockable<Mutex> && TimeLockable<Mutex> && Optimized )
+			{
+				// If optimization is viable:
+				//
+				if ( prev == 0 )
+				{
+					while ( 1 )
+					{
+						// Try to lock.
+						//
+						locked = mutex.try_lock_for( 10ms );
+						if ( locked ) break;
+
+						// Lower the task priority and yield the thread.
+						//
+						set_task_priority( 0 );
+						std::this_thread::sleep_for( 5ms );
+
+						// Raise the task priority again.
+						//
+						set_task_priority( TaskPriority );
+					}
+				}
+			}
+			if ( !locked )
+				mutex.lock();
+
 			// If not recursive, store the previous priority.
 			//
 			if ( !ex_depth++ )
 				ex_tp.store( prev, std::memory_order::acquire );
 			else
-				dassert( prev == TP );
+				dassert( prev == TaskPriority );
 #endif
 		}
 		__forceinline bool try_lock( bool raised = false ) requires TryLockable<Mutex>
 		{
 			// Raise the prioriy and attempt at locking.
 			//
-#if XSTD_HAS_TASK_PRIORITY
 			auto prev = raise( raised );
-#endif
 			bool state = mutex.try_lock();
 
+#if XSTD_HAS_TASK_PRIORITY
 			// If successful, store the priority if not recursive.
 			//
-#if XSTD_HAS_TASK_PRIORITY
 			if ( state )
 			{
 				if ( !ex_depth++ )
 					ex_tp.store( prev, std::memory_order::acquire );
 				else
-					dassert( prev == TP );
+					dassert( prev == TaskPriority );
 			}
 			// Otherwise, lower the priority back.
 			//
@@ -144,7 +171,7 @@ namespace xstd
 				if ( !ex_depth++ )
 					ex_tp.store( prev, std::memory_order::release );
 				else
-					dassert( prev == TP );
+					dassert( prev == TaskPriority );
 			}
 			// Otherwise, lower the priority back.
 			//
@@ -171,7 +198,7 @@ namespace xstd
 				if ( !ex_depth++ )
 					ex_tp.store( prev, std::memory_order::release );
 				else
-					dassert( prev == TP );
+					dassert( prev == TaskPriority );
 			}
 			// Otherwise, lower the priority back.
 			//
@@ -184,14 +211,17 @@ namespace xstd
 		}
 		__forceinline void unlock()
 		{
-			// Load the previous task priority, if we're last in the recursive chain (if relevant at all), 
-			// lower to the previous task priority.
+			// Load the previous task priority and unlock.
 			//
 #if XSTD_HAS_TASK_PRIORITY
 			auto prev = ex_tp.load( std::memory_order::acquire );
 			auto ndepth = --ex_depth;
 #endif
+			
 			mutex.unlock();
+
+			// If we're last in the recursive chain (where relevant), lower to the previous task priority.
+			//
 #if XSTD_HAS_TASK_PRIORITY
 			if ( !ndepth )
 				lower( prev );
