@@ -30,14 +30,14 @@ namespace xstd
 	};
 
 	template<DefaultConstructable CidGetter>
-	struct alignas( 16 ) basic_recursive_spinlock
+	struct alignas( 8 ) basic_recursive_spinlock
 	{
-		using cid_t = decltype( CidGetter{}() );
+		inline static constexpr auto get_cid = [ ] () { return 1 + bit_cast<uint32_t>( CidGetter{}() ); };
 		
 		// Current owner of the lock and the depth.
 		//
-		cid_t owner = {};
-		std::atomic<uint32_t> depth = 0;
+		uint32_t owner = {};
+		uint32_t depth = 0;
 		
 		// Dummy constructor for template deduction.
 		//
@@ -46,21 +46,24 @@ namespace xstd
 		// Default constructor.
 		//
 		FORCE_INLINE basic_recursive_spinlock() {}
-		FORCE_INLINE basic_recursive_spinlock( cid_t owner, int32_t depth ) : owner( owner ), depth( depth ) {}
+		FORCE_INLINE basic_recursive_spinlock( uint32_t owner, int32_t depth ) : owner( owner ), depth( depth ) {}
 
 		// Implement the standard mutex interface.
 		//
 		FORCE_INLINE bool try_lock()
 		{
-			cid_t cid = CidGetter{}();
+			uint32_t cid = get_cid();
 			if ( owner == cid && depth )
 			{
 				++depth;
 				return true;
 			}
-
-			basic_recursive_spinlock expected = { {}, 0 };
-			return cmpxchg( *this, expected, { cid, 1 } );
+			else if ( !depth )
+			{
+				basic_recursive_spinlock expected = { {}, 0 };
+				return cmpxchg( *this, expected, { cid, 1 } );
+			}
+			return false;
 		}
 		FORCE_INLINE void lock()
 		{
@@ -72,7 +75,7 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			dassert( owner == CidGetter{}() && depth );
+			dassert( owner == get_cid() && depth );
 			if ( !--depth )
 				owner = {};
 		}
