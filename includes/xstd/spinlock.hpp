@@ -32,8 +32,6 @@ namespace xstd
 	template<DefaultConstructable CidGetter>
 	struct alignas( 8 ) basic_recursive_spinlock
 	{
-		inline static constexpr auto get_cid = [ ] () { return 1 + bit_cast<uint32_t>( CidGetter{}() ); };
-		
 		// Current owner of the lock and the depth.
 		//
 		uint32_t owner = {};
@@ -52,7 +50,7 @@ namespace xstd
 		//
 		FORCE_INLINE bool try_lock()
 		{
-			uint32_t cid = get_cid();
+			uint32_t cid = 1 + bit_cast<uint32_t>( CidGetter{}() );
 			if ( owner == cid && depth )
 			{
 				++depth;
@@ -75,7 +73,8 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			dassert( owner == get_cid() && depth );
+			uint32_t cid = 1 + bit_cast<uint32_t>( CidGetter{}() );
+			dassert( owner == cid && depth );
 			if ( !--depth )
 				owner = {};
 		}
