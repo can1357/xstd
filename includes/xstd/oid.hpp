@@ -225,5 +225,28 @@ namespace xstd
 };
 
 // OID literals.
-//
-static constexpr xstd::oid operator ""_oid( const char* str, size_t n ) { return { str, n, xstd::oid::string_literal_t{} }; }
+// 
+#if ( __INTELLISENSE__ || !GNU_COMPILER )
+	inline constexpr xstd::oid operator ""_oid( const char* str, size_t n ) 
+	{ 
+		return { str, n, xstd::oid::string_literal_t{} }; 
+	}
+#else
+	namespace xstd::impl
+	{
+		template<char... chars>
+		struct const_oid
+		{
+			inline static constexpr oid value = [ ] ()
+			{
+				constexpr char str[] = { chars... };
+				return oid{ str, sizeof...( chars ), xstd::oid::string_literal_t{} };
+			}();
+		};
+	};
+	template<typename T, T... chars> 
+	constexpr const xstd::oid& operator""_oid() 
+	{ 
+		return xstd::impl::const_oid<( ( char ) chars )...>::value; 
+	}
+#endif
