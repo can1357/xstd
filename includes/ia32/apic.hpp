@@ -38,13 +38,14 @@ namespace ia32::apic
 
 	// APIC register mappings.
 	//
-	constexpr uint64_t x2apic_msr =             0x800;
-	constexpr uint64_t x2apic_self_ipi_msr =    0x83F;
-	constexpr uint64_t cmd_register =           0x300;
-	constexpr uint64_t timer_register =         0x390;
-	constexpr uint64_t end_of_int_register =    0x0B0;
-	constexpr uint64_t logical_dst_register =   0x0D0;
-	constexpr uint64_t dest_fmt_register =      0x0E0; 
+	constexpr uint64_t x2apic_msr =               0x800;
+	constexpr uint64_t end_of_int_register =      0x0B0;
+	constexpr uint64_t logical_dst_register =     0x0D0;
+	constexpr uint64_t dest_fmt_register =        0x0E0;
+	constexpr uint64_t in_service_register =      0x100;
+	constexpr uint64_t trigger_mode_register =    0x180;
+	constexpr uint64_t irequest_register =        0x200; 
+	constexpr uint64_t cmd_register =             0x300;
 	constexpr uint64_t lvt_timer_register =       0x320;
 	constexpr uint64_t lvt_thermal_register =     0x330;
 	constexpr uint64_t lvt_pmi_register =         0x340;
@@ -53,6 +54,7 @@ namespace ia32::apic
 	constexpr uint64_t lvt_error_register =       0x370;
 	constexpr uint64_t lvt_init_count_register =  0x380;
 	constexpr uint64_t lvt_curr_count_register =  0x390;
+	constexpr uint64_t self_ipi_register =        0x3F0; // x2APIC only.
 
 	// Global APIC mapping if relevant.
 	//
@@ -77,9 +79,9 @@ namespace ia32::apic
 
 	// Basic properties.
 	//
-	inline uint32_t read_timer()
+	inline uint32_t read_timer_counter()
 	{
-		return read_register( timer_register );
+		return read_register( lvt_curr_count_register );
 	}
 	inline bool is_x2apic()
 	{
@@ -91,6 +93,13 @@ namespace ia32::apic
 	inline void end_of_interrupt()
 	{
 		write_register( end_of_int_register, 0 );
+	}
+
+	// Checks if the given ISR index is in service.
+	//
+	inline bool in_service( uint8_t idx )
+	{
+		return ( read_register( in_service_register + ( 0x10 * ( idx / 32 ) ) ) >> ( idx % 32 ) ) & 1;
 	}
 
 	// Waits for a command to be finished.
@@ -144,7 +153,7 @@ namespace ia32::apic
 			// If self IPI, used the new self IPI MSR.
 			//
 			if ( cmd.sh_group == shorthand::self )
-				write_msr( x2apic_self_ipi_msr, cmd.vector );
+				write_msr( x2apic_msr + self_ipi_register / 0x10, cmd.vector );
 			else
 				write_msr( x2apic_msr + cmd_register / 0x10, ( *( uint32_t* ) &cmd ) | ( uint64_t( dst ) << 32 ) );
 		}
