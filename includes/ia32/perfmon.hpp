@@ -166,7 +166,7 @@ namespace ia32::pmu
 		// - Null MSRs indicate failure.
 		// - Note: Fixed counter control MSR is a bitset.
 		//
-		inline static std::pair<uint32_t, uint32_t> resolve_dynamic( size_t index )
+		inline static std::pair<uint32_t, uint32_t> resolve_dynamic( size_t index, bool alias = false )
 		{
 			// Validate the counter index.
 			//
@@ -180,7 +180,7 @@ namespace ia32::pmu
 
 			// Return the mapping MSRs.
 			//
-			if ( index < counter_limit )
+			if ( !alias && index < counter_limit )
 			{
 				uint32_t offset = counter_stride * index;
 				return { config_base + offset, counter_base + offset };
