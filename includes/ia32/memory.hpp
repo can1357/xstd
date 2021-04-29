@@ -10,13 +10,21 @@ namespace ia32::mem
 	// --- OS specific details that are left to be externally initialized.
 	//
 
-	// Index of the self referencing page table entry.
+	// Index of the self referencing page table entry and the bases.
+	// - Grouping them together in an array lets us ensure that the linker
+	//   puts this data in a single cache line to lower the subsequent read costs.
 	//
 	inline uint16_t self_ref_index = 0;
+	alignas( 64 ) inline pt_entry_64* pt_bases[ 4 ] = {};
+	static constexpr pt_entry_64*& pte_base =   pt_bases[ 3 ];
+	static constexpr pt_entry_64*& pde_base =   pt_bases[ 2 ];
+	static constexpr pt_entry_64*& pdpte_base = pt_bases[ 1 ];
+	static constexpr pt_entry_64*& pml4e_base = pt_bases[ 0 ];
 	
 	// Flushes the TLB given a range for all processors.
-	// -- If length is zero, will flush the whole TLB, else a single range.
+	// -- If no arguments given, will flush the whole TLB, else a single range.
 	//
+	extern void ipi_flush_tlb();
 	extern void ipi_flush_tlb( xstd::any_ptr ptr = nullptr, size_t length = 0 );
 
 	// Mapping of physical memory.
@@ -88,14 +96,14 @@ namespace ia32::mem
 
 	// Page table lookup.
 	//
-	FORCE_INLINE inline pt_entry_64* get_pte_base() { return pack( self_ref_index, 0, 0, 0 ); }
-	FORCE_INLINE inline pt_entry_64* get_pde_base() { return pack( self_ref_index, self_ref_index, 0, 0 ); }
-	FORCE_INLINE inline pt_entry_64* get_pdpte_base() { return pack( self_ref_index, self_ref_index, self_ref_index, 0 ); }
-	FORCE_INLINE inline pt_entry_64* get_pml4e_base() { return pack( self_ref_index, self_ref_index, self_ref_index, self_ref_index ); }
-	FORCE_INLINE inline pt_entry_64* get_pte( xstd::any_ptr ptr ) { return &get_pte_base()[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 0 ) ]; }
-	FORCE_INLINE inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return &get_pde_base()[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 1 ) ]; }
-	FORCE_INLINE inline pt_entry_64* get_pdpte( xstd::any_ptr ptr ) { return &get_pdpte_base()[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 2 ) ]; }
-	FORCE_INLINE inline pt_entry_64* get_pml4e( xstd::any_ptr ptr ) { return &get_pml4e_base()[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 3 ) ]; }
+	FORCE_INLINE inline pt_entry_64* get_pte_base( uint16_t self_ref_idx ) { return pack( self_ref_idx, 0, 0, 0 ); }
+	FORCE_INLINE inline pt_entry_64* get_pde_base( uint16_t self_ref_idx ) { return pack( self_ref_idx, self_ref_idx, 0, 0 ); }
+	FORCE_INLINE inline pt_entry_64* get_pdpte_base( uint16_t self_ref_idx ) { return pack( self_ref_idx, self_ref_idx, self_ref_idx, 0 ); }
+	FORCE_INLINE inline pt_entry_64* get_pml4e_base( uint16_t self_ref_idx ) { return pack( self_ref_idx, self_ref_idx, self_ref_idx, self_ref_idx ); }
+	FORCE_INLINE inline pt_entry_64* get_pte( xstd::any_ptr ptr ) { return &pte_base[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 0 ) ]; }
+	FORCE_INLINE inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return &pde_base[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 1 ) ]; }
+	FORCE_INLINE inline pt_entry_64* get_pdpte( xstd::any_ptr ptr ) { return &pdpte_base[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 2 ) ]; }
+	FORCE_INLINE inline pt_entry_64* get_pml4e( xstd::any_ptr ptr ) { return &pml4e_base[ ( ptr << 16 ) >> ( 16 + 12 + 9 * 3 ) ]; }
 	FORCE_INLINE inline xstd::any_ptr pte_to_va( const void* pte ) { return ( ( int64_t( pte ) << ( 16 + 12 + ( 9 * 0 ) - 3 ) ) >> 16 ); }
 	FORCE_INLINE inline xstd::any_ptr pde_to_va( const void* pde ) { return ( ( int64_t( pde ) << ( 16 + 12 + ( 9 * 1 ) - 3 ) ) >> 16 ); }
 	FORCE_INLINE inline xstd::any_ptr pdpte_to_va( const void* pdpte ) { return ( ( int64_t( pdpte ) << ( 16 + 12 + ( 9 * 2 ) - 3 ) ) >> 16 ); }
