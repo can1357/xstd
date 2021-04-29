@@ -9,41 +9,11 @@
 	#define XSTD_IA32_LA57 0
 #endif
 
-// Implements virtual memory helpers.
+//
+// --- OS specific details that are left to be externally initialized.
 //
 namespace ia32::mem
 {
-	static constexpr size_t page_table_depth = ( XSTD_IA32_LA57 ? 5 : 4 );
-	static constexpr size_t va_bits = page_table_depth * 9 + 12;
-	static constexpr size_t sx_bits = 64 - va_bits;
-
-	//
-	// --- OS specific details that are left to be externally initialized.
-	//
-
-	// Index of the self referencing page table entry and the bases.
-	// - Grouping them together in an array lets us ensure that the linker
-	//   puts this data in a single cache line to lower the subsequent read costs.
-	//
-	inline uint16_t self_ref_index = 0;
-	alignas( 64 ) inline std::array<pt_entry_64*, page_table_depth> pt_bases = {};
-	static constexpr pt_entry_64*& pte_base =   pt_bases[ 0 ];
-	static constexpr pt_entry_64*& pde_base =   pt_bases[ 1 ];
-	static constexpr pt_entry_64*& pdpte_base = pt_bases[ 2 ];
-	static constexpr pt_entry_64*& pml4e_base = pt_bases[ 3 ];
-#if XSTD_IA32_LA57
-	static constexpr pt_entry_64*& pml5e_base = pt_bases[ 4 ];
-#endif
-	static constexpr pt_entry_64*& pxe_base = pt_bases[ pt_bases.size() - 1 ];
-
-#if __clang__
-	// Clang splits this array.....
-	namespace impl
-	{
-		[[gnu::used]] inline pt_entry_64** volatile __arr = &pt_bases[ 0 ];
-	};
-#endif
-
 	// Flushes the TLB given a range for all processors.
 	// -- If no arguments given, will flush the whole TLB, else a single range.
 	//
@@ -77,6 +47,42 @@ namespace ia32::mem
 			return {};
 		return { ( std::add_pointer_t<std::remove_extent_t<T>> ) ptr, phys_memory_deleter{ length } };
 	}
+};
+
+// Implement the virtual memory helpers.
+//
+namespace ia32::mem
+{
+	static constexpr size_t page_table_depth = ( XSTD_IA32_LA57 ? 5 : 4 );
+	static constexpr size_t va_bits = page_table_depth * 9 + 12;
+	static constexpr size_t sx_bits = 64 - va_bits;
+
+	//
+	// --- OS specific details that are left to be externally initialized.
+	//
+
+	// Index of the self referencing page table entry and the bases.
+	// - Grouping them together in an array lets us ensure that the linker
+	//   puts this data in a single cache line to lower the subsequent read costs.
+	//
+	inline uint16_t self_ref_index = 0;
+	alignas( 64 ) inline std::array<pt_entry_64*, page_table_depth> pt_bases = {};
+	static constexpr pt_entry_64*& pte_base =   pt_bases[ 0 ];
+	static constexpr pt_entry_64*& pde_base =   pt_bases[ 1 ];
+	static constexpr pt_entry_64*& pdpte_base = pt_bases[ 2 ];
+	static constexpr pt_entry_64*& pml4e_base = pt_bases[ 3 ];
+#if XSTD_IA32_LA57
+	static constexpr pt_entry_64*& pml5e_base = pt_bases[ 4 ];
+#endif
+	static constexpr pt_entry_64*& pxe_base = pt_bases[ pt_bases.size() - 1 ];
+
+#if __clang__
+	// Clang splits this array.....
+	namespace impl
+	{
+		[[gnu::used]] inline pt_entry_64** volatile __arr = &pt_bases[ 0 ];
+	};
+#endif
 
 	//
 	// --- Architectural details.
@@ -236,4 +242,13 @@ namespace ia32::mem
 	};
 	FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask ) { impl::change_protection<true>( ptr, length, mask ); }
 	FORCE_INLINE inline void change_protection_no_ipi( xstd::any_ptr ptr, size_t length, protection_mask mask ) { impl::change_protection<false>( ptr, length, mask ); }
+
+	// Initialization helper.
+	//
+	inline void init( uint16_t idx )
+	{
+		self_ref_index = idx;
+		for ( size_t n = 0; n != pt_bases.size(); n++ )
+			pt_bases[ n ] = get_pte_base( self_ref_index, n );
+	}
 };

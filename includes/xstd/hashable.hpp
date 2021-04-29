@@ -113,17 +113,17 @@ namespace xstd
 				using B = std::remove_pointer_t<std::conditional_t<std::is_same_v<T, any_ptr>, void*, T>>;
 				uint64_t key = 0x4f9f74a0ce517dbb ^ ~impl::hash_combination_keys[ type_tag<B>::hash() & 15 ];
 
-				// Extract the identifiers, most systems use 48-bit address spaces in reality with rest sign extended.
+				// Extract the identifiers, most systems use 48 or 57 bit address spaces in reality with rest sign extended.
 				//
 				uint64_t v0 = uint64_t( value ) & 0xFFF;
-				uint64_t v1 = ( uint64_t( value ) >> (12+9*0) ) & 0x3FFFF;
-				uint64_t v2 = ( uint64_t( value ) >> (12+9*2) ) & 0x3FFFF;
+				uint64_t v1 = ( uint64_t( value ) >> ( 12 + 9 * 0 ) ) & 0x3FFFF;
+				uint64_t v2 = ( uint64_t( value ) >> ( 12 + 9 * 2 ) ) & 0x7FFFFFF;
 
 				// Combine the values with the key and return.
 				//
 				uint64_t res = key;
-				res -= ( res & v0 ) * 0xb8653052cd4a068b;
-				res ^= rotr( res - v1, ( res & v1 ) & 63 );
+				res -= ( res + v0 ) * 0xb8653052cd4a068b;
+				res ^= rotr( res - v1, ( v1 - res ) & 63 );
 				res = ( res << 4 ) | ( v0 & 15 );
 				res = rotr( ~( res + v2 ), ( res ^ v2 ) & 63 );
 				return hash_t{ res };

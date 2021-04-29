@@ -494,7 +494,17 @@ typedef union
 #define CR4_USERMODE_INSTRUCTION_PREVENTION_FLAG                     0x800
 #define CR4_USERMODE_INSTRUCTION_PREVENTION_MASK                     0x01
 #define CR4_USERMODE_INSTRUCTION_PREVENTION(_)                       (((_) >> 11) & 0x01)
-    uint64_t reserved1                                               : 1;
+    
+    /**
+     * @brief 5-level paging.
+     *
+     * [Bit 12]
+     */
+    uint64_t la57_enable                                             : 1;
+#define CR4_LA57_ENABLE_BIT                                          12
+#define CR4_LA57_ENABLE_FLAG                                         0x1000
+#define CR4_LA57_ENABLE_MASK                                         0x01
+#define CR4_LA57_ENABLE(_)                                           (((_) >> 12) & 0x01)
 
     /**
      * @brief VMX-Enable
