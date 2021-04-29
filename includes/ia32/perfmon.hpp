@@ -109,6 +109,10 @@ namespace ia32::pmu
 		template<event_id evt> static constexpr size_t fixed_counter() { return fixed_counter_v<is_intel, evt>; }
 		template<event_id evt> static constexpr evtsel_t dynamic_selector() { return dynamic_selector_v<is_intel, evt>; }
 
+		// Status MSRs.
+		//
+		static constexpr uint32_t status_inuse = is_intel ? IA32_PERF_GLOBAL_INUSE : UINT32_MAX;
+
 		// Counter MSRs.
 		//
 		static constexpr uint32_t config_base = is_intel ? IA32_PERFEVTSEL0 : IA32_PERFEVTSEL0_AMD;

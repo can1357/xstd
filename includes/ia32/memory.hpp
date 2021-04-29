@@ -30,7 +30,7 @@ namespace ia32::mem
 	// -- If no arguments given, will flush the whole TLB, else a single range.
 	//
 	extern void ipi_flush_tlb();
-	extern void ipi_flush_tlb( xstd::any_ptr ptr = nullptr, size_t length = 0 );
+	extern void ipi_flush_tlb( xstd::any_ptr ptr, size_t length = 0x1000 );
 
 	// Mapping of physical memory.
 	//
