@@ -21944,6 +21944,14 @@ namespace ia32
     _LINKAGE void sfence() { asm volatile( "sfence"::: "memory" ); }
     _LINKAGE void mfence() { asm volatile( "mfence"::: "memory" ); }
     _LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void touch( xstd::any_ptr ptr )
+    {
+        asm volatile( "testb $0, (%0)":: "r" ( ptr.address ) : "flags" );
+    }
+    _LINKAGE void wtouch( xstd::any_ptr ptr )
+    {
+        asm volatile( "orb $0, (%0)" :: "r" ( ptr.address ) : "flags" );
+    }
     _LINKAGE void flush_tlb()
     {
         auto cr4 = read_cr4();
@@ -21959,22 +21967,61 @@ namespace ia32
             write_cr3( read_cr3() );
         }
     }
-    _LINKAGE void touch( volatile const void* ptr, bool write = false )
-    {
-        if( write )
-            asm volatile( "orb $0, (%0)" :: "r" ( ptr ) : "flags" );
-        else
-            asm volatile( "testb $0, (%0)":: "r" ( ptr ) : "flags" );
-    }
+
 
     // Cache intrinsics.
     //
-    _LINKAGE void clwb( volatile const void* ptr ) { asm volatile( "clwb (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void clflush( volatile const void* ptr ) { asm volatile( "clflush (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void cldemote( volatile const void* ptr ) { asm volatile( "cldemote (%0)":: "r" ( ptr ) : "memory" ); }
-    _LINKAGE void clflushopt( volatile const void* ptr ) { asm volatile( "clflushopt (%0)":: "r" ( ptr ) : "memory" ); }
     _LINKAGE void invd() { asm volatile( "invd" ::: "memory" ); }
     _LINKAGE void wbinvd() { asm volatile( "wbinvd" ::: "memory" ); }
+    _LINKAGE void clwb( xstd::any_ptr ptr ) { asm volatile( "clwb (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void clflush( xstd::any_ptr ptr ) { asm volatile( "clflush (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void cldemote( xstd::any_ptr ptr ) { asm volatile( "cldemote (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void clflushopt( xstd::any_ptr ptr ) { asm volatile( "clflushopt (%0)":: "r" ( ptr.address ) : "memory" ); }
+
+    // Implement the range helpers.
+    //
+    _LINKAGE void invlpg( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
+            invlpg( ptr );
+    }
+    _LINKAGE void touch( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
+            touch( ptr );
+    }
+    _LINKAGE void wtouch( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
+            wtouch( ptr );
+    }
+    _LINKAGE void clwb( xstd::any_ptr ptr, size_t n )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
+            clwb( it );
+    }
+    _LINKAGE void clflush( xstd::any_ptr ptr, size_t n )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
+            clflush( it );
+    }
+    _LINKAGE void cldemote( xstd::any_ptr ptr, size_t n )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
+            cldemote( it );
+    }
+    _LINKAGE void clflushopt( xstd::any_ptr ptr, size_t n )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
+            clflushopt( it );
+    }
 
     // IDT/GDT.
     //
@@ -22131,7 +22178,6 @@ namespace ia32
         irql |= flags.interrupt_enable_flag ? 0 : NO_INTERRUPTS;
         return irql;
     }
-
     _LINKAGE void set_irql( irql_t new_irql )
     {
         write_cr8( new_irql );
