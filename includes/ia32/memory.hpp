@@ -15,12 +15,17 @@ namespace ia32::mem
 	//   puts this data in a single cache line to lower the subsequent read costs.
 	//
 	inline uint16_t self_ref_index = 0;
-	inline std::array<pt_entry_64*, 4> pt_bases = {};
+	alignas( 64 ) inline std::array<pt_entry_64*, 4> pt_bases = {};
 	static constexpr pt_entry_64*& pte_base =   pt_bases[ 3 ];
 	static constexpr pt_entry_64*& pde_base =   pt_bases[ 2 ];
 	static constexpr pt_entry_64*& pdpte_base = pt_bases[ 1 ];
 	static constexpr pt_entry_64*& pml4e_base = pt_bases[ 0 ];
-	
+
+#if __clang__
+	// Clang splits this array.....
+	[[gnu::used]] inline pt_entry_64** volatile __arr = &pt_bases[ 0 ];
+#endif
+
 	// Flushes the TLB given a range for all processors.
 	// -- If no arguments given, will flush the whole TLB, else a single range.
 	//
