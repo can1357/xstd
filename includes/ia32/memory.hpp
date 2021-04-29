@@ -142,11 +142,13 @@ namespace ia32::mem
 	FORCE_INLINE inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return get_pte( ptr, 1 ); }
 	FORCE_INLINE inline pt_entry_64* get_pdpte( xstd::any_ptr ptr ) { return get_pte( ptr, 2 ); }
 	FORCE_INLINE inline pt_entry_64* get_pml4e( xstd::any_ptr ptr ) { return get_pte( ptr, 3 ); }
+#if XSTD_IA32_LA57
 	FORCE_INLINE inline pt_entry_64* get_pml5e( xstd::any_ptr ptr ) { return get_pte( ptr, 4 ); }
+#endif
 	FORCE_INLINE inline pt_entry_64* get_pxe( xstd::any_ptr ptr ) { return get_pte( ptr, page_table_depth - 1 ); }
 	FORCE_INLINE inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr )
 	{
-		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, page_table_depth - c ); } );
+		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, page_table_depth - c - 1 ); } );
 	}
 	FORCE_INLINE inline std::pair<pt_entry_64*, size_t> lookup_pte( xstd::any_ptr ptr )
 	{
@@ -168,7 +170,9 @@ namespace ia32::mem
 	FORCE_INLINE inline xstd::any_ptr pde_to_va( const void* pte ) { return pte_to_va( pte, 1 ); }
 	FORCE_INLINE inline xstd::any_ptr pdpte_to_va( const void* pte ) { return pte_to_va( pte, 2 ); }
 	FORCE_INLINE inline xstd::any_ptr pml4e_to_va( const void* pte ) { return pte_to_va( pte, 3 ); }
+#if XSTD_IA32_LA57
 	FORCE_INLINE inline xstd::any_ptr pml5e_to_va( const void* pte ) { return pte_to_va( pte, 4 ); }
+#endif
 	FORCE_INLINE inline xstd::any_ptr pxe_to_va( const void* pte ) { return pte_to_va( pte, page_table_depth - 1 ); }
 	FORCE_INLINE inline std::pair<xstd::any_ptr, size_t> rlookup_pte( const pt_entry_64* pte )
 	{
