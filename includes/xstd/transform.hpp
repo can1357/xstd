@@ -12,23 +12,12 @@
 #endif
 
 #if !XSTD_NO_PARALLEL
-	#include <future>
+	#include <atomic>
+	#include "chore.hpp"
 #endif
 
 namespace xstd
 {
-	namespace impl
-	{
-		template<typename T>
-		__forceinline static decltype( auto ) ref_adjust( T&& x )
-		{
-			if constexpr ( std::is_reference_v<T> )
-				return std::ref( x );
-			else
-				return x;
-		}
-	};
-
 	// Generic transformation wrapper.
 	//
 	template<Iterable C, typename F> requires Invocable<F, void, iterator_reference_type_t<C>>
@@ -55,20 +44,24 @@ namespace xstd
 			for ( auto it = std::begin( container ); it != end; ++it )
 				worker( *it );
 		}
-		// Otherwise, use std::future for each entry.
+		// Otherwise, use xstd::chore for each entry.
 		//
 		else
 		{
 #if !XSTD_NO_PARALLEL
-			std::vector<std::future<void>> tasks;
-			tasks.reserve( container_size );
-			for ( auto it = std::begin( container ); it != std::end( container ); ++it )
-				tasks.emplace_back( std::async( std::launch::async, std::ref( worker ), impl::ref_adjust( *it ) ) );
+			event_base event = {};
+			std::atomic<size_t> completion_counter = container_size;
 
-			// Call ::get before destruction to propagate exceptions
-			//
-			for ( auto& task : tasks )
-				task.get();
+			for ( auto it = std::begin( container ); it != std::end( container ); ++it )
+			{
+				chore( [ &, it ]
+				{
+					worker( *it );
+					if ( !--completion_counter )
+						event.notify();
+				} );
+			}
+			event.wait();
 #endif
 		}
 	}

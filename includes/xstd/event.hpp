@@ -70,6 +70,11 @@ namespace xstd
 		
 		template<Duration T> 
 		bool wait_for( T duration ) const { return event_primitive::wait_for( duration / 1ms ); }
+
+		// No copy/move.
+		//
+		event_base( const event_base& ) = delete;
+		event_base& operator=( const event_base& ) = delete;
 	};
 	using event = std::shared_ptr<event_base>;
 
