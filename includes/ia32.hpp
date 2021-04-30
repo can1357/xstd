@@ -21838,7 +21838,7 @@ namespace ia32
     _LINKAGE xstd::any_ptr read_gsbase()
     {
         uint64_t value;
-        asm volatile( "rdgsbase %0" : "=r" ( value ) :: );
+        asm( "rdgsbase %0" : "=r" ( value ) :: );
         return value;
     }
     _LINKAGE void write_gsbase( xstd::any_ptr value )
@@ -21848,7 +21848,7 @@ namespace ia32
     _LINKAGE xstd::any_ptr read_fsbase()
     {
         uint64_t value;
-        asm volatile( "rdfsbase %0" : "=r" ( value ) :: );
+        asm( "rdfsbase %0" : "=r" ( value ) :: );
         return value;
     }
     _LINKAGE void write_fsbase( xstd::any_ptr value )
