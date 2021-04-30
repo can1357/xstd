@@ -1,6 +1,8 @@
 #pragma once
 #include <iterator>
 #include <vector>
+#include <atomic>
+#include "chore.hpp"
 #include "type_helpers.hpp"
 #include "intrinsics.hpp"
 
@@ -9,11 +11,6 @@
 //
 #ifndef XSTD_NO_PARALLEL
 	#define XSTD_NO_PARALLEL 0
-#endif
-
-#if !XSTD_NO_PARALLEL
-	#include <atomic>
-	#include "chore.hpp"
 #endif
 
 namespace xstd
@@ -48,7 +45,6 @@ namespace xstd
 		//
 		else
 		{
-#if !XSTD_NO_PARALLEL
 			event_base event = {};
 			std::atomic<size_t> completion_counter = container_size;
 
@@ -62,7 +58,6 @@ namespace xstd
 				} );
 			}
 			event.wait();
-#endif
 		}
 	}
 };
