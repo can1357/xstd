@@ -2,6 +2,8 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <algorithm>
+#include <numeric>
 #include "type_helpers.hpp"
 #include "range.hpp"
 
