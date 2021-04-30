@@ -194,7 +194,7 @@ namespace ia32::apic
 	{
 		static bool complete = false;
 		if ( std::exchange( complete, true ) ) 
-			return;
+			return apic_base != nullptr;
 
 		// Fail if APIC is not enabled.
 		//
