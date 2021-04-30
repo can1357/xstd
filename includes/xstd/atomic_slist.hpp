@@ -89,7 +89,7 @@ namespace xstd
 		// Non-atomic properties.
 		//
 		FORCE_INLINE T* front() const { return head.pointer; }
-		FORCE_INLINE bool empty() const { return !length; }
+		FORCE_INLINE bool empty() const { return !head.length; }
 		FORCE_INLINE size_t size() const { return head.length; }
 
 		// Swapping.

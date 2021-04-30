@@ -399,6 +399,21 @@ namespace xstd::asn1
 			}
 			return result;
 		}
+
+		// Simple destructor to prevent recursive destruction.
+		//
+		~object()
+		{
+			for ( size_t n = 0; n < children.size(); n++ )
+			{
+				auto tmp = std::move( children[ n ]->children );
+				children.insert(
+					children.end(),
+					std::make_move_iterator( tmp.begin() ),
+					std::make_move_iterator( tmp.end() )
+				);
+			}
+		}
 	};
 
 	// Decodes an object instance, returns null on failure.
