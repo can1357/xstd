@@ -192,6 +192,10 @@ namespace ia32::apic
 	//
 	inline bool detect_lapic()
 	{
+		static bool complete = false;
+		if ( std::exchange( complete, true ) ) 
+			return;
+
 		// Fail if APIC is not enabled.
 		//
 		auto apic_info = read_msr<apic_base_register>( IA32_APIC_BASE );

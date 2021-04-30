@@ -36,28 +36,23 @@ namespace xstd
 		// fallback to serial transformation.
 		//
 		if ( XSTD_NO_PARALLEL || container_size == 1 )
-		{
-			auto end = std::end( container );
-			for ( auto it = std::begin( container ); it != end; ++it )
-				worker( *it );
-		}
+			return transform( std::forward<C>( container ), worker );
+		
 		// Otherwise, use xstd::chore for each entry.
 		//
-		else
-		{
-			event_base event = {};
-			std::atomic<size_t> completion_counter = container_size;
+		event_base event = {};
+		std::atomic<size_t> completion_counter = container_size;
+		std::atomic<size_t> init_counter = 0;
 
-			for ( auto it = std::begin( container ); it != std::end( container ); ++it )
+		for ( size_t n = 0; n != container_size; n++ )
+		{
+			chore( [ & ]
 			{
-				chore( [ &, it ]
-				{
-					worker( *it );
-					if ( !--completion_counter )
-						event.notify();
-				} );
-			}
-			event.wait();
+				worker( *std::next( std::begin( container ), init_counter++ ) );
+				if ( !--completion_counter )
+					event.notify();
+			} );
 		}
+		event.wait();
 	}
 };
