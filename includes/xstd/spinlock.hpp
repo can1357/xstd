@@ -9,12 +9,11 @@ namespace xstd
 {
 	struct spinlock
 	{
-		std::atomic<uint16_t> value = 0;
+		std::atomic<uint8_t> value = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
-			uint16_t expected = 0;
-			return value.compare_exchange_strong( expected, 0xFFFF );
+			return value.exchange( 1 ) == 0;
 		}
 		FORCE_INLINE void lock()
 		{
@@ -27,7 +26,7 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			value = 0;
+			value.exchange( 0 );
 		}
 	};
 

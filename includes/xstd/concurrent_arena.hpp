@@ -7,7 +7,7 @@
 
 namespace xstd
 {
-	template<TriviallyMoveConstructable T = uint8_t>
+	template<TriviallyMoveConstructable T = uint8_t> requires TriviallyDestructable<T>
 	struct concurrent_arena
 	{
 		// Brief container traits.
@@ -20,7 +20,7 @@ namespace xstd
 
 		// Lock protecting from destructive operations.
 		//
-		shared_spinlock lock = {};
+		mutable shared_spinlock lock = {};
 
 		// Raw space allocated for the entries and the current counter.
 		//
@@ -30,7 +30,7 @@ namespace xstd
 
 		// Constructed by size, no copy.
 		//
-		inline concurrent_arena( size_t limit ) { resize( limit ); }
+		inline concurrent_arena( size_t limit = 0 ) { resize( limit ); }
 
 		// Implement copy, note that this is not a fast operation.
 		//
@@ -90,8 +90,8 @@ namespace xstd
 				// Unlock, destroy all instances and free the leftover buffer.
 				//
 				u.unlock();
-				std::destroy( pspace, pspace + pcounter );
-				free( pspace );
+				if ( pspace )
+					free( pspace );
 			}
 			// If resizing:
 			//
@@ -100,10 +100,7 @@ namespace xstd
 				// If new limit is less than the amount of elements we already have, destroy the leftovers.
 				//
 				if ( new_limit < counter )
-				{
-					std::destroy( space + new_limit, space + counter );
 					counter = new_limit;
-				}
 
 				// Realloc the buffer and change the limit.
 				//
@@ -118,8 +115,6 @@ namespace xstd
 		{
 			std::unique_lock u{ lock, std::defer_lock_t{} };
 			if ( !holds_lock ) u.lock();
-
-			std::destroy( space, space + counter );
 			counter = 0;
 		}
 
@@ -201,7 +196,7 @@ namespace xstd
 			//
 			T* ptr = allocate_slot( last - first, true );
 			if ( !ptr )
-				return ptr;
+				return nullptr;
 
 			// Copy the range and return.
 			//
@@ -216,25 +211,30 @@ namespace xstd
 		template<Iterable C>
 		inline T* insert( C&& container, bool holds_slock = false )
 		{
-			return assign( std::begin( container ), std::end( container ), holds_slock );
+			return insert( std::begin( container ), std::end( container ), holds_slock );
 		}
 
 		// Pops all elements and returns a shared_ptr with the array and the item count.
 		//
-		inline std::pair<std::shared_ptr<T[]>, size_t> pop_all()
+		inline std::pair<std::unique_ptr<T[]>, size_t> pop_all( bool preserve_size = false )
 		{
 			std::unique_lock u{ lock };
-			T* pspace = std::exchange( space, nullptr );
+			T* pspace;
 			size_t pcounter = counter.exchange( 0 );
-			limit = 0;
+			if ( preserve_size )
+				pspace = std::exchange( space, malloc( sizeof( T ) * limit ) );
+			else
+				space = std::exchange( space, nullptr ), limit = 0;
 			u.unlock();
-			
-			std::shared_ptr<T[]> ptr{ pspace, [ = ] ( T* p )
-			{
-				std::destroy( p, p + pcounter );
-				free( pspace );
-			} };
-			return { ptr, pcounter };
+			return std::pair{ std::unique_ptr<T[]>{ pspace }, pcounter };
+		}
+
+		// Simple destructor freeing the owned space.
+		//
+		~concurrent_arena()
+		{
+			if ( space )
+				delete[] space;
 		}
 	};
 };
