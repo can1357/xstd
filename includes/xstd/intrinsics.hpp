@@ -303,17 +303,17 @@ __forceinline static void yield_cpu()
 #ifndef XSTD_HAS_TASK_PRIORITY
     #define XSTD_HAS_TASK_PRIORITY KERNEL_TARGET
 #endif
-__forceinline static void set_task_priority( uintptr_t value )
+__forceinline static void set_task_priority( uint8_t value )
 {
 #if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
     __writecr8( value );
 #elif AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
-    asm volatile ( "mov %0, %%cr8" :: "r" ( value ) );
+    asm volatile ( "mov %0, %%cr8" :: "r" ( uintptr_t( value ) ) );
 #else
     // Assuming not relevant.
 #endif
 }
-__forceinline static uintptr_t get_task_priority()
+__forceinline static uint8_t get_task_priority()
 {
     uintptr_t value;
 #if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
@@ -324,7 +324,7 @@ __forceinline static uintptr_t get_task_priority()
     // Assuming not relevant.
     value = 0;
 #endif
-    return value;
+    return uint8_t( value );
 }
 
 // Declare some compiler dependant features.

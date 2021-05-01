@@ -8,12 +8,12 @@ namespace xstd
 {
 	// Standalone way to raise task priority for the scope.
 	//
-	template<uintptr_t TP>
+	template<uint8_t TP>
 	struct scope_tpr
 	{
 #if XSTD_HAS_TASK_PRIORITY
-		uintptr_t prev;
-		__forceinline scope_tpr( uintptr_t prev = get_task_priority() ) : prev( prev )
+		uint8_t prev;
+		__forceinline scope_tpr( uint8_t prev = get_task_priority() ) : prev( prev )
 		{
 			lock();
 		}
@@ -32,26 +32,25 @@ namespace xstd
 			unlock();
 		}
 #else
-		scope_tpr( uintptr_t prev = 0 ) {}
+		scope_tpr( uint8_t prev = 0 ) {}
 #endif
 	};
 
 	// Raises caller to a specific task priority upon lock and lowers on unlock. Ignored for shared lockers.
 	//
-	template<Lockable Mutex, uintptr_t TaskPriority, bool Optimized = false>
+	template<Lockable Mutex, uint8_t TaskPriority, bool Optimized = false>
 	struct task_guard
 	{
 		Mutex mutex;
-
-		std::atomic<size_t> ex_depth = 0;
-		std::atomic<uintptr_t> ex_tp = 0;
+		std::atomic<uint16_t> ex_depth = 0;
+		std::atomic<uint8_t> ex_tp = 0;
 
 		template<typename... Tx>
 		__forceinline constexpr task_guard( Tx&&... args ) : mutex( std::forward<Tx>()... ) {}
 
 		// Common helpers for raising/lowering of the task priority.
 		//
-		__forceinline static uintptr_t raise( bool raised = false )
+		__forceinline static uint8_t raise( bool raised = false )
 		{
 #if XSTD_HAS_TASK_PRIORITY
 			if ( raised )
@@ -61,8 +60,8 @@ namespace xstd
 			}
 			else
 			{
-				uintptr_t prio = get_task_priority();
-				dassert( get_task_priority() <= TaskPriority );
+				uint8_t prio = get_task_priority();
+				dassert( prio <= TaskPriority );
 				set_task_priority( TaskPriority );
 				return prio;
 			}
@@ -70,7 +69,7 @@ namespace xstd
 			return 0;
 #endif
 		}
-		__forceinline static void lower( uintptr_t prev )
+		__forceinline static void lower( uint8_t prev )
 		{
 #if XSTD_HAS_TASK_PRIORITY
 			set_task_priority( prev );
