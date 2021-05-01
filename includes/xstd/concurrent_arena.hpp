@@ -150,7 +150,6 @@ namespace xstd
 					return nullptr;
 				if ( counter.compare_exchange_strong( n, n + 1 ) )
 					break;
-				yield_cpu();
 			}
 			if ( !space )
 				return nullptr;

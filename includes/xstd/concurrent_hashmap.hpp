@@ -405,14 +405,12 @@ namespace xstd
 				it.normalize();
 				auto& entry = it.bucket->entries[ it.hash % it.bucket->count ];
 				entry_type expected = entry;
-				if ( cmpxchg( entry, expected, entry_type{} ) )
-				{
-					fassert( expected.pointer );
-					count--;
-					expected.destroy();
-					return std::next( it );
-				}
-				yield_cpu();
+				if ( !cmpxchg( entry, expected, entry_type{} ) )
+					continue;
+				fassert( expected.pointer );
+				count--;
+				expected.destroy();
+				return std::next( it );
 			}
 		}
 		inline size_t erase( const K& key )

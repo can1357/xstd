@@ -52,7 +52,6 @@ namespace xstd
 				node->next = curr_head.pointer;
 				if ( cmpxchg_head( curr_head, new_head ) )
 					break;
-				yield_cpu();
 			}
 		}
 		FORCE_INLINE void push_all( T* first )
@@ -70,7 +69,6 @@ namespace xstd
 				last->next = curr_head.pointer;
 				if ( cmpxchg_head( curr_head, new_head ) )
 					break;
-				yield_cpu();
 			}
 		}
 		FORCE_INLINE T* pop()
@@ -81,7 +79,6 @@ namespace xstd
 				versioned_pointer new_head = { curr_head.pointer->next, curr_head.version + 1, curr_head.length - 1 };
 				if ( cmpxchg_head( curr_head, new_head ) )
 					break;
-				yield_cpu();
 			}
 			return curr_head.pointer;
 		}
@@ -97,8 +94,7 @@ namespace xstd
 		FORCE_INLINE T* exchange( const atomic_slist& other )
 		{
 			versioned_pointer val = head;
-			while ( !cmpxchg_head( val, {} ) )
-				yield_cpu();
+			while ( !cmpxchg_head( val, {} ) );
 			return val.pointer;
 		}
 		FORCE_INLINE void swap( atomic_slist& other )
