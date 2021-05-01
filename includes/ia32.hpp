@@ -21769,7 +21769,9 @@ namespace ia32
 	_EXPOSE_REG( dr1, xstd::any_ptr, value.address,  );
 	_EXPOSE_REG( dr2, xstd::any_ptr, value.address,  );
 	_EXPOSE_REG( dr3, xstd::any_ptr, value.address,  );
+	_EXPOSE_REG( dr4, dr6,		     value.flags,  );
 	_EXPOSE_REG( dr6, dr6,		     value.flags,  );
+	_EXPOSE_REG( dr5, dr7,		     value.flags,  );
 	_EXPOSE_REG( dr7, dr7,		     value.flags,  );
 #undef _EXPOSE_REG
 
