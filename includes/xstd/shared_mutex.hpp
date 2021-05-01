@@ -19,112 +19,121 @@ namespace xstd
 
 		// Replicate the STL interface.
 		//
-		bool try_lock()
+		FORCE_INLINE bool try_lock()
 		{
-			if ( !mutex.try_lock() )
-				return false;
-			int32_t expected = 0;
-			dassert_s( share_count.compare_exchange_strong( expected, -1 ) );
-			return true;
+			while ( !share_count )
+			{
+				if ( mutex.try_lock() )
+				{
+					share_count = -1;
+					return true;
+				}
+			}
+			return false;
 		}
-		void lock()
+		FORCE_INLINE void lock()
 		{
 			mutex.lock();
-			int32_t expected = 0;
-			dassert_s( share_count.compare_exchange_strong( expected, -1 ) );
+			share_count = -1;
 		}
-		bool try_lock_shared()
+		FORCE_INLINE bool try_lock_shared()
 		{
-			int32_t expected = share_count;
+			int32_t expected = share_count.load();
+
+			#if GNU_COMPILER
+				#pragma unroll(2)
+			#endif
 			while ( true )
 			{
-				// Try incrementing the share count of a shared instance.
+				// While shared, try incrementing the counter.
 				//
 				while ( expected > 0 )
 					if ( share_count.compare_exchange_strong( expected, expected + 1 ) )
 						return true;
 
-				// Try locking, if it fails check expected one more time, if not exclusively owned loop.
+				// If exclusive, fail.
 				//
-				if ( !mutex.try_lock() )
-				{
-					expected = share_count;
-					if ( expected >= 0 )
-					{
-						yield_cpu();
-						continue;
-					}
+				if ( expected < 0 )
 					return false;
-				}
-				// Start the counter at one, indicate success.
+
+				// If not owned, try locking, if successful break.
 				//
-				else
-				{
-					expected = 0;
-					dassert_s( share_count.compare_exchange_strong( expected, 1 ) );
-					return true;
-				}
+				if ( mutex.try_lock() )
+					break;
+
+				// On transaction failure, yield the cpu and load the share count again.
+				//
+				yield_cpu();
+				expected = share_count.load();
 			}
+
+			// Start the counter at one, indicate success.
+			//
+			share_count = 1;
+			return true;
 		}
-		void lock_shared()
+		FORCE_INLINE void lock_shared()
 		{
-			int32_t expected = share_count;
+			int32_t expected = share_count.load();
+
+			#if GNU_COMPILER
+				#pragma unroll(2)
+			#endif
 			while ( true )
 			{
-				// Try incrementing the share count of a shared instance.
+				// While shared, try incrementing the counter.
 				//
 				while ( expected > 0 )
 					if ( share_count.compare_exchange_strong( expected, expected + 1 ) )
 						return;
 
-				// Try locking, if it fails check expected one more time, if not exclusively owned loop, otherwise lock mutex and break.
+				// If exclusive, lock and break.
 				//
-				if ( !mutex.try_lock() )
+				if ( expected < 0 )
 				{
-					expected = share_count;
-					if ( expected >= 0 )
-					{
-						yield_cpu();
-						continue;
-					}
 					mutex.lock();
+					break;
 				}
-				break;
+
+				// If not owned, try locking, if successful break.
+				//
+				if ( mutex.try_lock() )
+					break;
+
+				// On transaction failure, yield the cpu and load the share count again.
+				//
+				yield_cpu();
+				expected = share_count.load();
 			}
 
 			// Start the counter at one.
 			//
-			expected = 0;
-			dassert_s( share_count.compare_exchange_strong( expected, 1 ) );
+			share_count = 1;
 		}
-		void unlock()
+		FORCE_INLINE void unlock()
 		{
-			int32_t expected = -1;
-			dassert_s( share_count.compare_exchange_strong( expected, 0 ) );
+			share_count = 0;
 			mutex.unlock();
 		}
-		void unlock_shared()
+		FORCE_INLINE void unlock_shared()
 		{
-			int32_t expected = share_count;
-			dassert_s( expected >= 1 );
-			while ( true )
-			{
-				if ( share_count.compare_exchange_strong( expected, expected - 1 ) )
-				{
-					if ( expected == 1 )
-						mutex.unlock();
-					return;
-				}
-				yield_cpu();
-			}
+			// Decrement share count.
+			//
+			int32_t value = --share_count;
+			
+			// Validate the result, if we were the sole owner unlock the mutex.
+			//
+			dassert( value >= 0 );
+			if ( !value )
+				mutex.unlock();
 		}
 
 		// Implement the upgrade.
 		//
-		void upgrade()
+		FORCE_INLINE void upgrade()
 		{
-			int32_t expected = share_count;
-			dassert_s( expected >= 1 );
+			int32_t expected = share_count.load();
+			dassert( expected >= 1 );
 			while ( true )
 			{
 				// If sole owner, try changing the state.
@@ -141,7 +150,6 @@ namespace xstd
 					if ( share_count.compare_exchange_strong( expected, expected - 1 ) )
 						return lock();
 				}
-				yield_cpu();
 			}
 		}
 	};
