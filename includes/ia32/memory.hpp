@@ -91,7 +91,7 @@ namespace ia32::mem
 	// Virtual address details.
 	//
 	FORCE_INLINE inline constexpr bool is_cannonical( xstd::any_ptr ptr ) { return ( ptr >> ( va_bits - 1 ) ) == 0 || ( int64_t( ptr ) >> ( va_bits - 1 ) ) == -1; }
-	FORCE_INLINE inline constexpr uint64_t page_size( size_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
+	FORCE_INLINE inline constexpr uint64_t page_size( int8_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
 	FORCE_INLINE inline constexpr uint64_t page_offset( xstd::any_ptr ptr ) { return ptr & 0xFFF; }
 	FORCE_INLINE inline constexpr uint64_t pt_index( xstd::any_ptr ptr, size_t depth ) { return ( ptr >> ( 12 + 9 * depth ) ) % 512; }
 	FORCE_INLINE inline constexpr uint64_t pt_index( xstd::any_ptr ptr ) { return pt_index( ptr, 0 ); }
@@ -150,17 +150,23 @@ namespace ia32::mem
 	{
 		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, page_table_depth - c - 1 ); } );
 	}
-	FORCE_INLINE inline std::pair<pt_entry_64*, size_t> lookup_pte( xstd::any_ptr ptr )
+	FORCE_INLINE inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr )
 	{
-		std::array hierarchy = get_pte_hierarchy( ptr );
-		size_t size = 1ull << ( 12 + 9 * ( page_table_depth - 1 ) );
-		for ( size_t n = 0;; n++, size >>= 9 )
+		// Iterate the page tables until the PTE.
+		//
+		for ( size_t n = page_table_depth - 1; n != 0; n-- )
 		{
-			if ( &hierarchy[ n ] == &hierarchy.back() ||  // Reached PTE level.
-				 !hierarchy[ n ]->present ||              // Page is not present.
-				 hierarchy[ n ]->large_page )             // Large page.
-				return { hierarchy[ n ], size };
+			// If we reached an entry representing data pages or if the
+			// entry is not present, return.
+			//
+			auto* entry = get_pte( ptr, n );
+			if ( !entry->present || entry->large_page )
+				return { entry, n };
 		}
+
+		// Return the PTE.
+		//
+		return { get_pte( ptr ), 0 };
 	}
 
 	// Reverse recursive page table lookup.
@@ -174,15 +180,16 @@ namespace ia32::mem
 	FORCE_INLINE inline xstd::any_ptr pml5e_to_va( const void* pte ) { return pte_to_va( pte, 4 ); }
 #endif
 	FORCE_INLINE inline xstd::any_ptr pxe_to_va( const void* pte ) { return pte_to_va( pte, page_table_depth - 1 ); }
-	FORCE_INLINE inline std::pair<xstd::any_ptr, size_t> rlookup_pte( const pt_entry_64* pte )
+	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( const pt_entry_64* pte )
 	{
 		std::array hierarchy = unpack( pte );
 		if ( hierarchy[ 0 ] != self_ref_index )
-			return { nullptr, 0 };
+			return { nullptr, -1 };
+
 		size_t n = 1;
 		while ( n != page_table_depth && hierarchy[ n ] == self_ref_index )
 			n++;
-		return { pte_to_va( pte, n - 1 ), page_size( n - 1 ) };
+		return { pte_to_va( pte, n - 1 ), n - 1 };
 	}
 
 	// Virtual address validation and translation.
@@ -197,9 +204,9 @@ namespace ia32::mem
 	//
 	FORCE_INLINE inline uint64_t get_physical_address( xstd::any_ptr ptr )
 	{
-		auto [pte, page_size] = lookup_pte( ptr );
+		auto [pte, depth] = lookup_pte( ptr );
 		if ( !pte->present ) return 0;
-		return ( pte->page_frame_number << 12 ) | ( ptr & ( page_size - 1 ) );
+		return ( pte->page_frame_number << 12 ) | ( ptr & ( mem::page_size( depth ) - 1 ) );
 	}
 
 	// Changes the protection of the given range.
@@ -229,7 +236,7 @@ namespace ia32::mem
 			{
 				// Get the PTE, if not present, touch and retry.
 				//
-				auto [pte, sz] = lookup_pte( it );
+				auto [pte, depth] = lookup_pte( it );
 				dassert( pte->present );
 				pte->flags &= ~all_flags;
 				pte->flags |= mask;
@@ -237,7 +244,7 @@ namespace ia32::mem
 				if constexpr ( !IpiFlush )
 					invlpg( it );
 				
-				it += sz;
+				it += mem::page_size( depth );
 			}
 			
 			if constexpr( IpiFlush )
