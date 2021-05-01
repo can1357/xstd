@@ -77,11 +77,11 @@ namespace xstd
 		}
 	};
 
-	// Linear congruential generator using the constants from Numerical Recipes.
+	// Linear congruential generator.
 	//
 	static constexpr uint64_t lce_64( uint64_t& value )
 	{
-		return ( value = 1664525 * value + 1013904223 );
+		return ( value = 6364136223846793005 * value + 1442695040888963407 );
 	}
 	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
 	{
