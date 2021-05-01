@@ -25,7 +25,7 @@ namespace xstd
 			{
 				if ( mutex.try_lock() )
 				{
-					share_count = -1;
+					share_count.fetch_or( -1 );
 					return true;
 				}
 			}
@@ -34,7 +34,7 @@ namespace xstd
 		FORCE_INLINE void lock()
 		{
 			mutex.lock();
-			share_count = -1;
+			share_count.fetch_or( -1 );
 		}
 		FORCE_INLINE bool try_lock_shared()
 		{
@@ -69,7 +69,7 @@ namespace xstd
 
 			// Start the counter at one, indicate success.
 			//
-			share_count = 1;
+			dassert_s( ++share_count == 1 );
 			return true;
 		}
 		FORCE_INLINE void lock_shared()
@@ -108,11 +108,11 @@ namespace xstd
 
 			// Start the counter at one.
 			//
-			share_count = 1;
+			dassert_s( ++share_count == 1 );
 		}
 		FORCE_INLINE void unlock()
 		{
-			share_count = 0;
+			share_count.fetch_and( 0 );
 			mutex.unlock();
 		}
 		FORCE_INLINE void unlock_shared()

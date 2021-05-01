@@ -13,7 +13,7 @@ namespace xstd
 
 		FORCE_INLINE bool try_lock()
 		{
-			return value.exchange( 1 ) == 0;
+			return value.fetch_or( 1 ) == 0;
 		}
 		FORCE_INLINE void lock()
 		{
@@ -26,7 +26,7 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			value.exchange( 0 );
+			value.fetch_and( 0 );
 		}
 	};
 
@@ -176,7 +176,7 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			counter = 0;
+			counter.fetch_and( 0 );
 		}
 		FORCE_INLINE void unlock_shared()
 		{
