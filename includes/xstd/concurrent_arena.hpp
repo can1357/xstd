@@ -219,15 +219,16 @@ namespace xstd
 		inline std::pair<std::unique_ptr<T[]>, size_t> pop_all( bool preserve_size = false )
 		{
 			std::unique_lock u{ lock };
-			T* pspace;
 			size_t pcounter = counter.exchange( 0 );
 			if ( !pcounter )
 				return { nullptr,  0 };
 			
+			T* pspace = nullptr;
 			if ( preserve_size )
-				pspace = std::exchange( space, malloc( sizeof( T ) * limit ) );
+				pspace = ( T* ) malloc( sizeof( T ) * limit );
 			else
-				pspace = std::exchange( space, nullptr ), limit = 0;
+				limit = 0;
+			std::swap( pspace, space );
 			return std::pair{ std::unique_ptr<T[]>{ pspace }, pcounter };
 		}
 
