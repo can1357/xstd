@@ -160,7 +160,7 @@ namespace ia32::mem
 			// entry is not present, return.
 			//
 			auto* entry = get_pte( ptr, n );
-			if ( !entry->present || entry->large_page )
+			if ( !entry->present || entry->large_page ) [[unlikely]]
 				return { entry, n };
 		}
 
