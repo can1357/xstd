@@ -221,11 +221,13 @@ namespace xstd
 			std::unique_lock u{ lock };
 			T* pspace;
 			size_t pcounter = counter.exchange( 0 );
+			if ( !pcounter )
+				return { nullptr,  0 };
+			
 			if ( preserve_size )
 				pspace = std::exchange( space, malloc( sizeof( T ) * limit ) );
 			else
-				space = std::exchange( space, nullptr ), limit = 0;
-			u.unlock();
+				pspace = std::exchange( space, nullptr ), limit = 0;
 			return std::pair{ std::unique_ptr<T[]>{ pspace }, pcounter };
 		}
 
