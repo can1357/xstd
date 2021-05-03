@@ -894,6 +894,14 @@ namespace xstd
 	};
 	template<typename T, bool C>
 	using conditional_store = std::conditional_t<C, T, null_store<T>>;
+
+	// Cold call allows you to call out whilist making sure the target does not get inlined.
+	//
+	template<typename F, typename... Tx>
+	NO_INLINE FLATTEN static decltype( auto ) cold_call( F&& fn, Tx&&... args )
+	{
+		return fn( std::forward<Tx>( args )... );
+	}
 };
 
 // Expose literals.
