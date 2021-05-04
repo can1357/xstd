@@ -251,16 +251,16 @@ namespace xstd
 			vit = values.insert( iit, value_type( key, std::forward<Tx>( args )... ) );
 			return { vit, true };
 		}
-		template<typename Kx = K>
-		inline std::pair<iterator, bool> insert_or_assign( const Kx& key, V&& value )
+		template<typename Kx = K, typename Vx>
+		inline std::pair<iterator, bool> insert_or_assign( const Kx& key, Vx&& value )
 		{
 			auto [vit, iit] = search_for_insert( key );
 			if ( vit != values.end() )
 			{
-				it->view().second = std::forward<V>( value );
+				vit->view().second = std::forward<Vx>( value );
 				return { vit, false };
 			}
-			vit = values.insert( iit, value_type( key, std::forward<Tx>( args )... ) );
+			vit = values.insert( iit, value_type( key, std::forward<Vx>( value ) ) );
 			return { vit, true };
 		}
 		template<typename Kx = K>

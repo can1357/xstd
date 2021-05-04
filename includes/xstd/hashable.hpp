@@ -35,9 +35,9 @@ namespace xstd
 		{
 			0xf8f2f808dfa2a53d, 0x8c67174bea0d0e12,
 			0xb49abcd9cdd750d7, 0x81f82267dd8343db,
-			0x7381f6d4dc4fe660, 0xd2c067d60e9f4734,
-			0x04ecc5fce7ce1e6e,	0xbc82997a673d1ca3,
-			0xff93274635c9d0fe, 0xd3d953cbeb2764cb,
+			0x7381f6d4dc4fe661, 0xd2c067d60e9f4734,
+			0x04ecc5fce7ce1e6f,	0xbc82997a673d1ca3,
+			0xff93274635c9d0ff, 0xd3d953cbeb2764cb,
 			0x5b4bffa693e25729, 0x16711f3fc4be2165,
 			0xaba32477f51a7fcd, 0xa03a295b0b25d251,
 			0xcaee4326cecc22f6, 0x7da36c3bcb6226ef,
@@ -49,7 +49,7 @@ namespace xstd
 	//
 	__forceinline static constexpr hash_t combine_hash( hash_t a, const hash_t& b )
 	{
-		a.value -= b.value ^ rotlq( impl::hash_combination_keys[ a.value & 15 ], b.value & 63 );
+		a.value -= b.value ^ rotlq( impl::hash_combination_keys[ a.value % 13 ], b.value & 63 );
 		return a;
 	}
 	__forceinline static constexpr hash_t combine_unordered_hash( hash_t a, const hash_t& b )
@@ -108,11 +108,6 @@ namespace xstd
 			//
 			else if constexpr ( Pointer<T> || Same<T, any_ptr> )
 			{
-				// Pick a random key based on the link time type identifier of the base type.
-				//
-				using B = std::remove_pointer_t<std::conditional_t<std::is_same_v<T, any_ptr>, void*, T>>;
-				uint64_t key = 0x4f9f74a0ce517dbb ^ ~impl::hash_combination_keys[ type_tag<B>::hash() & 15 ];
-
 				// Extract the identifiers, most systems use 48 or 57 bit address spaces in reality with rest sign extended.
 				//
 				uint64_t v0 = uint64_t( value ) & 0xFFF;
@@ -121,12 +116,10 @@ namespace xstd
 
 				// Combine the values with the key and return.
 				//
-				uint64_t res = key;
-				res -= ( res + v0 ) * 0xb8653052cd4a068b;
-				res ^= rotr( res - v1, ( v1 - res ) & 63 );
-				res = ( res << 4 ) | ( v0 & 15 );
-				res = rotr( ~( res + v2 ), ( res ^ v2 ) & 63 );
-				return hash_t{ res };
+				uint64_t res = ( ~uint64_t( value ) ) ^ impl::hash_combination_keys[ uint64_t( v0 + v1 + v2 ) % 11 ];
+				res *= 0x87c37b91114253d5;
+				res += rotr( res - uint32_t( v0 * 0x1b873593 ) + v2, v2 % 47 );
+				return hash_t{ ~res };
 			}
 			// If register sized integral type, use a special hasher.
 			//
@@ -134,7 +127,7 @@ namespace xstd
 			{
 				// Pick a random key per size to prevent collisions accross different types.
 				//
-				uint64_t res = sizeof( T ) == 8 ? 0x350dfbdfde7d6d48 : 0xee89825303c1cce1;
+				uint64_t res = sizeof( T ) == 8 ? 0x350dfbdfde7d6d41 : 0xee89825303c1cce3;
 
 				// Combine the value with the key.
 				//
@@ -145,7 +138,7 @@ namespace xstd
 				
 				// Randomly rotate, combine once more and return.
 				//
-				res ^= rotl( res, res & 63 );
+				res ^= rotl( res * 0xc4ceb9fe1a85ec53, res % 37 );
 				return hash_t{ res };
 			}
 			// If trivial type, hash each byte.
