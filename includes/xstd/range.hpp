@@ -43,8 +43,8 @@ namespace xstd
 		constexpr range_iterator operator--( int ) requires BidirectionalIterable<iterator_category> { auto s = *this; operator--(); return s; }
 		constexpr range_iterator& operator+=( difference_type d ) requires RandomIterable<iterator_category> { at += d; return *this; }
 		constexpr range_iterator& operator-=( difference_type d ) requires RandomIterable<iterator_category> { at -= d; return *this; }
-		constexpr range_iterator operator+( difference_type d ) const requires RandomIterable<iterator_category> { auto s = *this; operator+=( d ); return s; }
-		constexpr range_iterator operator-( difference_type d ) const requires RandomIterable<iterator_category> { auto s = *this; operator-=( d ); return s; }
+		constexpr range_iterator operator+( difference_type d ) const requires RandomIterable<iterator_category> { auto s = *this; s += d; return s; }
+		constexpr range_iterator operator-( difference_type d ) const requires RandomIterable<iterator_category> { auto s = *this; s -= d; return s; }
 
 		// Equality check against another iterator and difference.
 		//

@@ -13,7 +13,7 @@ namespace xstd
 	__forceinline static constexpr T narrow_cast( T2 o )
 	{
 		if constexpr ( std::is_signed_v<T2> ^ std::is_signed_v<T> )
-			dassert( 0 <= o && o <= std::numeric_limits<T>::max() );
+			dassert( T2( 0 ) <= o && o <= T2( std::numeric_limits<T>::max() ) );
 		else
 			dassert( std::numeric_limits<T>::min() <= o && o <= std::numeric_limits<T>::max() );
 

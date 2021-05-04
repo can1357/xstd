@@ -111,8 +111,8 @@ namespace ia32
 			constexpr iterator operator--( int ) { auto s = *this; operator--(); return s; }
 			constexpr iterator& operator+=( difference_type d ) { proxy.ptr += d * sizeof(DataType); return *this; }
 			constexpr iterator& operator-=( difference_type d ) { proxy.ptr -= d * sizeof(DataType); return *this; }
-			constexpr iterator operator+( difference_type d ) const { auto s = *this; operator+=( d ); return s; }
-			constexpr iterator operator-( difference_type d ) const { auto s = *this; operator-=( d ); return s; }
+			constexpr iterator operator+( difference_type d ) const { auto s = *this; s += d; return s; }
+			constexpr iterator operator-( difference_type d ) const { auto s = *this; s -= d; return s; }
 
 			// Comparison and difference against another iterator.
 			//
