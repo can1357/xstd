@@ -132,8 +132,11 @@ namespace xstd
 		template<typename... Tx>
 		inline reference emplace( const_iterator pos, Tx&&... args )
 		{
-			for ( auto it = end(); it >= pos; --it )
-				std::uninitialized_move_n( it, 1, it + 1 );
+			if ( length )
+			{
+				for ( auto it = end() - 1; it >= pos; --it )
+					std::uninitialized_move_n( it, 1, it + 1 );
+			}
 			std::construct_at( ( iterator ) pos, std::forward<Tx>( args )... );
 			length++;
 			return *( iterator ) pos;
@@ -144,8 +147,11 @@ namespace xstd
 			auto count = ( size_type ) std::distance( first, last );
 			if ( ( length + count ) > N )
 				return nullptr;
-			for ( auto it = end(); it >= pos; --it )
-				std::uninitialized_move_n( it, 1, it + count );
+			if ( length )
+			{
+				for ( auto it = end() - 1; it >= pos; --it )
+					std::uninitialized_move_n( it, 1, it + count );
+			}
 			std::uninitialized_copy( first, last, ( iterator ) pos );
 			length += count;
 			return ( iterator ) pos;
