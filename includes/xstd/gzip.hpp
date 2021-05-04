@@ -30,7 +30,7 @@ namespace xstd::gzip
 		std::vector<uint8_t> result = {};
 		do
 		{
-			size_t extension_space = result.empty() ? len : 256 + result.size() / 2;
+			size_t extension_space = result.empty() ? deflateBound( &stream, stream.avail_in ) : 256 + result.size() / 2;
 			result.resize( result.size() + extension_space );
 			stream.avail_out = narrow_cast<uInt>( extension_space );
 			stream.next_out = result.data() + result.size() - extension_space;
