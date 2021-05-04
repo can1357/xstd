@@ -314,8 +314,23 @@ namespace xstd
 		// Resets the state.
 		//
 		inline void clear() { values.clear(); }
+
+		// Redirect comparison to the container.
+		//
+		inline bool operator==( const flat_map& o ) const { return values == o.values; }
+		inline bool operator!=( const flat_map& o ) const { return values != o.values; }
+		inline bool operator<( const flat_map& o ) const { return values < o.values; }
 	};
 	
 	template<typename K, typename V, typename Hs = std::conditional_t<String<K>, hasher<string_view_t<K>>, hasher<>>, typename Eq = std::equal_to<K>>
 	using iflat_map = flat_map<K, V, Hs, Eq>;
+};
+
+namespace std
+{
+	template <typename Pr, typename K, typename V, typename Hs, typename Eq, bool Il>
+	inline auto erase_if( xstd::flat_map<K, V, Hs, Eq, Il>& container, Pr&& predicate )
+	{
+		return std::erase_if( container.values, [ & ] ( auto&& pair ) { return predicate( pair.view() ); } );
+	}
 };
