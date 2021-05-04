@@ -463,9 +463,9 @@ namespace xstd::fmt
 		{
 			auto print_to_buffer = [ & ] ( const C* fmt_str, auto&&... args )
 			{
-				std::basic_string<C> buffer( 64, C{} );
+				std::basic_string<C> buffer( 15, C{} );
 				buffer.resize( provider( buffer.data(), buffer.size() + 1, fmt_str, args... ) );
-				if ( buffer.size() >= 64 )
+				if ( buffer.size() > 15 )
 					provider( buffer.data(), buffer.size() + 1, fmt_str, args... );
 				return buffer;
 			};
