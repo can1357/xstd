@@ -79,12 +79,7 @@ namespace xstd
 		//
 		std::atomic<size_t> consumer_head = N - 1;
 
-		// Asymmetric queue locks.
-		//
-		xstd::spinlock        producer_lock = {};
-		xstd::spinlock        consumer_lock = {};
-
-		// Reserves a number of bytes in the buffer, returns with the producer lock held.
+		// Reserves a number of bytes in the buffer.
 		// - If called with spin = false, will return -1 if the buffer is full.
 		//
 		size_t reserve( size_t count, bool spin = true )
@@ -92,10 +87,6 @@ namespace xstd
 			if ( count > ( N - 1 ) )
 				return std::string::npos;
 
-			// Acquire the producer lock.
-			//
-			std::unique_lock lock{ producer_lock };
-			
 			// Load the intial number of bytes produced.
 			//
 			size_t lp = producer_tail.load();
@@ -106,18 +97,10 @@ namespace xstd
 				size_t lc = consumer_head.load();
 				size_t free = ( lc - lp ) % N;
 
-				// If there is enough space:
+				// If there is enough space, return the position.
 				//
 				if ( free >= count )
-				{
-					// Leak the lock, caller should unlock after writing and incrementing the tail.
-					//
-					lock.release();
-
-					// Return the current position.
-					//
 					return lp;
-				}
 				
 				// If we're asked not to spin, fail.
 				//
@@ -127,23 +110,20 @@ namespace xstd
 				// Yield the cpu and try again.
 				//
 				yield_cpu();
-				lp = producer_tail.load();
 			}
 		}
 
-		// Commits a number of bytes to the previously reserved region, caller must hold a
-		// lock which will be released when the call completes.
+		// Commits a number of bytes to the previously reserved region.
 		//
 		void commit( size_t pos, size_t count )
 		{
-			// Update the producer tail and release the lock.
+			// Update the producer tail.
 			//
 			producer_tail = ( pos + count ) % N;
-			producer_lock.unlock();
 		}
 		void commit( size_t pos, const void* data, size_t count )
 		{
-			// Write the data.
+			// Write the data and commit.
 			//
 			auto* it = ( const uint8_t* ) data;
 			auto* end = &it[ count ];
@@ -152,34 +132,23 @@ namespace xstd
 			return commit( pos, 0 );
 		}
 
-		// Peeks into the consumer queue and returns the position and the number of bytes,
-		// returns with the consumer lock held; in the event that there is no data, will return
-		// an invalid position and there is no need to call consume or unlock the lock.
+		// Peeks into the consumer queue and returns the position and the number of bytes.
 		//
 		std::pair<size_t, size_t> peek()
 		{
-			consumer_lock.lock();
-
 			size_t lp = producer_tail.load();
 			size_t lc = consumer_head.load();
 			size_t length = ( lp - lc - 1 ) % N;
-			if ( !length )
-			{
-				consumer_lock.unlock();
-				return { std::string::npos, 0 };
-			}
 			return { lc + 1, length };
 		}
 
-		// Consumes a number of bytes at a given position previously peeked, caller must hold a 
-		// lock which will be released when the call completes.
+		// Consumes a number of bytes at a given position previously peeked.
 		//
 		void consume( size_t pos, size_t count )
 		{
-			// Update the consumer head, return the number of bytes consumed.
+			// Update the consumer head.
 			//
 			consumer_head = ( pos - 1 + count ) % N;
-			consumer_lock.unlock();
 		}
 
 		// Reads a byte from a given position.
