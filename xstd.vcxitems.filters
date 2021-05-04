@@ -249,6 +249,9 @@
       <Filter>Types</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\circular_buffer.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
