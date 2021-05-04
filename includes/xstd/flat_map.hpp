@@ -9,6 +9,11 @@ namespace xstd
 {
 	namespace impl
 	{
+		template<typename T>
+		struct pick_hasher { using type = hasher<>; };
+		template<String T>
+		struct pick_hasher<T> { using type = hasher<string_view_t<T>>; };
+
 		template<typename K, typename V, typename Hs, typename Eq>
 		struct flat_map_entry
 		{
@@ -148,14 +153,12 @@ namespace xstd
 	template<
 		typename K, 
 		typename V, 
-		typename Hs = std::conditional_t<String<K>, hasher<string_view_t<K>>, hasher<>>,
-		typename Eq = std::equal_to<K>, 
-		template<typename, typename> typename Base = std::vector, 
+		typename Hs = typename impl::pick_hasher<K>::type,
+		typename Eq = std::equal_to<K>,
 		bool InPlace = false>
 	struct flat_map
 	{
 		using storage_type =         std::conditional_t<InPlace, impl::inplace_flat_map_entry<K, V, Hs, Eq>, impl::flat_map_entry<K, V, Hs, Eq>>;
-		using underlying_container = Base<storage_type, std::allocator<storage_type>>;
 
 		// Container traits.
 		//
@@ -168,12 +171,12 @@ namespace xstd
 		using const_reference =      const value_type&;
 		using pointer =              value_type*;
 		using const_pointer =        const value_type*;
-		using iterator =             impl::flat_map_iterator<typename underlying_container::iterator>;
-		using const_iterator =       impl::flat_map_iterator<typename underlying_container::const_iterator>;
+		using iterator =             impl::flat_map_iterator<typename std::vector<storage_type>::iterator>;
+		using const_iterator =       impl::flat_map_iterator<typename std::vector<storage_type>::const_iterator>;
 
 		// The container storing the items.
 		//
-		underlying_container values;
+		std::vector<storage_type> values;
 
 		// Default constructor/copy/move.
 		//
@@ -201,6 +204,7 @@ namespace xstd
 		inline const_iterator begin() const { return values.begin(); }
 		inline const_iterator end() const { return values.end(); }
 		inline size_t size() const { return values.size(); }
+		inline bool empty() const { return values.empty(); }
 
 		// -- Lookup.
 		//
@@ -239,7 +243,7 @@ namespace xstd
 
 		// -- Insertation.
 		//
-		template<typename Kx, typename... Tx>
+		template<typename Kx = K, typename... Tx>
 		inline std::pair<iterator, bool> emplace( const Kx& key, Tx&&... args )
 		{
 			size_t hash = Hs{}( key );
@@ -249,7 +253,7 @@ namespace xstd
 			it = values.insert( it, value_type( key, std::forward<Tx>( args )... ) );
 			return { it, true };
 		}
-		template<typename Kx>
+		template<typename Kx = K>
 		inline std::pair<iterator, bool> insert_or_assign( const Kx& key, V&& value )
 		{
 			size_t hash = Hs{}( key );
@@ -262,12 +266,12 @@ namespace xstd
 			it = values.insert( it, value_type( key, std::forward<V>( value )... ) );
 			return { it, true };
 		}
-		template<typename Kx>
+		template<typename Kx = K>
 		inline std::pair<iterator, bool> insert( const Kx& key, V&& value )
 		{
 			return emplace( key, std::forward<V>( value ) );
 		}
-		template<typename Kx>
+		template<typename Kx = K>
 		inline std::pair<iterator, bool> insert( std::pair<Kx, V> pair )
 		{
 			return emplace( std::move( pair.first ), std::move( pair.second ) );
@@ -310,6 +314,7 @@ namespace xstd
 		//
 		inline constexpr key_equal key_eq() const { return key_equal{}; }
 		inline constexpr hasher hash_function() const { return hasher{}; }
+		inline void reserve( size_t n ) { values.reserve( n ); }
 
 		// Resets the state.
 		//
@@ -322,7 +327,7 @@ namespace xstd
 		inline bool operator<( const flat_map& o ) const { return values < o.values; }
 	};
 	
-	template<typename K, typename V, typename Hs = std::conditional_t<String<K>, hasher<string_view_t<K>>, hasher<>>, typename Eq = std::equal_to<K>>
+	template<typename K, typename V, typename Hs = typename impl::pick_hasher<K>::type, typename Eq = std::equal_to<K>>
 	using iflat_map = flat_map<K, V, Hs, Eq>;
 };
 
