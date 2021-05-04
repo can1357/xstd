@@ -898,7 +898,7 @@ namespace xstd
 	// Cold call allows you to call out whilist making sure the target does not get inlined.
 	//
 	template<typename F, typename... Tx>
-	NO_INLINE FLATTEN static decltype( auto ) cold_call( F&& fn, Tx&&... args )
+	NO_INLINE COLD static decltype( auto ) cold_call( F&& fn, Tx&&... args )
 	{
 		return fn( std::forward<Tx>( args )... );
 	}

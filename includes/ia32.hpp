@@ -22234,7 +22234,7 @@ namespace ia32
     }
     _LINKAGE void pause()
     {
-        asm volatile( "pause" );
+        asm volatile( "pause" ::: "memory" );
     }
     _LINKAGE void halt()
     {
