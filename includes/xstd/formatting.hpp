@@ -19,6 +19,7 @@
 #include "enum_name.hpp"
 #include "fields.hpp"
 #include "utf.hpp"
+#include "hexdump.hpp"
 
 // [Configuration]
 // Macro wrapping ANSI escape codes, can be replaced by '#define ANSI_ESCAPE(...)' in legacy Windows to disable colors completely.
@@ -76,6 +77,38 @@ namespace xstd::fmt
 						in = in.substr( 0, i + 1 ) + in.substr( i + 1 + str.length() );
 			}
 			return in;
+		}
+
+		// Prints a pointer.
+		//
+		inline static std::string print_pointer( xstd::any_ptr ptr )
+		{
+			std::string buf( 16, '\x0' );
+			for ( size_t n = 0; n != 8; n++ )
+			{
+				uint64_t digit = ptr >> ( ( 7 - n ) * 8 );
+				print_hex_digit( &buf[ n * 2 ], uint8_t( digit ), true );
+			}
+			return buf;
+		}
+
+		// Prints a hexadecimal number.
+		//
+		inline static std::string print_u64x( uint64_t num, std::string_view pfx = "0x" )
+		{
+			std::string buf( 16, '\x0' );
+			for ( size_t n = 0; n != 8; n++ )
+			{
+				uint64_t digit = num >> ( ( 7 - n ) * 8 );
+				print_hex_digit( &buf[ n * 2 ], uint8_t( digit ), true );
+			}
+			size_t p = buf.find_first_not_of( '0' );
+			if ( p == std::string::npos )
+				buf.resize( 1 );
+			else
+				buf.erase( buf.begin(), buf.begin() + p );
+			buf.insert( buf.begin(), pfx.begin(), pfx.end() );
+			return buf;
 		}
 	};
 
@@ -185,22 +218,16 @@ namespace xstd::fmt
 		}
 		else if constexpr ( std::is_same_v<any_ptr, base_type> )
 		{
-			char buffer[ 17 ];
-			snprintf( buffer, 17, "%p", ( void* ) x );
-			return std::string{ buffer };
+			return impl::print_pointer( x );
 		}
 		else if constexpr ( std::is_same_v<base_type, int64_t> || std::is_same_v<base_type, uint64_t> )
 		{
 			if constexpr ( std::is_signed_v<base_type> )
 			{
 				if ( x < 0 )
-				{
-					char buffer[ 16 + 4 ];
-					return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), "-0x%llx", -x ) };
-				}
+					return impl::print_u64x( -x, "-0x" );
 			}
-			char buffer[ 16 + 3 ];
-			return std::string{ buffer, buffer + snprintf( buffer, std::size( buffer ), "0x%llx", x ) };
+			return impl::print_u64x( x, "0x" );
 		}
 		else if constexpr ( std::is_same_v<base_type, bool> )
 		{
@@ -208,9 +235,19 @@ namespace xstd::fmt
 		}
 		else if constexpr ( std::is_same_v<base_type, char> )
 		{
-			char buffer[ 6 ];
-			snprintf( buffer, 6, isgraph( x ) ? "'%c'" : "'\\%02x'", x );
-			return std::string{ buffer };
+			if ( isgraph( x ) )
+			{
+				std::string s( 2 + 1, '\'' );
+				s[ 1 ] = x;
+				return s;
+			}
+			else
+			{
+				std::string s( 2 + 3, '\'' );
+				s[ 1 ] = '\\';
+				print_hex_digit( &s[ 2 ], x, false );
+				return s;
+			}
 		}
 		else if constexpr ( StdStringConvertible<T> )
 		{
@@ -233,9 +270,7 @@ namespace xstd::fmt
 			}
 			else if constexpr ( std::is_pointer_v<base_type> )
 			{
-				char buffer[ 17 ];
-				snprintf( buffer, 17, "%p", x );
-				return std::string{ buffer };
+				return impl::print_pointer( x );
 			}
 			else return type_tag<T>{};
 		}
@@ -259,7 +294,7 @@ namespace xstd::fmt
 		}
 		else if constexpr ( std::is_same_v<base_type, std::monostate> )
 		{
-			return std::string{ "null" };
+			return std::string{ "{}" };
 		}
 		else if constexpr ( std::is_same_v<base_type, std::filesystem::path> )
 		{
@@ -460,12 +495,12 @@ namespace xstd::fmt
 	{
 		if constexpr ( !std::is_signed_v<T> )
 		{
-			return str( "0x%llx", value );
+			return impl::print_u64x( value, "0x" );
 		}
 		else
 		{
-			if ( value >= 0 ) return str( "0x%llx", value );
-			else              return str( "-0x%llx", -value );
+			if ( value >= 0 ) return impl::print_u64x( value, "0x" );
+			else              return impl::print_u64x( -value, "-0x" );
 		}
 	}
 
@@ -473,8 +508,8 @@ namespace xstd::fmt
 	//
 	inline static std::string offset( int64_t value )
 	{
-		if ( value >= 0 ) return str( "+ 0x%llx", value );
-		else              return str( "- 0x%llx", -value );
+		if ( value >= 0 ) return impl::print_u64x( value, "+ 0x" );
+		else              return impl::print_u64x( -value, "- 0x" );
 	}
 };
 #undef HAS_RTTI
