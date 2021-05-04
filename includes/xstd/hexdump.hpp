@@ -47,9 +47,9 @@ namespace xstd::fmt
 	inline static constexpr std::array<C, 2*sizeof(T)> cexpr_hex_dump( const T& value )
 	{
 		std::array<C, sizeof( T ) * 2> result = {};
-		auto bytes = xstd::bit_cast<std::array<uint8_t, sizeof(T)>>( value );
+		auto bytes = bit_cast<std::array<uint8_t, sizeof(T)>>( value );
 		for ( size_t n = 0; n != sizeof( T ); n++ )
-			xstd::fmt::print_hex_digit( &result[ n * 2 ], bytes[ n ] );
+			print_hex_digit( &result[ n * 2 ], bytes[ n ] );
 		return result;
 	}
 

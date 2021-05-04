@@ -49,7 +49,6 @@ namespace xstd::gzip
 		result.resize( result.size() - stream.avail_out );
 		return result;
 	}
-	
 	template<Iterable T> requires ( is_contiguous_iterable_v<T> && !Pointer<T> )
 	inline static string_result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
 	{

@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 #include "type_helpers.hpp"
-#include "assert.hpp"
 
 // Implements a vector similar to stack_vector but with a friendlier copy implementation and more compact storage.
 //
@@ -41,7 +40,6 @@ namespace xstd
 		template<typename It1, typename It2>
 		small_vector( It1&& first, It2&& last )
 		{
-			dassert( std::distance( first, last ) <= N );
 			length = ( size_type ) std::distance( first, last );
 			std::uninitialized_copy( first, last, begin() );
 		}
@@ -134,7 +132,6 @@ namespace xstd
 		template<typename... Tx>
 		inline reference emplace( const_iterator pos, Tx&&... args )
 		{
-			dassert( ( length + 1 ) <= N );
 			for ( auto it = end(); it >= pos; --it )
 				std::uninitialized_move_n( it, 1, it + 1 );
 			std::construct_at( ( iterator ) pos, std::forward<Tx>( args )... );
@@ -168,7 +165,6 @@ namespace xstd
 		}
 		inline void resize( size_t n ) requires DefaultConstructable<T>
 		{
-			dassert( n <= N );
 			if ( n > length )
 				std::uninitialized_default_construct( end(), begin() + n );
 			else
@@ -177,7 +173,6 @@ namespace xstd
 		}
 		inline void resize( size_t n, const T& value )
 		{
-			dassert( n <= N );
 			if ( n > length )
 				std::uninitialized_fill_n( begin() + length, n - length, value );
 			else
