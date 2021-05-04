@@ -57,6 +57,20 @@ namespace ia32::mem
 	static constexpr size_t va_bits = page_table_depth * 9 + 12;
 	static constexpr size_t sx_bits = 64 - va_bits;
 
+	// Paging level enumerator.
+	//
+	enum page_levels : uint8_t
+	{
+		pte_level = 0,
+		pde_level = 1,
+		pdpte_level = 2,
+		pml4e_level = 3,
+#if XSTD_IA32_LA57
+		pml5e_level = 4,
+#endif
+		pxe_level = page_table_depth - 1,
+	};
+
 	//
 	// --- OS specific details that are left to be externally initialized.
 	//
