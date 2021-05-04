@@ -316,8 +316,8 @@ namespace xstd
 	template<typename... Tx>
 	FORCE_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
 	{
-		auto buf = fmt::create_string_buffer_for<Tx...>();
-		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+		fmt::impl::format_buffer_for<Tx...> buf = {};
+		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter( buf, std::forward<Tx>( ps ) )... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
 	FORCE_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )

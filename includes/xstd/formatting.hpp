@@ -19,6 +19,7 @@
 #include "enum_name.hpp"
 #include "fields.hpp"
 #include "utf.hpp"
+#include "small_vector.hpp"
 #include "hexdump.hpp"
 
 // [Configuration]
@@ -45,16 +46,13 @@ namespace xstd::fmt
 		concept ValidFormatStringArgument = 
 			std::is_fundamental_v<std::remove_cvref_t<T>> || std::is_enum_v<std::remove_cvref_t<T>>  ||
 			std::is_pointer_v<std::remove_cvref_t<T>>     || std::is_array_v<std::remove_cvref_t<T>> || CppString<std::remove_cvref_t<T>>;
-	};
 
-	template<typename... Tx> 
-	__forceinline static std::vector<std::string> create_string_buffer_for()
-	{
-		std::vector<std::string> buffer;
-		if constexpr ( sizeof...( Tx ) != 0 )
-			buffer.reserve( ( ( impl::ValidFormatStringArgument<Tx> ? 0 : 1 ) + ... ) );
-		return buffer;
-	}
+		template<typename... Tx> struct conv_count { static constexpr size_t value = ( ( ValidFormatStringArgument<Tx> ? 0 : 1 ) + ... ); };
+		template<> struct conv_count<> { static constexpr size_t value = 0; };
+
+		template<typename... Tx> 
+		using format_buffer_for = std::conditional_t<(conv_count<Tx...>::value==0), std::monostate, small_vector<std::string, conv_count<Tx...>::value>>;
+	};
 
 	namespace impl
 	{
@@ -408,8 +406,8 @@ namespace xstd::fmt
 
 	// Used to allow use of any type in combination with "%(l)s".
 	//
-	template<typename T>
-	__forceinline static auto fix_parameter( std::vector<std::string>& buffer, T&& x )
+	template<typename B, typename T>
+	__forceinline static auto fix_parameter( B& buffer, T&& x )
 	{
 		using base_type = std::decay_t<T>;
 		
@@ -469,8 +467,9 @@ namespace xstd::fmt
 					provider( buffer.data(), buffer.size() + 1, fmt_str, args... );
 				return buffer;
 			};
-			auto buf = create_string_buffer_for<Tx...>();
-			return print_to_buffer( fmt_str, fix_parameter<Tx>( buf, std::forward<Tx>( ps ) )... );
+
+			impl::format_buffer_for<Tx...> buf = {};
+			return print_to_buffer( fmt_str, fix_parameter( buf, std::forward<Tx>( ps ) )... );
 		}
 		else
 		{
