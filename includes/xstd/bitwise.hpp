@@ -117,11 +117,11 @@ namespace xstd
 		//
 		if ( !std::is_constant_evaluated() )
 		{
-#if MS_COMPILER && AMD64_TARGET
+#if __has_builtin(__builtin_ctzll)
+			return 63 - __builtin_clzll( x );
+#elif MS_COMPILER && AMD64_TARGET
 			unsigned long idx;
 			return _BitScanReverse64( &idx, x ) ? idx : -1;
-#elif __has_builtin(__builtin_ctzll)
-			return x ? 63 - __builtin_clzll( x ) : -1;
 #endif
 		}
 
