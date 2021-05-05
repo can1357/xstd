@@ -21564,6 +21564,22 @@ typedef union
 #pragma pack(push, 1)
 namespace ia32
 {
+    // INVPCID descriptor.
+    //
+    struct invpcid_descriptor
+    {
+        uint64_t pcid : 12;
+        uint64_t rsvd : 48;
+        uint64_t address;
+    };
+    enum class invpcid_type : uint64_t
+    {
+        individual = 0, // Invalidates the Address in the specific TLB associated with the PCID.
+        context =    1, // Invalidates the entire TLB associated with the PCID.
+        global =     2, // Invalidates the entire TLB.
+        local =      3, // Invalidates the entire TLB excluding global pages.
+    };
+
     // Task state.
     //
     template<size_t N = 0>
@@ -21956,6 +21972,11 @@ namespace ia32
     _LINKAGE void sfence() { asm volatile( "sfence"::: "memory" ); }
     _LINKAGE void mfence() { asm volatile( "mfence"::: "memory" ); }
     _LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void invpcid( invpcid_type type, uint64_t pcid, xstd::any_ptr ptr )
+    { 
+        invpcid_descriptor desc = { .pcid = pcid, .rsvd = 0, .address = ptr };
+        asm volatile( "invpcid (%0), %1":: "m" ( desc ), "r" ( type ) : "memory" );
+    }
     _LINKAGE void touch( xstd::any_ptr ptr )
     {
         asm volatile( "testb $0, (%0)":: "r" ( ptr.address ) : "flags" );
@@ -21992,6 +22013,12 @@ namespace ia32
 
     // Implement the range helpers.
     //
+    _LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    {
+        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
+        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
+            invpcid( invpcid_type::individual, pcid, ptr );
+    }
     _LINKAGE void invlpg( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
