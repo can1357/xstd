@@ -28,7 +28,7 @@ namespace xstd::tcp
 		// Transmission queues.
 		//
 		xstd::spinlock tx_lock;
-		size_t last_ack_id = 0;
+		std::atomic<size_t> last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::list<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
 		std::list<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
@@ -127,10 +127,9 @@ namespace xstd::tcp
 
 			// Append the data onto tx queue and try submitting to the network layer.
 			//
-			tx_lock.lock();
+			std::lock_guard _g{ tx_lock };
 			tx_queue.emplace_back( std::move( data ), 0 );
 			flush_queues();
-			tx_lock.unlock();
 		}
 
 		// Invoked by network layer to indicate the target acknowledged a number of bytes from our output queue.
