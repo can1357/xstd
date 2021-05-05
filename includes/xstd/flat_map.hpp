@@ -539,9 +539,9 @@ namespace xstd
 		template<typename Kx> inline auto& at( const Kx& key ) const { return find( key )->second; }
 		template<typename Kx> inline bool contains( const Kx& key ) const { return find( key ) != end(); }
 		template<typename Kx> inline iterator lower_bound( const Kx& key ) { return std::lower_bound( values.begin(), values.end(), key ); }
-		template<typename Kx> inline const_iterator lower_bound( const Kx& key ) { return std::lower_bound( values.begin(), values.end(), key ); }
+		template<typename Kx> inline const_iterator lower_bound( const Kx& key ) const { return std::lower_bound( values.begin(), values.end(), key ); }
 		template<typename Kx> inline iterator upper_bound( const Kx& key ) { return std::upper_bound( values.begin(), values.end(), key ); }
-		template<typename Kx> inline const_iterator upper_bound( const Kx& key ) { return std::upper_bound( values.begin(), values.end(), key ); }
+		template<typename Kx> inline const_iterator upper_bound( const Kx& key ) const { return std::upper_bound( values.begin(), values.end(), key ); }
 
 		// -- Insertation.
 		//
