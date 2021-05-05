@@ -149,6 +149,8 @@ namespace xstd
 
 	// Implements a flat unordered map with heterogeneous lookup and O(1) storage.
 	// - Inplace will allow you to store without another level of indirection, but pointers will not remain valid after insertion.
+	// - Sorted toggles binary search vs linear search.
+	// - Adaptive search limit is the limit of item entries where we start hashing afterwards for searches.
 	//
 	template<
 		typename K, 
@@ -156,7 +158,8 @@ namespace xstd
 		typename Hs = typename impl::pick_hasher<K>::type,
 		typename Eq = std::equal_to<K>,
 		bool InPlace = false,
-	    bool Sorted = true>
+	    bool Sorted = true,
+		size_t AdaptiveSearchLimit = 8>
 	struct flat_map
 	{
 		using storage_type =         std::conditional_t<InPlace, impl::inplace_flat_map_entry<K, V, Hs, Eq>, impl::flat_map_entry<K, V, Hs, Eq>>;
@@ -212,29 +215,62 @@ namespace xstd
 		// Internal searcher, returns [value pos, insertation pos].
 		// 
 		template<typename Kx>
-		inline std::pair<real_iterator, real_iterator> search_for_insert( const Kx& key )
+		inline std::pair<real_iterator, real_iterator> searcher( const Kx& key, bool for_insert )
 		{
-			size_t hash = Hs{}( key );
-			if constexpr ( Sorted )
+			// If adaptive search is enabled and there's less than 8 items:
+			//
+			if ( values.size() <= ( for_insert ? AdaptiveSearchLimit : AdaptiveSearchLimit * 2 ) )
 			{
-				auto it = std::lower_bound( values.begin(), values.end(), hash );
-				if ( it != values.end() && it->view().first != key )
-					return { values.end(), it };
-				else
-					return { it, it };
+				// See if we find a match via equality.
+				//
+				for ( auto it = values.begin(); it != values.end(); it++ )
+					if ( Eq{}( it->view().first, key ) )
+						return { it, it };
+
+				// If not sorted or not inserting, simply return the end point.
+				//
+				if ( !Sorted || !for_insert )
+					return { values.end(), values.end() };
+
+				// Find the position to insert at.
+				//
+				size_t hash = Hs{}( key );
+				return { values.end(), std::lower_bound( values.begin(), values.end(), hash ) };
 			}
 			else
 			{
-				for ( auto it = values.begin(); it != values.end(); ++it )
-					if ( it->hash == hash && it->view().first == key )
+				// Hash the key.
+				//
+				size_t hash = Hs{}( key );
+				if constexpr ( Sorted )
+				{
+					// Find the position, if hash and the key is matching return the iterator, else only 
+					// return as the insertion pos.
+					//
+					auto it = std::lower_bound( values.begin(), values.end(), hash );
+					if ( it != values.end() && ( it->hash != hash || !Eq{}( it->view().first, key ) ) )
+						return { values.end(), it };
+					else
 						return { it, it };
-				return { values.end(), values.end() };
+				}
+				else
+				{
+					// Check every item, first by hash, then by key; if matching return.
+					//
+					for ( auto it = values.begin(); it != values.end(); ++it )
+						if ( it->hash == hash && Eq{}( it->view().first, key ) )
+							return { it, it };
+
+					// Insert at the end.
+					//
+					return { values.end(), values.end() };
+				}
 			}
 		}
 
 		// -- Lookup.
 		//
-		template<typename Kx> inline iterator find( const Kx& key ) { return search_for_insert( key ).first; }
+		template<typename Kx> inline iterator find( const Kx& key ) { return searcher( key, false ).first; }
 		template<typename Kx> inline const_iterator find( const Kx& key ) const { return const_iterator{ make_mutable( this )->find( key ).at }; }
 		template<typename Kx> inline auto& at( const Kx& key ) { return find( key )->second; }
 		template<typename Kx> inline auto& at( const Kx& key ) const { return find( key )->second; }
@@ -245,7 +281,7 @@ namespace xstd
 		template<typename Kx = K, typename... Tx>
 		inline std::pair<iterator, bool> emplace( const Kx& key, Tx&&... args )
 		{
-			auto [vit, iit] = search_for_insert( key );
+			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
 				return { vit, false };
 			vit = values.insert( iit, value_type( key, std::forward<Tx>( args )... ) );
@@ -254,7 +290,7 @@ namespace xstd
 		template<typename Kx = K, typename Vx>
 		inline std::pair<iterator, bool> insert_or_assign( const Kx& key, Vx&& value )
 		{
-			auto [vit, iit] = search_for_insert( key );
+			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
 			{
 				vit->view().second = std::forward<Vx>( value );
@@ -300,7 +336,7 @@ namespace xstd
 		template<typename Kx>
 		inline V& operator[]( const Kx& key ) 
 		{
-			auto [vit, iit] = search_for_insert( key );
+			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
 				return vit->view().second;
 			return values.insert( iit, value_type( key, V{} ) )->view().second;
@@ -336,8 +372,8 @@ namespace xstd
 
 namespace std
 {
-	template <typename Pr, typename K, typename V, typename Hs, typename Eq, bool Il>
-	inline size_t erase_if( xstd::flat_map<K, V, Hs, Eq, Il>& container, Pr&& predicate )
+	template <typename Pr, typename K, typename V, typename Hs, typename Eq, bool Ip, bool So, size_t Al>
+	inline size_t erase_if( xstd::flat_map<K, V, Hs, Eq, Ip, So, Al>& container, Pr&& predicate )
 	{
 		return std::erase_if( container.values, [ & ] ( auto&& pair ) { return predicate( pair.view() ); } );
 	}
