@@ -348,7 +348,9 @@ namespace xstd
 	template<typename T>
 	concept SharedLockable = requires( T& x ) { x.lock_shared(); x.unlock_shared(); };
 	template<typename T>
-	concept TryLockable = requires( T& x ) { x.try_lock(); };
+	concept TryLockable = requires( T & x ) { x.try_lock(); };
+	template<typename T>
+	concept LockCheckable = requires( T & x ) { ( bool ) x.locked(); };
 	template<typename T>
 	concept SharedTryLockable = requires( T& x ) { x.try_lock_shared(); };
 	template<typename T>

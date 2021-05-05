@@ -38,7 +38,7 @@ namespace xstd
 
 	// Raises caller to a specific task priority upon lock and lowers on unlock. Ignored for shared lockers.
 	//
-	template<Lockable Mutex, uint8_t TaskPriority, bool Optimized = false>
+	template<Lockable Mutex, uint8_t TaskPriority>
 	struct task_guard
 	{
 		Mutex mutex;
@@ -87,26 +87,30 @@ namespace xstd
 			//
 			auto prev = raise( raised );
 
-			// If optimization requested and mutex is capable:
+			// If mutex is capable:
 			//
 			bool locked = false;
-			if constexpr ( TryLockable<Mutex> && TimeLockable<Mutex> && Optimized )
+			if constexpr ( LockCheckable<Mutex> )
 			{
 				// If optimization is viable:
 				//
-				if ( prev == 0 )
+				if ( prev < TaskPriority )
 				{
 					while ( 1 )
 					{
 						// Try to lock.
 						//
-						locked = mutex.try_lock_for( 10ms );
+						locked = mutex.try_lock();
 						if ( locked ) break;
 
-						// Lower the task priority and yield the thread.
+						// Lower the task priority.
 						//
-						set_task_priority( 0 );
-						std::this_thread::sleep_for( 5ms );
+						set_task_priority( prev );
+
+						// Yield the CPU.
+						//
+						while ( mutex.locked() )
+							yield_cpu();
 
 						// Raise the task priority again.
 						//

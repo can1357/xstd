@@ -21,12 +21,16 @@ namespace xstd
 			{
 				do
 					yield_cpu();
-				while ( value != 0 );
+				while ( value.load() != 0 );
 			}
 		}
 		FORCE_INLINE void unlock()
 		{
 			value.fetch_and( 0 );
+		}
+		FORCE_INLINE bool locked() const
+		{
+			return value.load() != 0;
 		}
 	};
 
@@ -99,6 +103,10 @@ namespace xstd
 			dassert( depth && owner == get_cid() );
 			--depth;
 			value.store( combine( depth ? owner : 0, depth ) );
+		}
+		FORCE_INLINE bool locked() const
+		{
+			return value.load() != 0;
 		}
 	};
 	namespace impl { inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); }; };
@@ -181,6 +189,10 @@ namespace xstd
 		FORCE_INLINE void unlock_shared()
 		{
 			--counter;
+		}
+		FORCE_INLINE bool locked() const
+		{
+			return counter.load() != 0;
 		}
 	};
 };
