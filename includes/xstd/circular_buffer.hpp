@@ -13,6 +13,10 @@ namespace xstd
 	template<size_t Len = 2_mb>
 	struct circular_buffer
 	{
+		// Enforce even length.
+		//
+		static constexpr size_t N = ( Len + 1 ) & ~1;
+
 		// Define an iterator.
 		//
 		template<bool C>
@@ -60,10 +64,6 @@ namespace xstd
 		};
 		using iterator = basic_iterator<false>;
 		using const_iterator = basic_iterator<true>;
-
-		// Enforce even length.
-		//
-		static constexpr size_t N = ( Len + 1 ) & ~1;
 
 		// Storage of the raw data.
 		//
@@ -160,8 +160,8 @@ namespace xstd
 
 		// Returns the number of empty / filled slots.
 		//
-		size_t capacity() const { return ( consumer_head - producer_tail ) % N; }
-		size_t length() const { return ( producer_tail - consumer_head - 1 ) % N; }
+		size_t size_left() const { return ( consumer_head - producer_tail ) % N; }
+		size_t size() const { return ( producer_tail - consumer_head - 1 ) % N; }
 
 		// ::begin and ::size refer to the buffer itself ignoring the queue state.
 		//
@@ -170,7 +170,7 @@ namespace xstd
 		auto rbegin() { return std::make_reverse_iterator( begin() ); }
 		auto rbegin() const { return std::make_reverse_iterator( begin() ); }
 
-		constexpr size_t size() const { return N - 1; }
+		static constexpr size_t capacity() const { return N - 1; }
 
 		// -- Simplified interface.
 		//
