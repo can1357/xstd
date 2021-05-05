@@ -21975,7 +21975,7 @@ namespace ia32
     _LINKAGE void invpcid( invpcid_type type, uint64_t pcid, xstd::any_ptr ptr )
     { 
         invpcid_descriptor desc = { .pcid = pcid, .rsvd = 0, .address = ptr };
-        asm volatile( "invpcid (%0), %1":: "m" ( desc ), "r" ( type ) : "memory" );
+        asm volatile( "invpcid %0, %1":: "m" ( desc ), "r" ( type ) : "memory" );
     }
     _LINKAGE void touch( xstd::any_ptr ptr )
     {
