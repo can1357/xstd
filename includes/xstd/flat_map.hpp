@@ -249,6 +249,47 @@ namespace xstd
 			inline reference operator*() const { return at->view(); }
 			inline pointer operator->() const { return &at->view(); }
 		};
+
+		// Interpolated lower-bound implementation.
+		//
+		template <typename It>
+		inline It interp_search( It begin, It end, size_t hash )
+		{
+			while ( true )
+			{
+				// If no entries left, return end.
+				//
+				if ( begin == end )
+					return end;
+
+				// If begin is out of range, return.
+				//
+				if ( begin->hash >= hash )
+					return begin;
+
+				// If end is out of range, return.
+				//
+				if ( std::prev( end )->hash < hash )
+					return end;
+				if ( std::prev( end )->hash == hash )
+					return std::prev( end );
+
+				// Interpolate and get the mid point.
+				//
+				float interp = double( hash - begin->hash ) / double( std::prev( end )->hash - begin->hash );
+				It mid = begin + size_t( interp * ( ( end - begin ) - 1 ) );
+
+				// If we found a matching entry:
+				//
+				if ( mid->hash == hash )
+					return mid;
+
+				// Otherwise, constraint the ranges.
+				//
+				if ( mid->hash < hash ) begin = mid + 1;
+				else                    end = mid;
+			}
+		}
 	};
 
 	// Unordered map.
@@ -335,7 +376,7 @@ namespace xstd
 				// Find the position to insert at.
 				//
 				size_t hash = Hs{}( key );
-				return { values.end(), std::lower_bound( values.begin(), values.end(), hash ) };
+				return { values.end(), impl::interp_search( values.begin(), values.end(), hash ) };
 			}
 			else
 			{
@@ -344,10 +385,21 @@ namespace xstd
 				size_t hash = Hs{}( key );
 				if constexpr ( Sorted )
 				{
-					// Find the position, if hash and the key is matching return the iterator, else only 
-					// return as the insertion pos.
+					// Search handling hash collision.
 					//
-					auto it = std::lower_bound( values.begin(), values.end(), hash );
+					auto it = impl::interp_search( values.begin(), values.end(), hash );
+					if ( it != values.end() && it->hash == hash && it->view().first != key )
+					{
+						auto itl = it, itr = it;
+						while ( itl != values.begin() && std::prev( itl )->hash == hash )
+							itl--;
+						while ( itr != values.end() && std::next( itr )->hash == hash )
+							itr++;
+						it = std::find_if( itl, itr, [ & ] ( auto&& e ) { return e.view().first == key; } );
+					}
+					
+					// If hash and the key is matching return the iterator, else only return as the insertion pos.
+					//
 					if ( it != values.end() && ( it->hash != hash || it->view().first != key ) )
 						return { values.end(), it };
 					else
@@ -626,7 +678,7 @@ namespace xstd
 
 	// Variants.
 	//
-	// -> std::unordered_map, O(log n) insert, O(log n) lookup
+	// -> std::unordered_map, O(log log n) insert, O(log log n) lookup
 	template<typename K, typename V, typename Hs = void>
 	using flat_map =           basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, true>;
 	// -> std::map,           O(log n) insert, O(log n) lookup
