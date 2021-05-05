@@ -170,7 +170,7 @@ namespace xstd
 		auto rbegin() { return std::make_reverse_iterator( begin() ); }
 		auto rbegin() const { return std::make_reverse_iterator( begin() ); }
 
-		static constexpr size_t capacity() const { return N - 1; }
+		static constexpr size_t capacity() { return N - 1; }
 
 		// Fast read and write primitives.
 		//
