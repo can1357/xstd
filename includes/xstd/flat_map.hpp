@@ -16,6 +16,10 @@ namespace xstd
 		//
 		static constexpr size_t adaptive_search_limit = 4;
 
+		// Interpolated search limit is the limit after which we start interpolated searching.
+		//
+		static constexpr size_t interp_search_limit = 16;
+
 		// Default hasher choice prefering string view.
 		//
 		template<typename T>
@@ -257,10 +261,11 @@ namespace xstd
 		{
 			while ( true )
 			{
-				// If no entries left, return end.
+				// Fallback to usual binary search if below the threshold.
 				//
-				if ( begin == end )
-					return end;
+				size_t count = std::distance( begin, end );
+				if ( count < interp_search_limit )
+					return std::lower_bound( begin, end, hash );
 
 				// If begin is out of range, return.
 				//
@@ -277,7 +282,7 @@ namespace xstd
 				// Interpolate and get the mid point.
 				//
 				float interp = double( hash - begin->hash ) / double( std::prev( end )->hash - begin->hash );
-				It mid = begin + size_t( interp * ( ( end - begin ) - 1 ) );
+				It mid = begin + size_t( interp * ( count - 1 ) );
 
 				// If we found a matching entry:
 				//
@@ -287,7 +292,7 @@ namespace xstd
 				// Otherwise, constraint the ranges.
 				//
 				if ( mid->hash < hash ) begin = mid + 1;
-				else                    end = mid;
+				else                    end =   mid;
 			}
 		}
 	};
@@ -679,14 +684,14 @@ namespace xstd
 	// Variants.
 	//
 	// -> std::unordered_map, O(log log n) insert, O(log log n) lookup
-	template<typename K, typename V, typename Hs = void>
-	using flat_map =           basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, true>;
+	template<typename K, typename V, typename Hs = void, size_t L = 0>
+	using flat_map =           basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, true, L>;
 	// -> std::map,           O(log n) insert, O(log n) lookup
-	template<typename K, typename V>
-	using sorted_flat_map =    basic_sorted_flat_map<K, V, false>;
+	template<typename K, typename V, size_t L = 0>
+	using sorted_flat_map =    basic_sorted_flat_map<K, V, false, L>;
 	// -> std::unordered_map, O(1) insert, O(N) lookup.
-	template<typename K, typename V, typename Hs = void>
-	using random_flat_map =    basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, false>;
+	template<typename K, typename V, typename Hs = void, size_t L = 0>
+	using random_flat_map =    basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, false, L>;
 	
 	// Inplace versions.
 	// - Does not allocate per entry, but no guarantee on pointer remaining the same upon insertion.
