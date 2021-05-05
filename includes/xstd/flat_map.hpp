@@ -631,7 +631,7 @@ namespace xstd
 	using flat_map =           basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, true>;
 	// -> std::map,           O(log n) insert, O(log n) lookup
 	template<typename K, typename V>
-	using flat_sorted_map =    basic_sorted_flat_map<K, V, false>;
+	using sorted_flat_map =    basic_sorted_flat_map<K, V, false>;
 	// -> std::unordered_map, O(1) insert, O(N) lookup.
 	template<typename K, typename V, typename Hs = void>
 	using random_flat_map =    basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, false>;
@@ -642,7 +642,7 @@ namespace xstd
 	template<typename K, typename V, typename Hs = void, size_t L = 0>
 	using inplace_map =        basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, true, true, L>;
 	template<typename K, typename V, size_t L = 0>
-	using inplace_sorted_map = basic_sorted_flat_map<K, V, true, L>;
+	using sorted_inplace_map = basic_sorted_flat_map<K, V, true, L>;
 	template<typename K, typename V, typename Hs = void, size_t L = 0>
 	using random_inplace_map = basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, true, false, L>;
 };
