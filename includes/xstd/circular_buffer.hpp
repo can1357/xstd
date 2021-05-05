@@ -48,13 +48,13 @@ namespace xstd
 
 			// Comparison and difference against another iterator.
 			//
-			size_t operator-( const basic_iterator& other ) const { return ( position % N ) - ( other.at % N ); }
-			bool operator<( const basic_iterator& other ) const { return ( position % N ) < ( other.at % N ); }
-			bool operator<=( const basic_iterator& other ) const { return ( position % N ) <= ( other.at % N ); }
-			bool operator>( const basic_iterator& other ) const { return ( position % N ) > ( other.at % N ); }
-			bool operator>=( const basic_iterator& other ) const { return ( position % N ) >= ( other.at % N ); }
-			bool operator==( const basic_iterator& other ) const { return ( position % N ) == ( other.at % N ); }
-			bool operator!=( const basic_iterator& other ) const { return ( position % N ) != ( other.at % N ); }
+			size_t operator-( const basic_iterator& other ) const { return ( position % N ) - ( other.position % N ); }
+			bool operator<( const basic_iterator& other ) const { return ( position % N ) < ( other.position % N ); }
+			bool operator<=( const basic_iterator& other ) const { return ( position % N ) <= ( other.position % N ); }
+			bool operator>( const basic_iterator& other ) const { return ( position % N ) > ( other.position % N ); }
+			bool operator>=( const basic_iterator& other ) const { return ( position % N ) >= ( other.position % N ); }
+			bool operator==( const basic_iterator& other ) const { return ( position % N ) == ( other.position % N ); }
+			bool operator!=( const basic_iterator& other ) const { return ( position % N ) != ( other.position % N ); }
 		
 			// Redirect dereferencing to the buffer.
 			//
@@ -117,19 +117,12 @@ namespace xstd
 		//
 		void commit( size_t pos, size_t count )
 		{
-			// Update the producer tail.
-			//
 			producer_tail = ( pos + count ) % N;
 		}
 		void commit( size_t pos, const void* data, size_t count )
 		{
-			// Write the data and commit.
-			//
-			auto* it = ( const uint8_t* ) data;
-			auto* end = &it[ count ];
-			while ( it != end )
-				raw_data[ pos++ % N ] = *it++;
-			return commit( pos, 0 );
+			write_raw( pos, data, count );
+			return commit( pos, count );
 		}
 
 		// Peeks into the consumer queue and returns the position and the number of bytes.
@@ -234,11 +227,7 @@ namespace xstd
 			auto [pos, length] = peek();
 			if ( !length ) return 0;
 			length = std::min( length, max_length );
-			
-			auto* out = ( uint8_t* ) data;
-			for( size_t it = 0; it != length; it++ )
-				*out++ = raw_data[ ( pos + it ) % N ];
-			
+			read_raw( data, pos, length );
 			consume( pos, length );
 			return length;
 		}
