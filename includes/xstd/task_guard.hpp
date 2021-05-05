@@ -97,8 +97,8 @@ namespace xstd
 				{
 					// Try to lock.
 					//
-					locked = mutex.try_lock();
-					if ( locked ) break;
+					if ( mutex.try_lock() ) 
+						break;
 
 					// Lower the task priority.
 					//
