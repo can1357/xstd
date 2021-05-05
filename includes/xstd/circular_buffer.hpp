@@ -160,7 +160,7 @@ namespace xstd
 
 		// Returns the number of empty / filled slots.
 		//
-		size_t size_left() const { return ( consumer_head - producer_tail ) % N; }
+		size_t current_capacity() const { return ( consumer_head - producer_tail ) % N; }
 		size_t size() const { return ( producer_tail - consumer_head - 1 ) % N; }
 
 		// ::begin and ::size refer to the buffer itself ignoring the queue state.
@@ -171,6 +171,43 @@ namespace xstd
 		auto rbegin() const { return std::make_reverse_iterator( begin() ); }
 
 		static constexpr size_t capacity() const { return N - 1; }
+
+		// Fast read and write primitives.
+		//
+		size_t read_raw( void* dst, size_t pos, size_t count ) const
+		{
+			dassert( count < N );
+
+			// Normalize the iterator and calculate the ranges.
+			//
+			size_t it = pos % N;
+			size_t copy_end = it + count;
+
+			// Copy the data, split into two if it goes around the buffer.
+			//
+			size_t copy_1 = std::min( N, copy_end );
+			memcpy( dst, &raw_data[ it ], copy_1 - it );
+			if ( copy_1 != copy_end ) [[unlikely]]
+				memcpy( xstd::ptr_at( dst, copy_1 - it ), &raw_data[ 0 ], copy_end -= N );
+			return copy_end;
+		}
+		size_t write_raw( size_t pos, const void* src, size_t count )
+		{
+			dassert( count < N );
+
+			// Normalize the iterator and calculate the ranges.
+			//
+			size_t it = pos % N;
+			size_t copy_end = it + count;
+
+			// Copy the data, split into two if it goes around the buffer.
+			//
+			size_t copy_1 = std::min( N, copy_end );
+			memcpy( &raw_data[ it ], src, copy_1 - it );
+			if ( copy_1 != copy_end ) [[unlikely]]
+				memcpy( &raw_data[ 0 ], xstd::ptr_at( src, copy_1 - it ), copy_end -= N );
+			return copy_end;
+		}
 
 		// -- Simplified interface.
 		//
