@@ -126,7 +126,7 @@ namespace ia32::mem
 			if constexpr ( c == page_table_depth )
 				return page_offset( ptr );
 			else
-				return pt_index( ptr, page_table_depth - c ); 
+				return pt_index( ptr, page_table_depth - ( c + 1 ) ); 
 		} );
 	}
 	FORCE_INLINE inline xstd::any_ptr pack( const std::array<uint16_t, page_table_depth + 1>& array )
