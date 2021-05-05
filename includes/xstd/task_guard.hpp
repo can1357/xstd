@@ -89,37 +89,35 @@ namespace xstd
 
 			// If mutex is capable:
 			//
-			bool locked = false;
 			if constexpr ( LockCheckable<Mutex> )
 			{
 				// If optimization is viable:
 				//
-				if ( prev < TaskPriority )
+				while ( 1 )
 				{
-					while ( 1 )
-					{
-						// Try to lock.
-						//
-						locked = mutex.try_lock();
-						if ( locked ) break;
+					// Try to lock.
+					//
+					locked = mutex.try_lock();
+					if ( locked ) break;
 
-						// Lower the task priority.
-						//
-						set_task_priority( prev );
+					// Lower the task priority.
+					//
+					set_task_priority( prev );
 
-						// Yield the CPU.
-						//
-						while ( mutex.locked() )
-							yield_cpu();
+					// Yield the CPU.
+					//
+					while ( mutex.locked() )
+						yield_cpu();
 
-						// Raise the task priority again.
-						//
-						set_task_priority( TaskPriority );
-					}
+					// Raise the task priority again.
+					//
+					set_task_priority( TaskPriority );
 				}
 			}
-			if ( !locked )
+			else
+			{
 				mutex.lock();
+			}
 
 			// If not recursive, store the previous priority.
 			//
