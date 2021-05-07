@@ -33,7 +33,7 @@ namespace xstd
 				{
 					str.erase( it, 1 );
 					str.insert( it, xstd::fmt::str( "\\\\%02x", str[ it ] ) );
-					it += 4;
+					it += 3;
 				}
 			}
 			str.insert( str.begin(), '\"' );
