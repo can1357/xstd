@@ -29,10 +29,11 @@ namespace xstd
 			}
 			for ( auto it = 0; it != str.size(); it++ )
 			{
-				if ( !isprint( str[ it ] ) && !isspace( str[ it ] ) )
+				uint8_t cp = ( uint8_t ) str[ it ];
+				if ( !isprint( cp ) && !isspace( cp ) )
 				{
 					str.erase( it, 1 );
-					str.insert( it, xstd::fmt::str( "\\\\%02x", str[ it ] ) );
+					str.insert( it, xstd::fmt::str( "\\\\%02x", cp ) );
 					it += 3;
 				}
 			}
