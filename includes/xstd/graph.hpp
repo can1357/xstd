@@ -12,9 +12,40 @@
 
 namespace xstd
 {
+	namespace impl
+	{
+		// Helper to escape DOT strings.
+		//
+		static std::string escape_dot_string( std::string str )
+		{
+			size_t it = SIZE_MAX;
+			while ( true )
+			{
+				it = str.find_first_of( "\"\\", it + 1 );
+				if ( it == std::string::npos )
+					break;
+				str.insert( str.begin() + it, '\\' );
+				it += 2;
+			}
+			for ( auto it = 0; it != str.size(); it++ )
+			{
+				if ( !isprint( str[ it ] ) && !isspace( str[ it ] ) )
+				{
+					str.erase( it, 1 );
+					str.insert( it, xstd::fmt::str( "\\\\%02x", str[ it ] ) );
+					it += 4;
+				}
+			}
+			str.insert( str.begin(), '\"' );
+			str.insert( str.end(), '\"' );
+			return str;
+		}
+	};
+
 	template<typename T, bool Directed>
 	struct base_graph
 	{
+
 		// Basic traits.
 		//
 		static constexpr bool directed = Directed;
@@ -146,7 +177,7 @@ namespace xstd
 			for ( auto& [k, v] : graph_attributes )
 			{
 				result.insert( result.size(), depth * 2, ' ' );
-				result += std::string{ k } + "=\"" + v + "\";\n";
+				result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ";\n";
 				attr_pad = true;
 			}
 			for ( auto& [map, b] : { std::pair{ &node_attributes, "node[" }, std::pair{ &edge_attributes, "edge[" } } )
@@ -157,7 +188,7 @@ namespace xstd
 				result.insert( result.size(), depth * 2, ' ' );
 				result += b;
 				for ( auto& [k, v] : node_attributes )
-					result += std::string{ k } + "=\"" + v + "\",";
+					result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ",";
 				result.pop_back();
 				result += "];\n";
 				attr_pad = true;
@@ -184,12 +215,12 @@ namespace xstd
 			for ( auto& node : nodes )
 			{
 				result.insert( result.size(), depth * 2, ' ' );
-				result += "\"" + fmt::as_string( node->value ) + "\"";
+				result += impl::escape_dot_string( fmt::as_string( node->value ) );
 				if ( !node->attributes.empty() )
 				{
 					result += " [";
 					for ( auto& [k, v] : node->attributes )
-						result += std::string{ k } + "=\"" + v + "\",";
+						result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ",";
 					result.pop_back();
 					result += "]";
 				}
@@ -201,14 +232,14 @@ namespace xstd
 			for ( auto& edge : edges )
 			{
 				result.insert( result.size(), depth * 2, ' ' );
-				result += "\"" + fmt::as_string( edge.src->value );
-				result += ( directed ? "\"->\"" : "\"--\"" );
-				result += fmt::as_string( edge.dst->value ) + "\"";
+				result += impl::escape_dot_string( fmt::as_string( edge.src->value ) );
+				result += ( directed ? "->" : "--" );
+				result += impl::escape_dot_string( fmt::as_string( edge.dst->value ) );
 				if ( !edge.attributes.empty() )
 				{
 					result += " [";
 					for ( auto& [k, v] : edge.attributes )
-						result += std::string{ k } + "=\"" + v + "\",";
+						result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ",";
 					result.pop_back();
 					result += "]";
 				}
