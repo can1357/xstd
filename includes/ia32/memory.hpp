@@ -105,6 +105,7 @@ namespace ia32::mem
 	// Virtual address details.
 	//
 	FORCE_INLINE inline constexpr bool is_cannonical( xstd::any_ptr ptr ) { return ( ptr >> ( va_bits - 1 ) ) == 0 || ( int64_t( ptr ) >> ( va_bits - 1 ) ) == -1; }
+	FORCE_INLINE inline constexpr xstd::any_ptr make_cannonical( xstd::any_ptr ptr ) { return xstd::any_ptr( int64_t( ptr << ( va_bits - 1 ) ) >> ( va_bits - 1 ) ); }
 	FORCE_INLINE inline constexpr uint64_t page_size( int8_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
 	FORCE_INLINE inline constexpr uint64_t page_offset( xstd::any_ptr ptr ) { return ptr & 0xFFF; }
 	FORCE_INLINE inline constexpr uint64_t pt_index( xstd::any_ptr ptr, size_t depth ) { return ( ptr >> ( 12 + 9 * depth ) ) % 512; }

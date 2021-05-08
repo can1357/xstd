@@ -127,12 +127,10 @@ namespace xstd
 			if ( std::is_constant_evaluated() )
 			{
 				using array_t = std::array<uint8_t, sizeof( T )>;
-				if constexpr ( std::is_same_v<array_t, T> )
-					add_bytes( data.data(), data.size() );
-				else if constexpr ( Bitcastable<T> )
-					add_bytes( bit_cast<array_t>( data ) );
-				else
-					unreachable();
+#ifndef __INTELLISENSE__
+				array_t arr = bit_cast< array_t >( data );
+				add_bytes( arr.data(), arr.size() );
+#endif
 			}
 			else
 			{
