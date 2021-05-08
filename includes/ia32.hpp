@@ -22210,7 +22210,9 @@ namespace ia32
     //
     _LINKAGE irql_t get_irql()
     {
-        return ( uint8_t ) read_cr8();
+        auto irql = ( uint8_t ) read_cr8();
+        assume( irql <= 0xF );
+        return irql;
     }
     _LINKAGE irql_t get_effective_irql( rflags flags = read_flags(), irql_t irql = get_irql() )
     {
@@ -22241,6 +22243,7 @@ namespace ia32
     _LINKAGE irql_t raise_irql( irql_t new_irql )
     {
         irql_t irql = get_irql();
+        assume( irql <= 0xF );
         dassert( irql <= new_irql );
         set_irql( new_irql );
         return irql;
@@ -22248,7 +22251,8 @@ namespace ia32
     _LINKAGE irql_t max_irql( irql_t new_irql )
     {
         irql_t irql = get_irql();
-        if ( irql < new_irql )
+        assume( irql <= 0xF );
+        if ( irql <= new_irql )
             set_irql( new_irql );
         return irql;
     }
