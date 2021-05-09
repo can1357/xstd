@@ -167,10 +167,15 @@ namespace xstd
 		return sq_delta_acc / ( count - 1 );
 	}
 
-	// Calculates the standard variation using the variance algorithm above.
+	// Calculates the standard deviation using the variance algorithm above.
 	//
 	template<typename I1, typename I2>
-	static double stdev( const I1& begin, const I2& end ) { return sqrt( variance<I1, I2>( begin, end ) ); }
+	static double stdev( const I1& begin, const I2& end ) { return sqrt( variance( begin, end ) ); }
+
+	// Calculates the coefficient of variation using the variance algorithm above.
+	//
+	template<typename I1, typename I2>
+	static double covar( const I1& begin, const I2& end ) { return stdev( begin, end ) / mean( begin, end ); }
 
 	// Creates a sorted clone of the range in the form of a vector.
 	//
@@ -184,14 +189,15 @@ namespace xstd
 
 	// Write container wrappers for all functions above.
 	//
-	template<Iterable C> static constexpr auto percentile( C&& c, double n ) { return percentile<double, iterator_type_t<C>, iterator_type_t<C>>( std::begin( c ), std::end( c ), n ); }
-	template<typename T, Iterable C> static constexpr auto percentile( C&& c, double n ) { return percentile<T, iterator_type_t<C>, iterator_type_t<C>>( std::begin( c ), std::end( c ), n ); }
-	template<Iterable C> static constexpr auto mean( C&& c ) { return mean<double, iterator_type_t<C>, iterator_type_t<C>>( std::begin( c ), std::end( c ) ); }
-	template<typename T, Iterable C> static constexpr auto mean( C&& c ) { return mean<T, iterator_type_t<C>, iterator_type_t<C>>( std::begin( c ), std::end( c ) ); }
+	template<Iterable C> static constexpr auto percentile( C&& c, double n ) { return percentile( std::begin( c ), std::end( c ), n ); }
+	template<typename T, Iterable C> static constexpr auto percentile( C&& c, double n ) { return percentile<T>( std::begin( c ), std::end( c ), n ); }
+	template<Iterable C> static constexpr auto mean( C&& c ) { return mean( std::begin( c ), std::end( c ) ); }
+	template<typename T, Iterable C> static constexpr auto mean( C&& c ) { return mean<T>( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static constexpr auto mode( C&& c ) { return mode( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static constexpr auto variance( C&& c ) { return variance( std::begin( c ), std::end( c ) ); }
 	template<Iterable C> static auto stdev( C&& c ) { return stdev( std::begin( c ), std::end( c ) ); }
-	template<Iterable C, typename T> static constexpr auto percentile_of( C&& c, T&& value ) { return percentile_of<iterator_type_t<C>, iterator_type_t<C>>( std::begin( c ), std::end( c ), std::forward<T>( value ) ); }
+	template<Iterable C> static auto covar( C&& c ) { return covar( std::begin( c ), std::end( c ) ); }
+	template<Iterable C, typename T> static constexpr auto percentile_of( C&& c, T&& value ) { return percentile_of( std::begin( c ), std::end( c ), std::forward<T>( value ) ); }
 
 	template<Iterable C> requires ( !std::is_array_v<std::remove_cvref_t<C>> && !is_std_array_v<std::remove_cvref_t<C>> )
 	static auto sorted_clone( C&& c ) 
