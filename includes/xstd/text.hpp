@@ -1,6 +1,7 @@
 #pragma once
 #include "type_helpers.hpp"
 #include "hashable.hpp"
+#include "utf.hpp"
 
 namespace xstd
 {
@@ -44,8 +45,8 @@ namespace xstd
 		{
 			string_view_t<T> view = { value };
 			hash_t h = {};
-			for ( auto c : view )
-				h.add_bytes( ( uint32_t ) c );
+			while ( !view.empty() )
+				h.add_bytes( codepoint_cvt<string_unit_t<T>>::decode( view ) );
 			return h;
 		}
 	};
@@ -266,7 +267,7 @@ constexpr auto operator""_hex()
 
 // Hash literals.
 //
-#if !GNU_COMPILER
+#if !GNU_COMPILER || __INTELLISENSE__
 	#define MAKE_HASHER( op, fn )                                                \
 	inline constexpr xstd::hash_t operator"" op( const char* str, size_t n )     \
 	{                                                                            \
