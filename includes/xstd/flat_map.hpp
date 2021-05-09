@@ -281,8 +281,8 @@ namespace xstd
 
 				// Interpolate and get the mid point.
 				//
-				float interp = double( hash - begin->hash ) / double( std::prev( end )->hash - begin->hash );
-				It mid = begin + size_t( interp * ( count - 1 ) );
+				double interp = double( hash - begin->hash ) / double( std::prev( end )->hash - begin->hash );
+				It mid = begin + std::clamp<size_t>( size_t( interp * ( count - 1 ) ), 1, count - 1 );
 
 				// If we found a matching entry:
 				//
