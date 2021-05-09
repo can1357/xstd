@@ -21806,6 +21806,29 @@ namespace ia32
         asm volatile( "lmsw %0" :: "r" ( partial_value ) );
     }
 
+    // CPUID:
+    //
+    template<typename T = std::array<uint32_t, 4>>
+    _LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
+    {
+        static_assert( sizeof( T ) == ( 4 * 4 ), "Invalid type size." );
+
+        uint32_t info[ 4 ];
+        asm volatile(
+            "movq %%rbx, %%rsi;"
+            "cpuid;"
+            "xchgq %%rsi, %%rbx;"
+            : "=a"( info[ 0 ] ), "=S"( info[ 1 ] ), "=c"( info[ 2 ] ), "=d"( info[ 3 ] )
+            : "a"( leaf ), "c"( subleaf )
+        );
+        return *( T* ) &info[ 0 ];
+    }
+    template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
+    struct static_cpuid
+    {
+        inline static const auto result = query_cpuid<T>( leaf, subleaf );
+    };
+
     // Wrappers around EFLAGS.
     //
     _LINKAGE rflags read_flags()
@@ -21961,9 +21984,6 @@ namespace ia32
 
 	// Memory intrinsics.
 	//
-    _LINKAGE void lfence() { asm volatile( "lfence"::: "memory" ); }
-    _LINKAGE void sfence() { asm volatile( "sfence"::: "memory" ); }
-    _LINKAGE void mfence() { asm volatile( "mfence"::: "memory" ); }
     _LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg (%0)":: "r" ( ptr.address ) : "memory" ); }
     _LINKAGE void invpcid( invpcid_type type, uint64_t pcid, xstd::any_ptr ptr )
     { 
@@ -21994,6 +22014,33 @@ namespace ia32
         }
     }
 
+    // Serialization intrinsics.
+    //
+    _LINKAGE void lfence() { asm volatile( "lfence" ::: "memory" ); }
+    _LINKAGE void sfence() { asm volatile( "sfence" ::: "memory" ); }
+    _LINKAGE void mfence() { asm volatile( "mfence" ::: "memory" ); }
+    _LINKAGE void serialize()
+    {
+        // CLTS is the lowest-cost serializing instruction when in kernel-mode,
+        // assuming we can't guarantee LFENCE serialization. Checking host support
+        // and branching for this reason does not make sense either given the high 
+        // performance scenarios this is used where the timings matter.
+        //
+        // This choice can however be made by the [[Configuration]] XSTD_LFENCE_SERIALIZING.
+        //
+#ifndef XSTD_LFENCE_SERIALIZING
+    #define XSTD_LFENCE_SERIALIZING 0
+#endif
+
+#if !XSTD_LFENCE_SERIALIZING
+        if constexpr ( is_kernel_mode() )
+            clts();
+        else
+            query_cpuid( 0 );
+#else
+        lfence();
+#endif
+    }
 
     // Cache intrinsics.
     //
@@ -22171,29 +22218,6 @@ namespace ia32
             write_io<uint8_t>( 0x80, 0 );
     }
 
-    // CPUID:
-    //
-    template<typename T = std::array<uint32_t, 4>>
-    _LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
-    {
-        static_assert( sizeof( T ) == ( 4 * 4 ), "Invalid type size." );
-
-        uint32_t info[ 4 ];
-        asm volatile(
-            "movq %%rbx, %%rsi;"
-            "cpuid;"
-            "xchgq %%rsi, %%rbx;"
-            : "=a"( info[ 0 ] ), "=S"( info[ 1 ] ), "=c"( info[ 2 ] ), "=d"( info[ 3 ] )
-            : "a"( leaf ), "c"( subleaf )
-        );
-        return *( T* ) &info[ 0 ];
-    }
-    template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
-    struct static_cpuid
-    {
-        inline static const auto result = query_cpuid<T>( leaf, subleaf );
-    };
-
 	// Interrupt mask.
 	//
 	_LINKAGE void disable() { asm volatile( "cli" ); }
@@ -22368,20 +22392,20 @@ namespace ia32
 
 		if constexpr ( std::is_same_v<result_t, void> )
 		{
-            lfence();
-            uint32_t t0 = impl::read_tsc_low();
+            serialize();
+            uint32_t t0 = impl::read_tscp_low();
 			f( std::forward<Tx>( args )... );
             uint32_t t1 = impl::read_tscp_low();
-            lfence();
+            serialize();
             return t1 - t0;
 		}
 		else
 		{
-            lfence();
-            uint32_t t0 = impl::read_tsc_low();
+            serialize();
+            uint32_t t0 = impl::read_tscp_low();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
             uint32_t t1 = impl::read_tscp_low();
-            lfence();
+            serialize();
 			result.second = t1 - t0;
 			return result;
 		}
@@ -22393,22 +22417,22 @@ namespace ia32
 
 		if constexpr ( std::is_same_v<result_t, void> )
 		{
-            lfence();
+            serialize();
             uint64_t t0 = read_msr( id );
 			f( std::forward<Tx>( args )... );
+            serialize();
             uint64_t t1 = read_msr( id );
-            lfence();
+            serialize();
             return t1 - t0;
 		}
 		else
 		{
-            lfence();
+            serialize();
             uint64_t t0 = read_msr( id );
-            lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
-            lfence();
+            serialize();
             uint64_t t1 = read_msr( id );
-            lfence();
+            serialize();
 			result.second = t1 - t0;
 			return result;
 		}
@@ -22420,22 +22444,22 @@ namespace ia32
 
 		if constexpr ( std::is_same_v<result_t, void> )
 		{
-            lfence();
+            serialize();
             uint64_t t0 = read_pmc( id );
 			f( std::forward<Tx>( args )... );
+            serialize();
             uint64_t t1 = read_pmc( id );
-            lfence();
+            serialize();
             return t1 - t0;
 		}
 		else
 		{
-            lfence();
+            serialize();
             uint64_t t0 = read_pmc( id );
-            lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
-            lfence();
+            serialize();
             uint64_t t1 = read_pmc( id );
-            lfence();
+            serialize();
 			result.second = t1 - t0;
 			return result;
 		}
