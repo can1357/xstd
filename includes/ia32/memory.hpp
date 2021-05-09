@@ -105,7 +105,7 @@ namespace ia32::mem
 	// Virtual address details.
 	//
 	FORCE_INLINE inline constexpr bool is_cannonical( xstd::any_ptr ptr ) { return ( ptr >> ( va_bits - 1 ) ) == 0 || ( int64_t( ptr ) >> ( va_bits - 1 ) ) == -1; }
-	FORCE_INLINE inline constexpr xstd::any_ptr make_cannonical( xstd::any_ptr ptr ) { return xstd::any_ptr( int64_t( ptr << ( va_bits - 1 ) ) >> ( va_bits - 1 ) ); }
+	FORCE_INLINE inline constexpr xstd::any_ptr make_cannonical( xstd::any_ptr ptr ) { return xstd::any_ptr( int64_t( ptr << sx_bits ) >> sx_bits ); }
 	FORCE_INLINE inline constexpr uint64_t page_size( int8_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
 	FORCE_INLINE inline constexpr uint64_t page_offset( xstd::any_ptr ptr ) { return ptr & 0xFFF; }
 	FORCE_INLINE inline constexpr uint64_t pt_index( xstd::any_ptr ptr, size_t depth ) { return ( ptr >> ( 12 + 9 * depth ) ) % 512; }
@@ -132,22 +132,22 @@ namespace ia32::mem
 	}
 	FORCE_INLINE inline xstd::any_ptr pack( const std::array<uint16_t, page_table_depth + 1>& array )
 	{
-		int64_t result = 0;
+		uint64_t result = 0;
 		for ( size_t n = 0; n != page_table_depth; n++ )
 			result = ( result << 9 ) | array[ n ];
 		result = ( result << 12 ) | array.back();
-		return uint64_t( ( result << sx_bits ) >> sx_bits );
+		return make_cannonical( result );
 	}
 	
 	// Recursive page table indexing.
 	//
 	FORCE_INLINE inline pt_entry_64* get_pte_base( uint16_t self_ref_idx, size_t depth )
 	{
-		int64_t result = 0;
+		uint64_t result = 0;
 		for ( size_t j = 0; j <= depth; j++ )
 			result = ( result << 9 ) | self_ref_idx;
 		result <<= 12 + ( page_table_depth - depth - 1 ) * 9;
-		return ( pt_entry_64* ) ( ( result << sx_bits ) >> sx_bits );
+		return ( pt_entry_64* ) make_cannonical( result );
 	}
 
 	// Recursive page table lookup.
