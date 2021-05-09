@@ -21880,13 +21880,6 @@ namespace ia32
 
     // Timestamping / Performance counters.
     //
-    _LINKAGE uint32_t read_tsc_low()
-    {
-        register uint32_t low asm( "eax" );
-        register uint32_t high asm( "edx" );
-        asm volatile( "rdtsc" : "=r" ( low ), "=r" ( high ) :: );
-        return low;
-    }
 	_LINKAGE uint64_t read_tsc()
 	{
         register uint32_t low asm( "eax" );
@@ -22350,6 +22343,24 @@ namespace ia32
 
     // TSC/MSR/PMC based profiling in the style of xstd::profile.
     //
+    namespace impl
+    {
+        _LINKAGE uint32_t read_tsc_low()
+        {
+            register uint32_t low asm( "eax" );
+            register uint32_t high asm( "edx" );
+            asm volatile( "rdtsc" : "=r" ( low ), "=r" ( high ) :: );
+            return low;
+        }
+        _LINKAGE uint32_t read_tscp_low()
+        {
+            register uint32_t low asm( "eax" );
+            register uint32_t high asm( "edx" );
+            register uint32_t pid asm( "ecx" );
+            asm volatile( "rdtscp" : "=r" ( low ), "=r" ( pid ), "=r" ( high ) :: );
+            return low;
+        }
+    };
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
 	_LINKAGE FLATTEN auto uprofile_tsc( T&& f, Tx&&... args )
 	{
@@ -22358,20 +22369,18 @@ namespace ia32
 		if constexpr ( std::is_same_v<result_t, void> )
 		{
             lfence();
-            uint32_t t0 = read_tsc_low();
-            lfence();
+            uint32_t t0 = impl::read_tsc_low();
 			f( std::forward<Tx>( args )... );
-            uint32_t t1 = read_tsc_low();
+            uint32_t t1 = impl::read_tscp_low();
             lfence();
             return t1 - t0;
 		}
 		else
 		{
             lfence();
-            uint32_t t0 = read_tsc_low();
-            lfence();
+            uint32_t t0 = impl::read_tsc_low();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
-            uint32_t t1 = read_tsc_low();
+            uint32_t t1 = impl::read_tscp_low();
             lfence();
 			result.second = t1 - t0;
 			return result;
@@ -22386,7 +22395,6 @@ namespace ia32
 		{
             lfence();
             uint64_t t0 = read_msr( id );
-            lfence();
 			f( std::forward<Tx>( args )... );
             uint64_t t1 = read_msr( id );
             lfence();
@@ -22398,6 +22406,7 @@ namespace ia32
             uint64_t t0 = read_msr( id );
             lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
+            lfence();
             uint64_t t1 = read_msr( id );
             lfence();
 			result.second = t1 - t0;
@@ -22413,7 +22422,6 @@ namespace ia32
 		{
             lfence();
             uint64_t t0 = read_pmc( id );
-            lfence();
 			f( std::forward<Tx>( args )... );
             uint64_t t1 = read_pmc( id );
             lfence();
@@ -22425,6 +22433,7 @@ namespace ia32
             uint64_t t0 = read_pmc( id );
             lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
+            lfence();
             uint64_t t1 = read_pmc( id );
             lfence();
 			result.second = t1 - t0;
