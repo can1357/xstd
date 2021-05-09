@@ -21993,7 +21993,7 @@ namespace ia32
     _LINKAGE void touch( xstd::any_ptr ptr )
     {
         uint8_t temp;
-        asm volatile( "movb %0, (%1)" : "=r" ( temp ) : "r" ( ptr.address ) : );
+        asm volatile( "movb (%1), %0" : "=r" ( temp ) : "r" ( ptr.address ) : );
     }
     _LINKAGE void wtouch( xstd::any_ptr ptr )
     {
