@@ -30,7 +30,7 @@ namespace xstd
 
 		// Appends the given array of bytes into the hash value.
 		//
-		constexpr void add_bytes( const uint8_t* data, size_t n )
+		__forceinline constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
 			uint64_t tmp = value;
 			while( n-- )

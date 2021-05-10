@@ -199,7 +199,7 @@ namespace xstd
 			for ( size_t n = 0; n != sizeof( I ); n++ )
 			{
 				u <<= 8;
-				u |= impl::bit_reverse_lookup_table[ value & 0xFF ];
+				u |= impl::bit_reverse_lookup_table[ uint8_t( value & 0xFF ) ];
 				value >>= 8;
 			}
 			return ( I ) u;
