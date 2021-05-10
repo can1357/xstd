@@ -22192,6 +22192,23 @@ namespace ia32
     _LINKAGE void cldemote( xstd::any_ptr ptr ) { asm volatile( "cldemote (%0)":: "r" ( ptr.address ) : "memory" ); }
     _LINKAGE void clflushopt( xstd::any_ptr ptr ) { asm volatile( "clflushopt (%0)":: "r" ( ptr.address ) : "memory" ); }
 
+    _LINKAGE void clflushopt_s( xstd::any_ptr ptr )
+    {
+        if ( static_cpuid<0, 0, cpuid_eax_00>::result.max_cpuid_input_value >= 7 &&
+             static_cpuid<7, 0, cpuid_eax_07>::result.ebx.clflushopt )
+            clflushopt( ptr );
+        else
+            clflush( ptr );
+    }
+    _LINKAGE void clwb_s( xstd::any_ptr ptr )
+    {
+        if ( static_cpuid<0, 0, cpuid_eax_00>::result.max_cpuid_input_value >= 7 &&
+             static_cpuid<7, 0, cpuid_eax_07>::result.ebx.clwb )
+            clwb( ptr );
+        else
+            clflushopt_s( ptr );
+    }
+
     // Implement the range helpers.
     //
     _LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = page_size )
@@ -22241,6 +22258,22 @@ namespace ia32
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
         for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
             clflushopt( it );
+    }
+    _LINKAGE void clflushopt_s( xstd::any_ptr ptr, size_t n )
+    {
+        if ( static_cpuid<0, 0, cpuid_eax_00>::result.max_cpuid_input_value >= 7 &&
+             static_cpuid<7, 0, cpuid_eax_07>::result.ebx.clflushopt )
+            clflushopt( ptr, n );
+        else
+            clflush( ptr, n );
+    }
+    _LINKAGE void clwb_s( xstd::any_ptr ptr, size_t n )
+    {
+        if ( static_cpuid<0, 0, cpuid_eax_00>::result.max_cpuid_input_value >= 7 &&
+             static_cpuid<7, 0, cpuid_eax_07>::result.ebx.clwb )
+            clwb( ptr, n );
+        else
+            clflushopt_s( ptr, n );
     }
 
     // IDT/GDT.
