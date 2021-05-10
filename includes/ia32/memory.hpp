@@ -223,6 +223,10 @@ namespace ia32::mem
 		if ( !pte->present ) return 0;
 		return ( pte->page_frame_number << 12 ) | ( ptr & ( page_size( depth ) - 1 ) );
 	}
+	FORCE_INLINE inline uint64_t get_pfn( xstd::any_ptr ptr )
+	{
+		return get_physical_address( ptr ) >> 12;
+	}
 
 	// Changes the protection of the given range.
 	//
