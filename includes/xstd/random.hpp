@@ -32,8 +32,10 @@ namespace xstd
 		static constexpr uint64_t crandom_default_seed = ([]()
 		{
 			uint64_t value = 0xa0d82d3adc00b109;
-			for ( char c : __TIME__ )
+			for ( char c : __DATE__ )
 				value = ( value ^ c ) * 0x100000001B3;
+			value = ( value ^ ( __TIME__[ 0 ] ) ) * 0x100000001B3;
+			value = ( value ^ ( __TIME__[ 1 ] ) ) * 0x100000001B3;
 			return value;
 		} )();
 

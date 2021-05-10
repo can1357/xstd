@@ -112,7 +112,7 @@ namespace xstd
 
 		// Default value construction via tag.
 		//
-		constexpr basic_result( default_result ) requires DefaultConstructable<Value> : result( Value{} ), status( Status{ traits::success_value } ) {}
+		constexpr basic_result( default_result ) requires DefaultConstructable<Value> : status( Status{ traits::success_value } ), result( Value{} ) {}
 
 		// Consturction with value/state combination.
 		//
