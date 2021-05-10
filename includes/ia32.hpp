@@ -22002,17 +22002,10 @@ namespace ia32
     _LINKAGE void flush_tlb()
     {
         auto cr4 = read_cr4();
-        if ( cr4.page_global_enable || cr4.pcid_enable )
-        {
-            cr4.page_global_enable ^= 1;
-            write_cr4( cr4 );
-            cr4.page_global_enable ^= 1;
-            write_cr4( cr4 );
-        }
-        else
-        {
-            write_cr3( read_cr3() );
-        }
+        cr4.page_global_enable ^= 1;
+        write_cr4( cr4 );
+        cr4.page_global_enable ^= 1;
+        write_cr4( cr4 );
     }
 
     // Serialization intrinsics.
