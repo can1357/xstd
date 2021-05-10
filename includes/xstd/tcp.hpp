@@ -58,7 +58,7 @@ namespace xstd::tcp
 
 		// Enables or disables the nagle's algorithm.
 		//
-		virtual bool socket_set_nagle( bool state ) { return false; }
+		virtual bool socket_set_nagle( bool ) { return false; }
 
 		// Internal function used to flush the queues, must be called with the lock.
 		//

@@ -61,7 +61,7 @@ namespace xstd
 		FORCE_INLINE constexpr tinyjambu( const key_type& key ) : key( key ) {}
 		FORCE_INLINE constexpr tinyjambu( const unit_type* key ) : key( *( const key_type* ) key ) {}
 		FORCE_INLINE constexpr tinyjambu( const key_type& key, const default_iv_type& iv ) : tinyjambu( key ) { reset( iv ); }
-		FORCE_INLINE constexpr tinyjambu( const unit_type* key, const unit_type* iv, size_t len = default_iv_size ) : tinyjambu( key ) { reset( iv, default_iv_size ); }
+		FORCE_INLINE constexpr tinyjambu( const unit_type* key, const unit_type* iv, size_t len = default_iv_size ) : tinyjambu( key ) { reset( iv, len ); }
 
 		// Default copy/move.
 		//

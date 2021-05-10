@@ -174,7 +174,7 @@ namespace xstd::fmt
 			using field_list = typename base_type::field_list;
 
 			std::string result = { '{', ' ' };
-			make_constant_series<std::tuple_size_v<field_list>>( [ & ] <size_t N> ( const_tag<N> tag )
+			make_constant_series<std::tuple_size_v<field_list>>( [ & ] <size_t N> ( const_tag<N> )
 			{
 				using E = std::tuple_element_t<N, field_list>;
 

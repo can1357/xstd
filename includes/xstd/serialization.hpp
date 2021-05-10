@@ -533,8 +533,8 @@ namespace xstd
     template<>
     struct serializer<std::monostate>
     {
-        static inline void apply( serialization& ctx, const std::monostate& value ) {}
-        static inline std::monostate reflect( serialization& ctx ) { return {}; }
+        static inline void apply( serialization&, const std::monostate& ) {}
+        static inline std::monostate reflect( serialization& ) { return {}; }
     };
     template<typename T>
     using serializer_t = serializer<std::remove_cvref_t<T>>;

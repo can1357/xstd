@@ -92,7 +92,7 @@ namespace xstd
 			: iv{ default_iv } {}
 		constexpr sha1( value_type result ) noexcept
 			: iv{ result }, finalized( true ) {}
-		constexpr sha1( value_type iv160, iv_tag _ ) noexcept
+		constexpr sha1( value_type iv160, iv_tag ) noexcept
 			: iv{ iv160 } {}
 
 		// Default copy/move.

@@ -63,7 +63,7 @@ namespace xstd::http
 		"TRACE",
 		"PATCH"
 	};
-	static constexpr auto method_hashmap = make_constant_series<std::size( method_map )>( [ ] <size_t N> ( const_tag<N> c )
+	static constexpr auto method_hashmap = make_constant_series<std::size( method_map )>( [ ] <size_t N> ( const_tag<N> )
 	{
 		return make_xhash( method_map[ N ] );
 	} );
@@ -100,7 +100,7 @@ namespace xstd::http
 		//
 		output.reserve( output.size() + std::accumulate( headers.begin(), headers.end(), 0ull, [ ] ( size_t n, auto& pair )
 		{
-			return pair.first.size() + 2 + pair.second.size() + 2;
+			return n + pair.first.size() + 2 + pair.second.size() + 2;
 		} ) );
 
 		// Write all headers.

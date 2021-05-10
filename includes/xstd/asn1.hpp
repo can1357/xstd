@@ -219,7 +219,7 @@ namespace xstd::asn1
 			//
 			else if constexpr ( Timestamp<T> || Duration<T> )
 			{
-				auto get_digit = [ &, i = 0 ] () mutable
+				auto get_digit = [ &, i = 0u ] () mutable
 				{
 					if ( raw_data.size() < ( i + 2 ) )
 						return 0;

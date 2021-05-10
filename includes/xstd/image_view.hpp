@@ -10,7 +10,7 @@ namespace xstd
 	struct no_blend
 	{
 		template<typename A, typename B>
-		FORCE_INLINE constexpr B operator()( const A& a, const B& b ) const noexcept
+		FORCE_INLINE constexpr B operator()( const A&, const B& b ) const noexcept
 		{
 			return b;
 		}

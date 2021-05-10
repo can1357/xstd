@@ -167,7 +167,7 @@ namespace xstd
     {
         static constexpr size_t max_out = 1;
 
-        inline static constexpr size_t length( uint32_t cp )
+        inline static constexpr size_t length( [[maybe_unused]] uint32_t cp )
         {
             return 1;
         }

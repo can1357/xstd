@@ -91,10 +91,10 @@ namespace xstd
 
 		// Swapping.
 		//
-		FORCE_INLINE T* exchange( const atomic_slist& other )
+		FORCE_INLINE T* exchange( atomic_slist other )
 		{
 			versioned_pointer val = head;
-			while ( !cmpxchg_head( val, {} ) );
+			while ( !cmpxchg_head( val, other.head ) );
 			return val.pointer;
 		}
 		FORCE_INLINE void swap( atomic_slist& other )

@@ -46,7 +46,7 @@ namespace xstd
 		uint8_t prev_prio = 0;
 
 		template<typename... Tx>
-		FORCE_INLINE constexpr task_guard( Tx&&... args ) : mutex( std::forward<Tx>()... ) {}
+		FORCE_INLINE constexpr task_guard( Tx&&... args ) : mutex( std::forward<Tx>( args )... ) {}
 
 		// Common helpers for raising/lowering of the task priority.
 		//

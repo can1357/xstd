@@ -443,7 +443,7 @@ namespace xstd
 	// Carries constant qualifiers of first type into second.
 	//
 	template<typename B, typename T> using carry_const_t = std::conditional_t<is_const_underlying_v<B>, make_const_t<T>, make_mutable_t<T>>;
-	template<typename B, typename T> __forceinline static constexpr carry_const_t<B, T> carry_const( B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
+	template<typename B, typename T> __forceinline static constexpr carry_const_t<B, T> carry_const( [[maybe_unused]] B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
 	
 	// Creates an std::atomic version of the given pointer to value.
 	//
@@ -542,7 +542,7 @@ namespace xstd
 	template<typename V, typename C> 
 	__forceinline static int64_t make_offset( member_reference_t<C, V> ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
 	template<typename V, typename C>
-	__forceinline static constexpr size_t member_size( member_reference_t<C, V> ref ) noexcept { return sizeof( V ); }
+	__forceinline static constexpr size_t member_size( member_reference_t<C, V> ) noexcept { return sizeof( V ); }
 
 	// Simple void pointer implementation with arithmetic and free casts, comes useful
 	// when you can't infer the type of an argument pointer or if you want to const initialize

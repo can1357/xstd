@@ -137,7 +137,7 @@ namespace xstd
 		void lock() {}
 		void unlock() {}
 		bool try_lock() { return true; }
-		bool try_lock( duration max_wait ) { return true; }
+		bool try_lock( duration ) { return true; }
 #endif
 	};
 	inline logger_state_t logger_state = {};
@@ -202,7 +202,7 @@ namespace xstd
 	//
 	namespace impl
 	{
-		static constexpr const char* translate_color( console_color color )
+		static constexpr const char* translate_color( [[maybe_unused]] console_color color )
 		{
 #if !XSTD_CON_NO_COLORS
 			switch ( color )
@@ -222,7 +222,8 @@ namespace xstd
 #endif
 		}
 
-		FORCE_INLINE static int handle_scope( FILE* dst, const char* cstr )
+		FORCE_INLINE static int handle_scope( [[maybe_unused]] FILE* dst, 
+											  [[maybe_unused]] const char* cstr )
 		{
 			// If we should pad this output:
 			//

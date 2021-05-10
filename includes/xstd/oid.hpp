@@ -25,7 +25,7 @@ namespace xstd
 
 		// Construction from a string.
 		//
-		inline constexpr oid( const char* str, size_t n, string_literal_t _ )
+		inline constexpr oid( const char* str, size_t n, string_literal_t )
 		{
 			// Until we reach the end of the string:
 			//

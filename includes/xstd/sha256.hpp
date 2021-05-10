@@ -106,7 +106,7 @@ namespace xstd
 			: iv{ default_iv } {}
 		constexpr sha256( value_type result ) noexcept
 			: iv{ result }, finalized( true ) {}
-		constexpr sha256( value_type iv256, iv_tag _ ) noexcept
+		constexpr sha256( value_type iv256, iv_tag ) noexcept
 			: iv{ iv256 } {}
 
 		// Default copy/move.

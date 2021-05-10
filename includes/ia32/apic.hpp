@@ -181,12 +181,6 @@ namespace ia32::apic
 		cmd.sh_group = group;
 		send_command( cmd );
 	}
-	inline void request_nmi( uint8_t vector, uint32_t identifier )
-	{
-		command cmd = {};
-		cmd.mode = delivery_mode::nmi;
-		send_command( cmd, identifier );
-	}
 
 	// Initialization of the APIC base.
 	//

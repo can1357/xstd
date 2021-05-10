@@ -62,14 +62,11 @@ namespace xstd::encode
         //
         constexpr char encode( char n ) const
         {
-            dassert( n < N );
-            return ( char ) lookup[ n ];
+            return ( char ) lookup[ uint8_t( n ) ];
         }
         constexpr char decode( char n ) const
         {
-            char r = ( char ) rlookup[ n ];
-            dassert( 0 <= r && r <= N );
-            return r;
+            return ( char ) rlookup[ uint8_t( n ) ];
         }
         constexpr char fill() const { return lookup[ N ]; }
         constexpr size_t size() const { return N; }
