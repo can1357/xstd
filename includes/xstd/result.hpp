@@ -5,14 +5,65 @@
 
 #undef assert // If cassert hijacks the name, undefine.
 
+// Pack all types in this namespace to improve storage.
+#if HAS_MS_EXTENSIONS
+	#pragma pack(push, 1)
+#endif
+
 namespace xstd
 {
 	struct default_result {};
 
+	namespace impl
+	{
+		template<typename T> concept HasInlineStTraits = requires( const T& x ) { T{ T::success_value }; T{ T::failure_value }; ( bool ) T::is_success( x ); };
+		template<typename T> concept HasInlineMfTraits = requires( const T& x ) { T{ T::success_value }; T{ T::failure_value }; ( bool ) x.is_success(); };
+		template<typename T> concept HasInlineAutoTraits = !HasInlineStTraits<T> && !HasInlineMfTraits<T> && requires( const T& x ) { T{ T::success_value }; T{ T::failure_value }; x.operator bool(); };
+		template<typename T> concept HasExternTraits = requires { T::status_traits::is_success( std::declval<const T&>() ); T{ T::status_traits::success_value }; T{ T::status_traits::failure_value }; };
+
+		template<typename T>
+		struct default_traits {};
+
+		// Fixed success/failure value + static function for success check.
+		//
+		template<HasInlineStTraits T>
+		struct default_traits<T> 
+		{
+			static constexpr auto success_value = T::success_value;
+			static constexpr auto failure_value = T::failure_value;
+			constexpr static inline bool is_success( const T& v ) { return T::is_success( v ); }
+		};
+
+		// Fixed success/failure value + member function for success check.
+		//
+		template<HasInlineMfTraits T>
+		struct default_traits<T>
+		{
+			static constexpr auto success_value = T::success_value;
+			static constexpr auto failure_value = T::failure_value;
+			constexpr static inline bool is_success( const T& v ) { return v.is_success(); }
+		};
+
+		// Fixed success/failure value + decay to bool for success check.
+		//
+		template<HasInlineAutoTraits T>
+		struct default_traits<T>
+		{
+			static constexpr auto success_value = T::success_value;
+			static constexpr auto failure_value = T::failure_value;
+			constexpr static inline bool is_success( const T& v ) { return v.operator bool(); }
+		};
+
+		// Redirection to external class.
+		//
+		template<HasExternTraits T>
+		struct default_traits<T> : T::status_traits {};
+	};
+
 	// Status traits.
 	//
 	template<typename T>
-	struct status_traits : T {};
+	struct status_traits : impl::default_traits<T> {};
 
 	template<>
 	struct status_traits<bool>
@@ -51,8 +102,8 @@ namespace xstd
 
 		// Status code and the value itself.
 		//
-		std::optional<Value> result = std::nullopt;
 		Status status = Status{ traits::failure_value };
+		std::optional<Value> result = std::nullopt;
 
 		// Invalid value construction.
 		//
@@ -66,7 +117,7 @@ namespace xstd
 		// Consturction with value/state combination.
 		//
 		template<typename T> requires ( Constructable<Value, T&&> && ( !Constructable<Status, T&&> || Same<std::decay_t<T>, Value> ) )
-		constexpr basic_result( T&& value ) : result( std::forward<T>( value ) ), status( Status{ traits::success_value } ) {}
+		constexpr basic_result( T&& value ) : status( Status{ traits::success_value } ), result( std::forward<T>( value ) ) {}
 		template<typename S> requires ( Constructable<Status, S&&> && ( !Constructable<Value, S&&> || Same<std::decay_t<S>, Status> ) )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
@@ -75,7 +126,7 @@ namespace xstd
 					result.emplace();
 		}
 		template<typename T, typename S>  requires ( Constructable<Value, T&&> && Constructable<Status, S&&> )
-		constexpr basic_result( T&& value, S&& status ) : result( std::forward<T>( value ) ), status( std::forward<S>( status ) ) {}
+		constexpr basic_result( T&& value, S&& status ) : status( std::forward<S>( status ) ), result( std::forward<T>( value ) ) {}
 
 		// Result conversion.
 		//
@@ -197,3 +248,7 @@ namespace xstd
 	template<typename T = std::monostate>
 	using string_result = basic_result<T, std::string>;
 };
+
+#if HAS_MS_EXTENSIONS
+	#pragma pack(pop)
+#endif
