@@ -21763,6 +21763,8 @@ using irql_t = uint16_t;
 
 namespace ia32
 {
+    static constexpr size_t page_size = 1ull << 12;
+
 	// Read/write control registers.
 	//
 #define _EXPOSE_REG(reg, t, f, s)												\
@@ -22036,6 +22038,121 @@ namespace ia32
 #endif
     }
 
+    // String operations.
+    //
+    template<typename T = uint8_t>
+    _LINKAGE void store_string( xstd::any_ptr dst, T value, size_t count )
+    {
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; rep stosb" : "+D" ( dst.address ), "+c" ( count ) : "a" ( value ) : "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; rep stosw" : "+D" ( dst.address ), "+c" ( count ) : "a" ( value ) : "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; rep stosl" : "+D" ( dst.address ), "+c" ( count ) : "a" ( value ) : "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; rep stosq" : "+D" ( dst.address ), "+c" ( count ) : "a" ( value ) : "memory", "flags" );
+        else
+            unreachable();
+    }
+    template<typename T = uint8_t>
+    _LINKAGE void copy_string( xstd::any_ptr dst, xstd::any_ptr src, size_t count )
+    {
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; rep movsb" : "+D" ( dst.address ), "+c" ( count ), "+S" ( src.address ) :: "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; rep movsw" : "+D" ( dst.address ), "+c" ( count ), "+S" ( src.address ) :: "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; rep movsl" : "+D" ( dst.address ), "+c" ( count ), "+S" ( src.address ) :: "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; rep movsq" : "+D" ( dst.address ), "+c" ( count ), "+S" ( src.address ) :: "memory", "flags" );
+        else
+            unreachable();
+    }
+    template<typename T = uint8_t>
+    _LINKAGE T load_string( xstd::any_ptr src, size_t count )
+    {
+        T value;
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; rep lodsb" : "+S" ( src.address ), "+c" ( count ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; rep lodsw" : "+S" ( src.address ), "+c" ( count ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; rep lodsl" : "+S" ( src.address ), "+c" ( count ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; rep lodsq" : "+S" ( src.address ), "+c" ( count ) :: "flags" );
+        else
+            unreachable();
+        return value;
+    }
+
+    template<typename T = uint8_t>
+    _LINKAGE xstd::any_ptr find_string( xstd::any_ptr begin, T value, size_t count )
+    {
+        xstd::any_ptr it = begin;
+        uint8_t carry;
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; repne scasb; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; repne scasw; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; repne scasl; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; repne scasq; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else
+            unreachable();
+        return ( ( T* ) it ) - carry;
+    }
+
+    template<typename T = uint8_t>
+    _LINKAGE xstd::any_ptr find_string_not( xstd::any_ptr begin, T value, size_t count )
+    {
+        xstd::any_ptr it = begin;
+        uint8_t carry;
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; repe scasb; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; repe scasw; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; repe scasl; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; repe scasq; setz %0" : "=r" ( carry ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+        else
+            unreachable();
+        return ( ( T* ) it ) - !carry;
+    }
+    template<typename T = uint8_t>
+    _LINKAGE xstd::any_ptr match( xstd::any_ptr a, xstd::any_ptr b, size_t count )
+    {
+        uint8_t carry;
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; repe cmpsb; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; repe cmpsw; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; repe cmpsl; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; repe cmpsq; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else
+            unreachable();
+        return ( ( T* ) a ) - !carry;
+    }
+    template<typename T = uint8_t>
+    _LINKAGE xstd::any_ptr mismatch( xstd::any_ptr a, xstd::any_ptr b, size_t count )
+    {
+        uint8_t carry;
+        if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; repne cmpsb; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; repne cmpsw; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; repne cmpsl; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else if constexpr ( sizeof( T ) == 8 )
+            asm volatile( "cld; repne cmpsq; setz %0" : "=r" ( carry ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+        else
+            unreachable();
+        return ( ( T* ) a ) - carry;
+    }
+
     // Cache intrinsics.
     //
     _LINKAGE void invd() { asm volatile( "invd" ::: "memory" ); }
@@ -22047,25 +22164,25 @@ namespace ia32
 
     // Implement the range helpers.
     //
-    _LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    _LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
         for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
             invpcid( invpcid_type::individual, pcid, ptr );
     }
-    _LINKAGE void invlpg( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    _LINKAGE void invlpg( xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
         for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
             invlpg( ptr );
     }
-    _LINKAGE void touch( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    _LINKAGE void touch( xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
         for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
             touch( ptr );
     }
-    _LINKAGE void wtouch( xstd::any_ptr ptr, size_t n, size_t p = 0x1000 )
+    _LINKAGE void wtouch( xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
         for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
@@ -22181,14 +22298,26 @@ namespace ia32
 		register uint32_t result asm( "eax" ) = 0;
 		register uint16_t adr_reg asm( "dx" ) = adr;
         if constexpr ( sizeof( T ) == 4 )
-            asm volatile( "in %%dx, %%eax" : "=r" ( result ) : "r" ( adr_reg ) : "memory" );
+            asm volatile( "in %%dx, %%eax" : "=r" ( result ) : "r" ( adr_reg ) );
         else if constexpr ( sizeof( T ) == 2 )
-            asm volatile( "in %%dx, %%ax" : "=r" ( result ) : "r" ( adr_reg ) : "memory" );
+            asm volatile( "in %%dx, %%ax" : "=r" ( result ) : "r" ( adr_reg ) );
         else if constexpr ( sizeof( T ) == 1 )
-            asm volatile( "in %%dx, %%al" : "=r" ( result ) : "r" ( adr_reg ) : "memory" );
+            asm volatile( "in %%dx, %%al" : "=r" ( result ) : "r" ( adr_reg ) );
         else
             unreachable();
         return *( T* ) &result;
+    }
+    template<typename T>
+    _LINKAGE void read_io( xstd::any_ptr dst, uint16_t adr, size_t count )
+    {
+        if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; rep insw" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+        else if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+        else
+            unreachable();
     }
     template<typename T = uint8_t>
     _LINKAGE void write_io( uint16_t adr, T value )
@@ -22198,11 +22327,23 @@ namespace ia32
         register uint32_t _value asm( "eax" ) = v;
         register uint16_t adr_reg asm( "dx" ) = adr;
         if constexpr ( sizeof( T ) == 4 )
-            asm volatile( "out %%eax, %%dx" :: "r" ( _value ), "r" ( adr_reg ) : "memory" );
+            asm volatile( "out %%eax, %%dx" :: "r" ( _value ), "r" ( adr_reg ) );
         else if constexpr ( sizeof( T ) == 2 )
-            asm volatile( "out %%ax, %%dx" :: "r" ( _value ), "r" ( adr_reg ) : "memory" );
+            asm volatile( "out %%ax, %%dx" :: "r" ( _value ), "r" ( adr_reg ) );
         else if constexpr ( sizeof( T ) == 1 )
-            asm volatile( "out %%al, %%dx" :: "r" ( _value ), "r" ( adr_reg ) : "memory" );
+            asm volatile( "out %%al, %%dx" :: "r" ( _value ), "r" ( adr_reg ) );
+        else
+            unreachable();
+    }
+    template<typename T>
+    _LINKAGE void write_io( uint16_t adr, xstd::any_ptr dst, size_t count )
+    {
+        if constexpr ( sizeof( T ) == 4 )
+            asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+        else if constexpr ( sizeof( T ) == 2 )
+            asm volatile( "cld; rep outsw" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+        else if constexpr ( sizeof( T ) == 1 )
+            asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
         else
             unreachable();
     }

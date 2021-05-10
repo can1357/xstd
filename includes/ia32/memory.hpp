@@ -221,7 +221,7 @@ namespace ia32::mem
 	{
 		auto [pte, depth] = lookup_pte( ptr );
 		if ( !pte->present ) return 0;
-		return ( pte->page_frame_number << 12 ) | ( ptr & ( mem::page_size( depth ) - 1 ) );
+		return ( pte->page_frame_number << 12 ) | ( ptr & ( page_size( depth ) - 1 ) );
 	}
 
 	// Changes the protection of the given range.
@@ -259,7 +259,7 @@ namespace ia32::mem
 				if constexpr ( !IpiFlush )
 					invlpg( it );
 				
-				it += mem::page_size( depth );
+				it += page_size( depth );
 			}
 			
 			if constexpr( IpiFlush )
