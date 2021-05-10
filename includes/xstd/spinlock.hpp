@@ -9,24 +9,40 @@ namespace xstd
 {
 	struct spinlock
 	{
-		std::atomic<uint8_t> value = 0;
+		std::atomic<long> value = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
+#if HAS_MS_EXTENSIONS
+			return !_interlockedbittestandset( ( volatile long* ) &value, 7 );
+#else
 			return value.fetch_or( 1 ) == 0;
+#endif
 		}
 		FORCE_INLINE void lock()
 		{
+#if HAS_MS_EXTENSIONS
+			while ( _interlockedbittestandset( ( volatile long* ) &value, 7 ) )
+			{
+				if ( value & 1 )
+					yield_cpu();
+			}
+#else
 			while ( !try_lock() )
 			{
 				do
 					yield_cpu();
 				while ( value.load() != 0 );
 			}
+#endif
 		}
 		FORCE_INLINE void unlock()
 		{
+#if HAS_MS_EXTENSIONS
+			_interlockedbittestandreset( ( volatile long* ) &value, 7 );
+#else
 			value.fetch_and( 0 );
+#endif
 		}
 		FORCE_INLINE bool locked() const
 		{
