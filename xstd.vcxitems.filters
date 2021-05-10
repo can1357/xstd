@@ -163,9 +163,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc32.hpp">
-      <Filter>Algorithms</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
@@ -254,6 +251,9 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp">
       <Filter>Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="S:\Projects\Libraries\xstd\includes\xstd\crc.hpp">
+      <Filter>Algorithms</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
