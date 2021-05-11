@@ -22045,10 +22045,21 @@ namespace ia32
     _LINKAGE void flush_tlb()
     {
         auto cr4 = read_cr4();
-        cr4.page_global_enable ^= 1;
-        write_cr4( cr4 );
-        cr4.page_global_enable ^= 1;
-        write_cr4( cr4 );
+        if ( cr4.pcid_enable )
+        {
+            invpcid( invpcid_type::global, 0, nullptr );
+        }
+        else if ( cr4.page_global_enable )
+        {
+            cr4.page_global_enable = 0;
+            write_cr4( cr4 );
+            cr4.page_global_enable = 1;
+            write_cr4( cr4 );
+        }
+        else
+        {
+            write_cr3( read_cr3() );
+        }
     }
 
     // Serialization intrinsics.
