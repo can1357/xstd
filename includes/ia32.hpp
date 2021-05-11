@@ -21835,7 +21835,7 @@ namespace ia32
     {
         inline static const T result = [ ] () -> T
         {
-            if ( static_cpuid<0, 0, cpuid_eax_00>::result.max_cpuid_input_value >= leaf )
+            if ( query_cpuid<cpuid_eax_00>( 0 ).max_cpuid_input_value >= leaf )
                 return query_cpuid<T>( leaf, subleaf );
             else
                 return T{};
