@@ -21833,12 +21833,12 @@ namespace ia32
     template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
     struct static_cpuid_s
     {
-        inline static const std::optional<T> result = [ ] () -> std::optional<T>
+        inline static const T result = [ ] () -> T
         {
             if ( static_cpuid<0, 0, cpuid_eax_00>::result.max_cpuid_input_value >= leaf )
                 return query_cpuid<T>( leaf, subleaf );
             else
-                return std::nullopt;
+                return T{};
         }();
     };
 
@@ -22205,14 +22205,14 @@ namespace ia32
 
     _LINKAGE void clflushopt_s( xstd::any_ptr ptr )
     {
-        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result && static_cpuid_s<7, 0, cpuid_eax_07>::result->ebx.clflushopt )
+        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clflushopt )
             clflushopt( ptr );
         else
             clflush( ptr );
     }
     _LINKAGE void clwb_s( xstd::any_ptr ptr )
     {
-        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result && static_cpuid_s<7, 0, cpuid_eax_07>::result->ebx.clwb )
+        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clwb )
             clwb( ptr );
         else
             clflush( ptr );
@@ -22270,14 +22270,14 @@ namespace ia32
     }
     _LINKAGE void clflushopt_s( xstd::any_ptr ptr, size_t n )
     {
-        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result && static_cpuid_s<7, 0, cpuid_eax_07>::result->ebx.clflushopt )
+        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clflushopt )
             clflushopt( ptr, n );
         else
             clflush( ptr, n );
     }
     _LINKAGE void clwb_s( xstd::any_ptr ptr, size_t n )
     {
-        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result && static_cpuid_s<7, 0, cpuid_eax_07>::result->ebx.clwb )
+        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clwb )
             clwb( ptr, n );
         else
             clflush( ptr, n );
