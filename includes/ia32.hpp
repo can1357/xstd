@@ -22051,9 +22051,9 @@ namespace ia32
         }
         else if ( cr4.page_global_enable )
         {
-            cr4.page_global_enable = 0;
-            write_cr4( cr4 );
-            cr4.page_global_enable = 1;
+            auto cr4_2 = cr4;
+            cr4_2.page_global_enable = 0;
+            write_cr4( cr4_2 );
             write_cr4( cr4 );
         }
         else
