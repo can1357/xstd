@@ -22034,7 +22034,7 @@ namespace ia32
 	// Memory intrinsics.
 	//
     _LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg (%0)":: "r" ( ptr.address ) : "memory" ); }
-    _LINKAGE void invpcid( invpcid_type type, uint64_t pcid, xstd::any_ptr ptr )
+    _LINKAGE void invpcid( invpcid_type type, uint64_t pcid = 0, xstd::any_ptr ptr = nullptr )
     { 
         invpcid_descriptor desc = { .pcid = pcid, .rsvd = 0, .address = ptr };
         asm volatile( "invpcid %0, %1" :: "m" ( desc ), "r" ( type ) : "memory" );
@@ -22050,12 +22050,11 @@ namespace ia32
     }
     _LINKAGE void flush_tlb()
     {
+        if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.invpcid )
+            return invpcid( invpcid_type::global, 0, nullptr );
+
         auto cr4 = read_cr4();
-        if ( cr4.pcid_enable )
-        {
-            invpcid( invpcid_type::global, 0, nullptr );
-        }
-        else if ( cr4.page_global_enable )
+        if ( cr4.page_global_enable )
         {
             auto cr4_2 = cr4;
             cr4_2.page_global_enable = 0;
