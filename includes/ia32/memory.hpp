@@ -190,12 +190,13 @@ namespace ia32::mem
 	//  - .present:          Page was NOT present.  // <--- Additional emphasis, since it behaves differently compared to a real #PF.
 	//  - .write:            Page was not writable.
 	//  - .execute:          Page was not executable.
-	//  - .user_mode_access: Supervisor page.
+	//  - .user_mode_access: Supervisor page accessed by user mode or VICE VERSA. // ^
 	//
-	FORCE_INLINE inline std::tuple<pt_entry_64*, int8_t, page_fault_exception> lookup_pte_as( xstd::any_ptr ptr, bool user, bool write, bool execute )
+	FORCE_INLINE inline std::tuple<pt_entry_64*, int8_t, page_fault_exception> lookup_pte_as( xstd::any_ptr ptr, bool user, bool write, bool execute, bool smap = false, bool smep = true )
 	{
 		// Iterate the page tables until the PTE.
 		//
+		bool puser = true;
 		for ( int8_t n = page_table_depth - 1; n >= 0; n-- )
 		{
 			auto* entry = get_pte( ptr, n );
@@ -206,12 +207,15 @@ namespace ia32::mem
 				return { entry, n, { .present = true } };
 			if ( user && !entry->user )
 				return { entry, n, { .user_mode_access = true } };
+			puser &= entry->user;
 
 			// If we've reached the final data page, validate access.
 			//
 			if ( n == 0 || entry->large_page )
 			{
-				if ( write && !entry->write )
+				if ( puser && !user && ( execute ? smep : smap ) )
+					return { entry, n, {.user_mode_access = true } };
+				else if ( write && !entry->write )
 					return { entry, n, { .write = true } };
 				else if ( execute && entry->execute_disable )
 					return { entry, n, { .execute = true } };
