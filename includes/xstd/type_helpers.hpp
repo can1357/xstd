@@ -447,13 +447,22 @@ namespace xstd
 	
 	// Creates an std::atomic version of the given pointer to value.
 	//
-	template<typename T> __forceinline static auto& make_atomic( T& value ) 
-	{ 
-		if constexpr( std::is_const_v<T> )
+	template<typename T> __forceinline static auto& make_atomic( T& value )
+	{
+		if constexpr ( std::is_const_v<T> )
 			return *( const std::atomic<std::remove_cv_t<T>>* ) &value;
 		else
-			return *( std::atomic<std::remove_cv_t<T>>* ) &value;
+			return *( std::atomic<std::remove_volatile_t<T>>* ) &value;
 	}
+	template<typename T> __forceinline static auto* make_atomic_ptr( T* value )
+	{
+		if constexpr ( std::is_const_v<T> )
+			return ( const std::atomic<std::remove_cv_t<T>>* ) value;
+		else
+			return ( std::atomic<std::remove_volatile_t<T>>* ) value;
+	}
+	template<typename T> __forceinline static volatile T& make_volatile( T& value ) { return value; }
+	template<typename T> __forceinline static volatile T* make_volatile_ptr( T* value ) { return value; }
 	
 	// Creates a copy of the given value.
 	//
