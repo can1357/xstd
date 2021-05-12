@@ -22258,30 +22258,58 @@ namespace ia32
     _LINKAGE void clwb( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        #pragma unroll(64)
-        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
-            clwb( it );
+        ptr = xstd::align_down( ptr, 64 );
+
+        while ( ( ptr - end ) >= ( 64 * 32 ) )
+        {
+            #pragma unroll(32)
+            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+                clwb( ptr );
+        }
+        for ( ; ptr != end; ptr += 64 )
+            clwb( ptr );
     }
     _LINKAGE void clflush( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        #pragma unroll(64)
-        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
-            clflush( it );
+        ptr = xstd::align_down( ptr, 64 );
+
+        while ( ( ptr - end ) >= ( 64 * 32 ) )
+        {
+            #pragma unroll(32)
+            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+                clflush( ptr );
+        }
+        for ( ; ptr != end; ptr += 64 )
+            clflush( ptr );
     }
     _LINKAGE void cldemote( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        #pragma unroll(64)
-        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
-            cldemote( it );
+        ptr = xstd::align_down( ptr, 64 );
+
+        while ( ( ptr - end ) >= ( 64 * 32 ) )
+        {
+            #pragma unroll(32)
+            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+                cldemote( ptr );
+        }
+        for ( ; ptr != end; ptr += 64 )
+            cldemote( ptr );
     }
     _LINKAGE void clflushopt( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        #pragma unroll(64)
-        for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
-            clflushopt( it );
+        ptr = xstd::align_down( ptr, 64 );
+
+        while ( ( ptr - end ) > ( 64 * 32 ) )
+        {
+            #pragma unroll(32)
+            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+                clflushopt( ptr );
+        }
+        for ( ; ptr != end; ptr += 64 )
+            clflushopt( ptr );
     }
     _LINKAGE void clflushopt_s( xstd::any_ptr ptr, size_t n )
     {
