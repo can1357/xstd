@@ -22143,13 +22143,13 @@ namespace ia32
         xstd::any_ptr it = begin;
         uint8_t zero_flag;
         if constexpr ( sizeof( T ) == 1 )
-            asm volatile( "cld; repne scasb; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repne scasb" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else if constexpr ( sizeof( T ) == 2 )
-            asm volatile( "cld; repne scasw; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repne scasw" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else if constexpr ( sizeof( T ) == 4 )
-            asm volatile( "cld; repne scasl; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repne scasl" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else if constexpr ( sizeof( T ) == 8 )
-            asm volatile( "cld; repne scasq; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repne scasq" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else
             unreachable();
         return ( ( T* ) it ) - zero_flag;
@@ -22161,13 +22161,13 @@ namespace ia32
         xstd::any_ptr it = begin;
         uint8_t zero_flag;
         if constexpr ( sizeof( T ) == 1 )
-            asm volatile( "cld; repe scasb; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repe scasb" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else if constexpr ( sizeof( T ) == 2 )
-            asm volatile( "cld; repe scasw; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repe scasw" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else if constexpr ( sizeof( T ) == 4 )
-            asm volatile( "cld; repe scasl; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repe scasl" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else if constexpr ( sizeof( T ) == 8 )
-            asm volatile( "cld; repe scasq; setz %0" : "=r" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
+            asm volatile( "cld; repe scasq" : "=ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
         else
             unreachable();
         return ( ( T* ) it ) - !zero_flag;
@@ -22177,13 +22177,13 @@ namespace ia32
     {
         uint8_t zero_flag;
         if constexpr ( sizeof( T ) == 1 )
-            asm volatile( "cld; repe cmpsb; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repe cmpsb" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else if constexpr ( sizeof( T ) == 2 )
-            asm volatile( "cld; repe cmpsw; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repe cmpsw" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else if constexpr ( sizeof( T ) == 4 )
-            asm volatile( "cld; repe cmpsl; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repe cmpsl" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else if constexpr ( sizeof( T ) == 8 )
-            asm volatile( "cld; repe cmpsq; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repe cmpsq" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else
             unreachable();
         return ( ( T* ) a ) - !zero_flag;
@@ -22193,13 +22193,13 @@ namespace ia32
     {
         uint8_t zero_flag;
         if constexpr ( sizeof( T ) == 1 )
-            asm volatile( "cld; repne cmpsb; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repne cmpsb" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else if constexpr ( sizeof( T ) == 2 )
-            asm volatile( "cld; repne cmpsw; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repne cmpsw" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else if constexpr ( sizeof( T ) == 4 )
-            asm volatile( "cld; repne cmpsl; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repne cmpsl" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else if constexpr ( sizeof( T ) == 8 )
-            asm volatile( "cld; repne cmpsq; setz %0" : "=r" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
+            asm volatile( "cld; repne cmpsq" : "=ccz" ( zero_flag ), "+D" ( a.address ), "+c" ( count ), "+S" ( b.address ) :: "flags" );
         else
             unreachable();
         return ( ( T* ) a ) - zero_flag;
