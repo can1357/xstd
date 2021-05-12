@@ -315,7 +315,7 @@ namespace xstd
 	// Generic logger.
 	//
 	template<typename... Tx>
-	FORCE_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
+	NO_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
 	{
 		fmt::impl::format_buffer_for<Tx...> buf = {};
 		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter( buf, std::forward<Tx>( ps ) )... );

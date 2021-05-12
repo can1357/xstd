@@ -208,7 +208,7 @@ namespace xstd::fmt
 		}
 		else if constexpr ( CString<base_type> )
 		{
-			return utf_convert<char>( string_view_t<string_unit_t<base_type>>{ x } );
+			return utf_convert<char>( string_view_t<base_type>{ x } );
 		}
 		else if constexpr ( Enum<T> )
 		{
