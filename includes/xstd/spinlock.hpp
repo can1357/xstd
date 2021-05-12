@@ -8,31 +8,33 @@
 
 namespace xstd
 {
-	struct spinlock
+	template<typename T, size_t N>
+	struct basic_spinlock
 	{
-		std::atomic<short> value = 0;
+		std::atomic<T> value = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
-			return bit_set( value, 0 ) == 0;
+			return bit_set( value, N ) == 0;
 		}
 		FORCE_INLINE void lock()
 		{
-			while ( bit_set( value, 0 ) )
+			while ( bit_set( value, N ) ) [[unlikely]]
 			{
-				if ( value & 1 )
+				if ( bit_test( value, N ) ) [[likely]]
 					yield_cpu();
 			}
 		}
 		FORCE_INLINE void unlock()
 		{
-			bit_reset( value, 0 );
+			bit_reset( value, N );
 		}
 		FORCE_INLINE bool locked() const
 		{
-			return value.load() != 0;
+			return bit_test( value, N );
 		}
 	};
+	using spinlock = basic_spinlock<uint16_t, 0>;
 
 	template<DefaultConstructable CidGetter>
 	struct alignas( 8 ) basic_recursive_spinlock
@@ -88,7 +90,7 @@ namespace xstd
 
 			while ( true )
 			{
-				while ( expected != 0 )
+				while ( expected != 0 ) [[unlikely]]
 				{
 					yield_cpu();
 					expected = value.load();
@@ -138,9 +140,9 @@ namespace xstd
 		}
 		FORCE_INLINE void lock()
 		{
-			while ( !try_lock() )
+			while ( !try_lock() ) [[unlikely]]
 			{
-				while ( counter != 0 )
+				while ( counter != 0 ) [[likely]]
 					yield_cpu();
 			}
 		}
@@ -155,7 +157,7 @@ namespace xstd
 			{
 				// If not exclusively owned, try incrementing the lock count.
 				//
-				if ( value < ( UINT16_MAX - 1 ) )
+				if ( value < ( UINT16_MAX - 1 ) ) [[likely]]
 				{
 					if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
 						return;

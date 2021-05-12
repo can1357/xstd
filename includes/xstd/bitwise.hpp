@@ -423,10 +423,37 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
 		{
-			// If shift is constant, non-bitwise op will be faster.
+			// If shift is constant and can be encoded as imm32/imm16/imm8, TEST will be faster.
 			//
-			if ( __is_consteval( n ) )
-				return ( *( volatile U* ) &value ) & U( 1ull << n );
+#if GNU_COMPILER
+			if ( __is_consteval( n ) && n <= 31 )
+			{
+				if constexpr ( sizeof( T ) == 8 )
+				{
+					int out;
+					asm( "testq %2, %1" : "=@ccz" ( out ) : "m" ( *( uint64_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
+					return !out;
+				}
+				else if constexpr ( sizeof( T ) == 4 )
+				{
+					int out;
+					asm( "testl %2, %1" : "=@ccz" ( out ) : "m" ( *( uint32_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
+					return !out;
+				}
+				else if constexpr ( sizeof( T ) == 2 )
+				{
+					int out;
+					asm( "testw %2, %1" : "=@ccz" ( out ) : "m" ( *( uint16_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
+					return !out;
+				}
+				else if constexpr ( sizeof( T ) == 1 )
+				{
+					int out;
+					asm( "testb %2, %1" : "=@ccz" ( out ) : "m" ( *( uint8_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
+					return !out;
+				}
+			}
+#endif
 
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
