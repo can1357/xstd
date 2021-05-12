@@ -155,7 +155,7 @@ namespace xstd
 	}
 
 	template<typename T>
-	__forceinline static constexpr bool bit_set( T* value, bitcnt_t n )
+	__forceinline static constexpr bool bit_set( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -166,32 +166,32 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btsq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) value ) : "Jr" ( uint64_t( n ) ) );
+				asm volatile( "lock btsq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
-				return _interlockedbittestandset64( ( volatile long long* ) value, n );
+				return _interlockedbittestandset64( ( volatile long long* ) &value, n );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 4 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btsl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) value ) : "Jr" ( uint32_t( n ) ) );
+				asm volatile( "lock btsl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
-				return _interlockedbittestandset( ( volatile long* ) value, n );
+				return _interlockedbittestandset( ( volatile long* ) &value, n );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 2 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btsw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) value ) : "Jr" ( uint16_t( n ) ) );
+				asm volatile( "lock btsw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 				return out;
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) value;
+			auto& ref = *( std::atomic<U>* ) &value;
 			U value = ref.load();
 			while ( !ref.compare_exchange_strong( value, value | U( 1ull << n ) ) );
 			return value & U( 1ull << n );
@@ -205,41 +205,41 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btsq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) value ) : "Jr" ( uint64_t( n ) ) );
+					asm( "btsq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandset64( ( long long* ) value, n );
+					return _bittestandset64( ( long long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 4 )
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btsl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) value ) : "Jr" ( uint32_t( n ) ) );
+					asm( "btsl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandset( ( long* ) value, n );
+					return _bittestandset( ( long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 2 )
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btsw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) value ) : "Jr" ( uint16_t( n ) ) );
+					asm( "btsw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 					return out;
 #endif
 				}
 #endif
 			}
 
-			bool is_set = *value & U( 1ull << n );
-			*value |= U( 1ull << n );
+			bool is_set = value & U( 1ull << n );
+			value |= U( 1ull << n );
 			return is_set;
 		}
 		unreachable();
 	}
 	template<typename T>
-	__forceinline static constexpr bool bit_reset( T* value, bitcnt_t n )
+	__forceinline static constexpr bool bit_reset( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -250,32 +250,32 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btrq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) value ) : "Jr" ( uint64_t( n ) ) );
+				asm volatile( "lock btrq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
-				return _interlockedbittestandreset64( ( volatile long long* ) value, n );
+				return _interlockedbittestandreset64( ( volatile long long* ) &value, n );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 4 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btrl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) value ) : "Jr" ( uint32_t( n ) ) );
+				asm volatile( "lock btrl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
-				return _interlockedbittestandreset( ( volatile long* ) value, n );
+				return _interlockedbittestandreset( ( volatile long* ) &value, n );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 2 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btrw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) value ) : "Jr" ( uint16_t( n ) ) );
+				asm volatile( "lock btrw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 				return out;
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) value;
+			auto& ref = *( std::atomic<U>* ) &value;
 			U value = ref.load();
 			while ( !ref.compare_exchange_strong( value, value & ~U( 1ull << n ) ) );
 			return value & U( 1ull << n );
@@ -289,41 +289,41 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btrq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) value ) : "Jr" ( uint64_t( n ) ) );
+					asm( "btrq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandreset64( ( long long* ) value, n );
+					return _bittestandreset64( ( long long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 4 )
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btrl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) value ) : "Jr" ( uint32_t( n ) ) );
+					asm( "btrl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandreset( ( long* ) value, n );
+					return _bittestandreset( ( long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 2 )
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btrw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) value ) : "Jr" ( uint16_t( n ) ) );
+					asm( "btrw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 					return out;
 #endif
 				}
 #endif
 			}
 
-			bool is_set = *value & U( 1ull << n );
-			*value &= ~U( 1ull << n );
+			bool is_set = value & U( 1ull << n );
+			value &= ~U( 1ull << n );
 			return is_set;
 		}
 		unreachable();
 	}
 	template<typename T>
-	__forceinline static constexpr bool bit_complement( T* value, bitcnt_t n )
+	__forceinline static constexpr bool bit_complement( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -334,7 +334,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btcq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) value ) : "Jr" ( uint64_t( n ) ) );
+				asm volatile( "lock btcq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 				return out;
 #endif
 			}
@@ -342,7 +342,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btcl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) value ) : "Jr" ( uint32_t( n ) ) );
+				asm volatile( "lock btcl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 				return out;
 #endif
 			}
@@ -350,12 +350,12 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "lock btcw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) value ) : "Jr" ( uint16_t( n ) ) );
+				asm volatile( "lock btcw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 				return out;
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) value;
+			auto& ref = *( std::atomic<U>* ) &value;
 			U value = ref.load();
 			while ( !ref.compare_exchange_strong( value, value & ~U( 1ull << n ) ) );
 			return value & U( 1ull << n );
@@ -369,42 +369,42 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btcq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) value ) : "Jr" ( uint64_t( n ) ) );
+					asm( "btcq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandcomplement64( ( long long* ) value, n );
+					return _bittestandcomplement64( ( long long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 4 )
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btcl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) value ) : "Jr" ( uint32_t( n ) ) );
+					asm( "btcl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandcomplement( ( long* ) value, n );
+					return _bittestandcomplement( ( long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 2 )
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btcw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) value ) : "Jr" ( uint16_t( n ) ) );
+					asm( "btcw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 					return out;
 #endif
 				}
 #endif
 			}
-			
-			bool is_set = *value & U( 1ull << n );
-			*value &= ~U( 1ull << n );
+
+			bool is_set = value & U( 1ull << n );
+			value &= ~U( 1ull << n );
 			return is_set;
 		}
 		unreachable();
 	}
 
 	template<typename T>
-	__forceinline static constexpr bool bit_test( const T* value, bitcnt_t n )
+	__forceinline static constexpr bool bit_test( const T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
@@ -414,37 +414,37 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) value ), "Jr" ( uint64_t( n ) ) );
+				asm( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
-				return _bittest64( ( long long* ) value, n );
+				return _bittest64( ( long long* ) &value, n );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 4 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) value ), "Jr" ( uint32_t( n ) ) );
+				asm( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
-				return _bittest( ( long* ) value, n );
+				return _bittest( ( long* ) &value, n );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 2 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) value ), "Jr" ( uint16_t( n ) ) );
+				asm( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
 				return out;
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) value;
+			auto& ref = *( std::atomic<U>* ) &value;
 			return ref & U( 1ull << n );
 		}
 		else if constexpr ( xstd::Integral<T> )
 		{
-			return *value & U( 1ull << n );
+			return value & U( 1ull << n );
 		}
 		unreachable();
 	}
@@ -516,7 +516,7 @@ namespace xstd
 
 			// Reset the bit and invoke the callback.
 			//
-			bit_reset( &mask, idx );
+			bit_reset( mask, idx );
 			fn( idx );
 		}
 	}

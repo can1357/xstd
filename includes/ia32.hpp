@@ -22328,10 +22328,10 @@ namespace ia32
 
     // IDT/GDT.
     //
-    _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt %0" :: "m" ( *(char*)ptr ) ); }
-    _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt %0" :: "m" ( *(char*)ptr ) ); }
-    _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt %0" : "=m" ( *(char*)ptr ) :: ); }
-    _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt %0" : "=m" ( *(char*)ptr ) :: ); }
+    _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt %0" :: "m" ( *(const segment_descriptor_register_64*)ptr ) ); }
+    _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt %0" :: "m" ( *(const segment_descriptor_register_64*)ptr ) ); }
+    _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt %0" : "=m" ( *(segment_descriptor_register_64*)ptr ) :: ); }
+    _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt %0" : "=m" ( *(segment_descriptor_register_64*)ptr ) :: ); }
     
     _LINKAGE std::pair<idt_entry*, size_t> get_idt() { segment_descriptor_register_64 desc; read_idtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 16 }; }
     _LINKAGE std::pair<gdt_entry*, size_t> get_gdt() { segment_descriptor_register_64 desc; read_gdtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 8 }; }

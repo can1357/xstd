@@ -14,11 +14,11 @@ namespace xstd
 
 		FORCE_INLINE bool try_lock()
 		{
-			return bit_set( &value, 0 ) == 0;
+			return bit_set( value, 0 ) == 0;
 		}
 		FORCE_INLINE void lock()
 		{
-			while ( bit_set( &value, 0 ) )
+			while ( bit_set( value, 0 ) )
 			{
 				if ( value & 1 )
 					yield_cpu();
@@ -26,7 +26,7 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			bit_reset( &value, 0 );
+			bit_reset( value, 0 );
 		}
 		FORCE_INLINE bool locked() const
 		{
