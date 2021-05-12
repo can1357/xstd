@@ -22258,24 +22258,28 @@ namespace ia32
     _LINKAGE void clwb( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        #pragma unroll(64)
         for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
             clwb( it );
     }
     _LINKAGE void clflush( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        #pragma unroll(64)
         for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
             clflush( it );
     }
     _LINKAGE void cldemote( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        #pragma unroll(64)
         for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
             cldemote( it );
     }
     _LINKAGE void clflushopt( xstd::any_ptr ptr, size_t n )
     {
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
+        #pragma unroll(64)
         for ( xstd::any_ptr it = xstd::align_down( ptr, 64 ); it != end; it += 64 )
             clflushopt( it );
     }
