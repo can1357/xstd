@@ -244,6 +244,14 @@ MUST_MATCH( DEBUG_BUILD );
     #endif
 #endif
 
+// Define __is_consteval(x)
+//
+#if __has_builtin(__builtin_constant_p)
+    #define __is_consteval(...) __builtin_constant_p(__VA_ARGS__)
+#else
+    #define __is_consteval(...) false
+#endif
+
 // Define assume() / unreachable() / debugbreak() / fastfail(x).
 //
 #if MS_COMPILER

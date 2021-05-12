@@ -198,7 +198,7 @@ namespace xstd
 		}
 		else if constexpr( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() )
+			if ( !std::is_constant_evaluated() && !__is_consteval( n ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -236,8 +236,13 @@ namespace xstd
 			value |= U( 1ull << n );
 			return is_set;
 		}
-		unreachable();
+		else
+		{
+			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
+			unreachable();
+		}
 	}
+
 	template<typename T>
 	__forceinline static constexpr bool bit_reset( T& value, bitcnt_t n )
 	{
@@ -282,7 +287,7 @@ namespace xstd
 		}
 		else if constexpr( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() )
+			if ( !std::is_constant_evaluated() && !__is_consteval( n ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -320,8 +325,13 @@ namespace xstd
 			value &= ~U( 1ull << n );
 			return is_set;
 		}
-		unreachable();
+		else
+		{
+			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
+			unreachable();
+		}
 	}
+
 	template<typename T>
 	__forceinline static constexpr bool bit_complement( T& value, bitcnt_t n )
 	{
@@ -362,7 +372,7 @@ namespace xstd
 		}
 		else if constexpr ( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() )
+			if ( !std::is_constant_evaluated() && !__is_consteval( n ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -400,7 +410,11 @@ namespace xstd
 			value &= ~U( 1ull << n );
 			return is_set;
 		}
-		unreachable();
+		else
+		{
+			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
+			unreachable();
+		}
 	}
 
 	template<typename T>
@@ -409,15 +423,10 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
 		{
-			// If shift is constant, AND will be faster.
+			// If shift is constant, non-bitwise op will be faster.
 			//
-#if __has_builtin(__builtin_constant_p)
-			if ( __builtin_constant_p( n ) )
-			{
-				auto& ref = *( std::atomic<U>* ) &value;
-				return ref & U( 1ull << n );
-			}
-#endif
+			if ( __is_consteval( n ) )
+				return ( *( volatile U* ) &value ) & U( 1ull << n );
 
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
@@ -456,7 +465,10 @@ namespace xstd
 		{
 			return value & U( 1ull << n );
 		}
-		unreachable();
+		else
+		{
+			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
+		}
 	}
 	template<Integral I>
 	__forceinline static constexpr I bit_reverse( I value )
