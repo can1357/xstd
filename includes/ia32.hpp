@@ -256,6 +256,12 @@ typedef union
 {
   struct
   {
+      uint64_t pcid         : 12;
+      uint64_t padding      : 51;
+      uint64_t preserve_tlb : 1;
+  };
+  struct
+  {
     uint64_t reserved1                                               : 3;
 
     /**
