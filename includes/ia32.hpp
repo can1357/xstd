@@ -21799,13 +21799,13 @@ namespace ia32
     _LINKAGE ia32::cr0 smsw()
     {
         uint64_t value;
-        asm volatile( "smsw %0" : "=r" ( value ) );
+        asm volatile( "smsw %0" : "=r,m" ( value ) );
         return { .flags = value };
     }
     _LINKAGE void lmsw( ia32::cr0 value )
     {
         uint16_t partial_value = ( uint16_t ) ( value.flags & 0b1111 );
-        asm volatile( "lmsw %0" :: "r" ( partial_value ) );
+        asm volatile( "lmsw %0" :: "r,m" ( partial_value ) );
     }
 
     // CPUID:
@@ -21875,33 +21875,33 @@ namespace ia32
     }
     _LINKAGE bool get_cf()
     {
-        uint8_t flag;
-        asm volatile( "setc %0" : "=r" ( flag ) :: );
-        return flag != 0;
+        int flag;
+        asm volatile( "" : "=@ccc" ( flag ) :: );
+        return flag;
     }
     _LINKAGE bool get_sf()
     {
-        uint8_t flag;
-        asm volatile( "sets %0" : "=r" ( flag ) :: );
-        return flag != 0;
+        int flag;
+        asm volatile( "" : "=@ccs" ( flag ) :: );
+        return flag;
     }
     _LINKAGE bool get_of()
     {
-        uint8_t flag;
-        asm volatile( "seto %0" : "=r" ( flag ) :: );
-        return flag != 0;
+        int flag;
+        asm volatile( "" : "=@cco" ( flag ) :: );
+        return flag;
     }
     _LINKAGE bool get_zf()
     {
-        uint8_t flag;
-        asm volatile( "setz %0" : "=r" ( flag ) :: );
-        return flag != 0;
+        int flag;
+        asm volatile( "" : "=@ccz" ( flag ) :: );
+        return flag;
     }
     _LINKAGE bool get_pf()
     {
-        uint8_t flag;
-        asm volatile( "setp %0" : "=r" ( flag ) :: );
-        return flag != 0;
+        int flag;
+        asm volatile( "" : "=@ccp" ( flag ) :: );
+        return flag;
     }
 
     // MXCSR helpers.
@@ -22036,11 +22036,11 @@ namespace ia32
     _LINKAGE void touch( xstd::any_ptr ptr )
     {
         uint8_t temp;
-        asm volatile( "movb (%1), %0" : "=r" ( temp ) : "r" ( ptr.address ) : );
+        asm volatile( "movb %1, %0" : "=r" ( temp ) : "m" ( *(char*)ptr.address ) : );
     }
     _LINKAGE void wtouch( xstd::any_ptr ptr )
     {
-        asm volatile( "orb $0, (%0)" :: "r" ( ptr.address ) : "flags" );
+        asm volatile( "orb $0, %0" :: "m" ( *(char*)ptr.address ) : "flags" );
     }
     _LINKAGE void flush_tlb()
     {
@@ -22209,10 +22209,10 @@ namespace ia32
     //
     _LINKAGE void invd() { asm volatile( "invd" ::: "memory" ); }
     _LINKAGE void wbinvd() { asm volatile( "wbinvd" ::: "memory" ); }
-    _LINKAGE void clwb( xstd::any_ptr ptr ) { asm volatile( "clwb (%0)":: "r" ( ptr.address ) : "memory" ); }
-    _LINKAGE void clflush( xstd::any_ptr ptr ) { asm volatile( "clflush (%0)":: "r" ( ptr.address ) : "memory" ); }
-    _LINKAGE void cldemote( xstd::any_ptr ptr ) { asm volatile( "cldemote (%0)":: "r" ( ptr.address ) : "memory" ); }
-    _LINKAGE void clflushopt( xstd::any_ptr ptr ) { asm volatile( "clflushopt (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void clwb( xstd::any_ptr ptr ) { asm volatile( "clwb %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void clflush( xstd::any_ptr ptr ) { asm volatile( "clflush %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void cldemote( xstd::any_ptr ptr ) { asm volatile( "cldemote %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void clflushopt( xstd::any_ptr ptr ) { asm volatile( "clflushopt %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
 
     _LINKAGE void clflushopt_s( xstd::any_ptr ptr )
     {
@@ -22296,10 +22296,10 @@ namespace ia32
 
     // IDT/GDT.
     //
-    _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt (%0)":: "r" ( ptr ) ); }
-    _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt (%0)":: "r" ( ptr ) ); }
-    _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt (%0)":: "r" ( ptr ) ); }
-    _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt (%0)":: "r" ( ptr ) ); }
+    _LINKAGE void write_idtr( const void* ptr ) { asm volatile( "lidt %0" :: "m" ( *(char*)ptr ) ); }
+    _LINKAGE void write_gdtr( const void* ptr ) { asm volatile( "lgdt %0" :: "m" ( *(char*)ptr ) ); }
+    _LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt %0" : "=m" ( *(char*)ptr ) :: ); }
+    _LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt %0" : "=m" ( *(char*)ptr ) :: ); }
     
     _LINKAGE std::pair<idt_entry*, size_t> get_idt() { segment_descriptor_register_64 desc; read_idtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 16 }; }
     _LINKAGE std::pair<gdt_entry*, size_t> get_gdt() { segment_descriptor_register_64 desc; read_gdtr( &desc ); return { xstd::any_ptr(desc.base_address), (size_t( desc.limit ) + 1) / 8 }; }
