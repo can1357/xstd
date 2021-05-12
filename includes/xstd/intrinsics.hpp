@@ -191,6 +191,11 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
     #define FORCE_INLINE __forceinline
     #define NO_INLINE    __declspec(noinline)
 #endif
+#if __clang__
+    #define TRIVIAL_ABI    __attribute__((trivial_abi))
+#else
+    #define TRIVIAL_ABI
+#endif
 #ifndef RINLINE
     #if RELEASE_BUILD
         #define RINLINE     FORCE_INLINE

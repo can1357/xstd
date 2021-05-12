@@ -58,6 +58,24 @@ namespace xstd
 		//
 		template<HasExternTraits T>
 		struct default_traits<T> : T::status_traits {};
+
+		// Optimization for monostate.
+		//
+		struct TRIVIAL_ABI optional_monostate
+		{
+			inline static std::monostate _value = {};
+			__forceinline constexpr optional_monostate() noexcept {};
+			__forceinline constexpr optional_monostate( std::nullopt_t ) noexcept {};
+			__forceinline constexpr optional_monostate( std::monostate ) noexcept {};
+			__forceinline constexpr optional_monostate( optional_monostate&& ) noexcept {};
+			__forceinline constexpr optional_monostate( const optional_monostate& ) noexcept {};
+			__forceinline constexpr optional_monostate& operator=( optional_monostate&& ) noexcept { return *this; };
+			__forceinline constexpr optional_monostate& operator=( const optional_monostate& ) noexcept { return *this; };
+			__forceinline constexpr std::monostate& emplace() { return _value; }
+			__forceinline constexpr std::monostate& emplace( std::monostate ) { return _value; }
+			__forceinline constexpr std::monostate& value() const noexcept { return _value; }
+			__forceinline constexpr operator std::optional<std::monostate>() const noexcept { return std::optional{ std::monostate{} }; }
+		};
 	};
 
 	// Status traits.
@@ -94,16 +112,16 @@ namespace xstd
 	// Declares a light-weight object wrapping a result type with a status code.
 	//
 	template <typename Value, typename Status>
-	struct basic_result
+	struct TRIVIAL_ABI basic_result
 	{
 		using value_type =     Value;
 		using status_type =    Status;
 		using traits =         status_traits<Status>;
-
+		using store_type =     std::conditional_t<Same<Value, std::monostate>, impl::optional_monostate, std::optional<Value>>;
 		// Status code and the value itself.
 		//
 		Status status = Status{ traits::failure_value };
-		std::optional<Value> result = std::nullopt;
+		store_type result = std::nullopt;
 
 		// Invalid value construction.
 		//
@@ -121,8 +139,8 @@ namespace xstd
 		template<typename S> requires ( Constructable<Status, S&&> && ( !Constructable<Value, S&&> || Same<std::decay_t<S>, Status> ) )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
-			if ( traits::is_success( this->status ) )
-				if constexpr ( DefaultConstructable<Value> )
+			if constexpr ( DefaultConstructable<Value> )
+				if ( traits::is_success( this->status ) )
 					result.emplace();
 		}
 		template<typename T, typename S>  requires ( Constructable<Value, T&&> && Constructable<Status, S&&> )
