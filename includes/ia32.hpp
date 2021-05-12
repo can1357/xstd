@@ -22260,10 +22260,10 @@ namespace ia32
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
         ptr = xstd::align_down( ptr, 64 );
 
-        while ( ( end - ptr ) >= ( 64 * 32 ) )
+        while ( ( end - ptr ) >= ( 64 * 16 ) )
         {
-            #pragma unroll(32)
-            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+            #pragma unroll(16)
+            for ( size_t n = 0; n != 16; n++, ptr += 64 )
                 clwb( ptr );
         }
         for ( ; ptr != end; ptr += 64 )
@@ -22274,10 +22274,10 @@ namespace ia32
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
         ptr = xstd::align_down( ptr, 64 );
 
-        while ( ( end - ptr ) >= ( 64 * 32 ) )
+        while ( ( end - ptr ) >= ( 64 * 16 ) )
         {
-            #pragma unroll(32)
-            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+            #pragma unroll(16)
+            for ( size_t n = 0; n != 16; n++, ptr += 64 )
                 clflush( ptr );
         }
         for ( ; ptr != end; ptr += 64 )
@@ -22288,10 +22288,10 @@ namespace ia32
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
         ptr = xstd::align_down( ptr, 64 );
 
-        while ( ( end - ptr ) >= ( 64 * 32 ) )
+        while ( ( end - ptr ) >= ( 64 * 16 ) )
         {
-            #pragma unroll(32)
-            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+            #pragma unroll(16)
+            for ( size_t n = 0; n != 16; n++, ptr += 64 )
                 cldemote( ptr );
         }
         for ( ; ptr != end; ptr += 64 )
@@ -22302,10 +22302,10 @@ namespace ia32
         auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
         ptr = xstd::align_down( ptr, 64 );
 
-        while ( ( end - ptr ) >= ( 64 * 32 ) )
+        while ( ( end - ptr ) >= ( 64 * 16 ) )
         {
-            #pragma unroll(32)
-            for ( size_t n = 0; n != 32; n++, ptr += 64 )
+            #pragma unroll(16)
+            for ( size_t n = 0; n != 16; n++, ptr += 64 )
                 clflushopt( ptr );
         }
         for ( ; ptr != end; ptr += 64 )

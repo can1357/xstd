@@ -409,6 +409,16 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
 		{
+			// If shift is constant, AND will be faster.
+			//
+#if __has_builtin(__builtin_constant_p)
+			if ( __builtin_constant_p( n ) )
+			{
+				auto& ref = *( std::atomic<U>* ) &value;
+				return ref & U( 1ull << n );
+			}
+#endif
+
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
 			{
