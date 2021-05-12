@@ -557,7 +557,11 @@ namespace xstd
 	// when you can't infer the type of an argument pointer or if you want to const initialize
 	// an architecture specific pointer.
 	//
+#if __clang__
+	struct [[clang::trivial_abi]] any_ptr
+#else
 	struct any_ptr
+#endif
 	{
 		uint64_t address;
 		

@@ -192,7 +192,7 @@ namespace ia32::mem
 	//  - .execute:          Page was not executable.
 	//  - .user_mode_access: Supervisor page accessed by user mode or VICE VERSA. // ^
 	//
-	FORCE_INLINE inline std::tuple<pt_entry_64*, int8_t, page_fault_exception> lookup_pte_as( xstd::any_ptr ptr, bool user, bool write, bool execute, bool smap = false, bool smep = true )
+	FORCE_INLINE inline std::tuple<pt_entry_64*, int8_t, page_fault_exception> lookup_pte_as( xstd::any_ptr ptr, bool user, bool write, bool execute, bool smap = false, bool smep = false )
 	{
 		// Iterate the page tables until the PTE.
 		//
