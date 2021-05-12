@@ -166,8 +166,8 @@ namespace xstd
 		inline constexpr bool set( size_t n, bool v )
 		{
 			dassert( n < N );
-			if ( v ) return bit_set( blocks[ n / 64 ], n & 63 );
-			else     return bit_reset( blocks[ n / 64 ], n & 63 );
+			if ( v ) return bit_set( &blocks[ n / 64 ], n & 63 );
+			else     return bit_reset( &blocks[ n / 64 ], n & 63 );
 		}
 	};
 };
