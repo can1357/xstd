@@ -315,13 +315,13 @@ namespace xstd
 	// Generic logger.
 	//
 	template<typename... Tx>
-	NO_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
 	{
 		fmt::impl::format_buffer_for<Tx...> buf = {};
 		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter( buf, std::forward<Tx>( ps ) )... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	NO_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
 	{
 		return flog( dst, color, fmt_str, std::forward<Tx>( ps )... );
 	}
@@ -339,7 +339,7 @@ namespace xstd
 	// Logs the object given as is instead of using any other formatting specifier.
 	//
 	template<console_color color = CON_DEF, typename... Tx> requires ( sizeof...( Tx ) != 0 )
-	NO_INLINE static int finspect( FILE* dst, Tx&&... objects )
+	FORCE_INLINE static int finspect( FILE* dst, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
 		return flog( dst, color, result.c_str() );
@@ -364,7 +364,7 @@ namespace xstd
 	// Prints a warning message.
 	//
 	template<typename... Tx>
-	NO_INLINE static void warning( const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE static void warning( const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_WARNINGS
 		// Forward to f-log with a prefix and a color.
