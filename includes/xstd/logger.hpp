@@ -321,17 +321,17 @@ namespace xstd
 		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter( buf, std::forward<Tx>( ps ) )... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	FORCE_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
+	NO_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
 	{
 		return flog( dst, color, fmt_str, std::forward<Tx>( ps )... );
 	}
 	template<typename... Tx>
-	FORCE_INLINE static int log( console_color color, const char* fmt_str, Tx&&... ps )
+	NO_INLINE static int log( console_color color, const char* fmt_str, Tx&&... ps )
 	{
 		return flog( XSTD_CON_MSG_DST, color, fmt_str, std::forward<Tx>( ps ) ... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	FORCE_INLINE static int log( const char* fmt_str, Tx&&... ps )
+	NO_INLINE static int log( const char* fmt_str, Tx&&... ps )
 	{
 		return flog( XSTD_CON_MSG_DST, color, fmt_str, std::forward<Tx>( ps )... );
 	}
@@ -339,13 +339,13 @@ namespace xstd
 	// Logs the object given as is instead of using any other formatting specifier.
 	//
 	template<console_color color = CON_DEF, typename... Tx> requires ( sizeof...( Tx ) != 0 )
-	FORCE_INLINE static int finspect( FILE* dst, Tx&&... objects )
+	NO_INLINE static int finspect( FILE* dst, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
 		return flog( dst, color, result.c_str() );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	FORCE_INLINE static int inspect( Tx&&... objects )
+	NO_INLINE static int inspect( Tx&&... objects )
 	{
 		return finspect<color>( XSTD_CON_MSG_DST, std::forward<Tx>( objects )... );
 	}
@@ -364,7 +364,7 @@ namespace xstd
 	// Prints a warning message.
 	//
 	template<typename... Tx>
-	static void warning( const char* fmt_str, Tx&&... ps )
+	NO_INLINE static void warning( const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_WARNINGS
 		// Forward to f-log with a prefix and a color.
@@ -379,7 +379,7 @@ namespace xstd
 	// Prints an error message and breaks the execution.
 	//
 	template<typename... Tx>
-	static void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
+	NO_INLINE static void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
 	{
 		// If there is an active hook, call into it, else add formatting and print.
 		//
