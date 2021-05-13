@@ -22033,7 +22033,7 @@ namespace ia32
 
 	// Memory intrinsics.
 	//
-    _LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg (%0)":: "r" ( ptr.address ) : "memory" ); }
+    _LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg %0" :: "m" ( *(char*)ptr.address ) : "memory" ); }
     _LINKAGE void invpcid( invpcid_type type, uint64_t pcid = 0, xstd::any_ptr ptr = nullptr )
     { 
         invpcid_descriptor desc = { .pcid = pcid, .rsvd = 0, .address = ptr };
