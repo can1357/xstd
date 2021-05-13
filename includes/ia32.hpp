@@ -22645,7 +22645,6 @@ namespace ia32
 
 		if constexpr ( xstd::Void<R> )
 		{
-            serialize();
             uint32_t t0 = impl::read_tscp_low();
 			f( std::forward<Tx>( args )... );
             uint32_t t1 = impl::read_tscp_low();
@@ -22654,7 +22653,6 @@ namespace ia32
 		}
 		else
 		{
-            serialize();
             uint32_t t0 = impl::read_tscp_low();
 			std::pair<R, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
             uint32_t t1 = impl::read_tscp_low();
