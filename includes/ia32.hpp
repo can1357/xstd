@@ -21770,6 +21770,7 @@ using irql_t = uint16_t;
 namespace ia32
 {
     static constexpr size_t page_size = 1ull << 12;
+    static constexpr size_t cacheline_size = 64;
 
 	// Read/write control registers.
 	//
@@ -22141,7 +22142,6 @@ namespace ia32
             unreachable();
         return value;
     }
-
     template<typename T = uint8_t>
     _LINKAGE xstd::any_ptr find_string( xstd::any_ptr begin, T value, size_t count )
     {
@@ -22159,7 +22159,6 @@ namespace ia32
             unreachable();
         return ( ( T* ) it ) - zero_flag;
     }
-
     template<typename T = uint8_t>
     _LINKAGE xstd::any_ptr find_string_not( xstd::any_ptr begin, T value, size_t count )
     {
@@ -22236,85 +22235,56 @@ namespace ia32
 
     // Implement the range helpers.
     //
+    namespace impl
+    {
+        template<size_t U, typename T>
+        _LINKAGE inline void unroll_for( const T& fn, xstd::any_ptr ptr, size_t count, size_t granularity )
+        {
+            count = xstd::align_up( count, granularity );
+            while ( count >= ( U * granularity ) )
+            {
+                #pragma unroll
+                for ( size_t n = 0; n != U; n++, ptr += granularity )
+                    fn( ptr );
+                count -= U * granularity;
+            }
+
+            for ( auto it = ptr; it != ( ptr + count ); it += granularity )
+                fn( it );
+        }
+    }
+
     _LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
-        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
-            invpcid( invpcid_type::individual, pcid, ptr );
+        impl::unroll_for<8>( [ pcid ] ( xstd::any_ptr it ) { invpcid( invpcid_type::individual, pcid, it ); }, ptr, n, p );
     }
     _LINKAGE void invlpg( xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
-        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
-            invlpg( ptr );
+        impl::unroll_for<8>( [] ( xstd::any_ptr it ) { invlpg( it ); }, ptr, n, p );
     }
     _LINKAGE void touch( xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
-        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
-            touch( ptr );
+        impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { touch( it ); }, ptr, n, p );
     }
     _LINKAGE void wtouch( xstd::any_ptr ptr, size_t n, size_t p = page_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), p );
-        for ( xstd::any_ptr it = xstd::align_down( ptr, p ); it != end; it += p )
-            wtouch( ptr );
+        impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { wtouch( it ); }, ptr, n, p );
     }
-    _LINKAGE void clwb( xstd::any_ptr ptr, size_t n )
+    _LINKAGE void clwb( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        ptr = xstd::align_down( ptr, 64 );
-
-        while ( ( end - ptr ) >= ( 64 * 16 ) )
-        {
-            #pragma unroll(16)
-            for ( size_t n = 0; n != 16; n++, ptr += 64 )
-                clwb( ptr );
-        }
-        for ( ; ptr != end; ptr += 64 )
-            clwb( ptr );
+        impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { clwb( it ); }, ptr, n, cl );
     }
-    _LINKAGE void clflush( xstd::any_ptr ptr, size_t n )
+    _LINKAGE void clflush( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        ptr = xstd::align_down( ptr, 64 );
-
-        while ( ( end - ptr ) >= ( 64 * 16 ) )
-        {
-            #pragma unroll(16)
-            for ( size_t n = 0; n != 16; n++, ptr += 64 )
-                clflush( ptr );
-        }
-        for ( ; ptr != end; ptr += 64 )
-            clflush( ptr );
+        impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { clflush( it ); }, ptr, n, cl );
     }
-    _LINKAGE void cldemote( xstd::any_ptr ptr, size_t n )
+    _LINKAGE void cldemote( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        ptr = xstd::align_down( ptr, 64 );
-
-        while ( ( end - ptr ) >= ( 64 * 16 ) )
-        {
-            #pragma unroll(16)
-            for ( size_t n = 0; n != 16; n++, ptr += 64 )
-                cldemote( ptr );
-        }
-        for ( ; ptr != end; ptr += 64 )
-            cldemote( ptr );
+        impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { cldemote( it ); }, ptr, n, cl );
     }
-    _LINKAGE void clflushopt( xstd::any_ptr ptr, size_t n )
+    _LINKAGE void clflushopt( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
     {
-        auto end = xstd::align_up( xstd::ptr_at( ptr, n ), 64 );
-        ptr = xstd::align_down( ptr, 64 );
-
-        while ( ( end - ptr ) >= ( 64 * 16 ) )
-        {
-            #pragma unroll(16)
-            for ( size_t n = 0; n != 16; n++, ptr += 64 )
-                clflushopt( ptr );
-        }
-        for ( ; ptr != end; ptr += 64 )
-            clflushopt( ptr );
+        impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { clflushopt( it ); }, ptr, n, cl );
     }
     _LINKAGE void clflushopt_s( xstd::any_ptr ptr, size_t n )
     {
