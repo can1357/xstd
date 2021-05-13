@@ -22641,9 +22641,9 @@ namespace ia32
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
 	_LINKAGE FLATTEN auto uprofile_tsc( T&& f, Tx&&... args )
 	{
-		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
+		using R = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
-		if constexpr ( std::is_same_v<result_t, void> )
+		if constexpr ( xstd::Void<R> )
 		{
             serialize();
             uint32_t t0 = impl::read_tscp_low();
@@ -22656,7 +22656,7 @@ namespace ia32
 		{
             serialize();
             uint32_t t0 = impl::read_tscp_low();
-			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
+			std::pair<R, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
             uint32_t t1 = impl::read_tscp_low();
             serialize();
 			result.second = t1 - t0;
