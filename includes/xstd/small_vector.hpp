@@ -244,6 +244,6 @@ namespace xstd
 				return false;
 			return std::equal( std::begin( c ), std::end( c ), begin() );
 		}
-		template<Iterable C> inline bool operator!=( const C& c ) const { return !operator==( C ); }
+		template<Iterable C> inline bool operator!=( const C& c ) const { return !operator==( c ); }
 	};
 };
