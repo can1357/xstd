@@ -6,16 +6,23 @@
 #include <typeinfo>
 #include <atomic>
 
-#ifdef __has_include
-    #if __has_include(<xstd/options.hpp>)
-        #include <xstd/options.hpp>
-    #elif __has_include("xstd_options.hpp")
-        #include "xstd_options.hpp"
-    #endif
+#ifndef __has_builtin
+	#define __has_builtin(...) 0
+#endif
+#ifndef __has_attribute
+	#define __has_attribute(...) 0
+#endif
+#ifndef __has_cpp_attribute
+	#define __has_cpp_attribute(...) 0
+#endif
+#ifndef __has_include
+	#define __has_include(...) 0
 #endif
 
-#ifndef __has_builtin
-	#define __has_builtin(x) 0
+#if __has_include(<xstd/options.hpp>)
+    #include <xstd/options.hpp>
+#elif __has_include("xstd_options.hpp")
+    #include "xstd_options.hpp"
 #endif
 
 // [Configuration]

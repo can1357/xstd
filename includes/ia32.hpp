@@ -22240,17 +22240,17 @@ namespace ia32
         template<size_t U, typename T>
         _LINKAGE inline void unroll_for( const T& fn, xstd::any_ptr ptr, size_t count, size_t granularity )
         {
-            count = xstd::align_up( count, granularity );
-            while ( count >= ( U * granularity ) )
+            ptrdiff_t ustep = ( ptrdiff_t ) ( U * granularity );
+            ptrdiff_t n = ( ptrdiff_t ) count;
+            for ( ; n >= ustep; n -= ustep )
             {
                 #pragma unroll
-                for ( size_t n = 0; n != U; n++, ptr += granularity )
+                for ( size_t i = 0; i != U; i++, ptr += granularity )
                     fn( ptr );
-                count -= U * granularity;
             }
 
-            for ( auto it = ptr; it != ( ptr + count ); it += granularity )
-                fn( it );
+            for ( ; n >= 0; n -= granularity, ptr += granularity )
+                fn( ptr );
         }
     }
 
