@@ -748,11 +748,11 @@ namespace xstd
 	namespace impl
 	{
 		template<auto V>
-		static constexpr auto integral_compress()
+		static constexpr auto integral_shrink()
 		{
 			if constexpr ( V < 0 )
 			{
-				using T = decltype( integral_compressu<-V>() );
+				using T = decltype( integral_shrink<-V>() );
 				return ( std::make_signed_t<T> ) V;
 			}
 			else if constexpr ( V <= UINT8_MAX )
@@ -766,7 +766,7 @@ namespace xstd
 		}
 	};
 	template<auto V>
-	using integral_compress_t = decltype( impl::integral_compress<V>() );
+	using integral_shrink_t = decltype( impl::integral_shrink<V>() );
 
 	// Flattens the lambda function to a function pointer, a pointer sized argument and a manual destroyer in case it is needed.
 	//

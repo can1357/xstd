@@ -22217,6 +22217,10 @@ namespace ia32
     _LINKAGE void clflush( xstd::any_ptr ptr ) { asm volatile( "clflush %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
     _LINKAGE void cldemote( xstd::any_ptr ptr ) { asm volatile( "cldemote %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
     _LINKAGE void clflushopt( xstd::any_ptr ptr ) { asm volatile( "clflushopt %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void prefetch0( xstd::any_ptr ptr ) { asm volatile( "prefetch0 %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void prefetch1( xstd::any_ptr ptr ) { asm volatile( "prefetch1 %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void prefetch2( xstd::any_ptr ptr ) { asm volatile( "prefetch2 %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
+    _LINKAGE void prefetchnt( xstd::any_ptr ptr ) { asm volatile( "prefetchnt %0":: "m" ( *(char*)ptr.address ) : "memory" ); }
 
     _LINKAGE void clflushopt_s( xstd::any_ptr ptr )
     {

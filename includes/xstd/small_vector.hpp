@@ -23,7 +23,7 @@ namespace xstd
 		using value_type =             T;
 		using reverse_iterator =       std::reverse_iterator<iterator>;
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-		using size_type =              integral_compress_t<N>;
+		using size_type =              integral_shrink_t<N>;
 		using difference_type =        std::make_signed_t<size_type>;
 
 		// Raw space.
