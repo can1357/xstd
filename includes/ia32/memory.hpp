@@ -253,6 +253,8 @@ namespace ia32::mem
 	//
 	FORCE_INLINE inline bool is_address_valid( xstd::any_ptr ptr )
 	{
+		if ( !is_cannonical( ptr ) ) [[unlikely]]
+			return false;
 		auto [pte, _] = lookup_pte( ptr );
 		return pte->present;
 	}
