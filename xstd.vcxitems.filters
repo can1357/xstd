@@ -245,7 +245,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\asn1.hpp">
       <Filter>Types</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\circular_buffer.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
@@ -254,6 +253,9 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp">
       <Filter>Algorithms</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp">
+      <Filter>I/O</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
