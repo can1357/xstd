@@ -5,7 +5,7 @@
 #include <thread>
 
 // [Configuration]
-// XSTD_CHORE_SCHEDULER: If set, chore will pass OS two callbacks to help with the scheduling.
+// XSTD_CHORE_SCHEDULER: If set, chore will pass OS a callback to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER
 	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( void( __cdecl* callback )( void* ), void* cb_arg, int64_t priority, int64_t due_time );
