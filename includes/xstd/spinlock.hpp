@@ -27,7 +27,7 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			bit_reset( value, N );
+			dassert_s( bit_reset( value, N ) );
 		}
 		FORCE_INLINE bool locked() const
 		{
