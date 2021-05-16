@@ -3,6 +3,7 @@
 #include <optional>
 #include <stdint.h>
 #include <array>
+#include <span>
 #include <tuple>
 #include <string>
 #include <atomic>
@@ -130,6 +131,9 @@ namespace xstd
 		template<typename T, typename = void> struct is_std_array { static constexpr bool value = false; };
 		template<typename T, size_t N> struct is_std_array<std::array<T, N>, void> { static constexpr bool value = true; };
 
+		template<typename T, typename = void> struct is_std_span { static constexpr bool value = false; };
+		template<typename T, size_t N> struct is_std_span<std::span<T, N>, void> { static constexpr bool value = true; };
+
 		template<typename T, typename = void> struct is_small_vector { static constexpr bool value = false; };
 		template<typename T, size_t N> struct is_small_vector<small_vector<T, N>, void> { static constexpr bool value = true; };
 	};
@@ -137,6 +141,8 @@ namespace xstd
 	static constexpr bool is_specialization_v = impl::is_specialization_v<Tmp, std::remove_cvref_t<T>>;
 	template <typename T>
 	static constexpr bool is_std_array_v = impl::is_std_array<std::remove_cvref_t<T>>::value;
+	template <typename T>
+	static constexpr bool is_std_span_v = impl::is_std_span<std::remove_cvref_t<T>>::value;
 	template <typename T>
 	static constexpr bool is_small_vector_v = impl::is_small_vector<std::remove_cvref_t<T>>::value;
 
@@ -146,6 +152,7 @@ namespace xstd
 	static constexpr bool is_contiguous_iterable_v = 
 	(
 		is_std_array_v<T> ||
+		is_std_span_v<T> ||
 		is_small_vector_v<T> ||
 		is_specialization_v<std::vector, T> ||
 		is_specialization_v<std::basic_string, T> ||
@@ -178,6 +185,8 @@ namespace xstd
 	concept Enum = std::is_enum_v<T>;
 	template<typename T>
 	concept Tuple = is_specialization_v<std::tuple, T> || is_specialization_v<std::pair, T>;
+	template<typename T>
+	concept Span = is_std_span_v<T>;
 	template<typename T>
 	concept Pointer = std::is_pointer_v<T>;
 	template<typename T>
