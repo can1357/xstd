@@ -16,6 +16,9 @@
 // [Configuration]
 // XSTD_RANDOM_FIXED_SEED: If set, uses it as a fixed seed for the random number generator
 //
+#if DEBUG_BUILD
+	#define XSTD_RANDOM_FIXED_SEED 0x87c417a5e80d9c5f
+#endif
 //-- #undef XSTD_RANDOM_FIXED_SEED
 
 
@@ -34,8 +37,6 @@ namespace xstd
 			uint64_t value = 0xa0d82d3adc00b109;
 			for ( char c : __DATE__ )
 				value = ( value ^ c ) * 0x100000001B3;
-			value = ( value ^ ( __TIME__[ 0 ] ) ) * 0x100000001B3;
-			value = ( value ^ ( __TIME__[ 1 ] ) ) * 0x100000001B3;
 			return value;
 		} )();
 
