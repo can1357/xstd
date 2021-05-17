@@ -76,7 +76,7 @@ namespace xstd
             // Determine the length.
             //
             bitcnt_t n = 7 - msb( ( uint8_t ) ~c );
-            if ( in.size() < ( n - 1 ) )
+            if ( in.size() < uint32_t( n - 1 ) )
                 return 0;
 
             // Read the initial byte.

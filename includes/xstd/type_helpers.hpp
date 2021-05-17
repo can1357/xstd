@@ -647,7 +647,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename Ti, template<typename...> typename Tr, typename T, Ti... I>
-		FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f, std::integer_sequence<Ti, I...> seq )
+		FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
 		{
 			if constexpr ( std::is_void_v<decltype( f( const_tag<( Ti ) 0>{} ) ) > )
 			{
@@ -679,7 +679,7 @@ namespace xstd
 			}
 		}
 		template<typename Ti, typename T, Ti... I>
-		FLATTEN __forceinline static constexpr auto make_constant_series( T&& f, std::integer_sequence<Ti, I...> seq )
+		FLATTEN __forceinline static constexpr auto make_constant_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
 		{
 			using R = decltype( f( const_tag<( Ti ) 0>{} ) );
 
