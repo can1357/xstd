@@ -155,7 +155,7 @@ namespace xstd::fmt
 	concept StringConvertible = requires( std::string res, T v ) { res = as_string( v ); };
 
 	template<typename T>
-	__forceinline static auto as_string( const T& x )
+	NO_INLINE static auto as_string( const T& x )
 	{
 		using base_type = std::decay_t<T>;
 
@@ -455,7 +455,7 @@ namespace xstd::fmt
 	// Returns a formatted string.
 	//
 	template<typename C, typename F, typename... Tx>
-	static std::basic_string<C> vstr( F&& provider, const C* fmt_str, Tx&&... ps )
+	__forceinline static std::basic_string<C> vstr( F&& provider, const C* fmt_str, Tx&&... ps )
 	{
 		if constexpr ( sizeof...( Tx ) > 0 )
 		{
@@ -477,12 +477,12 @@ namespace xstd::fmt
 		}
 	}
 	template<typename... Tx>
-	__forceinline static std::string str( const char* fmt_str, Tx&&... ps ) 
+	__forceinline static std::string str( const char* fmt_str, Tx&&... ps )
 	{ 
 		return vstr<char>( [ ] <typename... T> ( char* o, size_t n, const char* f, T... args ) { return snprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
 	}
 	template<typename... Tx>
-	__forceinline static std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps ) 
+	__forceinline static std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps )
 	{ 
 		return vstr<wchar_t>( [] <typename... T> ( wchar_t* o, size_t n, const wchar_t* f, T... args ) { return swprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
 	}

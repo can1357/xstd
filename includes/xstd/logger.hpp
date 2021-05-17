@@ -364,7 +364,7 @@ namespace xstd
 	// Prints a warning message.
 	//
 	template<typename... Tx>
-	FORCE_INLINE static void warning( const char* fmt_str, Tx&&... ps )
+	COLD NO_INLINE static void warning( const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_WARNINGS
 		// Forward to f-log with a prefix and a color.
@@ -379,7 +379,7 @@ namespace xstd
 	// Prints an error message and breaks the execution.
 	//
 	template<typename... Tx>
-	NO_INLINE static void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
+	COLD NO_INLINE static void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
 	{
 		// If there is an active hook, call into it, else add formatting and print.
 		//

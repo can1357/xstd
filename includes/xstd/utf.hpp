@@ -66,11 +66,6 @@ namespace xstd
         }
         inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
         {
-            // Erroneous cases return 0. 
-            //
-            if ( in.empty() )
-                return 0;
-            
             // Handle single character case.
             //
             char c = in.front();
@@ -80,14 +75,14 @@ namespace xstd
             
             // Determine the length.
             //
-            size_t n = 7 - msb( ( uint8_t ) ~c );
+            bitcnt_t n = 7 - msb( ( uint8_t ) ~c );
             if ( in.size() < ( n - 1 ) )
                 return 0;
 
             // Read the initial byte.
             //
-            size_t i = 8 - ( n + 1 );
-            uint32_t cp = uint8_t( c ) & fill_bits( i );
+            bitcnt_t i = 8 - ( n + 1 );
+            uint32_t cp = uint8_t( c ) & uint8_t( fill_bits( i ) );
 
             // Read the extended bytes.
             //
@@ -133,11 +128,6 @@ namespace xstd
         }
         inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
         {
-            // Erroneous cases return 0. 
-            //
-            if ( in.empty() )
-                return 0;
-
             // Handle single character case.
             //
             uint16_t c = ( uint16_t ) in.front();
@@ -151,7 +141,7 @@ namespace xstd
                 return 0;
             uint16_t c2 = ( uint16_t ) in.front();
             in.remove_prefix( 1 );
-            if ( ( c >> 10 ) != 0x37 )
+            if ( ( c2 >> 10 ) != 0x37 )
                 return 0;
 
             uint32_t lo = c - 0xD800;
@@ -177,8 +167,6 @@ namespace xstd
         }
         inline static constexpr uint32_t decode( std::u32string_view& in )
         {
-            if ( in.empty() )
-                return 0;
             uint32_t c = ( uint32_t ) in.front();
             in.remove_prefix( 1 );
             return c;

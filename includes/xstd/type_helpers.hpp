@@ -647,20 +647,69 @@ namespace xstd
 	namespace impl
 	{
 		template<typename Ti, template<typename...> typename Tr, typename T, Ti... I>
-		FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f, std::integer_sequence<Ti, I...> )
+		FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f, std::integer_sequence<Ti, I...> seq )
 		{
-			if constexpr ( std::is_void_v<decltype( f( const_tag<(Ti)0>{} ) )> )
-				( ( f( const_tag<I>{} ) ), ... );
+			if constexpr ( std::is_void_v<decltype( f( const_tag<( Ti ) 0>{} ) ) > )
+			{
+				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
+				{
+					f( tag );
+					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
+						self( const_tag<X + 1>{}, self );
+				};
+				eval( const_tag<Ti( 0 )>{}, eval );
+			}
 			else
+			{
+#if MS_COMPILER
+				// Needs to be default initializable on MSVC, fuck this.
+				auto tup = [ & ] <Ti X> ( const_tag<X> ) { return f( const_tag<X>{} ); };
+				Tr<decltype( tup( const_tag<I>{} ) )...> arr = {};
+				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
+				{
+					std::get<X>( arr ) = f( tag );
+					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
+						self( const_tag<X + 1>{}, self );
+				};
+				assign( const_tag<Ti( 0 )>{}, assign );
+				return arr;
+#else
 				return Tr{ f( const_tag<I>{} )... };
+#endif
+			}
 		}
 		template<typename Ti, typename T, Ti... I>
-		FLATTEN __forceinline static constexpr auto make_constant_series( T&& f, std::integer_sequence<Ti, I...> )
+		FLATTEN __forceinline static constexpr auto make_constant_series( T&& f, std::integer_sequence<Ti, I...> seq )
 		{
-			if constexpr ( std::is_void_v<decltype( f( const_tag<(Ti)0>{} ) )> )
-				( ( f( const_tag<I>{} ) ), ... );
+			using R = decltype( f( const_tag<( Ti ) 0>{} ) );
+
+			if constexpr ( std::is_void_v<R> )
+			{
+				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self )
+				{
+					f( tag );
+					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
+						self( const_tag<X + 1>{}, self );
+				};
+				eval( const_tag<Ti( 0 )>{}, eval );
+			}
 			else
+			{
+#if MS_COMPILER
+				// Needs to be default initializable on MSVC, fuck this.
+				std::array<R, sizeof...( I )> arr = {};
+				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
+				{
+					std::get<X>( arr ) = f( tag );
+					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
+						self( const_tag<X + 1>{}, self );
+				};
+				assign( const_tag<Ti( 0 )>{}, assign );
+				return arr;
+#else
 				return std::array{ f( const_tag<I>{} )... };
+#endif
+			}
 		}
 	};
 	template<auto N, template<typename...> typename Tr = std::tuple, typename T>

@@ -68,7 +68,7 @@ namespace xstd::fmt
 		// Allocate storage and reserve an approximate size.
 		//
 		std::string result = {};
-		result.reserve( length * ( 2 + bool( cfg.delimiter != 0 ) + bool( cfg.ascii ) ) );
+		result.reserve( length * ( 2ull + ( cfg.delimiter != 0 ) + ( cfg.ascii ) ) );
 		
 		// Print row by low:
 		//
