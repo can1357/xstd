@@ -21542,6 +21542,10 @@ typedef union
 
 // Some missing enumerations.
 //
+// Po
+#define IA32_PKG_ENERGY_STATUS          0x611
+#define IA32_MSR_DRAM_ENERGY_STATUS     0x619
+#define IA32_PPERF                      0x64E
 // SMI
 #define IA32_MSR_SMI_COUNT              0x00000034
 // AMD profiling extensions.
@@ -21806,13 +21810,13 @@ namespace ia32
     _LINKAGE ia32::cr0 smsw()
     {
         uint64_t value;
-        asm volatile( "smsw %0" : "=r,m" ( value ) );
+        asm volatile( "smsw %0" : "=r" ( value ) );
         return { .flags = value };
     }
     _LINKAGE void lmsw( ia32::cr0 value )
     {
         uint16_t partial_value = ( uint16_t ) ( value.flags & 0b1111 );
-        asm volatile( "lmsw %0" :: "r,m" ( partial_value ) );
+        asm volatile( "lmsw %0" :: "r" ( partial_value ) );
     }
 
     // CPUID:
@@ -22525,14 +22529,26 @@ namespace ia32
     }
     _LINKAGE void spin()
     {
-        __asm
+        if constexpr ( is_kernel_mode() )
         {
-            pushfq
-            cli
-            xor eax, eax
+            __asm
+            {
+                pushfq
+                cli
         	x:
-        	jz x
-            popfq
+                xor eax, eax
+        	    jz x
+                popfq
+            }
+        }
+        else
+        {
+            __asm
+            {
+            x:
+                xor eax, eax
+        	    jz x
+            }
         }
     }
 

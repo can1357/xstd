@@ -281,9 +281,9 @@ namespace ia32::smbios
 	// Parser for the string sets following entries.
 	// - Returns nullopt on failure.
 	//
-	inline static std::optional<xstd::small_vector<std::string_view, 8>> parse_strings( std::string_view& range )
+	inline static std::optional<xstd::small_vector<std::string_view, 16>> parse_strings( std::string_view& range )
 	{
-		xstd::small_vector<std::string_view, 8> result = {};
+		xstd::small_vector<std::string_view, 16> result = {};
 		while ( !range.empty() )
 		{
 			// Find the next terminator, if no match invalid.
@@ -311,7 +311,7 @@ namespace ia32::smbios
 			// Overflow.
 			//
 			if ( result.capacity() == result.size() )
-				return std::nullopt;
+				return result;
 
 			// Add to the result list and skip.
 			//
@@ -427,7 +427,7 @@ namespace ia32::smbios
 
 	// Given the SMBIOS data range, returns the parsed table.
 	//
-	inline static xstd::string_result<table> parse( std::string_view range )
+	inline static xstd::string_result<table> parse( std::string_view range, bool lenient = true )
 	{
 		table result = {};
 		while ( !range.empty() )
@@ -456,7 +456,7 @@ namespace ia32::smbios
 			tbl_entry.data = { range.data() + sizeof( entry_header ), range.data() + hdr->length };
 			range.remove_prefix( hdr->length );
 			auto strings = parse_strings( range );
-			if ( !strings )
+			if ( !strings && !lenient )
 				return std::string{ XSTD_ESTR( "Failed parsing SMBIOS entry strings." ) };
 			tbl_entry.strings = std::move( strings ).value();
 		}
