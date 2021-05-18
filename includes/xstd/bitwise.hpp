@@ -205,7 +205,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btsq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
+					asm volatile( "btsq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
 					return _bittestandset64( ( long long* ) &value, n );
@@ -215,7 +215,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btsl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
+					asm volatile( "btsl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
 					return _bittestandset( ( long* ) &value, n );
@@ -225,7 +225,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btsw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
+					asm volatile( "btsw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 					return out;
 #endif
 				}
@@ -294,7 +294,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btrq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
+					asm volatile( "btrq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
 					return _bittestandreset64( ( long long* ) &value, n );
@@ -304,7 +304,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btrl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
+					asm volatile( "btrl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
 					return _bittestandreset( ( long* ) &value, n );
@@ -314,7 +314,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btrw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
+					asm volatile( "btrw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 					return out;
 #endif
 				}
@@ -379,7 +379,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btcq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
+					asm volatile( "btcq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
 					return _bittestandcomplement64( ( long long* ) &value, n );
@@ -389,7 +389,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btcl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
+					asm volatile( "btcl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
 					return _bittestandcomplement( ( long* ) &value, n );
@@ -399,7 +399,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm( "btcw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
+					asm volatile( "btcw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 					return out;
 #endif
 				}
@@ -425,42 +425,25 @@ namespace xstd
 		{
 			// If shift is constant and can be encoded as imm32/imm16/imm8, TEST will be faster.
 			//
-#if GNU_COMPILER
 			if ( __is_consteval( n ) && n <= 31 )
 			{
+				uint32_t flag = 1ul << n;
 				if constexpr ( sizeof( T ) == 8 )
-				{
-					int out;
-					asm( "testq %2, %1" : "=@ccz" ( out ) : "m" ( *( uint64_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
-					return !out;
-				}
+					return ( *( volatile uint64_t* ) &value ) & flag;
 				else if constexpr ( sizeof( T ) == 4 )
-				{
-					int out;
-					asm( "testl %2, %1" : "=@ccz" ( out ) : "m" ( *( uint32_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
-					return !out;
-				}
+					return ( *( volatile uint32_t* ) &value ) & flag;
 				else if constexpr ( sizeof( T ) == 2 )
-				{
-					int out;
-					asm( "testw %2, %1" : "=@ccz" ( out ) : "m" ( *( uint16_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
-					return !out;
-				}
+					return ( *( volatile uint16_t* ) &value ) & flag;
 				else if constexpr ( sizeof( T ) == 1 )
-				{
-					int out;
-					asm( "testb %2, %1" : "=@ccz" ( out ) : "m" ( *( uint8_t* ) &value ), "i" ( int32_t( 1 << n ) ) );
-					return !out;
-				}
+					return ( *( volatile uint8_t* ) &value ) & flag;
 			}
-#endif
 
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
 			{
 #if GNU_COMPILER
 				int out;
-				asm( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
+				asm volatile( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
 				return _bittest64( ( long long* ) &value, n );
@@ -470,7 +453,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
+				asm volatile( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
 				return out;
 #elif HAS_MS_EXTENSIONS
 				return _bittest( ( long* ) &value, n );
@@ -480,7 +463,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
+				asm volatile( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
 				return out;
 #endif
 			}

@@ -21,7 +21,7 @@ namespace xstd
 		{
 			while ( bit_set( value, N ) ) [[unlikely]]
 			{
-				if ( bit_test( value, N ) ) [[likely]]
+				while ( bit_test( value, N ) ) [[likely]]
 					yield_cpu();
 			}
 		}

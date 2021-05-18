@@ -1485,7 +1485,8 @@ typedef struct
 #define CPUID_FEATURE_INFORMATION_ECX_RDRAND_INSTRUCTION_FLAG        0x40000000
 #define CPUID_FEATURE_INFORMATION_ECX_RDRAND_INSTRUCTION_MASK        0x01
 #define CPUID_FEATURE_INFORMATION_ECX_RDRAND_INSTRUCTION(_)          (((_) >> 30) & 0x01)
-      uint32_t reserved2                                             : 1;
+      
+      uint32_t hypervisor_present                                    : 1;
     };
 
     uint32_t flags;
@@ -21933,7 +21934,7 @@ namespace ia32
     _LINKAGE xstd::any_ptr read_gsbase()
     {
         uint64_t value;
-        asm( "rdgsbase %0" : "=r" ( value ) :: );
+        asm volatile( "rdgsbase %0" : "=r" ( value ) :: );
         return value;
     }
     _LINKAGE void write_gsbase( xstd::any_ptr value )
@@ -21943,7 +21944,7 @@ namespace ia32
     _LINKAGE xstd::any_ptr read_fsbase()
     {
         uint64_t value;
-        asm( "rdfsbase %0" : "=r" ( value ) :: );
+        asm volatile( "rdfsbase %0" : "=r" ( value ) :: );
         return value;
     }
     _LINKAGE void write_fsbase( xstd::any_ptr value )
