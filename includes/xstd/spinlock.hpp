@@ -30,12 +30,9 @@ namespace xstd
 		{
 			while ( !try_lock() ) [[unlikely]]
 			{
-				while( true )
-				{
+				do
 					yield_cpu();
-					if ( !locked() ) [[unlikely]]
-						break;
-				}
+				while ( locked() );
 			}
 		}
 	};
@@ -95,7 +92,7 @@ namespace xstd
 
 			while ( true )
 			{
-				while ( expected != 0 ) [[unlikely]]
+				while ( expected != 0 )
 				{
 					yield_cpu();
 					expected = value.load( std::memory_order::relaxed );
@@ -143,16 +140,30 @@ namespace xstd
 			}
 			return false;
 		}
+		FORCE_INLINE void downgrade()
+		{
+			counter = 1;
+		}
+		FORCE_INLINE void unlock()
+		{
+			dassert( counter == UINT16_MAX );
+			counter.store( 0, std::memory_order::release );
+		}
+		FORCE_INLINE void unlock_shared()
+		{
+			--counter;
+		}
+		FORCE_INLINE bool locked() const
+		{
+			return counter.load( std::memory_order::relaxed ) != 0;
+		}
 		FORCE_INLINE void lock()
 		{
 			while ( !try_lock() ) [[unlikely]]
 			{
-				while ( true )
-				{
+				do
 					yield_cpu();
-					if ( counter == 0 ) [[unlikely]]
-						break;
-				}
+				while ( locked() );
 			}
 		}
 		FORCE_INLINE void lock_shared()
@@ -188,23 +199,6 @@ namespace xstd
 				unlock_shared();
 				lock();
 			}
-		}
-		FORCE_INLINE void downgrade()
-		{
-			counter = 1;
-		}
-		FORCE_INLINE void unlock()
-		{
-			dassert( counter == UINT16_MAX );
-			counter.store( 0, std::memory_order::release );
-		}
-		FORCE_INLINE void unlock_shared()
-		{
-			--counter;
-		}
-		FORCE_INLINE bool locked() const
-		{
-			return counter.load() != 0;
 		}
 	};
 };
