@@ -17,27 +17,32 @@ namespace xstd
 		{
 			return bit_set( value, N ) == 0;
 		}
-		FORCE_INLINE void lock()
-		{
-			while ( bit_set( value, N ) ) [[unlikely]]
-			{
-				while ( bit_test( value, N ) ) [[likely]]
-					yield_cpu();
-			}
-		}
 		FORCE_INLINE void unlock()
 		{
-			dassert_s( bit_reset( value, N ) );
+			dassert( value );
+			value.store( 0, std::memory_order::release );
 		}
 		FORCE_INLINE bool locked() const
 		{
 			return bit_test( value, N );
 		}
+		FORCE_INLINE void lock()
+		{
+			while ( !try_lock() ) [[unlikely]]
+			{
+				while( true )
+				{
+					yield_cpu();
+					if ( !locked() ) [[unlikely]]
+						break;
+				}
+			}
+		}
 	};
 	using spinlock = basic_spinlock<uint16_t, 0>;
 
 	template<DefaultConstructable CidGetter>
-	struct alignas( 8 ) basic_recursive_spinlock
+	struct basic_recursive_spinlock
 	{
 		FORCE_INLINE static uint32_t get_cid() { return 1 + bit_cast<uint32_t>( CidGetter{}() ); }
 		FORCE_INLINE static uint64_t combine( uint32_t owner, uint32_t depth ) { return owner | ( uint64_t( depth ) << 32 ); }
@@ -68,12 +73,12 @@ namespace xstd
 				{
 					if ( owner != cid )
 						return false;
-					value.store( combine( cid, depth + 1 ) );
+					value.store( combine( cid, depth + 1 ), std::memory_order::relaxed );
 					return true;
 				}
 
 				expected = 0;
-				if ( value.compare_exchange_strong( expected, combine( cid, 1 ) ) )
+				if ( value.compare_exchange_strong( expected, combine( cid, 1 ), std::memory_order::acquire ) )
 					return true;
 			}
 		}
@@ -93,9 +98,9 @@ namespace xstd
 				while ( expected != 0 ) [[unlikely]]
 				{
 					yield_cpu();
-					expected = value.load();
+					expected = value.load( std::memory_order::relaxed );
 				}
-				if ( value.compare_exchange_strong( expected, combine( cid, 1 ) ) )
+				if ( value.compare_exchange_strong( expected, combine( cid, 1 ), std::memory_order::acquire ) )
 					return;
 			}
 		}
@@ -104,7 +109,7 @@ namespace xstd
 			auto [owner, depth] = split( value.load() );
 			dassert( depth && owner == get_cid() );
 			--depth;
-			value.store( combine( depth ? owner : 0, depth ) );
+			value.store( combine( depth ? owner : 0, depth ), std::memory_order::release );
 		}
 		FORCE_INLINE bool locked() const
 		{
@@ -142,8 +147,12 @@ namespace xstd
 		{
 			while ( !try_lock() ) [[unlikely]]
 			{
-				while ( counter != 0 ) [[likely]]
+				while ( true )
+				{
 					yield_cpu();
+					if ( counter == 0 ) [[unlikely]]
+						break;
+				}
 			}
 		}
 		FORCE_INLINE void lock_shared()
@@ -186,7 +195,8 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			counter.fetch_and( 0 );
+			dassert( counter == UINT16_MAX );
+			counter.store( 0, std::memory_order::release );
 		}
 		FORCE_INLINE void unlock_shared()
 		{
