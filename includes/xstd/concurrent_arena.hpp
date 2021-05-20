@@ -84,7 +84,7 @@ namespace xstd
 				// Swap out the buffer, set limit to zero.
 				//
 				T* pspace = std::exchange( space, nullptr );
-				counter.fetch_and( 0 );
+				counter.store( 0, std::memory_order::relaxed );
 				limit = 0;
 				
 				// Unlock, destroy all instances and free the leftover buffer.
@@ -115,7 +115,7 @@ namespace xstd
 		{
 			std::unique_lock u{ lock, std::defer_lock_t{} };
 			if ( !holds_lock ) u.lock();
-			counter.fetch_and( 0 );
+			counter.store( 0, std::memory_order::relaxed );
 		}
 
 		// Shrinks the buffer to match the size of available elements.

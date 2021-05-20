@@ -175,7 +175,7 @@ namespace xstd
 				std::uninitialized_default_construct( end(), begin() + n );
 			else
 				std::destroy_n( begin() + n, length - n );
-			length = n;
+			length = ( size_type ) n;
 		}
 		inline void resize( size_t n, const T& value )
 		{
@@ -183,7 +183,7 @@ namespace xstd
 				std::uninitialized_fill_n( begin() + length, n - length, value );
 			else
 				std::destroy_n( begin() + n, length - n );
-			length = n;
+			length = ( size_type ) n;
 		}
 
 		// Clear the vector at destruction.
