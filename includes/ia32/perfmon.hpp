@@ -34,6 +34,9 @@ namespace ia32::pmu
 		hw_interrupt_receive,
 		hw_interrupt_masked,
 		hw_interrupt_pending_masked,
+		avx_to_sse,
+		sse_to_avx,
+		recovery_stall,
 
 		// AMD only.
 		//
@@ -89,6 +92,11 @@ namespace ia32::pmu
 	template<> struct dynamic_selector<true, event_id::hw_interrupt_receive> { static constexpr evtsel_t value = { 0xCB, 0x01 }; };
 	template<> struct dynamic_selector<true, event_id::hw_interrupt_masked> { static constexpr evtsel_t value = { 0xCB, 0x02 }; };
 	template<> struct dynamic_selector<true, event_id::hw_interrupt_pending_masked> { static constexpr evtsel_t value = { 0xCB, 0x04 }; };
+	template<> struct dynamic_selector<true, event_id::avx_to_sse> { static constexpr evtsel_t value = { 0xC1, 0x10 }; };
+	template<> struct dynamic_selector<true, event_id::sse_to_avx> { static constexpr evtsel_t value = { 0xC1, 0x20 }; };
+	template<> struct dynamic_selector<true, event_id::recovery_stall> { static constexpr evtsel_t value = { 0x0D, 0x20, 1 }; };
+
+
 	// -- AMD exclusive events.
 	template<> struct dynamic_selector<false, event_id::smi_received> { static constexpr evtsel_t value = { 0x2B, 0x00 }; };
 

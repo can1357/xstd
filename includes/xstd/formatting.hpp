@@ -45,7 +45,8 @@ namespace xstd::fmt
 		template<typename T>
 		concept ValidFormatStringArgument = 
 			std::is_fundamental_v<std::remove_cvref_t<T>> || std::is_enum_v<std::remove_cvref_t<T>>  ||
-			std::is_pointer_v<std::remove_cvref_t<T>>     || std::is_array_v<std::remove_cvref_t<T>> || CppString<std::remove_cvref_t<T>>;
+			std::is_pointer_v<std::remove_cvref_t<T>>     || std::is_array_v<std::remove_cvref_t<T>> || 
+			std::is_same_v<std::string, std::remove_cvref_t<T>>;
 
 		template<typename... Tx> struct conv_count { static constexpr size_t value = ( ( ValidFormatStringArgument<Tx> ? 0 : 1 ) + ... ); };
 		template<> struct conv_count<> { static constexpr size_t value = 0; };
