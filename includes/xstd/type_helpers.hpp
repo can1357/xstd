@@ -206,6 +206,8 @@ namespace xstd
 	template<typename T>
 	concept Final = std::is_final_v<T>;
 	template<typename T>
+	concept Empty = std::is_empty_v<T>;
+	template<typename T>
 	concept Variant = is_specialization_v<std::variant, T>;
 	template<typename T>
 	concept Dereferencable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator*(); };
@@ -213,7 +215,7 @@ namespace xstd
 	concept MemberPointable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator->(); };
 	template<typename T>
 	concept PointerLike = MemberPointable<T> && Dereferencable<T>;
-
+	
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
 	template<typename T>
@@ -971,6 +973,36 @@ namespace xstd
 	{
 		return fn( std::forward<Tx>( args )... );
 	}
+
+	// Creates a deleter from a given allocator type.
+	//
+	namespace impl
+	{
+		template<typename A>
+		struct allocator_delete : A
+		{
+			using type = allocator_delete<A>;
+			using A::A;
+			template<typename Tv>
+			void operator()( Tv* p ) const noexcept { A::deallocate( p ); }
+		};
+		template<Empty A>
+		struct allocator_delete<A>
+		{
+			using type = allocator_delete<A>;
+			template<typename Tv>
+			void operator()( Tv* p ) const noexcept { A{}.deallocate( p ); }
+		};
+		template<typename T>
+		struct allocator_delete<std::allocator<T>>
+		{
+			using type = std::default_delete<T>;
+			template<typename Tv>
+			void operator()( Tv* p ) const noexcept { std::default_delete<T>{}( p ); }
+		};
+	};
+	template<typename T>
+	using allocator_delete = typename impl::allocator_delete<T>::type;
 };
 
 // Expose literals.

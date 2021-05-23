@@ -257,6 +257,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hexdump.hpp">
       <Filter>I/O</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transmute.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
