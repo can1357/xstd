@@ -21790,19 +21790,19 @@ namespace ia32
    {                                                           \
       asm volatile( "mov %0, %%" #reg :: "r" ( f ) : s );      \
    }
-   _EXPOSE_REG( cr0, cr0,            value.flags,   ""       );
-   _EXPOSE_REG( cr2, xstd::any_ptr,  value.address, ""       );
+   _EXPOSE_REG( cr0, cr0,            value.flags,            );
+   _EXPOSE_REG( cr2, xstd::any_ptr,  value.address,          );
    _EXPOSE_REG( cr3, cr3,            value.flags,   "memory" );
    _EXPOSE_REG( cr4, cr4,            value.flags,   "memory" );
-   _EXPOSE_REG( cr8, uint64_t,       value,         ""       );
-   _EXPOSE_REG( dr0, xstd::any_ptr,  value.address, ""       );
-   _EXPOSE_REG( dr1, xstd::any_ptr,  value.address, ""       );
-   _EXPOSE_REG( dr2, xstd::any_ptr,  value.address, ""       );
-   _EXPOSE_REG( dr3, xstd::any_ptr,  value.address, ""       );
-   _EXPOSE_REG( dr4, dr6,            value.flags,   ""       );
-   _EXPOSE_REG( dr6, dr6,            value.flags,   ""       );
-   _EXPOSE_REG( dr5, dr7,            value.flags,   ""       );
-   _EXPOSE_REG( dr7, dr7,            value.flags,   ""       );
+   _EXPOSE_REG( cr8, uint64_t,       value,                  );
+   _EXPOSE_REG( dr0, xstd::any_ptr,  value.address,          );
+   _EXPOSE_REG( dr1, xstd::any_ptr,  value.address,          );
+   _EXPOSE_REG( dr2, xstd::any_ptr,  value.address,          );
+   _EXPOSE_REG( dr3, xstd::any_ptr,  value.address,          );
+   _EXPOSE_REG( dr4, dr6,            value.flags,            );
+   _EXPOSE_REG( dr6, dr6,            value.flags,            );
+   _EXPOSE_REG( dr5, dr7,            value.flags,            );
+   _EXPOSE_REG( dr7, dr7,            value.flags,            );
 #undef _EXPOSE_REG
 
     // Further Cr0 wrappers.

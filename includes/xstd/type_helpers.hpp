@@ -317,10 +317,10 @@ namespace xstd
 	template<typename T>
 	using iterator_ref_t = decltype( *std::declval<T>() );
 	template<typename T>
-	using iterator_val_t = typename std::remove_reference_t<iterator_ref_t<T>>;
+	using iterator_val_t = typename std::decay_t<iterator_ref_t<T>>;
 
 	template<typename V, typename T>
-	concept TypedIterator = Iterator<T> && Same<std::decay_t<iterator_val_t<T>>, std::decay_t<V>>;
+	concept TypedIterator = Iterator<T> && Same<iterator_val_t<T>, std::decay_t<V>>;
 	template<typename V, typename T>
 	concept ConvertibleIterator = Iterator<T> && Convertible<iterator_ref_t<T>, std::decay_t<V>>;
 
@@ -338,9 +338,13 @@ namespace xstd
 	template<typename T>
 	using iterator_t = decltype( std::begin( std::declval<T>() ) );
 	template<typename T>
-	using iterable_ref_t = decltype( *std::declval<iterator_t<T>>() );
+	using const_iterator_t = decltype( std::begin( std::declval<const T&>() ) );
 	template<typename T>
-	using iterable_val_t = typename std::remove_reference_t<iterable_ref_t<T>>;
+	using iterable_ref_t = iterator_ref_t<iterator_t<T>>;
+	template<typename T>
+	using iterable_const_ref_t = iterator_ref_t<const_iterator_t<T>>;
+	template<typename T>
+	using iterable_val_t = iterator_val_t<iterator_t<T>>;
 
 	template<typename T>
 	concept ReverseIterable = requires( T&& v ) { std::rbegin( v ); std::rend( v ); };
