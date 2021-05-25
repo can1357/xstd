@@ -81,6 +81,12 @@ namespace xstd
 		constexpr numeric_range& operator=( numeric_range&& ) noexcept = default;
 		constexpr numeric_range& operator=( const numeric_range& ) = default;
 
+		// Implement comparison.
+		//
+		constexpr bool operator<( const numeric_range& o ) const { return first < o.first || ( first == o.first && limit < o.limit ); }
+		constexpr bool operator==( const numeric_range& o ) const { return first == o.first && limit == o.limit; }
+		constexpr bool operator!=( const numeric_range& o ) const { return first != o.first || limit != o.limit; }
+
 		// Generic container helpers.
 		//
 		constexpr bool empty() const { return limit == first; }

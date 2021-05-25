@@ -2,6 +2,7 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <shared_mutex>
 #include "intrinsics.hpp"
 #include "bitwise.hpp"
 #include "assert.hpp"
