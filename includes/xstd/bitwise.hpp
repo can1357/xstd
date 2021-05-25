@@ -609,7 +609,7 @@ namespace xstd
 		//
 		if ( std::is_constant_evaluated() )
 		{
-			return value & ( ~0ull >> ( 64 - bcnt_src ) );
+			return value & fill_bits( bcnt_src );
 		}
 		else
 		{
@@ -623,28 +623,46 @@ namespace xstd
 
 	// Sign extends the given integer.
 	//
-	__forceinline static constexpr int64_t sign_extend( uint64_t value, bitcnt_t bcnt_src )
+	template<xstd::Integral I>
+	__forceinline static constexpr int64_t sign_extend( I _value, bitcnt_t bcnt_src )
 	{
 		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
 		//
 		if ( std::is_constant_evaluated() )
 		{
-			value &= ( ~0ull >> ( 64 - bcnt_src ) );
-			if ( bcnt_src != 1 && bcnt_src != 64 && ( value >> ( bcnt_src - 1 ) ) )
-				value |= ( ~0ull << bcnt_src );
-			return value;
+			uint64_t value = ( std::make_unsigned_t<I> ) _value;
+
+			// Handle edge cases.
+			//
+			if ( bcnt_src == 64 ) return ( int64_t ) value;
+			if ( bcnt_src <= 1 )  return value & 1;
+
+			// If signed:
+			//
+			if ( ( value >> ( bcnt_src - 1 ) ) & 1 )
+			{
+				// Negatve, mask, negate again.
+				//
+				value = ( ~value ) + 1;
+				value &= fill_bits( bcnt_src - 1 );
+				return -( int64_t ) value;
+			}
+			else
+			{
+				// Mask the value and return it.
+				//
+				value &= fill_bits( bcnt_src - 1 );
+				return ( int64_t ) value;
+			}
 		}
 		else
 		{
 			// Interprete as signed, shift left matching the MSB and shift right.
 			//
-			int64_t signed_value = ( int64_t ) value;
-			signed_value = signed_value << impl::rshiftcnt( bcnt_src );
-			signed_value = signed_value >> impl::rshiftcnt( bcnt_src );
-
-			// Check for the edge case at return to generate conditional move.
-			//
-			return bcnt_src == 1 ? signed_value & 1 : signed_value; // CMOV
+			int64_t value = ( int64_t ) ( std::make_unsigned_t<I> ) _value;
+			value <<= impl::rshiftcnt( bcnt_src );
+			value >>= impl::rshiftcnt( bcnt_src );
+			return value;
 		}
 	}
 };
