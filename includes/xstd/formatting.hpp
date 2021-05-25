@@ -228,6 +228,19 @@ namespace xstd::fmt
 			}
 			return impl::print_u64x( x, "0x" );
 		}
+		else if constexpr ( std::is_same_v<base_type, uint8_t> )
+		{
+			if constexpr ( std::is_signed_v<base_type> )
+			{
+				if ( x < 0 )
+					return impl::print_u64x( -x, "-0x" );
+			}
+			std::string buf( 4, '\x0' );
+			buf[ 0 ] = '0';
+			buf[ 1 ] = 'x';
+			print_hex_digit( &buf[ 2 ], x, true );
+			return buf;
+		}
 		else if constexpr ( std::is_same_v<base_type, bool> )
 		{
 			return x ? std::string{ "true" } : std::string{ "false" };
@@ -381,7 +394,7 @@ namespace xstd::fmt
 		}
 		else if constexpr ( Iterable<T> )
 		{
-			if constexpr ( StringConvertible<iterator_value_type_t<T>> )
+			if constexpr ( StringConvertible<iterable_val_t<T>> )
 			{
 				std::string items = {};
 				for ( auto&& entry : x )

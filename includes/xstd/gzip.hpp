@@ -52,7 +52,7 @@ namespace xstd::gzip
 	template<Iterable T> requires ( is_contiguous_iterable_v<T> && !Pointer<T> )
 	inline static string_result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
 	{
-		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterator_value_type_t<T> ), level, strategy );
+		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level, strategy );
 	}
 
 	// Decompression wrapper.
@@ -91,6 +91,6 @@ namespace xstd::gzip
 	template<Iterable T>
 	inline static string_result<std::vector<uint8_t>> decompress( T&& cont )
 	{
-		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterator_value_type_t<T> ) );
+		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 	}
 };

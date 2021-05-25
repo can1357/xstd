@@ -104,7 +104,7 @@ namespace xstd::file
 		return default_result{};
 	}
 
-	template<Iterable C = std::initializer_list<uint8_t>> requires ( Trivial<iterator_value_type_t<C>> )
+	template<Iterable C = std::initializer_list<uint8_t>> requires ( Trivial<iterable_val_t<C>> )
 	static inline io_result<> write_raw( const std::filesystem::path& path, C&& container )
 	{
 		// Try to open file as binary for write.
@@ -118,11 +118,11 @@ namespace xstd::file
 		if constexpr ( !is_contiguous_iterable_v<C> )
 		{
 			for ( auto& e : container )
-				file.write( ( char* ) e, sizeof( iterator_value_type_t<C> ) );
+				file.write( ( char* ) e, sizeof( iterable_val_t<C> ) );
 		}
 		else
 		{
-			file.write( ( char* ) &*std::begin( container ), std::size( container ) * sizeof( iterator_value_type_t<C> ) );
+			file.write( ( char* ) &*std::begin( container ), std::size( container ) * sizeof( iterable_val_t<C> ) );
 		}
 		return default_result{};
 	}
@@ -157,10 +157,10 @@ namespace xstd::file
 		return { std::basic_string<C>( std::istreambuf_iterator<C>( file ), std::istreambuf_iterator<C>() ) };
 	}
 
-	template<Iterable C = std::initializer_list<std::string_view>> requires( String<iterator_value_type_t<C>> )
+	template<Iterable C = std::initializer_list<std::string_view>> requires( String<iterable_val_t<C>> )
 	static inline io_result<> write_lines( const std::filesystem::path& path, C&& container )
 	{
-		using char_type = string_unit_t<iterator_value_type_t<C>>;
+		using char_type = string_unit_t<iterable_val_t<C>>;
 
 		// Try to open file as string for write.
 		//

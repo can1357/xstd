@@ -75,7 +75,7 @@ namespace xstd
         // Constructed from an optional byte array.
         //
         serialization() {}
-        template<Iterable T> requires ( is_contiguous_iterable_v<T>&& Trivial<iterator_value_type_t<T>> )
+        template<Iterable T> requires ( is_contiguous_iterable_v<T>&& Trivial<iterable_val_t<T>> )
         serialization( T&& container, bool no_header = false ) { load( std::forward<T>( container ), no_header ); }
         serialization( const void* data, size_t length, bool no_header = false ) { load( data, length, no_header ); }
         
@@ -89,10 +89,10 @@ namespace xstd
         std::vector<uint8_t> dump() const;
         std::vector<uint8_t> dump();
         serialization& load( const void* data, size_t length, bool no_header = false );
-        template<Iterable T> requires ( is_contiguous_iterable_v<T> && Trivial<iterator_value_type_t<T>> )
+        template<Iterable T> requires ( is_contiguous_iterable_v<T> && Trivial<iterable_val_t<T>> )
         serialization& load( T&& container, bool no_header = false ) 
         {
-            return load( ( const uint8_t* ) std::to_address( std::begin( container ) ), std::size( container ) * sizeof( iterator_value_type_t<T> ), no_header );
+            return load( ( const uint8_t* ) std::to_address( std::begin( container ) ), std::size( container ) * sizeof( iterable_val_t<T> ), no_header );
         }
 
         // Raw data read write.
@@ -284,15 +284,15 @@ namespace xstd
             {
                 return make_constant_series<std::tuple_size_v<T>>( [ & ] <auto V> ( const_tag<V> _ )
                 {
-                    return deserialize<iterator_value_type_t<T>>( ctx );
+                    return deserialize<iterable_val_t<T>>( ctx );
                 } );
             }
             else
             {
-                std::vector<iterator_value_type_t<T>> entries;
+                std::vector<iterable_val_t<T>> entries;
                 entries.reserve( cnt );
                 for ( size_t n = 0; n != cnt; n++ )
-                    entries.emplace_back( deserialize<iterator_value_type_t<T>>( ctx ) );
+                    entries.emplace_back( deserialize<iterable_val_t<T>>( ctx ) );
 
                 return T{
                     std::make_move_iterator( entries.begin() ),

@@ -55,7 +55,7 @@ namespace xstd::fmt
 
 	// Returns the hexdump of the given range according to the configuration.
 	//
-	template<Iterable C> requires ( sizeof( iterator_value_type_t<C> ) == 1 )
+	template<Iterable C> requires ( sizeof( iterable_val_t<C> ) == 1 )
 	inline static std::string hex_dump( C&& container, hex_dump_config cfg = {} )
 	{
 		// Calculate container limits and normalize row length.

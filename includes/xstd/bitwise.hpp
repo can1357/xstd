@@ -637,21 +637,21 @@ namespace xstd
 			if ( bcnt_src == 64 ) return ( int64_t ) value;
 			if ( bcnt_src <= 1 )  return value & 1;
 
-			// If signed:
+			// Save the sign bit and mask the value.
 			//
-			if ( ( value >> ( bcnt_src - 1 ) ) & 1 )
+			bool sgn = bit_test( value, bcnt_src - 1 );
+			value &= fill_bits( bcnt_src - 1 );
+
+			// Handle the sign bit.
+			//
+			if ( sgn )
 			{
-				// Negatve, mask, negate again.
-				//
-				value = ( ~value ) + 1;
+				value = ( ~value );
 				value &= fill_bits( bcnt_src - 1 );
-				return -( int64_t ) value;
+				return -( int64_t ) ( value + 1 );
 			}
 			else
 			{
-				// Mask the value and return it.
-				//
-				value &= fill_bits( bcnt_src - 1 );
 				return ( int64_t ) value;
 			}
 		}

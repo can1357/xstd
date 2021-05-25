@@ -74,7 +74,7 @@ namespace xstd
 			//
 			else if constexpr ( Iterable<const T&> )
 			{
-				using value_type = std::decay_t<iterator_value_type_t<const T&>>;
+				using value_type = std::decay_t<iterable_val_t<const T&>>;
 
 				if constexpr ( !std::is_void_v<decltype( hasher<value_type>{}( std::declval<value_type&>() ) ) > )
 				{

@@ -153,5 +153,5 @@ namespace xstd
 	// Declare the deduction guide.
 	//
 	template<typename C, typename F> requires Iterable<C>
-	nested_range( C, F )->nested_range<iterator_type_t<C>, F>;
+	nested_range( C, F )->nested_range<iterator_t<C>, F>;
 };

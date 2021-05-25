@@ -170,9 +170,9 @@ namespace xstd
 	// Declare the deduction guides.
 	//
 	template<typename C> requires Iterable<C>
-	range( C )->range<iterator_type_t<C>, void>;
+	range( C )->range<iterator_t<C>, void>;
 	template<typename C, typename Fn> requires Iterable<C>
-	range( C, Fn )->range<iterator_type_t<C>, Fn>;
+	range( C, Fn )->range<iterator_t<C>, Fn>;
 	template<typename It1, typename It2> requires ( !Iterable<It1> )
 	range( It1, It2 )->range<std::conditional_t<Convertible<It1, It2>, It2, It1>, void>;
 	template<typename It1, typename It2, typename Fn>
@@ -205,7 +205,7 @@ namespace xstd
 	template<Iterable C, typename Fn>
 	static constexpr auto map( C& container, Fn&& f )
 	{
-		return range<iterator_type_t<C>, Fn>(
+		return range<iterator_t<C>, Fn>(
 			std::begin( container ),
 			std::end( container ),
 			std::forward<Fn>( f )
@@ -221,7 +221,7 @@ namespace xstd
 			else
 				return std::to_address( v )->*ref;
 		};
-		return range<iterator_type_t<C>, decltype( fn )>(
+		return range<iterator_t<C>, decltype( fn )>(
 			std::begin( container ),
 			std::end( container ),
 			std::move( fn )
@@ -233,7 +233,7 @@ namespace xstd
 	template<Iterable C>
 	static constexpr auto backwards( C&& container )
 	{
-		return range<std::reverse_iterator<iterator_type_t<C>>, void>{
+		return range<std::reverse_iterator<iterator_t<C>>, void>{
 			std::reverse_iterator( std::end( container ) ),
 			std::reverse_iterator( std::begin( container ) )
 		};

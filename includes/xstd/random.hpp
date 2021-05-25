@@ -124,13 +124,13 @@ namespace xstd
 
 	// Fills the given range with randoms.
 	//
-	template<Iterable It, Integral T = iterator_value_type_t<It>>
+	template<Iterable It, Integral T = iterable_val_t<It>>
 	static void fill_random( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		for( auto& v : cnt )
 			v = make_random<T>( min, max );
 	}
-	template<Iterable It, Integral T = iterator_value_type_t<It>>
+	template<Iterable It, Integral T = iterable_val_t<It>>
 	static constexpr void fill_crandom( It&& cnt, uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );

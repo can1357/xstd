@@ -200,7 +200,7 @@ namespace xstd::encode
     requires is_contiguous_iterable_v<T>
     static std::basic_string<C> base_n( T&& c, const Dc& dictionary )
     {
-        return base_n<C, bit_rev, Dc>( &*std::begin( c ), std::size( c ) * sizeof( iterator_value_type_t<T> ), dictionary );
+        return base_n<C, bit_rev, Dc>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), dictionary );
     }
 
     // Dictionary defined for base64.

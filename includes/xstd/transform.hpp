@@ -17,7 +17,7 @@ namespace xstd
 {
 	// Generic transformation wrapper.
 	//
-	template<Iterable C, typename F> requires Invocable<F, void, iterator_reference_type_t<C>>
+	template<Iterable C, typename F> requires Invocable<F, void, iterable_ref_t<C>>
 	static void transform( C&& container, const F& worker )
 	{
 		auto end = std::end( container );
@@ -27,7 +27,7 @@ namespace xstd
 
 	// Generic parallel transformation wrapper.
 	//
-	template<Iterable C, typename F> requires Invocable<F, void, iterator_reference_type_t<C>>
+	template<Iterable C, typename F> requires Invocable<F, void, iterable_ref_t<C>>
 	static void transform_parallel( C&& container, const F& worker )
 	{
 		size_t container_size = std::size( container );

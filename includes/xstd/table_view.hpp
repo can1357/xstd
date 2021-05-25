@@ -26,17 +26,17 @@ namespace xstd::fmt
 	// Declare table structure, data source container must hold a tuple with
 	// every element being string convertible by ::as_string.
 	//
-	template<Iterable C> requires( Tuple<iterator_value_type_t<C>> && 
+	template<Iterable C> requires( Tuple<iterable_val_t<C>> && 
 								   StringConvertible<C> )
 	struct table_view
 	{
 		// Required typedefs.
 		//
-		using entry_type_t = iterator_value_type_t<C>;
+		using entry_type_t = iterable_val_t<C>;
 		
 		// Declare field count.
 		//
-		static constexpr size_t field_count = std::tuple_size_v<iterator_value_type_t<C>>;
+		static constexpr size_t field_count = std::tuple_size_v<iterable_val_t<C>>;
 		
 		// Takes a data source, a list of labels, and optionally rendering configuration.
 		//
@@ -44,7 +44,7 @@ namespace xstd::fmt
 		table_rendering_configuration config;
 		std::array<std::string_view, field_count> labels;
 		
-		template<Iterable I = std::initializer_list<std::string_view>> requires Convertible<iterator_value_type_t<I>, std::string_view>
+		template<Iterable I = std::initializer_list<std::string_view>> requires Convertible<iterable_val_t<I>, std::string_view>
 		constexpr table_view( C&& data_source, I&& vlabels, table_rendering_configuration config = {} )
 			: data_source( std::forward<C>( data_source ) ), config( std::move( config ) ) 
 		{

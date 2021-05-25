@@ -158,7 +158,7 @@ namespace xstd
 		}
 		inline iterator insert( const_iterator pos, const T& value )
 		{
-			return insert( pos, &value, std::next( &value ) );
+			return &emplace( pos, value );
 		}
 		inline iterator insert( const_iterator pos, T&& value )
 		{
@@ -406,7 +406,7 @@ namespace xstd
 		}
 		inline constexpr iterator insert( const_iterator pos, const T& value )
 		{
-			return emplace( pos, value );
+			return &emplace( pos, value );
 		}
 		inline constexpr iterator insert( const_iterator pos, T&& value )
 		{

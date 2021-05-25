@@ -215,13 +215,17 @@ namespace xstd
 	concept MemberPointable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator->(); };
 	template<typename T>
 	concept PointerLike = MemberPointable<T> && Dereferencable<T>;
-	
+
 	template<typename T>
 	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
 	template<typename T>
 	concept TriviallyMoveAssignable = std::is_trivially_move_assignable_v<T>;
 	template<typename T>
 	concept TriviallyMoveConstructable = std::is_trivially_move_constructible_v<T>;
+	template<typename T>
+	concept TriviallyCopyAssignable = std::is_trivially_copy_assignable_v<T>;
+	template<typename T>
+	concept TriviallyCopyConstructable = std::is_trivially_copy_constructible_v<T>;
 	template<typename T>
 	concept TriviallySwappable = TriviallyMoveConstructable<T> && TriviallyMoveConstructable<T>;
 	template<typename From, typename To>
@@ -232,7 +236,17 @@ namespace xstd
 	concept TriviallyDefaultConstructable = std::is_trivially_default_constructible_v<T>;
 	template<typename T>
 	concept TriviallyDestructable = std::is_trivially_destructible_v<T>;
-
+	
+	template<typename T>
+	concept MoveAssignable = std::is_move_assignable_v<T>;
+	template<typename T>
+	concept MoveConstructable = std::is_move_constructible_v<T>;
+	template<typename T>
+	concept CopyAssignable = std::is_copy_assignable_v<T>;
+	template<typename T>
+	concept CopyConstructable = std::is_copy_constructible_v<T>;
+	template<typename T>
+	concept Swappable = MoveConstructable<T> && MoveConstructable<T>;
 	template<typename T>
 	concept DefaultConstructable = std::is_default_constructible_v<T>;
 	template<typename T>
@@ -246,8 +260,8 @@ namespace xstd
 	concept Specialization = is_specialization_v<Tmp, T>;
 	template<typename T, typename... Args>
 	concept Constructable = requires( Args&&... a ) { T( std::forward<Args>( a )... ); };
-	template<typename T, typename X>
-	concept Assignable = requires( T r, X && v ) { r = std::forward<X>( v ); };
+	template<typename From, typename To>
+	concept Assignable = std::is_assignable_v<From, To>;
 	template<typename T>
 	concept Complete = requires( T x ) { sizeof( T ) != 0; };
 
@@ -296,38 +310,50 @@ namespace xstd
 	template<typename T, typename... Args>
 	concept InvocableWith = requires( T&& x ) { x( std::declval<Args>()... ); };
 
-	// Container traits.
-	//
-	template<typename T>
-	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
-	template<typename T>
-	concept ReverseIterable = requires( T&& v ) { std::rbegin( v ); std::rend( v ); };
-
-	template<Iterable T>
-	using iterator_type_t = decltype( std::begin( std::declval<T>() ) );
-	template<Iterable T>
-	using iterator_reference_type_t = decltype( *std::declval<iterator_type_t<T>>() );
-	template<Iterable T>
-	using iterator_value_type_t = typename std::remove_cvref_t<iterator_reference_type_t<T>>;
-
-	template<typename V, typename T>
-	concept TypedIterable = Iterable<T> && Same<std::decay_t<iterator_value_type_t<T>>, std::decay_t<V>>;
-
-	template<typename T>
-	concept DefaultRandomAccessible = requires( const T& v ) { v[ 0 ]; std::size( v ); };
-	template<typename T>
-	concept CustomRandomAccessible = requires( const T& v ) { v[ 0 ]; v.size(); };
-	template<typename T>
-	concept RandomAccessible = DefaultRandomAccessible<T> || CustomRandomAccessible<T>;
-
 	// Iterator traits.
 	//
+	template<typename T>
+	concept Iterator = requires( T && v ) { std::next( v ); *v; v == v; v != v; };
+	template<typename T>
+	using iterator_ref_t = decltype( *std::declval<T>() );
+	template<typename T>
+	using iterator_val_t = typename std::remove_reference_t<iterator_ref_t<T>>;
+
+	template<typename V, typename T>
+	concept TypedIterator = Iterator<T> && Same<std::decay_t<iterator_val_t<T>>, std::decay_t<V>>;
+	template<typename V, typename T>
+	concept ConvertibleIterator = Iterator<T> && Convertible<iterator_ref_t<T>, std::decay_t<V>>;
+
 	template<typename T> 
 	concept ForwardIterable = std::is_base_of_v<std::forward_iterator_tag, T>;
 	template<typename T> 
 	concept BidirectionalIterable = std::is_base_of_v<std::bidirectional_iterator_tag, T>;
 	template<typename T> 
 	concept RandomIterable = std::is_base_of_v<std::random_access_iterator_tag, T>;
+
+	// Container traits.
+	//
+	template<typename T>
+	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
+	template<typename T>
+	using iterator_t = decltype( std::begin( std::declval<T>() ) );
+	template<typename T>
+	using iterable_ref_t = decltype( *std::declval<iterator_t<T>>() );
+	template<typename T>
+	using iterable_val_t = typename std::remove_reference_t<iterable_ref_t<T>>;
+
+	template<typename T>
+	concept ReverseIterable = requires( T&& v ) { std::rbegin( v ); std::rend( v ); };
+	template<typename V, typename T>
+	concept TypedIterable = Iterable<T> && Same<std::decay_t<iterable_val_t<T>>, std::decay_t<V>>;
+	template<typename V, typename T>
+	concept IterableAs = Iterator<T> && Convertible<iterable_val_t<T>, std::decay_t<V>>;
+	template<typename T>
+	concept DefaultRandomAccessible = requires( const T& v ) { v[ 0 ]; std::size( v ); };
+	template<typename T>
+	concept CustomRandomAccessible = requires( const T& v ) { v[ 0 ]; v.size(); };
+	template<typename T>
+	concept RandomAccessible = DefaultRandomAccessible<T> || CustomRandomAccessible<T>;
 
 	// String traits.
 	//
