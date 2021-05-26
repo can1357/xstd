@@ -104,7 +104,7 @@ namespace ia32::apic
 
 	// Waits for a command to be finished.
 	//
-	inline void wait_for_command()
+	inline void wait_for_delivery()
 	{
 		if ( apic_base )
 		{
@@ -120,7 +120,7 @@ namespace ia32::apic
 
 	// Sends a command.
 	//
-	inline void send_command( command cmd, uint32_t dst = 0, bool wait_finish = true )
+	inline void send_command( command cmd, uint32_t dst = 0 )
 	{
 		if ( apic_base )
 		{
@@ -142,11 +142,6 @@ namespace ia32::apic
 			// Write the command.
 			//
 			*( volatile uint32_t* ) &icr = *( uint32_t* ) &cmd;
-
-			// Wait for it to be finished.
-			//
-			if ( wait_finish )
-				wait_for_command();
 		}
 		else
 		{
