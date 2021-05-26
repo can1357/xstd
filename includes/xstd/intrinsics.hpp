@@ -443,6 +443,7 @@ __forceinline static constexpr uint64_t rotlq( uint64_t value, int count ) noexc
         return __builtin_rotateleft64( value, ( uint64_t ) count );
 #endif
     count %= 64;
+    if ( !count ) return value;
     return ( value << count ) | ( value >> ( 64 - count ) );
 }
 __forceinline static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
@@ -452,6 +453,7 @@ __forceinline static constexpr uint64_t rotrq( uint64_t value, int count ) noexc
         return __builtin_rotateright64( value, ( uint64_t ) count );
 #endif
     count %= 64;
+    if ( !count ) return value;
     return ( value >> count ) | ( value << ( 64 - count ) );
 }
 __forceinline static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
@@ -461,6 +463,7 @@ __forceinline static constexpr uint32_t rotld( uint32_t value, int count ) noexc
         return __builtin_rotateleft32( value, ( uint32_t ) count );
 #endif
     count %= 32;
+    if ( !count ) return value;
     return ( value << count ) | ( value >> ( 32 - count ) );
 }
 __forceinline static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
@@ -470,6 +473,7 @@ __forceinline static constexpr uint32_t rotrd( uint32_t value, int count ) noexc
         return __builtin_rotateright32( value, ( uint32_t ) count );
 #endif
     count %= 32;
+    if ( !count ) return value;
     return ( value >> count ) | ( value << ( 32 - count ) );
 }
 __forceinline static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
@@ -479,6 +483,7 @@ __forceinline static constexpr uint16_t rotlw( uint16_t value, int count ) noexc
         return __builtin_rotateleft16( value, ( uint16_t ) count );
 #endif
     count %= 16;
+    if ( !count ) return value;
     return ( value << count ) | ( value >> ( 16 - count ) );
 }
 __forceinline static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
@@ -488,6 +493,7 @@ __forceinline static constexpr uint16_t rotrw( uint16_t value, int count ) noexc
         return __builtin_rotateright16( value, ( uint16_t ) count );
 #endif
     count %= 16;
+    if ( !count ) return value;
     return ( value >> count ) | ( value << ( 16 - count ) );
 }
 __forceinline static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
@@ -497,6 +503,7 @@ __forceinline static constexpr uint8_t rotlb( uint8_t value, int count ) noexcep
         return __builtin_rotateleft8( value, ( uint8_t ) count );
 #endif
     count %= 8;
+    if ( !count ) return value;
     return ( value << count ) | ( value >> ( 8 - count ) );
 }
 __forceinline static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
@@ -506,6 +513,7 @@ __forceinline static constexpr uint8_t rotrb( uint8_t value, int count ) noexcep
         return __builtin_rotateright8( value, ( uint8_t ) count );
 #endif
     count %= 8;
+    if ( !count ) return value;
     return ( value >> count ) | ( value << ( 8 - count ) );
 }
 template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
