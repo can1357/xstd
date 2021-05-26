@@ -253,7 +253,7 @@ namespace xstd
 
 	// If trivial type, implement the constexpr version.
 	//
-	template<typename T, size_t N> requires ( DefaultConstructable<T> && TriviallyDestructable<T> && TriviallyCopyAssignable<T> && TriviallyMoveAssignable<T> )
+	template<typename T, size_t N> requires ( DefaultConstructable<T> && TriviallyDestructable<T> )
 	struct small_vector<T, N>
 	{
 		// Container traits.
