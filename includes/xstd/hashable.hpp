@@ -33,20 +33,18 @@ namespace xstd
 	{
 		static constexpr uint64_t hash_combination_keys[] =
 		{
-			0xf8f2f808dfa2a53d, 0x8c67174bea0d0e12,
-			0xb49abcd9cdd750d7, 0x81f82267dd8343db,
-			0x7381f6d4dc4fe661, 0xd2c067d60e9f4734,
-			0x04ecc5fce7ce1e6f,	0xbc82997a673d1ca3,
+			0x113769B23C5F1, 0x81BF0FFFFED, 0x426DE69929, 0x2540BE3DF
 		};
-		static constexpr uint64_t uhash_combination_key = 0xa990854d1e718fa9;
+		static constexpr uint64_t uhash_combination_key = 0xF91A2E471B43FFBF;
 	};
 
 	// Used to combine two hashes of arbitrary size.
 	//
 	__forceinline static constexpr hash_t combine_hash( hash_t a, const hash_t& b )
 	{
-		a.value *= b.value ^ rotlq( impl::hash_combination_keys[ a.value % 7 ], b.value & 63 );
-		return a;
+		uint64_t key = impl::hash_combination_keys[ a.value & 3 ];
+		uint64_t x = key * ( impl::uhash_combination_key + ( a.value ^ ~b.value ) );
+		return { rotlq( x, ( key + x ) & 63 ) };
 	}
 	__forceinline static constexpr hash_t combine_unordered_hash( hash_t a, const hash_t& b )
 	{
@@ -100,36 +98,17 @@ namespace xstd
 			{
 				return combine_hash( value, {} );
 			}
-			// If pointer, use a special hasher.
+			// If register sized integral/pointer type, use a special hasher.
 			//
-			else if constexpr ( Pointer<T> || Same<T, any_ptr> )
+			else if constexpr ( Pointer<T> || Same<T, any_ptr> || ( Integral<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) ) || Enum<T> )
 			{
-				// Extract the identifiers, most systems use 48 or 57 bit address spaces in reality with rest being sign extension.
-				//
-				uint64_t v0 = uint64_t( value ) & 0xFFF;
-				uint64_t v1 = ( uint64_t( value ) >> ( 12 + 9 * 0 ) ) & 0x3FFFF;
+				constexpr uint64_t prime = sizeof( T ) == 8 ? 0x613b62c597707bb : 0x277a4fb3943fef;
+				constexpr uint64_t type_key = type_tag<T>::hash();
 
-				// Combine the values with the key and return.
+				// Mix the value and return.
 				//
-				uint64_t res = 0x87c37b91114253d5 * rotr( uint64_t( value ), 41 );
-				return hash_t{ ~( ( res ^ uint32_t( v0 * 0x1b873593 ) ) - v1 ) };
-			}
-			// If register sized integral type, use a special hasher.
-			//
-			else if constexpr ( Integral<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) )
-			{
-				// Pick a random key per size to prevent collisions accross different types.
-				//
-				uint64_t res = sizeof( T ) == 8 ? 0x350dfbdfde7d6d41 : 0xfe89825303c1cce3;
-
-				// Combine the value with the key.
-				//
-				res *= ( impl::uhash_combination_key - int64_t( value ) );
-				
-				// Rotate, combine and return.
-				//
-				res -= rotl( value, res % 37 );
-				return hash_t{ res };
+				uint64_t x = ( type_key ^ uint64_t( value ) );
+				return hash_t{ rotl( prime * x, 27 ) };
 			}
 			// If trivial type, hash each byte.
 			//
