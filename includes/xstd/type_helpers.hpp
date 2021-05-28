@@ -264,6 +264,8 @@ namespace xstd
 	concept Assignable = std::is_assignable_v<From, To>;
 	template<typename T>
 	concept Complete = requires( T x ) { sizeof( T ) != 0; };
+	template <typename From, typename To>
+	concept Castable = requires( From && x ) { ( To ) x; };
 
 	// Comparison traits.
 	//

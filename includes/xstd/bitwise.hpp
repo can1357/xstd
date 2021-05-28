@@ -287,40 +287,6 @@ namespace xstd
 		}
 		else if constexpr( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() && !__is_consteval( n ) )
-			{
-#if AMD64_TARGET
-				if constexpr ( sizeof( T ) == 8 )
-				{
-#if GNU_COMPILER
-					int out;
-					asm volatile( "btrq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-					return out;
-#elif HAS_MS_EXTENSIONS
-					return _bittestandreset64( ( long long* ) &value, n );
-#endif
-				}
-				else if constexpr ( sizeof( T ) == 4 )
-				{
-#if GNU_COMPILER
-					int out;
-					asm volatile( "btrl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-					return out;
-#elif HAS_MS_EXTENSIONS
-					return _bittestandreset( ( long* ) &value, n );
-#endif
-				}
-				else if constexpr ( sizeof( T ) == 2 )
-				{
-#if GNU_COMPILER
-					int out;
-					asm volatile( "btrw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-					return out;
-#endif
-				}
-#endif
-			}
-
 			bool is_set = value & U( 1ull << n );
 			value &= ~U( 1ull << n );
 			return is_set;
@@ -367,47 +333,13 @@ namespace xstd
 #endif
 			auto& ref = *( std::atomic<U>* ) &value;
 			U value = ref.load();
-			while ( !ref.compare_exchange_strong( value, value & ~U( 1ull << n ) ) );
+			while ( !ref.compare_exchange_strong( value, value ^ U( 1ull << n ) ) );
 			return value & U( 1ull << n );
 		}
 		else if constexpr ( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() && !__is_consteval( n ) )
-			{
-#if AMD64_TARGET
-				if constexpr ( sizeof( T ) == 8 )
-				{
-#if GNU_COMPILER
-					int out;
-					asm volatile( "btcq %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-					return out;
-#elif HAS_MS_EXTENSIONS
-					return _bittestandcomplement64( ( long long* ) &value, n );
-#endif
-				}
-				else if constexpr ( sizeof( T ) == 4 )
-				{
-#if GNU_COMPILER
-					int out;
-					asm volatile( "btcl %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-					return out;
-#elif HAS_MS_EXTENSIONS
-					return _bittestandcomplement( ( long* ) &value, n );
-#endif
-				}
-				else if constexpr ( sizeof( T ) == 2 )
-				{
-#if GNU_COMPILER
-					int out;
-					asm volatile( "btcw %2, %1" : "=@ccc" ( out ), "+rm" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-					return out;
-#endif
-				}
-#endif
-			}
-
 			bool is_set = value & U( 1ull << n );
-			value &= ~U( 1ull << n );
+			value ^= U( 1ull << n );
 			return is_set;
 		}
 		else

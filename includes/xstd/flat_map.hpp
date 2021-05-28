@@ -576,7 +576,7 @@ namespace xstd
 		// Internal searcher, returns [value pos, insertation pos].
 		// 
 		template<typename Kx>
-		inline constexpr std::pair<real_iterator, real_iterator> searcher( const Kx& key, [[maybe_unused]] bool for_insert )
+		inline constexpr std::pair<real_iterator, real_iterator> searcher( const Kx& key, [[maybe_unused]] bool for_insert = false )
 		{
 			// Find the position, if the key is matching return the iterator, else only 
 			// return as the insertion pos.
