@@ -22341,15 +22341,17 @@ namespace ia32
 	_LINKAGE void set_tr( segment_selector value ) { asm volatile( "ltr %0" :: "r" ( value.flags ) : ); }
 	_LINKAGE void set_ldtr( segment_selector value ) { asm volatile( "lldt %0" :: "r" ( value.flags ) : ); }
 
+	template<typename T = uint64_t>
 	_LINKAGE size_t load_seg_limit( segment_selector value )
 	{
-		size_t limit;
+		T limit = 0;
 		asm volatile( "lsl %1, %0" : "=r" ( limit ) : "r" ( ( uint32_t ) value.flags ) );
 		return limit;
 	}
+	template<typename T = uint32_t>
 	_LINKAGE uint32_t load_access_rights( segment_selector value )
 	{
-		uint32_t desc;
+		T desc = 0;
 		asm volatile( "lar %1, %0" : "=r" ( desc ) : "r" ( ( uint32_t ) value.flags ) );
 		return desc;
 	}
