@@ -21994,7 +21994,7 @@ namespace ia32
 	// Read write model-specific registers.
 	//
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
-		_LINKAGE T read_msr( uint64_t id )
+	_LINKAGE T read_msr( uint64_t id )
 	{
 		register uint32_t low asm( "eax" );
 		register uint32_t high asm( "edx" );
@@ -22004,7 +22004,7 @@ namespace ia32
 		return *( T* ) &value;
 	}
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
-		_LINKAGE void write_msr( uint64_t id, T tvalue )
+	_LINKAGE void write_msr( uint64_t id, T tvalue )
 	{
 		uint64_t value = 0;
 		memcpy( &value, &tvalue, sizeof( T ) );
@@ -22017,7 +22017,7 @@ namespace ia32
 	// Extended control registers.
 	//
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
-		_LINKAGE T read_xcr( uint64_t id )
+	_LINKAGE T read_xcr( uint64_t id )
 	{
 		register uint32_t low asm( "eax" );
 		register uint32_t high asm( "edx" );
@@ -22027,7 +22027,7 @@ namespace ia32
 		return *( T* ) &value;
 	}
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
-		_LINKAGE void write_xcr( uint64_t id, T tvalue )
+	_LINKAGE void write_xcr( uint64_t id, T tvalue )
 	{
 		uint64_t value = 0;
 		memcpy( &value, &tvalue, sizeof( T ) );
