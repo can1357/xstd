@@ -22533,6 +22533,97 @@ namespace ia32
 		return irql;
 	}
 
+	// XSAVE family.
+	//
+	_LINKAGE void fxsave( void* buffer )
+	{
+		asm volatile( "fxsave %0" : "=m" ( buffer ) );
+	}
+	_LINKAGE void fxsave64( void* buffer )
+	{
+		asm volatile( "fxsaveq %0" : "=m" ( buffer ) );
+	}
+	_LINKAGE void xsave( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsave %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsave64( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsaveq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsaves( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsaves %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsaves64( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsavesq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsavec( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsavec %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsavec64( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsavecq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsaveopt( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsaveopt %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xsaveopt64( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xsaveoptq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void fxrstor( void* buffer )
+	{
+		asm volatile( "fxrstor %0" : "=m" ( buffer ) );
+	}
+	_LINKAGE void fxrstor64( void* buffer )
+	{
+		asm volatile( "fxrstorq %0" : "=m" ( buffer ) );
+	}
+	_LINKAGE void xrstor( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xrstor %0" ::  "m" ( buffer ), "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xrstor64( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xrstorq %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xrstors( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xrstors %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
+	}
+	_LINKAGE void xrstors64( void* buffer, uint64_t components )
+	{
+		register uint32_t low asm( "eax" ) = uint32_t( components );
+		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
+		asm volatile( "xrstorsq %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
+	}
+
 	// Misc.
 	//
 	_LINKAGE void nop()
@@ -22555,6 +22646,10 @@ namespace ia32
 	{
 		__builtin_ia32_mwait( extensions, hints );
 	}
+	_LINKAGE void finit()
+	{
+		asm volatile( "finit" );
+	}
 	_LINKAGE void spin()
 	{
 		if constexpr ( is_kernel_mode() )
@@ -22563,18 +22658,18 @@ namespace ia32
 			{
 				pushfq
 				cli
-				x :
-				xor eax, eax
+				x:
+					xor eax, eax
 					jz x
-					popfq
+				popfq
 			}
 		}
 		else
 		{
 			__asm
 			{
-			x:
-				xor eax, eax
+				x:
+					xor eax, eax
 					jz x
 			}
 		}
