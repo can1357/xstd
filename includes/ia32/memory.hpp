@@ -37,10 +37,10 @@ namespace ia32::mem
 		template<typename T> void operator()( T* ptr ) const { unmap_physical_memory_range( ( void* ) ptr, length ); }
 	};
 	template<typename T = uint8_t>
-	using phys_ptr = std::unique_ptr<T, phys_memory_deleter>;
+	using unique_phys_ptr = std::unique_ptr<T, phys_memory_deleter>;
 	
 	template<typename T = uint8_t>
-	FORCE_INLINE inline phys_ptr<T> map_physical( uint64_t physical_address, size_t length = sizeof( T ), bool cached = false )
+	FORCE_INLINE inline unique_phys_ptr<T> map_physical( uint64_t physical_address, size_t length = sizeof( T ), bool cached = false )
 	{
 		void* ptr = map_physical_memory_range( physical_address, length, cached );
 		if ( !ptr )

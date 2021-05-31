@@ -28,7 +28,7 @@ namespace xstd::asn1
 	enum type_tag : uint8_t
 	{
 		tag_eoc,
-        tag_boolean,
+		tag_boolean,
 		tag_integer,
 		tag_bit_string,
 		tag_octet_string,
@@ -37,7 +37,7 @@ namespace xstd::asn1
 		tag_object_descriptor,
 		tag_external,
 		tag_real,
-        tag_enum,
+		tag_enum,
 		tag_pdv,
 		tag_utf8_string,
 		tag_sequence = 0x10,

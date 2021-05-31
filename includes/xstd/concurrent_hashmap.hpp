@@ -35,7 +35,7 @@ namespace xstd
 			//
 			struct entry
 			{
-				uint64_t is_entry : 1;  // Bit indicating the type, 2: pair<K, v>*, 1: another level.
+				uint64_t is_entry : 1;   // Bit indicating the type, 2: pair<K, v>*, 1: another level.
 				uint64_t pointer  : 63;  // Pointer to the type.
 
 				inline entry( std::nullptr_t _ = {} ) : is_entry( false ), pointer( 0 ) {}

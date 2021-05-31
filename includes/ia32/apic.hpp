@@ -195,7 +195,7 @@ namespace ia32::apic
 		//
 		if ( !apic_info.enable_x2apic_mode )
 		{
-			static mem::phys_ptr<volatile uint32_t> base;
+			static mem::unique_phys_ptr<volatile uint32_t> base;
 			base = mem::map_physical<volatile uint32_t>( apic_info.apic_base << 12, 0x1000 );
 			apic_base = base.get();
 		}

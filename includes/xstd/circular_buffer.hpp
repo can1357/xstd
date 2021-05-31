@@ -3,7 +3,6 @@
 #include <atomic>
 #include <functional>
 #include "type_helpers.hpp"
-#include "spinlock.hpp"
 
 namespace xstd
 {
