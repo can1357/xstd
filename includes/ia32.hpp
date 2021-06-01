@@ -22636,7 +22636,7 @@ namespace ia32
 	}
 	_LINKAGE void halt()
 	{
-		asm volatile( "hlt" );
+		asm volatile( "hlt" ::: "memory" );
 	}
 	_LINKAGE void monitor( xstd::any_ptr adr, uint32_t extensions, uint32_t hints )
 	{
@@ -22673,6 +22673,18 @@ namespace ia32
 					jz x
 			}
 		}
+	}
+	_LINKAGE void icebp()
+	{
+		asm volatile ( ".byte 0xF1" );
+	}
+	_LINKAGE void int3()
+	{
+		asm volatile ( "int3" );
+	}
+	_LINKAGE void intn( size_t idx )
+	{
+		asm volatile ( "int %0" :: "i" ( idx ) );
 	}
 
 	// RAII wrapper for IRQL.
