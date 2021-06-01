@@ -78,7 +78,9 @@ namespace xstd
 			state[ 1 ] ^= framebits;
 
 			// rotate
-			#pragma unroll(4)
+			#if GNU_COMPILER
+				#pragma unroll(4)
+			#endif
 			for ( size_t i = 0; i != rounds; i++ )
 			{
 				auto t1 = ( state[ 1 ] >> 15 ) | ( state[ 2 ] << 17 );  // 47 = 1*32+15 

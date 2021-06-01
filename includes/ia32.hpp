@@ -22253,7 +22253,7 @@ namespace ia32
 			ptrdiff_t n = ( ptrdiff_t ) count;
 			for ( ; n >= ustep; n -= ustep )
 			{
-#pragma unroll
+				#pragma unroll
 				for ( size_t i = 0; i != U; i++, ptr += granularity )
 					fn( ptr );
 			}

@@ -11,47 +11,35 @@
 
 // Required imports.
 //
-#if ( WINDOWS_TARGET && !defined( GENERIC_READ ) )
-	#pragma warning( push )
-	#pragma warning( disable: 4005)
-		#define INVALID_HANDLE_VALUE ((void*)(long long)-1)
-		#define OPEN_EXISTING                   3
-		#define GENERIC_READ                    0x80000000L
-		#define FILE_SHARE_READ                 0x00000001  
-		#define FILE_SHARE_WRITE                0x00000002  
-		#define FILE_SHARE_DELETE               0x00000004  
-		#define FILE_FLAG_RANDOM_ACCESS         0x10000000
-		#define INVALID_FILE_SIZE               0xFFFFFFFFu
-		#define PAGE_READONLY                   0x02
-		#define SECTION_MAP_READ                0x0004
-	#pragma warning( pop )
-extern "C"
+extern "C" 
 {
+#if WINDOWS_TARGET
 	typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, * PSECURITY_ATTRIBUTES, * LPSECURITY_ATTRIBUTES;
 	__declspec( dllimport ) void* __stdcall CreateFileW( const wchar_t* lpFileName, unsigned long dwDesiredAccess, unsigned long dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, unsigned long dwCreationDisposition, unsigned long dwFlagsAndAttributes, void* hTemplateFile );
 	__declspec( dllimport ) void* __stdcall CreateFileMappingFromApp( void* hFile, PSECURITY_ATTRIBUTES SecurityAttributes, unsigned long PageProtection, unsigned long long MaximumSize, const wchar_t* Name );
 	__declspec( dllimport ) void* __stdcall MapViewOfFileFromApp( void* hFileMappingObject, unsigned long DesiredAccess, unsigned long long FileOffset, size_t NumberOfBytesToMap );
 	__declspec( dllimport ) int __stdcall UnmapViewOfFile( const void* BaseAddress );
 	__declspec( dllimport ) int __stdcall CloseHandle( void* hObject );
-};
 #else
-#define O_RDONLY   0
-#define PROT_READ  1
-#define MAP_SHARED 1
-extern "C" 
-{
 	int open( const char* pathname, int flags );
 	int close( int fd );
 	void* mmap( void* addr, size_t length, int prot, int flags, int fd, long offset );
 	int munmap( void* addr, size_t length );
-};
 #endif
+};
 
 
 // Declare a simple interface to map files onto memory.
 //
 namespace xstd::file
 {
+#if WINDOWS_TARGET
+	namespace impl
+	{
+		static constexpr any_ptr invalid_handle_value = ~0ull;
+	};
+#endif
+
 	// Entire file mapped to memory.
 	//
 	template<Trivial T = uint8_t>
@@ -95,8 +83,8 @@ namespace xstd::file
 		const T* address = nullptr;
 		size_t length = 0;
 #if WINDOWS_TARGET
-		void* file_handle = INVALID_HANDLE_VALUE;
-		void* mapping_handle = INVALID_HANDLE_VALUE;
+		void* file_handle = impl::invalid_handle_value;
+		void* mapping_handle = impl::invalid_handle_value;
 #else
 		int fd = -1;
 #endif
@@ -109,9 +97,9 @@ namespace xstd::file
 #if WINDOWS_TARGET
 			if ( address && !UnmapViewOfFile( ( void* ) address ) )
 				error( XSTD_ESTR( "UnmapViewOfFile failed." ) );
-			if ( mapping_handle != INVALID_HANDLE_VALUE )
+			if ( mapping_handle != impl::invalid_handle_value )
 				CloseHandle( mapping_handle );
-			if ( file_handle != INVALID_HANDLE_VALUE )
+			if ( file_handle != impl::invalid_handle_value )
 				CloseHandle( file_handle );
 #else
 			close( fd );
@@ -147,15 +135,15 @@ namespace xstd::file
 		fview->origin = path;
 		fview->file_handle = CreateFileW(
 			path.c_str(),
-			GENERIC_READ,
-			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			0x80000000, //GENERIC_READ,
+			0x7, //FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 			nullptr,
-			OPEN_EXISTING,
-			FILE_FLAG_RANDOM_ACCESS,
+			0x3, //OPEN_EXISTING,
+			0x10000000, //FILE_FLAG_RANDOM_ACCESS,
 			nullptr
 		);
 		fview->length = tcount;
-		if ( fview->file_handle == INVALID_HANDLE_VALUE )
+		if ( fview->file_handle == impl::invalid_handle_value )
 			return { io_state::bad_file };
 
 		// Map the file.
@@ -163,7 +151,7 @@ namespace xstd::file
 		fview->mapping_handle = CreateFileMappingFromApp(
 			fview->file_handle,
 			nullptr,
-			PAGE_READONLY,
+			0x2, //PAGE_READONLY,
 			0,
 			nullptr
 		);
@@ -171,7 +159,7 @@ namespace xstd::file
 			return { io_state::bad_file };
 		fview->address = ( T* ) MapViewOfFileFromApp(
 			fview->mapping_handle,
-			SECTION_MAP_READ,
+			0x4, //SECTION_MAP_READ,
 			moffset,
 			mlength
 		);
@@ -184,14 +172,14 @@ namespace xstd::file
 		//
 		auto fview = std::make_shared<native_view<T>>();
 		fview->origin = path;
-		fview->fd = open( path.string().c_str(), O_RDONLY );
+		fview->fd = open( path.string().c_str(), 0, /*O_RDONLY*/ );
 		fview->length = tcount;
 		if ( fview->fd == -1 )
 			return { io_state::bad_file };
 
 		// Map the file.
 		//
-		fview->address = ( const T* ) mmap( nullptr, mlength, PROT_READ, MAP_SHARED, fview->fd, ( int ) moffset );
+		fview->address = ( const T* ) mmap( nullptr, mlength, 1 /*PROT_READ*/, 1 /*MAP_SHARED*/, fview->fd, ( int ) moffset );
 		if ( !fview->address )
 			return { io_state::bad_file };
 		else
