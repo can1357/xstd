@@ -191,6 +191,7 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 	#define COLD         __attribute__((cold))
 	#define FORCE_INLINE __attribute__((always_inline))
 	#define NO_INLINE    __attribute__((noinline))
+	#define NO_DEBUG     __attribute__((nodebug))
 #else
 	#pragma warning( disable: 4141 )
 	#define PURE_FN
@@ -198,6 +199,7 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 	#define COLD         
 	#define FORCE_INLINE __forceinline
 	#define NO_INLINE    __declspec(noinline)
+	#define NO_DEBUG
 #endif
 #if __clang__
 	#define TRIVIAL_ABI    __attribute__((trivial_abi))
@@ -271,19 +273,25 @@ MUST_MATCH( DEBUG_BUILD );
 	#define assume(...) __assume(__VA_ARGS__)
 	#define unreachable() __assume(0)
 	#define debugbreak() __debugbreak()
-	__forceinline static void fastfail [[noreturn]] ( int status )
+	FORCE_INLINE static void fastfail [[noreturn]] ( int status )
 	{
 		__fastfail( status );
 		unreachable();
 	}
+	FORCE_INLINE static void __trap() { fastfail( -1 ); }
 #else
-	#define assume(...) __builtin_assume(__VA_ARGS__)
+	#if __has_builtin(__builtin_assume)
+		#define assume(...) __builtin_assume(__VA_ARGS__)
+	#else
+		#define assume(...)
+	#endif
+
 	#if __has_builtin(__builtin_unreachable)
 		#define unreachable() __builtin_unreachable()
 	#elif __has_builtin(__builtin_trap)
 		#define unreachable() __builtin_trap();
 	#else
-		#define unreachable()
+		#define unreachable() { *(volatile int*)0 = 0; }
 	#endif
 
 	#if __has_builtin(__builtin_debugtrap)
@@ -291,30 +299,39 @@ MUST_MATCH( DEBUG_BUILD );
 	#elif __has_builtin(__builtin_trap)
 		#define debugbreak() __builtin_trap()
 	#else
-		#define debugbreak() 
+		#define debugbreak() { *(volatile int*)0 = 0; }
 	#endif
 
-	#if AMD64_TARGET && WINDOWS_TARGET
-		__forceinline static void fastfail [[noreturn]] ( int status )
-		{
-			asm volatile ( "mov %0, %%ecx; int $0x2c" :: "r" ( status ) );
-			unreachable();
-		}
-	#else
-		#define fastfail(x) debugbreak()
-	#endif
+	FORCE_INLINE static void __trap() 
+	{
+		#if __has_builtin(__builtin_trap)
+			__builtin_trap();
+		#else
+			debugbreak();
+		#endif
+	}
+
+	FORCE_INLINE static void fastfail [[noreturn]] ( int status )
+	{
+		#if AMD64_TARGET
+			asm volatile ( "int $0x2c" :: "c" ( status ) );
+		#else
+			__trap();
+		#endif
+		unreachable();
+	}
 #endif
 
 // Define yield for busy loops.
 //
-__forceinline static void yield_cpu()
+FORCE_INLINE static void yield_cpu()
 {
 	#if MS_COMPILER
 		_mm_pause();
 	#elif AMD64_TARGET
 		asm volatile ( "pause" ::: "memory" );
 	#elif ARM64_TARGET
-		asm volatile ( "yield" );
+		asm volatile ( "yield" ::: "memory" );
 	#else
 		std::atomic_thread_fence( std::memory_order_release ); // Close enough...
 	#endif
@@ -326,7 +343,7 @@ __forceinline static void yield_cpu()
 #ifndef XSTD_HAS_TASK_PRIORITY
 	#define XSTD_HAS_TASK_PRIORITY KERNEL_TARGET
 #endif
-__forceinline static void set_task_priority( uint8_t value )
+FORCE_INLINE static void set_task_priority( uint8_t value )
 {
 #if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
 	__writecr8( value );
@@ -336,7 +353,7 @@ __forceinline static void set_task_priority( uint8_t value )
 	// Assuming not relevant.
 #endif
 }
-__forceinline static uint8_t get_task_priority()
+FORCE_INLINE static uint8_t get_task_priority()
 {
 	uintptr_t value;
 #if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
@@ -359,7 +376,7 @@ __forceinline static uint8_t get_task_priority()
 
 	// No-op demangle.
 	//
-	__forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
+	FORCE_INLINE static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
 #else
 	// Declare demangled function name.
 	//
@@ -369,7 +386,7 @@ __forceinline static uint8_t get_task_priority()
 	//
 	#if GNU_COMPILER
 		#include <cxxabi.h>
-		__forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) 
+		FORCE_INLINE static std::string compiler_demangle_type_name( const std::type_info& info ) 
 		{
 			int status;
 			std::string result;
@@ -379,7 +396,7 @@ __forceinline static uint8_t get_task_priority()
 			return result;
 		}
 	#else
-		__forceinline static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
+		FORCE_INLINE static std::string compiler_demangle_type_name( const std::type_info& info ) { return info.name(); }
 	#endif
 #endif
 
@@ -388,45 +405,45 @@ __forceinline static uint8_t get_task_priority()
 #if !MS_COMPILER
 		using int128_t = __int128;
 		using uint128_t = unsigned __int128;
-		__forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
+		FORCE_INLINE static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
 		{
 			uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
 			*_HighProduct = uint64_t( _Product >> 64 );
 			return uint64_t( _Product );
 		}
-		__forceinline static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
+		FORCE_INLINE static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
 		{
 			int128_t _Product = int128_t( _Multiplier ) * _Multiplicand;
 			*_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
 			return int64_t( _Product );
 		}
-		__forceinline static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
+		FORCE_INLINE static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
 		{
 			int64_t HighProduct;
 			mul128( _Multiplier, _Multiplicand, &HighProduct );
 			return HighProduct;
 		}
-		__forceinline static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
+		FORCE_INLINE static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
 		{
 			uint64_t HighProduct;
 			umul128( _Multiplier, _Multiplicand, &HighProduct );
 			return HighProduct;
 		}
 #else
-		__forceinline static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
+		FORCE_INLINE static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
 		{
 			return _umul128( _Multiplier, _Multiplicand, _HighProduct );
 		}
-		__forceinline static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
+		FORCE_INLINE static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
 		{
 			return _mul128( _Multiplier, _Multiplicand, _HighProduct );
 		}
-		__forceinline static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
+		FORCE_INLINE static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
 		{
 			return __mulh( _Multiplier, _Multiplicand );
 		}
 
-		__forceinline static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
+		FORCE_INLINE static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
 		{
 			return __umulh( _Multiplier, _Multiplicand );
 		}
@@ -434,7 +451,7 @@ __forceinline static uint8_t get_task_priority()
 
 // Declare rotation.
 //
-__forceinline static constexpr uint64_t rotlq( uint64_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint64_t rotlq( uint64_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft64)
 	if ( !std::is_constant_evaluated() )
@@ -444,7 +461,7 @@ __forceinline static constexpr uint64_t rotlq( uint64_t value, int count ) noexc
 	if ( !count ) return value;
 	return ( value << count ) | ( value >> ( 64 - count ) );
 }
-__forceinline static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright64)
 	if ( !std::is_constant_evaluated() )
@@ -454,7 +471,7 @@ __forceinline static constexpr uint64_t rotrq( uint64_t value, int count ) noexc
 	if ( !count ) return value;
 	return ( value >> count ) | ( value << ( 64 - count ) );
 }
-__forceinline static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft32)
 	if ( !std::is_constant_evaluated() )
@@ -464,7 +481,7 @@ __forceinline static constexpr uint32_t rotld( uint32_t value, int count ) noexc
 	if ( !count ) return value;
 	return ( value << count ) | ( value >> ( 32 - count ) );
 }
-__forceinline static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright32)
 	if ( !std::is_constant_evaluated() )
@@ -474,7 +491,7 @@ __forceinline static constexpr uint32_t rotrd( uint32_t value, int count ) noexc
 	if ( !count ) return value;
 	return ( value >> count ) | ( value << ( 32 - count ) );
 }
-__forceinline static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft16)
 	if ( !std::is_constant_evaluated() )
@@ -484,7 +501,7 @@ __forceinline static constexpr uint16_t rotlw( uint16_t value, int count ) noexc
 	if ( !count ) return value;
 	return ( value << count ) | ( value >> ( 16 - count ) );
 }
-__forceinline static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright16)
 	if ( !std::is_constant_evaluated() )
@@ -494,7 +511,7 @@ __forceinline static constexpr uint16_t rotrw( uint16_t value, int count ) noexc
 	if ( !count ) return value;
 	return ( value >> count ) | ( value << ( 16 - count ) );
 }
-__forceinline static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft8)
 	if ( !std::is_constant_evaluated() )
@@ -504,7 +521,7 @@ __forceinline static constexpr uint8_t rotlb( uint8_t value, int count ) noexcep
 	if ( !count ) return value;
 	return ( value << count ) | ( value >> ( 8 - count ) );
 }
-__forceinline static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
+FORCE_INLINE static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright8)
 	if ( !std::is_constant_evaluated() )
@@ -515,7 +532,7 @@ __forceinline static constexpr uint8_t rotrb( uint8_t value, int count ) noexcep
 	return ( value >> count ) | ( value << ( 8 - count ) );
 }
 template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
-__forceinline static constexpr T rotl( T value, int count ) noexcept
+FORCE_INLINE static constexpr T rotl( T value, int count ) noexcept
 {
 	if constexpr ( sizeof( T ) == 8 )
 		return ( T ) rotlq( ( uint64_t ) value, count );
@@ -529,7 +546,7 @@ __forceinline static constexpr T rotl( T value, int count ) noexcept
 		unreachable();
 }
 template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
-__forceinline static constexpr T rotr( T value, int count ) noexcept
+FORCE_INLINE static constexpr T rotr( T value, int count ) noexcept
 {
 	if constexpr ( sizeof( T ) == 8 )
 		return ( T ) rotrq( ( uint64_t ) value, count );
@@ -545,7 +562,7 @@ __forceinline static constexpr T rotr( T value, int count ) noexcept
 
 // Declare bswap.
 //
-__forceinline static constexpr uint16_t bswapw( uint16_t value ) noexcept
+FORCE_INLINE static constexpr uint16_t bswapw( uint16_t value ) noexcept
 {
 #if __has_builtin(__builtin_bswap16)
 	if ( !std::is_constant_evaluated() )
@@ -553,7 +570,7 @@ __forceinline static constexpr uint16_t bswapw( uint16_t value ) noexcept
 #endif
 	return ( ( value & 0xFF ) << 8 ) | ( ( value & 0xFF00 ) >> 8 );
 }
-__forceinline static constexpr uint32_t bswapd( uint32_t value ) noexcept
+FORCE_INLINE static constexpr uint32_t bswapd( uint32_t value ) noexcept
 {
 #if __has_builtin(__builtin_bswap32)
 	if ( !std::is_constant_evaluated() )
@@ -563,7 +580,7 @@ __forceinline static constexpr uint32_t bswapd( uint32_t value ) noexcept
 		( uint32_t( bswapw( uint16_t( ( value << 16 ) >> 16 ) ) ) << 16 ) |
 		( uint32_t( bswapw( uint16_t( ( value >> 16 ) ) ) ) );
 }
-__forceinline static constexpr uint64_t bswapq( uint64_t value ) noexcept
+FORCE_INLINE static constexpr uint64_t bswapq( uint64_t value ) noexcept
 {
 #if __has_builtin(__builtin_bswap64)
 	if ( !std::is_constant_evaluated() )
@@ -574,7 +591,7 @@ __forceinline static constexpr uint64_t bswapq( uint64_t value ) noexcept
 		( uint64_t( bswapd( uint32_t( ( value >> 32 ) ) ) ) );
 }
 template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
-__forceinline static constexpr T bswap( T value ) noexcept
+FORCE_INLINE static constexpr T bswap( T value ) noexcept
 {
 	if constexpr ( sizeof( T ) == 8 )
 		return ( T ) bswapq( ( uint64_t ) value );
@@ -624,7 +641,7 @@ __forceinline static constexpr T bswap( T value ) noexcept
 	#pragma intrinsic(_InterlockedCompareExchange128)
 #endif
 template<typename T>
-__forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desired )
+FORCE_INLINE static bool cmpxchg( volatile T& data, T& expected, const T& desired )
 {
 #if !MS_COMPILER
 	using Y = std::array<uint8_t, sizeof( T )>;
@@ -686,7 +703,7 @@ __forceinline static bool cmpxchg( volatile T& data, T& expected, const T& desir
 #endif
 }
 template<typename T>
-__forceinline static bool cmpxchg( std::atomic<T>& data, T& expected, const T& desired )
+FORCE_INLINE static bool cmpxchg( std::atomic<T>& data, T& expected, const T& desired )
 {
 	return cmpxchg( *( volatile T* ) &data, expected, desired );
 }
