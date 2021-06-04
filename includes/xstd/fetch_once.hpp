@@ -91,7 +91,11 @@ namespace xstd
 			".byte 0x2E;"        // 0x0: cs
 			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
 			"callq  %c2;"        // 0xb: call   rel32
+#if DEBUG_BUILD
+			: "=a" ( tmp ) : "i" ( ptr ), "i" ( impl::fetch_once_helper ) :
+#else
 			: "=r" ( tmp ) : "i" ( ptr ), "i" ( impl::fetch_once_helper ) :
+#endif
 		);
 		return *( T* ) &tmp;
 	}
