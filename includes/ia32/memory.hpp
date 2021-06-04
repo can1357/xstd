@@ -1,6 +1,7 @@
 #pragma once
 #include "../ia32.hpp"
 #include <xstd/type_helpers.hpp>
+#include <xstd/fetch_once.hpp>
 
 // [[Configuration]]
 // XSTD_IA32_LA57: Enables or disables LA57.
@@ -152,7 +153,15 @@ namespace ia32::mem
 
 	// Recursive page table lookup.
 	//
-	FORCE_INLINE inline pt_entry_64* get_pte( xstd::any_ptr ptr, size_t depth ) { return &pt_bases[ depth ][ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ]; }
+	FORCE_INLINE inline pt_entry_64* get_pte( xstd::any_ptr ptr, size_t depth ) 
+	{
+		pt_entry_64* base;
+		if ( __is_consteval( depth ) )
+			base = xstd::fetch_once( &pt_bases[ depth ] );
+		else
+			base = pt_bases[ depth ];
+		return &base[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
+	}
 	FORCE_INLINE inline pt_entry_64* get_pte( xstd::any_ptr ptr ) { return get_pte( ptr, 0 ); }
 	FORCE_INLINE inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return get_pte( ptr, 1 ); }
 	FORCE_INLINE inline pt_entry_64* get_pdpte( xstd::any_ptr ptr ) { return get_pte( ptr, 2 ); }
