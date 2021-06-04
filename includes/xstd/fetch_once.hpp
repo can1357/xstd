@@ -20,10 +20,10 @@ namespace xstd
 #if !defined(__clang__) || !AMD64_TARGET || XSTD_NO_RWX
 	// Fetches the value from the given consteval pointer.
 	//
-	template<Trivial T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE inline T fetch_once( const T* ptr )
+	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
+	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T* ptr )
 	{
-		return *ptr;
+		return *( std::remove_cv_t<T>* ) &tmp;
 	}
 #else
 	namespace impl
@@ -83,8 +83,8 @@ namespace xstd
 	// Fetches the value from the given consteval pointer and self-rewrites to make sure 
 	// second call does fetch anything.
 	//
-	template<Trivial T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE inline T fetch_once( const volatile T* ptr )
+	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
+	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T* ptr )
 	{
 		uint64_t tmp;
 		asm volatile(
@@ -97,7 +97,7 @@ namespace xstd
 			: "=r" ( tmp ) : "i" ( ptr ), "i" ( impl::fetch_once_helper ) :
 #endif
 		);
-		return *( T* ) &tmp;
+		return *( std::remove_cv_t<T>* ) &tmp;
 	}
 #endif
 };
