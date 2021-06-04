@@ -157,7 +157,7 @@ namespace ia32::mem
 	{
 		pt_entry_64* base;
 		if ( __is_consteval( depth ) )
-			base = xstd::fetch_once( &pt_bases[ depth ] );
+			base = xstd::fetch_once( pt_bases[ depth ] );
 		else
 			base = pt_bases[ depth ];
 		return &base[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];

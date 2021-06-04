@@ -18,12 +18,12 @@
 namespace xstd
 {
 #if !defined(__clang__) || !AMD64_TARGET || XSTD_NO_RWX
-	// Fetches the value from the given consteval pointer.
+	// Fetches the value from the given consteval reference.
 	//
 	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T* ptr )
+	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T& ref )
 	{
-		return *( std::remove_cv_t<T>* ) &tmp;
+		return ref;
 	}
 #else
 	namespace impl
@@ -80,11 +80,11 @@ namespace xstd
 		}
 	};
 
-	// Fetches the value from the given consteval pointer and self-rewrites to make sure 
+	// Fetches the value from the given consteval reference and self-rewrites to make sure 
 	// second call does fetch anything.
 	//
 	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T* ptr )
+	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T& ref )
 	{
 		uint64_t tmp;
 		asm volatile(
@@ -92,9 +92,9 @@ namespace xstd
 			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
 			"callq  %c2;"        // 0xb: call   rel32
 #if DEBUG_BUILD
-			: "=a" ( tmp ) : "i" ( ptr ), "i" ( impl::fetch_once_helper ) :
+			: "=a" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #else
-			: "=r" ( tmp ) : "i" ( ptr ), "i" ( impl::fetch_once_helper ) :
+			: "=r" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #endif
 		);
 		return *( std::remove_cv_t<T>* ) &tmp;
