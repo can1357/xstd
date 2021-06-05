@@ -28,7 +28,7 @@ namespace xstd
 #else
 	namespace impl
 	{
-		[[gnu::naked]] NO_INLINE inline void fetch_once_helper()
+		[[gnu::naked]] NO_INLINE inline uint64_t fetch_once_helper()
 		{
 			__asm 
 			{
