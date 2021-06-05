@@ -35,45 +35,54 @@ namespace xstd
 				// Create the stack frame.
 				//
 				pushfq
-				push     rax
-				push     r10
-				sub      rsp,                      0x30
-				vmovups  ymmword ptr [rsp+0x10],   ymm0
+				push      rax
+				push      r10
+				sub       rsp,                      0x30
+				vmovups   ymmword ptr [rsp+0x10],   ymm0
 
 				// Read the return pointer into r10, rollback the callsite.
 				//
-				mov      r10,                      [rsp+0x30+0x18]
-				lea      r10,                      [r10-0x10]
-				mov      [rsp+0x30+0x18],          r10
+				mov       r10,                      [rsp+0x30+0x18]
+				lea       r10,                      [r10-0x10]
+				mov       [rsp+0x30+0x18],          r10
 
-				// Read the movabs instruction with its ModR/M from the callsite into the bottom of the stack frame.
+				// Read the callsite into stack, if already patched return to retry execution with the new patch.
 				//
-				mov      ax,                       [r10+1]
-				mov      [rsp],                    ax
+				clflush   [r10]
+				vmovdqu   xmm0,                     [r10]
+				lfence
+				vmovups   [rsp],                    xmm0
+				test      byte ptr [rsp],           0x20 // REX (0x48/0x49) instead of CS (0x2E)
+				jz        retry
 
 				// Read the value using the pointer extracted from movabs into rax.
 				//
-				mov      rax,                      [r10+3]
-				mov      rax,                      [rax]
+				mov       rax,                      [rsp+3]
+				mov       rax,                      [rax]
+
+				// Shift the CS override out.
+				//
+				shr       qword ptr [rsp],          8
 
 				// Create the patch on stack and load it into xmm0.
 				//
-				mov      qword ptr [rsp+2],        rax        // - Write the imm64
-				mov      dword ptr [rsp+2+8],      0x441F0F66 // - Pad with a 6 byte nop | nop word ptr [rax+rax*1+0x0]
-				mov      word ptr [rsp+2+8+4],     0x0000     //
-				vmovups  xmm0,                     xmmword ptr [rsp]
+				mov       qword ptr [rsp+2],        rax        // - Write the imm64
+				mov       dword ptr [rsp+2+8],      0x441F0F66 // - Pad with a 6 byte nop | nop word ptr [rax+rax*1+0x0]
+				mov       word ptr [rsp+2+8+4],     0x0000     //
+				vmovups   xmm0,                     xmmword ptr [rsp]
 				
 				// Apply the patch.
 				//
-				vmovups  xmmword ptr [r10],        xmm0
-				mfence
+				vmovntdq  xmmword ptr [r10],        xmm0
+				sfence
 
+			retry:
 				// Destroy the stack frame and return.
 				//
-				vmovups  ymm0,                     ymmword ptr [rsp+0x10]
-				add      rsp,                      0x30
-				pop      r10
-				pop      rax
+				vmovups   ymm0,                     ymmword ptr [rsp+0x10]
+				add       rsp,                      0x30
+				pop       r10
+				pop       rax
 				popfq
 				ret
 			}
@@ -88,9 +97,10 @@ namespace xstd
 	{
 		uint64_t tmp;
 		asm volatile(
+			".align 0x10;"
 			".byte 0x2E;"        // 0x0: cs
 			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
-			"callq  %c2;"        // 0xb: call   rel32
+			"call   %c2;"        // 0xb: call   rel32
 #if DEBUG_BUILD
 			: "=a" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #else
