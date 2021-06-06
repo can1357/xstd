@@ -226,7 +226,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\apic.hpp">
       <Filter>IA32</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\utf.hpp">
       <Filter>I/O</Filter>
     </ClInclude>
@@ -265,6 +264,9 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fetch_once.hpp">
       <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp">
+      <Filter>Types</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

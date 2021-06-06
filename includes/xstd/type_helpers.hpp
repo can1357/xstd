@@ -519,25 +519,27 @@ namespace xstd
 	//
 	namespace impl
 	{
-		template<size_t N, typename... Tx>
-		struct extract { using type = void; };
-		template<size_t N, typename T, typename... Tx>
-		struct extract<N, T, Tx...> { using type = typename extract<N - 1, Tx...>::type; };
-		template<typename T, typename... Tx>
-		struct extract<0, T, Tx...> { using type = T; };
+		template<size_t N, typename... Tx>              struct textract              { using type = void; };
+		template<size_t N, typename T, typename... Tx>  struct textract<N, T, Tx...> { using type = typename textract<N - 1, Tx...>::type; };
+		template<typename T, typename... Tx>            struct textract<0, T, Tx...> { using type = T; };
+		
+		template<size_t N, auto... Vx>                  struct vextract              {};
+		template<size_t N, auto V, auto... Vx>          struct vextract<N, V, Vx...> { static constexpr auto value = vextract<N - 1, Vx...>::value; };
+		template<auto V, auto... Vx>                    struct vextract<0, V, Vx...> { static constexpr auto value = V; };
 	};
-	template<size_t N, typename... Tx>
-	using extract_t = typename impl::extract<N, Tx...>::type;
-
-	template<typename... Tx> using first_of_t = extract_t<0, Tx...>;
-	template<typename... Tx> using last_of_t =  extract_t<sizeof...(Tx)-1, Tx...>;
+	template<size_t N, typename... Tx> using extract_t =  typename impl::textract<N, Tx...>::type;
+	template<typename... Tx>           using first_of_t = extract_t<0, Tx...>;
+	template<typename... Tx>           using last_of_t =  extract_t<sizeof...(Tx)-1, Tx...>;
+	template<size_t N, auto... Vx>     static constexpr auto extract_v =  impl::vextract<N, Vx...>::value;
+	template<auto... Vx>               static constexpr auto first_of_v = extract_v<0, Vx...>;
+	template<auto... Vx>               static constexpr auto last_of_v =  extract_v<sizeof...(Vx)-1, Vx...>;
 
 	// Replace types within parameter packs.
 	//
 	template<typename T, typename O> using swap_type_t = O;
 	template<auto V, typename O>     using swap_to_type = O;
 	template<auto V, auto O>         static constexpr auto swap_value = O;
-	template<auto V, auto O>         static constexpr auto swap_to_value = O;
+	template<typename T, auto O>     static constexpr auto swap_to_value = O;
 
 	// Bitcasting.
 	//
