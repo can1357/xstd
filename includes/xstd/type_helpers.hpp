@@ -649,7 +649,7 @@ namespace xstd
 	// Gets the type at the given offset.
 	//
 	template<typename T = void>
-	__forceinline static auto ptr_at( any_ptr base, int64_t off ) noexcept 
+	__forceinline static auto ptr_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
 		if constexpr( std::is_void_v<T> )
 			return any_ptr( base + off );
@@ -657,7 +657,7 @@ namespace xstd
 			return carry_const( base, ( T* ) ( base + off ) ); 
 	}
 	template<typename T>
-	__forceinline static auto& ref_at( any_ptr base, int64_t off ) noexcept
+	__forceinline static auto& ref_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
 		return *ptr_at<T>(base, off); 
 	}

@@ -11,7 +11,7 @@ namespace xstd
 	// Checks whether or not a value can be narrowed down to a given type.
 	//
 	template<Integral Dst, Integral Src>
-	__forceinline static constexpr bool within_limits( Src o )
+	__forceinline static constexpr bool narrow_viable( Src o )
 	{
 		return ( ( Dst ) o ) == o;
 	}
@@ -21,14 +21,14 @@ namespace xstd
 	template<Integral Dst, Integral Src>
 	__forceinline static constexpr Dst narrow_cast( Src o )
 	{
-		dassert( within_limits<Dst>( o ) );
+		dassert( narrow_viable<Dst>( o ) );
 		return ( Dst ) o;
 	}
 	template<Integral Dst, Integral Src>
 	__forceinline static constexpr std::optional<Dst> narrow_cast_s( Src o )
 	{
 		std::optional<Dst> result = {};
-		if ( within_limits<Dst>( o ) )
+		if ( narrow_viable<Dst>( o ) )
 			result.emplace( ( Dst ) o );
 		return result;
 	}
