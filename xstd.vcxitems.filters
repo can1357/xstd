@@ -268,6 +268,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp">
       <Filter>Types</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\string_literal.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
