@@ -1,8 +1,8 @@
 #pragma once
-#include <list>
 #include <string>
 #include <array>
 #include <mutex>
+#include <vector>
 #include <string_view>
 #include "spinlock.hpp"
 #include "type_helpers.hpp"
@@ -30,8 +30,8 @@ namespace xstd::tcp
 		xstd::spinlock tx_lock;
 		std::atomic<size_t> last_ack_id = 0;
 		size_t last_tx_id = 0;
-		std::list<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
-		std::list<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
+		std::vector<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
+		std::vector<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
 
 		// Implemented by application, tries parsing the given data range as a singular 
 		// packet returns non-zero size if data is (partially?) consumed, else returns zero 
