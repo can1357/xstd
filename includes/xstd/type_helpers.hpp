@@ -514,7 +514,7 @@ namespace xstd
 	// Makes a null pointer to type.
 	//
 	template<typename T> __forceinline static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
-	
+
 	// Extracts types from a parameter pack.
 	//
 	namespace impl
@@ -793,6 +793,21 @@ namespace xstd
 			else
 				return std::nullopt;
 		}
+	}
+
+	// Implement helper for visiting every element of a tuple.
+	//
+	template<typename T, typename F>
+	FLATTEN __forceinline static constexpr decltype(auto) visit_tuple( T&& tuple, F&& f )
+	{
+		return make_tuple_series<std::tuple_size_v<std::decay_t<T>>>( [ & ] <auto I> ( const_tag<I> )
+		{
+			using Tv = decltype( std::get<I>( tuple ) );
+			if constexpr( InvocableWith<F&&, Tv, size_t> )
+				return f( std::get<I>( tuple ), I );
+			else
+				return f( std::get<I>( tuple ) );
+		} );
 	}
 
 	// Converts any type to their trivial equivalents.
