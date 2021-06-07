@@ -158,7 +158,8 @@ namespace xstd
 		is_specialization_v<std::basic_string, T> ||
 		is_specialization_v<std::basic_string_view, T> ||
 		is_specialization_v<std::initializer_list, T> ||
-		std::is_array_v<T&>
+		std::is_array_v<std::remove_cvref_t<T>> ||
+		std::is_array_v<T>
 	);
 
 	// Checks if the given lambda can be evaluated in compile time.
@@ -338,7 +339,9 @@ namespace xstd
 	template<typename T>
 	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
 	template<typename T>
-	using iterator_t = decltype( std::begin( std::declval<T>() ) );
+	concept ContiguousIterable = is_contiguous_iterable_v<T>;
+	template<typename T>
+	using iterator_t = decltype( std::begin( std::declval<T&>() ) );
 	template<typename T>
 	using const_iterator_t = decltype( std::begin( std::declval<const T&>() ) );
 	template<typename T>
@@ -798,7 +801,7 @@ namespace xstd
 	// Implement helper for visiting every element of a tuple.
 	//
 	template<typename T, typename F>
-	FLATTEN __forceinline static constexpr decltype(auto) visit_tuple( T&& tuple, F&& f )
+	FLATTEN __forceinline static constexpr decltype(auto) visit_tuple( F&& f, T&& tuple )
 	{
 		return make_tuple_series<std::tuple_size_v<std::decay_t<T>>>( [ & ] <auto I> ( const_tag<I> )
 		{
@@ -1026,14 +1029,46 @@ namespace xstd
 	}
 
 	// Emits an unrolled loop (upto N times) for a dynamic length.
+	// -- Exhaust variant takes a reference to N and will not handle leftovers.
+	// -- Scaled version iterates in the given unit size, returns the leftover length.
 	//
 	template<size_t N, typename F>
+	FORCE_INLINE static bool unroll_exhaust_n( F&& fn, size_t& n )
+	{
+		for ( size_t i = n / N; i != 0; i-- )
+			unroll<N>( fn );
+		n %= N;
+		return !n;
+	}
+	template<auto... N, typename F>
 	FORCE_INLINE static void unroll_n( F&& fn, size_t n )
 	{
-		for( ; n >= N; n -= N )
-			unroll<N>( fn );
-		for( ; n; n-- )
+		( unroll_exhaust_n<N>( fn, n ) || ... );
+		for ( ; n; n-- )
 			fn();
+	}
+	template<size_t S, auto... N, typename F>
+	FORCE_INLINE static size_t unroll_scaled_n( F&& fn, size_t n )
+	{
+		unroll_n<(N/S)...>( fn, n / S );
+		return n % S;
+	}
+
+	// Identity function that hints to the compiler to be maximally pessimistic about the operation.
+	//
+	template<typename T>
+	FORCE_INLINE static T black_box( T value )
+	{
+#if GNU_COMPILER
+		if constexpr ( Integral<T> )
+			asm volatile( "" : "+r" ( value ) );
+		else
+			asm volatile( "" : "+m" ( value ) );
+		return value;
+#else
+		volatile T dumb = value;
+		return dumb;
+#endif
 	}
 
 	// Cold call allows you to call out whilist making sure the target does not get inlined.
