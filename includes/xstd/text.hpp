@@ -20,6 +20,11 @@ namespace xstd
 		return string_view_t<T>{ str }.size();
 	}
 
+	// Default string hashers.
+	//
+	using xhash_t = fnv64;
+	using ihash_t = fnv64;
+
 	// Case/Width insensitive hasher.
 	//
 	template<typename H, String T>
@@ -49,12 +54,12 @@ namespace xstd
 			return h;
 		}
 	};
-	template<String T> using ihash = basic_ihash<fnv64, T>;
-	template<String T> using xhash = basic_xhash<fnv64, T>;
+	template<String T> using ihash = basic_ihash<ihash_t, T>;
+	template<String T> using xhash = basic_xhash<xhash_t, T>;
 	template<typename H, String T> static constexpr H make_ihash( const T& value ) noexcept { return basic_ihash<H, T>{}( value ); }
 	template<typename H, String T> static constexpr H make_xhash( const T& value ) noexcept { return basic_xhash<H, T>{}( value ); }
-	template<String T> static constexpr fnv64 make_ihash( const T& value ) noexcept { return make_ihash<fnv64>( value ); }
-	template<String T> static constexpr fnv64 make_xhash( const T& value ) noexcept { return make_xhash<fnv64>( value ); }
+	template<String T> static constexpr ihash_t make_ihash( const T& value ) noexcept { return make_ihash<ihash_t>( value ); }
+	template<String T> static constexpr xhash_t make_xhash( const T& value ) noexcept { return make_xhash<xhash_t>( value ); }
 
 	// Case insensitive string operations.
 	//
