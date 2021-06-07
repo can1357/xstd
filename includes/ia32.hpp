@@ -22686,6 +22686,80 @@ namespace ia32
 		asm volatile ( "int %0" :: "i" ( idx ) );
 	}
 
+	// Hardware accelerated crypto.
+	//
+	template<xstd::Integral T>
+	_LINKAGE uint32_t crc32ci( const T& value, uint32_t crc = ~0 )
+	{
+		if constexpr ( sizeof( T ) == 8 || sizeof( T ) == 1 )
+		{
+			uint64_t _crc = crc;
+			if constexpr( sizeof( T ) == 8 )
+				asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( value ) );
+			else
+				asm volatile( "crc32b %1, %0" : "+r" ( _crc ) : "m" ( value ) );
+			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
+			return _crc;
+		}
+		else if constexpr ( sizeof( T ) == 4 || sizeof( T ) == 2 )
+		{
+			if constexpr ( sizeof( T ) == 4 )
+				asm volatile( "crc32l %1, %0" : "+r" ( crc ) : "m" ( value ) );
+			else
+				asm volatile( "crc32w %1, %0" : "+r" ( crc ) : "m" ( value ) );
+			return crc;
+		}
+		unreachable();
+	}
+	_LINKAGE uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )
+	{
+		xstd::any_ptr ptr = _ptr;
+		bool const_length = __is_consteval( length );
+
+		// CRC in 128-byte units using Qword CRCs until we're done.
+		//
+		length = xstd::unroll_scaled_n<8, 128>( [ & ]
+		{
+			crc = crc32ci( *( uint64_t* ) ptr, crc );
+			ptr += sizeof( uint64_t );
+		}, length );
+
+		// Handle the leftover part.
+		//
+		if ( const_length )
+		{
+			if ( length & 4 )
+				crc = crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
+			if ( length & 2 )
+				crc = crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
+			if ( length & 1 )
+				crc = crc32ci( *( uint8_t* ) ptr, crc );
+		}
+		else
+		{
+			while( length )
+				crc = crc32ci( *( uint8_t* ) ptr, crc ), ptr++, length--;
+		}
+		return crc;
+	}
+	_LINKAGE uint32_t crc32ci( const volatile void* src, const volatile void* dst, uint32_t crc = ~0 )
+	{
+		return crc32ci( src, xstd::distance( src, dst ), crc );
+	}
+	template<xstd::Integral T>
+	_LINKAGE uint32_t crc32c( const T& value, uint32_t crc = 0 )
+	{
+		return ~crc32ci<T>( value, ~crc );
+	}
+	_LINKAGE uint32_t crc32c( const volatile void* ptr, size_t length, uint32_t crc = 0 )
+	{
+		return ~crc32ci( ptr, length, ~crc );
+	}
+	_LINKAGE uint32_t crc32c( const volatile void* src, const volatile void* dst, uint32_t crc = 0 )
+	{
+		return crc32ci( src, xstd::distance( src, dst ), crc );
+	}
+
 	// RAII wrapper for IRQL.
 	//
 	template<irql_t new_irql>

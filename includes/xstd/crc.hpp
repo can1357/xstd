@@ -8,6 +8,86 @@
 #include "bitwise.hpp"
 #include "hexdump.hpp"
 
+// [[Configuration]]
+// XSTD_HW_CRC32C: Determines the availability of hardware CRC32C.
+//
+#ifndef XSTD_HW_CRC32C
+	#define XSTD_HW_CRC32C ( AMD64_TARGET && ( GNU_COMPILER || MS_COMPILER ) )
+#endif
+
+namespace xstd::impl
+{
+#if XSTD_HW_CRC32C
+	template<xstd::Integral T>
+	FORCE_INLINE static uint32_t hw_crc32ci( const T& value, uint32_t crc )
+	{
+#if MS_COMPILER
+		if constexpr ( sizeof( T ) == 8 )
+			return _mm_crc32_u64( crc, value );
+		else if constexpr ( sizeof( T ) == 4 )
+			return _mm_crc32_u32( crc, value );
+		else if constexpr ( sizeof( T ) == 2 )
+			return _mm_crc32_u16( crc, value );
+		else if constexpr ( sizeof( T ) == 1 )
+			return _mm_crc32_u8( crc, value );
+#else
+		if constexpr ( sizeof( T ) == 8 || sizeof( T ) == 1 )
+		{
+			uint64_t _crc = crc;
+			if constexpr ( sizeof( T ) == 8 )
+				asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( value ) );
+			else
+				asm volatile( "crc32b %1, %0" : "+r" ( _crc ) : "m" ( value ) );
+			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
+			return _crc;
+		}
+		else if constexpr ( sizeof( T ) == 4 || sizeof( T ) == 2 )
+		{
+			if constexpr ( sizeof( T ) == 4 )
+				asm volatile( "crc32l %1, %0" : "+r" ( crc ) : "m" ( value ) );
+			else
+				asm volatile( "crc32w %1, %0" : "+r" ( crc ) : "m" ( value ) );
+			return crc;
+		}
+#endif
+		unreachable();
+	}
+
+	FORCE_INLINE static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc )
+	{
+		bool const_length = __is_consteval( length );
+
+		// CRC in 128-byte units using Qword CRCs until we're done.
+		//
+		length = xstd::unroll_scaled_n<8, 128>( [ & ]
+		{
+			crc = hw_crc32ci( *( uint64_t* ) ptr, crc );
+			ptr += sizeof( uint64_t );
+		}, length );
+
+		// Handle the leftover part.
+		//
+		if ( const_length )
+		{
+			if ( length & 4 )
+				crc = hw_crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
+			if ( length & 2 )
+				crc = hw_crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
+			if ( length & 1 )
+				crc = hw_crc32ci( *( uint8_t* ) ptr, crc );
+		}
+		else
+		{
+			while ( length )
+				crc = hw_crc32ci( *( uint8_t* ) ptr, crc ), ptr++, length--;
+		}
+		return crc;
+	}
+#else
+	static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc );
+#endif
+};
+
 namespace xstd
 {
 	// Defines a generic CRC type for reflect in = 1, reflect out = 1.
@@ -15,10 +95,13 @@ namespace xstd
 	template<typename U, typename I, U rpoly, U seed>
 	struct crc
 	{
+		template<U new_seed> struct rebind { using type = crc<U, I, rpoly, new_seed>; };
+
 		static constexpr auto lookup_table = [ ] ()
 		{
 			std::array<U, 256> table = {};
 
+#ifndef __INTELLISENSE__
 			for ( size_t n = 0; n <= 0xFF; n++ )
 			{
 				U crc = U( n );
@@ -31,6 +114,7 @@ namespace xstd
 				}
 				table[ n ] = ~crc;
 			}
+#endif
 			return table;
 		}();
 
@@ -48,17 +132,32 @@ namespace xstd
 		//
 		constexpr crc( U seed_n = default_seed ) noexcept
 			: value{ seed_n } {}
+		constexpr crc( uint64_t seed_narrowed ) noexcept requires ( !Same<U, uint64_t> )
+			: crc( U( seed_narrowed ) ) {}
 
 		// Appends the given array of bytes into the hash value.
 		//
 		__forceinline constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
-#ifndef __INTELLISENSE__
+			// If non-constexpr evaluation of CRC32C under a host with support, use hardware primitive.
+			//
+			if constexpr ( sizeof( U ) == 4 && uint32_t( rpoly ) == 0x82F63B78 && XSTD_HW_CRC32C )
+			{
+				if ( !std::is_constant_evaluated() )
+				{
+					value = ~impl::hw_crc32ci( data, n, ~value );
+					return;
+				}
+			}
+
+			// Otherwise fallback to software mode.
+			//
 			U crc = ~value;
-			while( n-- )
+#ifndef __INTELLISENSE__
+			while ( n-- )
 				crc = ( ~lookup_table[ U( *data++ ) ^ ( crc & U( 0xFF ) ) ] ) ^ ( crc >> U( 8 ) );
-			value = ~crc;
 #endif
+			value = ~crc;
 		}
 
 		// Appends the given trivial value as bytes into the hash value.
@@ -110,6 +209,7 @@ namespace xstd
 	using crc8 =     crc<uint8_t,  int8_t,  0xAB,               0xFF>;
 	using crc16 =    crc<uint16_t, int16_t, 0xA6BC,             0xFFFF>;
 	using crc32 =    crc<uint32_t, int32_t, 0xEDB88320,         0>;
+	using crc32c =   crc<uint32_t, int32_t, 0x82F63B78,         0>;
 	using crc32k =   crc<uint32_t, int32_t, 0x992C1A4C,         0>;
 	using crc64 =    crc<uint64_t, int64_t, 0xD800000000000000, 0>;
 	using crc64xz =  crc<uint64_t, int64_t, 0xC96C5795D7870F42, 0>;
