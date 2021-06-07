@@ -171,9 +171,7 @@ namespace xstd
 		{
 			uint16_t value = counter.load();
 
-			#if GNU_COMPILER
-				#pragma unroll(2)
-			#endif
+			__hint_unroll_n( 2 )
 			while ( true )
 			{
 				// If not exclusively owned, try incrementing the lock count.

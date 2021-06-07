@@ -22253,7 +22253,7 @@ namespace ia32
 			ptrdiff_t n = ( ptrdiff_t ) count;
 			for ( ; n >= ustep; n -= ustep )
 			{
-				#pragma unroll
+				__hint_unroll()
 				for ( size_t i = 0; i != U; i++, ptr += granularity )
 					fn( ptr );
 			}
@@ -22262,7 +22262,6 @@ namespace ia32
 				fn( ptr );
 		}
 	}
-
 	_LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = page_size )
 	{
 		impl::unroll_for<8>( [ pcid ] ( xstd::any_ptr it ) { invpcid( invpcid_type::individual, pcid, it ); }, ptr, n, p );

@@ -1015,6 +1015,27 @@ namespace xstd
 	template<typename T, bool C>
 	using conditional_store = std::conditional_t<C, T, null_store<T>>;
 
+	// Emits an unrolled loop for a constant length.
+	//
+	template<size_t N, typename F>
+	FORCE_INLINE static void unroll( F&& fn )
+	{
+		__hint_unroll()
+		for ( size_t i = 0; i != N; i++ )
+			fn();
+	}
+
+	// Emits an unrolled loop (upto N times) for a dynamic length.
+	//
+	template<size_t N, typename F>
+	FORCE_INLINE static void unroll_n( F&& fn, size_t n )
+	{
+		for( ; n >= N; n -= N )
+			unroll<N>( fn );
+		for( ; n; n-- )
+			fn();
+	}
+
 	// Cold call allows you to call out whilist making sure the target does not get inlined.
 	//
 	template<typename F, typename... Tx>

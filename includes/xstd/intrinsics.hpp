@@ -170,6 +170,14 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 	#define register
 #endif
 
+// Stringification helpers.
+// - ix implies no macro expansion where as x does.
+//
+#define ixstringify(x) #x
+#define xstringify(x)  ixstringify(x)
+#define ixstrcat(x,y)  x##y
+#define xstrcat(x,y)   ixstrcat(x,y)
+
 // Determine RTTI support.
 //
 #if defined(_CPPRTTI)
@@ -201,11 +209,27 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 	#define NO_INLINE    __declspec(noinline)
 	#define NO_DEBUG
 #endif
-#if __clang__
+
+#if GNU_COMPILER
 	#define TRIVIAL_ABI    __attribute__((trivial_abi))
 #else
 	#define TRIVIAL_ABI
 #endif
+
+#if GNU_COMPILER
+	#define __hint_unroll() _Pragma("unroll")
+#elif MS_COMPILER
+	#define __hint_unroll() __pragma(loop(ivdep))
+#else
+	#define __hint_unroll()
+#endif
+
+#if GNU_COMPILER && HAS_MS_EXTENSIONS
+	#define __hint_unroll_n(N) __pragma(unroll(N))
+#else
+	#define __hint_unroll_n(N)
+#endif
+
 #ifndef RINLINE
 	#if RELEASE_BUILD
 		#define RINLINE     FORCE_INLINE
@@ -213,14 +237,6 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 		#define RINLINE     
 	#endif
 #endif
-
-// Stringification helpers.
-// - ix implies no macro expansion where as x does.
-//
-#define ixstringify(x) #x
-#define xstringify(x)  ixstringify(x)
-#define ixstrcat(x,y)  x##y
-#define xstrcat(x,y)   ixstrcat(x,y)
 
 // Make sure all users link to the same version.
 //
