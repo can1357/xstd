@@ -196,8 +196,7 @@ namespace xstd::encode
         return result;
     }
 
-    template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>, Iterable T = const std::initializer_list<uint8_t>&> 
-    requires is_contiguous_iterable_v<T>
+    template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>, ContiguousIterable T = const std::initializer_list<uint8_t>&>
     static std::basic_string<C> base_n( T&& c, const Dc& dictionary )
     {
         return base_n<C, bit_rev, Dc>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), dictionary );

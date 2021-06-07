@@ -115,7 +115,7 @@ namespace xstd::file
 
 		// Write every element and return.
 		//
-		if constexpr ( !is_contiguous_iterable_v<C> )
+		if constexpr ( !ContiguousIterable<C> )
 		{
 			for ( auto& e : container )
 				file.write( ( char* ) e, sizeof( iterable_val_t<C> ) );
