@@ -75,7 +75,7 @@ namespace xstd
         // Constructed from an optional byte array.
         //
         serialization() {}
-        template<Iterable T> requires ( is_contiguous_iterable_v<T>&& Trivial<iterable_val_t<T>> )
+        template<ContiguousIterable T> requires Trivial<iterable_val_t<T>>
         serialization( T&& container, bool no_header = false ) { load( std::forward<T>( container ), no_header ); }
         serialization( const void* data, size_t length, bool no_header = false ) { load( data, length, no_header ); }
         
@@ -89,7 +89,7 @@ namespace xstd
         std::vector<uint8_t> dump() const;
         std::vector<uint8_t> dump();
         serialization& load( const void* data, size_t length, bool no_header = false );
-        template<Iterable T> requires ( is_contiguous_iterable_v<T> && Trivial<iterable_val_t<T>> )
+        template<ContiguousIterable T> requires Trivial<iterable_val_t<T>>
         serialization& load( T&& container, bool no_header = false ) 
         {
             return load( ( const uint8_t* ) std::to_address( std::begin( container ) ), std::size( container ) * sizeof( iterable_val_t<T> ), no_header );
