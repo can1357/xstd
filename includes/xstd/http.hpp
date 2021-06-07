@@ -63,9 +63,17 @@ namespace xstd::http
 		"TRACE",
 		"PATCH"
 	};
+	static constexpr auto hash_method( std::string_view method )
+	{
+		uint64_t value = 0;
+		for ( size_t n = 0; n != 8 && n != method.size(); n++ )
+			value |= 0x20 | ( uint64_t( n ) << ( 8 * n ) );
+		value ^= 0xfa7c0c5;
+		return ~value;
+	}
 	static constexpr auto method_hashmap = make_constant_series<std::size( method_map )>( [ ] <size_t N> ( const_tag<N> )
 	{
-		return make_xhash( method_map[ N ] );
+		return hash_method( method_map[ N ] );
 	} );
 
 	// Define case insensitive string comperator for the header map.
@@ -194,7 +202,7 @@ namespace xstd::http
 		size_t method_end = line.find( ' ' );
 		if ( method_end == std::string::npos )
 			return false;
-		hash_t method_hash = make_xhash( line.substr( 0, method_end ) );
+		hash_t method_hash = hash_method( line.substr( 0, method_end ) );
 		auto it = std::find( method_hashmap.begin(), method_hashmap.end(), method_hash );
 		if ( it == method_hashmap.end() )
 			return false;
