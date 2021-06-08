@@ -585,11 +585,11 @@ namespace xstd
 	// Implement the simple interface.
 	//
 	template<typename T>
-	static inline std::vector<uint8_t> serialize( const T& value )
+	static inline std::vector<uint8_t> serialize( const T& value, bool no_header = false )
 	{
 		serialization ctx = {};
 		serializer_t<T>::apply( ctx, value );
-		return ctx.dump();
+		return ctx.dump( no_header );
 	}
 	template<typename T> static inline void serialize( serialization& ctx, const T& value ) { serializer_t<T>::apply( ctx, value ); }
 	template<typename T> static inline T deserialize( serialization& ctx ) { return serializer_t<T>::reflect( ctx ); }
