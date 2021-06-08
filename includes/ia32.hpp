@@ -22742,10 +22742,6 @@ namespace ia32
 		}
 		return crc;
 	}
-	_LINKAGE uint32_t crc32ci( const volatile void* src, const volatile void* dst, uint32_t crc = ~0 )
-	{
-		return crc32ci( src, xstd::distance( src, dst ), crc );
-	}
 	template<xstd::Integral T>
 	_LINKAGE uint32_t crc32c( const T& value, uint32_t crc = 0 )
 	{
@@ -22754,10 +22750,6 @@ namespace ia32
 	_LINKAGE uint32_t crc32c( const volatile void* ptr, size_t length, uint32_t crc = 0 )
 	{
 		return ~crc32ci( ptr, length, ~crc );
-	}
-	_LINKAGE uint32_t crc32c( const volatile void* src, const volatile void* dst, uint32_t crc = 0 )
-	{
-		return crc32ci( src, xstd::distance( src, dst ), crc );
 	}
 
 	// RAII wrapper for IRQL.
