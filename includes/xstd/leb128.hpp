@@ -179,15 +179,15 @@ namespace xstd::encode
         }
         void serialize( serialization& ctx ) const
         {
-            leb128<underlying_type>( ctx.raw_data, ( underlying_type ) value );
+            leb128<underlying_type>( ctx.output_stream, ( underlying_type ) value );
         }
         static leb128_t deserialize( serialization& ctx )
         {
-            const uint8_t* beg = ctx.raw_data.data() + ctx.offset;
-            const uint8_t* end = ctx.raw_data.data() + ctx.raw_data.size();
+            const uint8_t* beg = ctx.input_stream.data();
+            const uint8_t* end = ctx.input_stream.data() + ctx.input_stream.size();
             const uint8_t* it = beg;
             leb128_t value = { ( T ) *rleb128<underlying_type>( it, end ) };
-            ctx.offset += it - beg;
+            ctx.skip( it - beg );
             return value;
         }
     };
