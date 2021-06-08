@@ -643,6 +643,44 @@ namespace xstd
 	}
 	template<typename T> inline T serialization::read() { return serializer_t<T>::reflect( *this ); }
 	template<typename T> inline void serialization::write( const T& value ) { serializer_t<T>::apply( *this, value ); }
+
+	// Helper type for index-like serialization.
+	//
+	struct index_t
+	{
+	    size_t value;
+	    constexpr index_t( size_t value = {} ) : value( value ) {}
+	    constexpr index_t( index_t&& ) noexcept = default;
+	    constexpr index_t( const index_t& ) = default;
+	    constexpr index_t& operator=( index_t&& ) noexcept = default;
+	    constexpr index_t& operator=( const index_t& ) = default;
+	    constexpr operator size_t&() { return value; }
+	    constexpr operator const size_t&() const { return value; }
+	    
+	    template<typename Tn> requires Castable<size_t, Tn>
+	    explicit constexpr operator Tn() const { return ( Tn ) value; }
+	    template<typename Tn> requires Convertible<size_t, Tn>
+	    constexpr operator Tn() const { return ( Tn ) value; }
+	
+	    // Serialization, deserialization, string conversion and hashing.
+	    //
+	    hash_t hash() const 
+	    { 
+			 return make_hash( value ); 
+	    }
+	    std::string to_string() const
+	    {
+			 return fmt::as_string( value );
+	    }
+	    void serialize( serialization& ctx ) const
+	    {
+			 ctx.write_idx( value );
+	    }
+	    static index_t deserialize( serialization& ctx )
+	    {
+			 return ctx.read_idx();
+	    }
+	};
 };
 
 // Overload streaming operators.
