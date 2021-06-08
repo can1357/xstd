@@ -612,7 +612,7 @@ namespace xstd
 		}
 		else
 		{
-			if ( pointers.empty() )
+			if ( !pointers.empty() )
 				throw_fmt( XSTD_ESTR( "Writing a serialization with a pointer table without headers." ) );
 		}
 		return result;
@@ -628,7 +628,7 @@ namespace xstd
 		}
 		else
 		{
-			if ( pointers.empty() )
+			if ( !pointers.empty() )
 				throw_fmt( XSTD_ESTR( "Writing a serialization with a pointer table without headers." ) );
 		}
 		return std::move( output_stream );
