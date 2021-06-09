@@ -22073,34 +22073,6 @@ namespace ia32
 		}
 	}
 
-	// Serialization intrinsics.
-	//
-	_LINKAGE void lfence() { asm volatile( "lfence" ::: "memory" ); }
-	_LINKAGE void sfence() { asm volatile( "sfence" ::: "memory" ); }
-	_LINKAGE void mfence() { asm volatile( "mfence" ::: "memory" ); }
-	_LINKAGE void serialize()
-	{
-		// CLTS is the lowest-cost serializing instruction when in kernel-mode,
-		// assuming we can't guarantee LFENCE serialization. Checking host support
-		// and branching for this reason does not make sense either given the high 
-		// performance scenarios this is used where the timings matter.
-		//
-		// This choice can however be made by the [[Configuration]] XSTD_LFENCE_SERIALIZING.
-		//
-#ifndef XSTD_LFENCE_SERIALIZING
-#define XSTD_LFENCE_SERIALIZING 0
-#endif
-
-#if !XSTD_LFENCE_SERIALIZING
-		if constexpr ( is_kernel_mode() )
-			clts();
-		else
-			query_cpuid( 0 );
-#else
-		lfence();
-#endif
-	}
-
 	// String operations.
 	//
 	template<typename T = uint8_t>
@@ -22365,6 +22337,35 @@ namespace ia32
 		int flag;
 		asm volatile( "verw %1" : "=@ccz" ( flag ) : "rm" ( value.flags ) : );
 		return flag;
+	}
+
+	// Serialization intrinsics.
+	//
+	_LINKAGE void lfence() { asm volatile( "lfence" ::: "memory" ); }
+	_LINKAGE void sfence() { asm volatile( "sfence" ::: "memory" ); }
+	_LINKAGE void mfence() { asm volatile( "mfence" ::: "memory" ); }
+	_LINKAGE void serialize()
+	{
+		// CLTS is the lowest-cost serializing instruction (3 uOps) when in kernel-mode,
+		// and move to SS is the lowest-cost when in user-mode; assuming we can't guarantee 
+		// serializing LFENCE behaviour. Checking host support and branching for this reason 
+		// does not make sense either given the high performance scenarios this is used where 
+		// the timings matter.
+		//
+		// This choice can however be made by the [[Configuration]] XSTD_SERIALIZING_LFENCE.
+		//
+#ifndef XSTD_SERIALIZING_LFENCE
+	#define XSTD_SERIALIZING_LFENCE 0
+#endif
+
+#if !XSTD_SERIALIZING_LFENCE
+		if constexpr ( is_kernel_mode() )
+			clts();
+		else
+			set_ss( get_ss() );
+#else
+		lfence();
+#endif
 	}
 
 	// IP/SP.
