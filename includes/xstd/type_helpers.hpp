@@ -308,20 +308,24 @@ namespace xstd
 
 	// Functor traits.
 	//
+	template<typename T, typename... Args>
+	concept InvocableWith = requires( T && x ) { x( std::declval<Args>()... ); };
 	namespace impl
 	{
 		template<typename T, typename Ret, typename... Args>
-		concept InvocableR = requires( T && x ) { Convertible<decltype( x( std::declval<Args>()... ) ), Ret>; };
-		template<typename T, typename... Args>
-		concept InvocableV = requires( T && x ) { Void<decltype( x( std::declval<Args>()... ) )>; };
-
-		template<typename T, typename Ret, typename... Args>
-		static constexpr bool invocable_v = Void<Ret> ? InvocableV<T, Args...> : InvocableR<T, Ret, Args...>;
+		struct invoke_traits
+		{
+			static constexpr bool success = false;
+		};
+		template<typename T, typename Ret, typename... Args> requires InvocableWith<T, Args...>
+		struct invoke_traits<T, Ret, Args...>
+		{
+			using R = decltype( std::declval<T&&>()( std::declval<Args&&>()... ) );
+			static constexpr bool success = Void<Ret> ? Void<R> : Convertible<R, Ret>;
+		};
 	};
 	template<typename T, typename Ret, typename... Args>
-	concept Invocable = impl::invocable_v<T, Ret, Args...>;
-	template<typename T, typename... Args>
-	concept InvocableWith = requires( T&& x ) { x( std::declval<Args>()... ); };
+	concept Invocable = impl::invoke_traits<T, Ret, Args...>::success;
 
 	// Iterator traits.
 	//
