@@ -136,9 +136,9 @@ namespace xstd
 			{
 				uint8_t seg;
 				read( &seg, 1 );
-				idx |= ( seg & 0x7F ) << shift;
+				idx |= uint64_t( seg & 0x7F ) << shift;
 				shift += 7;
-				if ( ( seg & 0x80 ) )
+				if ( seg & 0x80 )
 					return idx;
 			}
 		}

@@ -700,10 +700,10 @@ namespace xstd
 			}
 			else
 			{
+				using Tp = Tr<decltype( f( const_tag<I>{} ) )...>;
 #if MS_COMPILER
 				// Needs to be default initializable on MSVC, fuck this.
-				auto tup = [ & ] <Ti X> ( const_tag<X> ) { return f( const_tag<X>{} ); };
-				Tr<decltype( tup( const_tag<I>{} ) )...> arr = {};
+				Tp arr = {};
 				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
 				{
 					std::get<X>( arr ) = f( tag );
@@ -713,7 +713,7 @@ namespace xstd
 				assign( const_tag<Ti( 0 )>{}, assign );
 				return arr;
 #else
-				return Tr{ f( const_tag<I>{} )... };
+				return Tp{ f( const_tag<I>{} )... };
 #endif
 			}
 		}
@@ -746,7 +746,7 @@ namespace xstd
 				assign( const_tag<Ti( 0 )>{}, assign );
 				return arr;
 #else
-				return std::array{ f( const_tag<I>{} )... };
+				return std::array<R, sizeof...( I )>{ f( const_tag<I>{} )... };
 #endif
 			}
 		}
@@ -768,7 +768,7 @@ namespace xstd
 	// Implement helper for visit on numeric range.
 	//
 	template<auto First, auto Last, typename T, typename K = decltype( First ), typename R = decltype( std::declval<T>()( const_tag<K(First)>{} ) )>
-	FLATTEN __forceinline static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<std::is_void_v<R>, bool, std::optional<R>>
+	FLATTEN __forceinline static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<Void<R>, bool, std::optional<R>>
 	{
 		if constexpr( First <= Last )
 		{
@@ -798,12 +798,12 @@ namespace xstd
 		}
 	}
 
-	// Implement helper for visiting every element of a tuple.
+	// Implement helper for visiting/transforming every element of a tuple-like.
 	//
 	template<typename T, typename F>
 	FLATTEN __forceinline static constexpr decltype(auto) visit_tuple( F&& f, T&& tuple )
 	{
-		return make_tuple_series<std::tuple_size_v<std::decay_t<T>>>( [ & ] <auto I> ( const_tag<I> )
+		return make_tuple_series<std::tuple_size_v<std::decay_t<T>>>( [ & ] <auto I> ( const_tag<I> ) -> decltype( auto )
 		{
 			using Tv = decltype( std::get<I>( tuple ) );
 			if constexpr( InvocableWith<F&&, Tv, size_t> )
@@ -1077,6 +1077,39 @@ namespace xstd
 	NO_INLINE COLD static decltype( auto ) cold_call( F&& fn, Tx&&... args )
 	{
 		return fn( std::forward<Tx>( args )... );
+	}
+
+	// Runs the given lambda only if it's the first time.
+	//
+	template<typename F> requires ( !Pointer<F> )
+	NO_INLINE COLD static decltype( auto ) run_once( F&& fn )
+	{
+		using R = decltype( fn() );
+
+		if constexpr ( Void<R> )
+		{
+			static std::atomic<bool> ran = false;
+			if ( !ran.exchange( true ) )
+				fn();
+		}
+		else
+		{
+			static std::atomic<int> status = 0;
+			static std::optional<R> result = std::nullopt;
+			if ( status != 2 )
+			{
+				int expected = 0;
+				if ( status.compare_exchange_strong( expected, 1, std::memory_order::acquire ) )
+				{
+					result.emplace( fn() );
+					status.store( 2, std::memory_order::release );
+				}
+
+				while ( status.load( std::memory_order::relaxed ) != 2 )
+					yield_cpu();
+			}
+			return result.value();
+		}
 	}
 
 	// Creates a deleter from a given allocator type.

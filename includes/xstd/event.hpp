@@ -3,6 +3,7 @@
 #include <shared_mutex>
 #include <memory>
 #include <functional>
+#include "time.hpp"
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
 
