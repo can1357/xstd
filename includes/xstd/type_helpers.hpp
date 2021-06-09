@@ -572,11 +572,11 @@ namespace xstd
 		unreachable();
 	}
 	template<typename T>
-	concept Bitcastable = requires( T x ) { bit_cast<std::array<char, sizeof( T )>, T >( x ); };
+	concept Bitcastable = requires( T x ) { bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
 	template<typename T>
 	__forceinline static auto& bytes( T& src ) noexcept
 	{
-		return carry_const( src, ( std::array<char, sizeof( T )>& ) src );
+		return carry_const( src, ( std::array<uint8_t, sizeof( T )>& ) src );
 	}
 
 	// Member reference helper.
