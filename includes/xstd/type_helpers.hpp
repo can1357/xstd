@@ -308,8 +308,18 @@ namespace xstd
 
 	// Functor traits.
 	//
+	namespace impl
+	{
+		template<typename T, typename Ret, typename... Args>
+		concept InvocableR = requires( T && x ) { Convertible<decltype( x( std::declval<Args>()... ) ), Ret>; };
+		template<typename T, typename... Args>
+		concept InvocableV = requires( T && x ) { Void<decltype( x( std::declval<Args>()... ) )>; };
+
+		template<typename T, typename Ret, typename... Args>
+		static constexpr bool invocable_v = Void<Ret> ? InvocableV<T, Args...> : InvocableR<T, Ret, Args...>;
+	};
 	template<typename T, typename Ret, typename... Args>
-	concept Invocable = requires( T&& x ) { Convertible<decltype( x( std::declval<Args>()... ) ), Ret>; };
+	concept Invocable = impl::invocable_v<T, Ret, Args...>;
 	template<typename T, typename... Args>
 	concept InvocableWith = requires( T&& x ) { x( std::declval<Args>()... ); };
 
