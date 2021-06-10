@@ -229,6 +229,7 @@ namespace xstd
 		constexpr bool operator==( const sha256& o ) const noexcept { return digest() == o.digest(); }
 		constexpr bool operator!=( const sha256& o ) const noexcept { return digest() != o.digest(); }
 	};
+	using sha256_t = typename sha256::value_type;
 };
 
 // Make it std::hashable.

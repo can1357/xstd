@@ -27,8 +27,10 @@ namespace xstd
 
 	// Case/Width insensitive hasher.
 	//
+	template<typename H, typename T>
+	struct basic_ihash;
 	template<typename H, String T>
-	struct basic_ihash
+	struct basic_ihash<H, T>
 	{
 		constexpr H operator()( const T& value ) const noexcept
 		{
@@ -39,11 +41,22 @@ namespace xstd
 			return h;
 		}
 	};
+	template<typename H>
+	struct basic_ihash<H, void>
+	{
+		template<String S>
+		constexpr H operator()( const S& value ) const noexcept
+		{
+			return basic_ihash<H, S>{}( value );
+		}
+	};
 
 	// Width insensitive hasher.
 	//
+	template<typename H, typename T>
+	struct basic_xhash;
 	template<typename H, String T>
-	struct basic_xhash
+	struct basic_xhash<H, T>
 	{
 		constexpr H operator()( const T& value ) const noexcept
 		{
@@ -54,12 +67,75 @@ namespace xstd
 			return h;
 		}
 	};
-	template<String T> using ihash = basic_ihash<ihash_t, T>;
-	template<String T> using xhash = basic_xhash<xhash_t, T>;
+	template<typename H>
+	struct basic_xhash<H, void>
+	{
+		template<String S>
+		constexpr H operator()( const S& value ) const noexcept
+		{
+			return basic_xhash<H, S>{}( value );
+		}
+	};
+	template<typename T = void> using ihash = basic_ihash<ihash_t, T>;
+	template<typename T = void> using xhash = basic_xhash<xhash_t, T>;
 	template<typename H, String T> static constexpr H make_ihash( const T& value ) noexcept { return basic_ihash<H, T>{}( value ); }
 	template<typename H, String T> static constexpr H make_xhash( const T& value ) noexcept { return basic_xhash<H, T>{}( value ); }
 	template<String T> static constexpr ihash_t make_ihash( const T& value ) noexcept { return make_ihash<ihash_t>( value ); }
 	template<String T> static constexpr xhash_t make_xhash( const T& value ) noexcept { return make_xhash<xhash_t>( value ); }
+
+	// Width insensitive string operations.
+	//
+	template<String S1, String S2>
+	static constexpr int xstrcmp( S1&& a, S2&& b )
+	{
+		string_view_t<S1> av = { a };
+		string_view_t<S2> bv = { b };
+		if ( int d = ( int ) av.length() - ( int ) bv.length(); d != 0 )
+			return d;
+		for ( size_t n = 0; n != av.length(); n++ )
+		{
+			if ( int d = av[ n ] - bv[ n ]; d != 0 )
+				return d;
+		}
+		return 0;
+	}
+	template<String S1, String S2>
+	static constexpr bool xequals( S1&& a, S2&& b )
+	{
+		return xstrcmp<S1, S2>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0;
+	}
+	template<String S1, String S2>
+	static constexpr size_t xfind( S1&& in, S2&& v )
+	{
+		string_view_t<S1> inv = { in };
+		string_view_t<S2> sv = { v };
+
+		ptrdiff_t diff = inv.length() - sv.length();
+		for ( ptrdiff_t n = 0; n <= diff; n++ )
+			if ( !xstrcmp( inv.substr( n, sv.length() ), sv ) )
+				return ( size_t ) n;
+		return std::string::npos;
+	}
+	template<String S1, String S2>
+	static constexpr bool xstarts_with( S1&& a, S2&& b )
+	{
+		string_view_t<S1> av = { a };
+		string_view_t<S2> bv = { b };
+		if ( av.length() < bv.length() )
+			return false;
+		av.remove_suffix( av.length() - bv.length() );
+		return xstrcmp( av, bv ) == 0;
+	}
+	template<String S1, String S2>
+	static constexpr bool xends_with( S1&& a, S2&& b )
+	{
+		string_view_t<S1> av = { a };
+		string_view_t<S2> bv = { b };
+		if ( av.length() < bv.length() )
+			return false;
+		av.remove_prefix( av.length() - bv.length() );
+		return xstrcmp( av, bv ) == 0;
+	}
 
 	// Case insensitive string operations.
 	//
@@ -161,6 +237,33 @@ namespace xstd
 		}
 		return result;
 	}
+
+	// Case insensitive comparison predicate.
+	//
+	struct icmp_less
+	{
+		template<String T1, String T2>
+		constexpr bool operator()( const T1& s1, const T2& s2 ) const noexcept
+		{
+			return istrcmp( s1, s2 ) < 0;
+		}
+	};
+	struct icmp_equals
+	{
+		template<String T1, String T2>
+		constexpr bool operator()( const T1& s1, const T2& s2 ) const noexcept
+		{
+			return istrcmp( s1, s2 ) == 0;
+		}
+	};
+	struct icmp_greater
+	{
+		template<String T1, String T2>
+		constexpr bool operator()( const T1& s1, const T2& s2 ) const noexcept
+		{
+			return istrcmp( s1, s2 ) > 0;
+		}
+	};
 
 	// Simple number to string conversation, no input validation.
 	//  - Format => {0o 0x <>} (+/-) + [0-9] + '.' + [0-9]

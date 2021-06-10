@@ -246,18 +246,16 @@ namespace xstd
 		template<typename F>
 		void chain( F&& cb )
 		{
-			cb_lock.lock();
-
-			if ( finished() )
+			if ( !finished() )
 			{
-				cb_lock.unlock();
-				cb( result );
+				std::lock_guard _g{ cb_lock };
+				if ( !finished() )
+				{
+					cb_list.emplace_back( std::forward<F>( cb ) );
+					return;
+				}
 			}
-			else
-			{
-				cb_list.emplace_back( std::forward<F>( cb ) );
-				cb_lock.unlock();
-			}
+			cb( result );
 		}
 		template<typename F> requires ( Invocable<F, void, const value_type&> )
 		void then( F&& cb )

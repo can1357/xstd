@@ -278,6 +278,11 @@ namespace xstd::ws
 		void send_packet( opcode op, std::vector<uint8_t> data = {} )
 		{
 			if ( transport_layer::is_closed() ) return;
+			
+			// Validate the length.
+			//
+			if ( data.size() > length_limit )
+				return close( status_data_too_large );
 
 			// Create the header.
 			//

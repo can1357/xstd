@@ -215,6 +215,7 @@ namespace xstd
 		constexpr bool operator==( const sha1& o ) const noexcept { return digest() == o.digest(); }
 		constexpr bool operator!=( const sha1& o ) const noexcept { return digest() != o.digest(); }
 	};
+	using sha1_t = typename sha1::value_type;
 };
 
 // Make it std::hashable.
