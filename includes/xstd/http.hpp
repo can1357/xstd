@@ -415,7 +415,8 @@ namespace xstd::http
 		{
 			// Parse the base headers.
 			//
-			response result = {};
+			std::optional<response> retval = {};
+			response& result = retval.emplace();
 			if ( !http::read( input, result.meta ) )
 				return std::nullopt;
 			if ( !http::read( input, result.headers ) )
@@ -424,7 +425,7 @@ namespace xstd::http
 			// Stop parsing if the parser is header only.
 			//
 			if ( header_only )
-				return result;
+				return retval;
 
 			// Skip the newline.
 			//
@@ -466,7 +467,7 @@ namespace xstd::http
 						return std::nullopt;
 				}
 			}
-			return result;
+			return retval;
 		}
 	};
 };

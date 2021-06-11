@@ -273,7 +273,7 @@ namespace xstd::asn1
 		void enumerate( const F& func ) const
 		{
 			std::list<std::shared_ptr<object>> stack = { children.rbegin(), children.rend() };
-			for ( bool first = true; !stack.empty() ; first = false )
+			while( !stack.empty() )
 			{
 				// Pop the top item.
 				//
