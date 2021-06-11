@@ -101,7 +101,6 @@ namespace xstd
 		{
 			std::array<U, 256> table = {};
 
-#ifndef __INTELLISENSE__
 			for ( size_t n = 0; n <= 0xFF; n++ )
 			{
 				U crc = U( n );
@@ -114,7 +113,6 @@ namespace xstd
 				}
 				table[ n ] = ~crc;
 			}
-#endif
 			return table;
 		}();
 
@@ -153,10 +151,8 @@ namespace xstd
 			// Otherwise fallback to software mode.
 			//
 			U crc = ~value;
-#ifndef __INTELLISENSE__
 			while ( n-- )
 				crc = ( ~lookup_table[ U( *data++ ) ^ ( crc & U( 0xFF ) ) ] ) ^ ( crc >> U( 8 ) );
-#endif
 			value = ~crc;
 		}
 
@@ -168,10 +164,8 @@ namespace xstd
 			if ( std::is_constant_evaluated() )
 			{
 				using array_t = std::array<uint8_t, sizeof( T )>;
-#ifndef __INTELLISENSE__
 				array_t arr = bit_cast< array_t >( data );
 				add_bytes( arr.data(), arr.size() );
-#endif
 			}
 			else
 			{

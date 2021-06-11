@@ -141,10 +141,8 @@ namespace xstd
 			if ( std::is_constant_evaluated() )
 			{
 				using array_t = std::array<uint8_t, sizeof( T )>;
-#ifndef __INTELLISENSE__
 				array_t arr = bit_cast< array_t >( data );
 				add_bytes( arr.data(), arr.size() );
-#endif
 			}
 			else
 			{

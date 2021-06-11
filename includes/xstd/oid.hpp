@@ -226,7 +226,7 @@ namespace xstd
 
 // OID literals.
 // 
-#if ( __INTELLISENSE__ || !GNU_COMPILER )
+#if !GNU_COMPILER
 	inline constexpr xstd::oid operator ""_oid( const char* str, size_t n ) 
 	{ 
 		return { str, n, xstd::oid::string_literal_t{} }; 

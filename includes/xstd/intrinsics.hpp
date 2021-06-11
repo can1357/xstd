@@ -165,8 +165,6 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 // Stop intellisense from dying.
 //
 #ifdef __INTELLISENSE__
-	#undef _CONSTINIT
-	#define _CONSTINIT
 	#define register
 #endif
 

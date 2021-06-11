@@ -352,9 +352,7 @@ namespace xstd
 
 // Hex decoding string literal.
 //
-#ifdef __INTELLISENSE__
-constexpr std::array<uint8_t, 1> operator""_hex( const char* str, size_t n ) { return { 0 }; }
-#elif !GNU_COMPILER
+#if !GNU_COMPILER
 std::array<uint8_t, 1> operator""_hex( const char* str, size_t n );
 #else
 template<typename T, T... chars>
@@ -379,7 +377,7 @@ constexpr auto operator""_hex()
 
 // Hash literals.
 //
-#if !GNU_COMPILER || __INTELLISENSE__
+#if !GNU_COMPILER
 	#define MAKE_HASHER( op, fn )                                                \
 	inline constexpr auto operator"" op( const char* str, size_t n )             \
 	{                                                                            \

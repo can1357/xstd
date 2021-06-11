@@ -93,7 +93,7 @@ namespace xstd
    template<size_t N> wstring_literal( const wchar_t( & )[ N ] )->wstring_literal<N - 1>;
 };
 
-#if ( __INTELLISENSE__ || !GNU_COMPILER )
+#if !GNU_COMPILER
    constexpr xstd::basic_string_literal<char, 1> operator""_cs( const char* str, size_t n );
    constexpr xstd::basic_string_literal<wchar_t, 1> operator""_cs( const wchar_t* str, size_t n );
 #else
