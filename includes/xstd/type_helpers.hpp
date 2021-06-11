@@ -13,6 +13,7 @@
 #include <memory>
 #include <variant>
 #include <string_view>
+#include <ranges>
 #include <initializer_list>
 #include "intrinsics.hpp"
 
@@ -1156,6 +1157,11 @@ namespace xstd
 	template<typename T>
 	using allocator_delete = typename impl::allocator_delete<T>::type;
 };
+
+// Shorten ranges / view.
+//
+namespace ranges = std::ranges;
+namespace views =  ranges::views;
 
 // Expose literals.
 //
