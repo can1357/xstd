@@ -1,6 +1,7 @@
 #pragma once
 #include <mutex>
 #include <shared_mutex> // For shared_lock.
+#include "spinlock.hpp" // For upgrade_guard.
 #include "assert.hpp"
 
 namespace xstd
@@ -124,8 +125,13 @@ namespace xstd
 				mutex.unlock();
 		}
 
-		// Implement the upgrade.
+		// Implement the upgrade/downgrade.
 		//
+		FORCE_INLINE bool try_upgrade()
+		{
+			int32_t expected = 1;
+			return share_count.compare_exchange_strong( expected, -1 );
+		}
 		FORCE_INLINE void upgrade()
 		{
 			int32_t expected = share_count.load();
@@ -147,6 +153,10 @@ namespace xstd
 						return lock();
 				}
 			}
+		}
+		FORCE_INLINE void downgrade()
+		{
+			share_count.store( 1, std::memory_order::release );
 		}
 	};
 };
