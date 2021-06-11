@@ -27,27 +27,31 @@ namespace xstd::gzip
 		stream.next_in = ( uint8_t* ) data;
 		stream.avail_in = narrow_cast<uInt>( len );
 
-		std::vector<uint8_t> result = {};
+		string_result<std::vector<uint8_t>> res;
+		std::vector<uint8_t>& buffer = res.result.emplace();
 		do
 		{
-			size_t extension_space = result.empty() ? deflateBound( &stream, stream.avail_in ) : 256 + result.size() / 2;
-			result.resize( result.size() + extension_space );
-			stream.avail_out = narrow_cast<uInt>( extension_space );
-			stream.next_out = result.data() + result.size() - extension_space;
+			size_t old_size = buffer.size();
+			size_t new_size = old_size ? 256 + old_size + old_size / 2 : deflateBound( &stream, stream.avail_in );
+			buffer.resize( new_size );
+			stream.avail_out = narrow_cast<uInt>( new_size - old_size );
+			stream.next_out = buffer.data() + old_size;
 
 			int state = deflate( &stream, Z_FINISH );
 			if ( state != Z_STREAM_END && state != Z_OK && state != Z_BUF_ERROR )
 			{
-				std::string res = stream.msg;
+				res.status.assign( stream.msg );
+				if ( res ) res = XSTD_ESTR( "Unknown compression error." );
 				deflateEnd( &stream );
-				return { std::move( res ) };
+				return res;
 			}
 		}
 		while ( stream.avail_out == 0 );
 		deflateEnd( &stream );
 
-		result.resize( result.size() - stream.avail_out );
-		return result;
+		buffer.resize( buffer.size() - stream.avail_out );
+		res.status.clear();
+		return res;
 	}
 	template<ContiguousIterable T> requires ( !Pointer<T> )
 	inline static string_result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
@@ -65,28 +69,32 @@ namespace xstd::gzip
 			return {};
 		stream.next_in = ( uint8_t* ) data;
 		stream.avail_in = narrow_cast<uInt>( len );
-		
-		std::vector<uint8_t> result = {};
+
+		string_result<std::vector<uint8_t>> res;
+		std::vector<uint8_t>& buffer = res.result.emplace();
 		do
 		{
-			size_t extension_space = result.empty() ? len * 2 : 256 + result.size() * 2;
-			result.resize( result.size() + extension_space );
-			stream.avail_out = narrow_cast<uInt>( extension_space );
-			stream.next_out = result.data() + result.size() - extension_space;
+			size_t old_size = buffer.size();
+			size_t new_size = old_size ? old_size * 2 : 64 + len * 2;
+			buffer.resize( new_size );
+			stream.avail_out = narrow_cast< uInt >( new_size - old_size );
+			stream.next_out = buffer.data() + old_size;
 
 			int state = inflate( &stream, Z_FINISH );
 			if ( state != Z_STREAM_END && state != Z_OK && state != Z_BUF_ERROR )
 			{
-				std::string res = stream.msg;
+				res.status.assign( stream.msg );
+				if ( res ) res = XSTD_ESTR( "Unknown decompression error." );
 				inflateEnd( &stream );
-				return { std::move( res ) };
+				return res;
 			}
 		}
 		while ( stream.avail_out == 0 );
 		inflateEnd( &stream );
 
-		result.resize( result.size() - stream.avail_out );
-		return result;
+		buffer.resize( buffer.size() - stream.avail_out );
+		res.status.clear();
+		return res;
 	}
 	template<Iterable T>
 	inline static string_result<std::vector<uint8_t>> decompress( T&& cont )
