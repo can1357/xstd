@@ -32,8 +32,8 @@ namespace xstd::gzip
 		do
 		{
 			size_t old_size = buffer.size();
-			size_t new_size = old_size ? 256 + old_size + old_size / 2 : deflateBound( &stream, stream.avail_in );
-			new_size = xstd::align_up( new_size, 32 );
+			size_t new_size = old_size ? old_size * 2 : deflateBound( &stream, stream.avail_in );
+			new_size = xstd::align_up( new_size + 32, 32 );
 			buffer.resize( new_size );
 			stream.avail_out = narrow_cast<uInt>( new_size - old_size );
 			stream.next_out = buffer.data() + old_size;
@@ -42,7 +42,7 @@ namespace xstd::gzip
 			if ( state != Z_STREAM_END && state != Z_OK && state != Z_BUF_ERROR )
 			{
 				res.status.assign( stream.msg );
-				if ( res ) res = XSTD_ESTR( "Unknown compression error." );
+				if ( res.status.empty() ) res = XSTD_ESTR( "Unknown compression error." );
 				deflateEnd( &stream );
 				return res;
 			}
@@ -51,6 +51,8 @@ namespace xstd::gzip
 		deflateEnd( &stream );
 
 		buffer.resize( buffer.size() - stream.avail_out );
+		if ( ( buffer.capacity() - buffer.size() ) >= 4_kb )
+			buffer.shrink_to_fit();
 		res.status.clear();
 		return res;
 	}
@@ -76,8 +78,8 @@ namespace xstd::gzip
 		do
 		{
 			size_t old_size = buffer.size();
-			size_t new_size = old_size ? old_size * 2 : 64 + len * 2;
-			new_size = xstd::align_up( new_size, 32 );
+			size_t new_size = old_size ? old_size * 2 : len * 2;
+			new_size = xstd::align_up( new_size + 32, 32 );
 			buffer.resize( new_size );
 			stream.avail_out = narrow_cast< uInt >( new_size - old_size );
 			stream.next_out = buffer.data() + old_size;
@@ -86,7 +88,7 @@ namespace xstd::gzip
 			if ( state != Z_STREAM_END && state != Z_OK && state != Z_BUF_ERROR )
 			{
 				res.status.assign( stream.msg );
-				if ( res ) res = XSTD_ESTR( "Unknown decompression error." );
+				if ( res.status.empty() ) res = XSTD_ESTR( "Unknown compression error." );
 				inflateEnd( &stream );
 				return res;
 			}
@@ -95,6 +97,8 @@ namespace xstd::gzip
 		inflateEnd( &stream );
 
 		buffer.resize( buffer.size() - stream.avail_out );
+		if ( ( buffer.capacity() - buffer.size() ) >= 4_kb )
+			buffer.shrink_to_fit();
 		res.status.clear();
 		return res;
 	}
