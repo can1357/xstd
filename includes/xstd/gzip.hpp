@@ -33,6 +33,7 @@ namespace xstd::gzip
 		{
 			size_t old_size = buffer.size();
 			size_t new_size = old_size ? 256 + old_size + old_size / 2 : deflateBound( &stream, stream.avail_in );
+			new_size = xstd::align_up( new_size, 32 );
 			buffer.resize( new_size );
 			stream.avail_out = narrow_cast<uInt>( new_size - old_size );
 			stream.next_out = buffer.data() + old_size;
@@ -76,6 +77,7 @@ namespace xstd::gzip
 		{
 			size_t old_size = buffer.size();
 			size_t new_size = old_size ? old_size * 2 : 64 + len * 2;
+			new_size = xstd::align_up( new_size, 32 );
 			buffer.resize( new_size );
 			stream.avail_out = narrow_cast< uInt >( new_size - old_size );
 			stream.next_out = buffer.data() + old_size;
