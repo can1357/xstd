@@ -359,7 +359,7 @@ namespace xstd
 			//
 			if ( __is_consteval( n ) && n <= 31 )
 			{
-				uint32_t flag = 1ul << n;
+				U flag = 1ul << n;
 				if constexpr ( sizeof( T ) == 8 )
 					return ( *( volatile uint64_t* ) &value ) & flag;
 				else if constexpr ( sizeof( T ) == 4 )
