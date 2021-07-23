@@ -23,7 +23,7 @@ namespace xstd::impl
 	{
 #if MS_COMPILER
 		if constexpr ( sizeof( T ) == 8 )
-			return _mm_crc32_u64( crc, value );
+			return ( uint32_t ) _mm_crc32_u64( crc, value );
 		else if constexpr ( sizeof( T ) == 4 )
 			return _mm_crc32_u32( crc, value );
 		else if constexpr ( sizeof( T ) == 2 )
