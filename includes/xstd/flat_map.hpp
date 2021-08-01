@@ -304,7 +304,7 @@ namespace xstd
 		typename V, 
 		typename Hs = typename impl::pick_hasher<K>::type,
 		bool InPlace = false,
-	    bool Sorted = true,
+	   bool Sorted = true,
 		size_t Limit = 0>
 	struct basic_flat_map
 	{

@@ -212,9 +212,9 @@ namespace ia32::mem
 
 			// Fail if not present / violates user-bit.
 			//
-			if ( !entry->present )
+			if ( !entry->present ) [[unlikely]]
 				return { entry, n, { .present = true } };
-			if ( user && !entry->user )
+			if ( user && !entry->user ) [[unlikely]]
 				return { entry, n, { .user_mode_access = true } };
 			puser &= entry->user;
 
@@ -222,11 +222,11 @@ namespace ia32::mem
 			//
 			if ( n == 0 || entry->large_page )
 			{
-				if ( puser && !user && ( execute ? smep : smap ) )
-					return { entry, n, {.user_mode_access = true } };
-				else if ( write && !entry->write )
+				if ( puser && !user && ( execute ? smep : smap ) ) [[unlikely]]
+					return { entry, n, { .user_mode_access = true } };
+				else if ( write && !entry->write ) [[unlikely]]
 					return { entry, n, { .write = true } };
-				else if ( execute && entry->execute_disable )
+				else if ( execute && entry->execute_disable ) [[unlikely]]
 					return { entry, n, { .execute = true } };
 				else
 					return { entry, n, { .flags = 0 } };

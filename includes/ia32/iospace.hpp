@@ -16,10 +16,10 @@ namespace ia32
 
 		// Space range.
 		//
-		uint16_t        address_register;
-		uint16_t        data_register;
-		pointer_type    address_begin;
-		pointer_type    address_limit;
+		const uint16_t        address_register;
+		const uint16_t        data_register;
+		const pointer_type    address_begin;
+		const pointer_type    address_limit;
 
 		// Read/write.
 		//
