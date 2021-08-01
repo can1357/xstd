@@ -31,22 +31,21 @@ namespace xstd::impl
 		else if constexpr ( sizeof( T ) == 1 )
 			return _mm_crc32_u8( crc, value );
 #else
-		if constexpr ( sizeof( T ) == 8 || sizeof( T ) == 1 )
+		if constexpr ( sizeof( T ) == 8 )
 		{
 			uint64_t _crc = crc;
-			if constexpr ( sizeof( T ) == 8 )
-				asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( value ) );
-			else
-				asm volatile( "crc32b %1, %0" : "+r" ( _crc ) : "m" ( value ) );
+			asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "r" ( value ) );
 			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
 			return _crc;
 		}
-		else if constexpr ( sizeof( T ) == 4 || sizeof( T ) == 2 )
+		else
 		{
 			if constexpr ( sizeof( T ) == 4 )
-				asm volatile( "crc32l %1, %0" : "+r" ( crc ) : "m" ( value ) );
+				asm volatile( "crc32l %1, %0" : "+r" ( crc ) : "r" ( value ) );
+			else if constexpr ( sizeof( T ) == 2 )
+				asm volatile( "crc32w %1, %0" : "+r" ( crc ) : "r" ( value ) );
 			else
-				asm volatile( "crc32w %1, %0" : "+r" ( crc ) : "m" ( value ) );
+				asm volatile( "crc32b %1, %0" : "+r" ( crc ) : "r" ( value ) );
 			return crc;
 		}
 #endif
@@ -61,7 +60,14 @@ namespace xstd::impl
 		//
 		length = xstd::unroll_scaled_n<8, 128>( [ & ]
 		{
+#if MS_COMPILER
 			crc = hw_crc32ci( *( uint64_t* ) ptr, crc );
+#else
+			uint64_t _crc = crc;
+			asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( *( uint64_t* ) ptr ) );
+			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
+			crc = _crc;
+#endif
 			ptr += sizeof( uint64_t );
 		}, length );
 
