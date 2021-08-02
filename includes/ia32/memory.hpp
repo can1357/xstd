@@ -290,10 +290,11 @@ namespace ia32::mem
 		prot_no_execute = PT_ENTRY_64_EXECUTE_DISABLE_FLAG,
 		prot_execute = 0,
 
-		prot_rwx = prot_read | prot_write | prot_execute,
-		prot_rw =  prot_read | prot_write | prot_no_execute,
-		prot_rx =  prot_read | prot_execute,
-		prot_ro =  prot_read,
+		prot_rwx =  prot_read | prot_write | prot_execute,
+		prot_rw =   prot_read | prot_write | prot_no_execute,
+		prot_rx =   prot_read | prot_execute,
+		prot_ro =   prot_read,
+		prot_none = 0,
 	};
 	namespace impl
 	{
@@ -306,12 +307,12 @@ namespace ia32::mem
 			//
 			for ( auto it = ptr; it < ( ptr + length ); )
 			{
-				// Get the PTE, if not present, touch and retry.
-				//
 				auto [pte, depth] = lookup_pte( it );
 				dassert( pte->present );
-				pte->flags &= ~all_flags;
-				pte->flags |= mask;
+
+				auto& atomic = xstd::make_atomic( pte->flags );
+				atomic.fetch_or( mask );
+				atomic.fetch_and( mask | ~all_flags );
 
 				if constexpr ( !IpiFlush )
 					invlpg( it );

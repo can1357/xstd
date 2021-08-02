@@ -49,6 +49,7 @@ namespace xstd
 				// Read the callsite into stack, if already patched return to retry execution with the new patch.
 				//
 				clflush   [r10]
+				mfence
 				vmovdqu   xmm0,                     [r10]
 				lfence
 				vmovups   [rsp],                    xmm0
