@@ -1,4 +1,11 @@
 #pragma once
+
+#if __has_include(<xstd/options.hpp>)
+	#include <xstd/options.hpp>
+#elif __has_include("xstd_options.hpp")
+	#include "xstd_options.hpp"
+#endif
+
 #include <stdlib.h>
 #include <string>
 #include <stdint.h>
@@ -17,12 +24,6 @@
 #endif
 #ifndef __has_include
 	#define __has_include(...) 0
-#endif
-
-#if __has_include(<xstd/options.hpp>)
-	#include <xstd/options.hpp>
-#elif __has_include("xstd_options.hpp")
-	#include "xstd_options.hpp"
 #endif
 
 // [Configuration]
