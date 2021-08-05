@@ -97,11 +97,12 @@ namespace xstd::http
 	//
 	using header_map =      std::unordered_map<std::string, std::string, ihash<std::string>, impl::icase_eq>;
 	using header_view_map = std::unordered_map<std::string_view, std::string_view, ihash<std::string_view>, impl::icase_eq>;
+	using header_list =     std::initializer_list<std::pair<std::string_view, std::string_view>>;
 	template<typename T> concept HeaderMap = std::is_same_v<T, header_map> || std::is_same_v<T, header_view_map>;
 
 	// Declare the I/O helpers.
 	//
-	template<HeaderMap T>
+	template<typename T> requires ( HeaderMap<T> || Same<header_list, T> )
 	inline void write( std::string& output, const T& headers )
 	{
 		// Reserve the space we need to write the headers.
