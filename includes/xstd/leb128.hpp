@@ -49,7 +49,7 @@ namespace xstd::encode
 	}
 	
 	template<Integral T, typename It1, typename It2>
-	inline static result<T> rleb128( It1&& it, It2&& end )
+	inline static std::optional<T> rleb128( It1&& it, It2&& end )
 	{
 		if constexpr ( !std::is_same_v<T, bool> )
 		{
@@ -71,8 +71,8 @@ namespace xstd::encode
 				if ( !( segment & 0x80 ) )
 				{
 					if constexpr ( Signed<T> )
-							return { ( T ) sign_extend( uint64_t( value ), std::min<size_t>( 64, bitcnt + 7 ) ), true };
-					return { value, true };
+							return ( T ) sign_extend( uint64_t( value ), std::min<size_t>( 64, bitcnt + 7 ) );
+					return value;
 				}
 			}
 			return std::nullopt;
@@ -85,9 +85,9 @@ namespace xstd::encode
 			{
 				uint8_t res = *it++;
 				if ( res == 1 )
-					return { true, true };
+					return true;
 				else if ( res == 0 )
-					return { false, true };
+					return false;
 				else
 					return std::nullopt;
 			}
@@ -124,7 +124,7 @@ namespace xstd::encode
 		while ( it != end )
 		{
 			if ( auto val = rleb128<T>( it, end ) )
-				result.emplace_back( val );
+				result.emplace_back( *val );
 			else
 				return {};
 		}
@@ -141,7 +141,7 @@ namespace xstd::encode
 		return result;
 	}
 	template<Integral T, Iterable C = std::initializer_list<uint8_t>>
-	inline static result<T> rleb128( C&& container )
+	inline static std::optional<T> rleb128( C&& container )
 	{
 		return rleb128<T>( std::begin( container ), std::end( container ) );
 	}
