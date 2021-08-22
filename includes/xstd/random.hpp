@@ -105,9 +105,15 @@ namespace xstd
 	// Generates a single random number.
 	//
 	template<Integral T = uint64_t>
-	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	static T make_random()
 	{
-		using V = std::conditional_t<sizeof( T ) < 4, int32_t, T>;
+		uint64_t result = impl::get_runtime_rng()();
+		return ( T& ) result;
+	}
+	template<Integral T = uint64_t>
+	static T make_random( T min, T max = std::numeric_limits<T>::max() )
+	{
+		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}
 	template<FloatingPoint T>
