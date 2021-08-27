@@ -190,6 +190,15 @@ namespace xstd
 			length = ( size_type ) n;
 		}
 
+		// Value assignment.
+		//
+		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
+		inline iterator assign( It1&& first, It2&& last )
+		{
+			clear();
+			return insert( begin(), std::forward<It1>( first ), std::forward<It2>( last ) );
+		}
+
 		// Clear the vector at destruction.
 		//
 		inline ~small_vector() { clear(); }
@@ -426,6 +435,15 @@ namespace xstd
 			if ( n > length )
 				std::fill_n( begin() + length, n - length, value );
 			length = ( size_type ) n;
+		}
+
+		// Value assignment.
+		//
+		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
+		inline constexpr iterator assign( It1&& first, It2&& last )
+		{
+			clear();
+			return insert( begin(), std::forward<It1>( first ), std::forward<It2>( last ) );
 		}
 
 
