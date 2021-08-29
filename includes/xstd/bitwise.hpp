@@ -675,4 +675,24 @@ namespace xstd
 			return value;
 		}
 	}
+
+	// Couples two unsigned numbers together or breaks them apart.
+	//
+	template<Integral T>
+	FORCE_INLINE static constexpr auto piecewise( T hi, T lo )
+	{
+		using R = typename trivial_converter<sizeof( T ) * 2>::integral_unsigned;
+		R result = R( lo );
+		result |= R( hi ) << ( sizeof( T ) * 8 );
+		return result;
+	}
+
+	template<Integral T>
+	FORCE_INLINE static constexpr auto breakdown( T value )
+	{
+		using R = typename trivial_converter<sizeof( T ) / 2>::integral_unsigned;
+		R hi = R( convert_uint_t<T>( value ) >> ( sizeof( T ) * 8 / 2 ) );
+		R lo = R( value );
+		return std::pair{ hi, lo };
+	}
 };
