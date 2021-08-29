@@ -7,15 +7,13 @@
 #include "bitwise.hpp"
 
 // [Configuration]
+// XSTD_RANDOM_FIXED_SEED: If set, uses it as a fixed seed for the random number generator
 // XSTD_RANDOM_THREAD_LOCAL: If set, will use the thread local qualifier for the random number generator.
 //
 #ifndef XSTD_RANDOM_THREAD_LOCAL
 	#define XSTD_RANDOM_THREAD_LOCAL 0
 #endif
 
-// [Configuration]
-// XSTD_RANDOM_FIXED_SEED: If set, uses it as a fixed seed for the random number generator
-//
 #if GNU_COMPILER
     #pragma GCC diagnostic ignored "-Wunused-value"
 #endif
@@ -69,8 +67,36 @@ namespace xstd
 		}
 	}
 
-	// Implement an atomic PCG.
+	// Implement an PCG and its atomic variant.
 	//
+	template<xstd::Unsigned T = uint64_t>
+	struct basic_pcg
+	{
+		using result_type = T;
+		static constexpr uint64_t multiplier = 6364136223846793005;
+		static constexpr uint64_t increment =  1;
+
+		uint64_t state;
+		inline constexpr basic_pcg( uint64_t s = 0 ) : state( ( pce_32( ++s ), s ) ) {}
+		inline constexpr void seed( uint64_t s ) { state = basic_pcg<>{ s }.state; }
+
+		constexpr basic_pcg( const basic_pcg& o ) = default;
+		constexpr basic_pcg& operator=( const basic_pcg<>& o ) = default;
+
+		static inline constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
+		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
+		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
+
+		[[nodiscard]] constexpr result_type operator()()
+		{
+			std::array<uint32_t, ( sizeof( T ) + 3 ) / 4> results = {};
+			for ( auto& result : results )
+				result = pce_32( state );
+			if constexpr ( sizeof( T ) == 4 ) return results[ 0 ];
+			else if constexpr ( sizeof( T ) == 8 ) return bit_cast<T>( results );
+			else return *( result_type* ) &results;
+		}
+	};
 	template<xstd::Unsigned T = uint64_t>
 	struct basic_atomic_pcg
 	{
@@ -78,17 +104,20 @@ namespace xstd
 		static constexpr uint64_t multiplier = 6364136223846793005;
 		static constexpr uint64_t increment =  1;
 
-		std::atomic<uint64_t> state = 0;
-		basic_atomic_pcg( uint64_t state = 0 ) { seed( state ); }
+		std::atomic<uint64_t> state;
+		inline constexpr basic_atomic_pcg( uint64_t s = 0 ) : state( basic_pcg<>{ s }.state ) {}
+		inline void seed( uint64_t s ) { state.store( basic_pcg<>{ s }.state, std::memory_order::relaxed ); }
+		
+		inline constexpr basic_atomic_pcg( const basic_atomic_pcg& o ) = delete;
+		inline constexpr basic_atomic_pcg& operator=( const basic_atomic_pcg& o ) = delete;
 
-		void seed( uint64_t s ) { pce_32( ++s ); state = s; }
-		static constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
-		static constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
-		constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
+		static inline constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
+		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
+		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
 
 		[[nodiscard]] result_type operator()()
 		{
-			uint32_t results[ ( sizeof( T ) + 3 ) / 4 ];
+			std::array<uint32_t, ( sizeof( T ) + 3 ) / 4> results = {};
 			for ( auto& result : results )
 			{
 				uint64_t x = state.load( std::memory_order::relaxed );
@@ -103,11 +132,19 @@ namespace xstd
 			return *( result_type* ) &results;
 		}
 	};
+	using pcg =          basic_pcg<uint32_t>;
+	using pcg64 =        basic_pcg<uint64_t>;
 	using atomic_pcg =   basic_atomic_pcg<uint32_t>;
 	using atomic_pcg64 = basic_atomic_pcg<uint64_t>;
 
 	namespace impl
 	{
+#if XSTD_RANDOM_THREAD_LOCAL
+	#define __xstd_rng thread_local pcg64
+#else
+	#define __xstd_rng atomic_pcg64
+#endif
+
 #ifndef XSTD_RANDOM_FIXED_SEED
 		// Declare the constexpr random seed.
 		//
@@ -118,35 +155,13 @@ namespace xstd
 				value = ( value ^ c ) * 0x100000001B3;
 			return value;
 		} )();
-
-		// Declare a random engine state per thread.
-		//
-		#if XSTD_RANDOM_THREAD_LOCAL
-			inline auto& get_runtime_rng()
-			{
-				static thread_local std::mt19937_64 local_rng( std::random_device{}() ^ crandom_default_seed );
-				return local_rng;
-			}
-		#else
-			inline std::mt19937_64 global_rng( std::random_device{}() ^ crandom_default_seed );
-			__forceinline auto& get_runtime_rng() { return global_rng; }
-		#endif
+		inline __xstd_rng global_rng{ piecewise<uint32_t>( std::random_device{}(), std::random_device{}() ) };
 #else
-		// Declare both random generators with a fixed seed.
-		//
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
-		
-		#if XSTD_RANDOM_THREAD_LOCAL
-			inline auto& get_runtime_rng()
-			{
-				static thread_local std::mt19937_64 local_rng( XSTD_RANDOM_FIXED_SEED );
-				return local_rng;
-			}
-		#else
-			inline std::mt19937_64 global_rng( XSTD_RANDOM_FIXED_SEED );
-			__forceinline auto& get_runtime_rng() { return global_rng; }
-		#endif
+		inline __xstd_rng global_rng{ XSTD_RANDOM_FIXED_SEED };
 #endif
+		__forceinline auto& get_runtime_rng() { return global_rng; }
+
 		// Constexpr uniform integer distribution.
 		//
 		template<Integral T>
@@ -157,6 +172,7 @@ namespace xstd
 			else
 				return ( T ) ( convert_uint_t<T> ) value;
 		}
+#undef __xstd_rng
 	};
 
 	// Changes the random seed.
