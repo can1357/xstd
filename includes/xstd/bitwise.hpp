@@ -483,6 +483,16 @@ namespace xstd
 	template<Integral I>
 	__forceinline static constexpr I bit_reverse( I value )
 	{
+#if GNU_COMPILER
+		switch ( sizeof( I ) )
+		{
+			case 1:  return __builtin_bitreverse8( value );
+			case 2:  return __builtin_bitreverse16( value );
+			case 4:  return __builtin_bitreverse32( value );
+			case 8:  return __builtin_bitreverse64( value );
+			default: unreachable();
+		}
+#else
 		if constexpr ( sizeof( I ) == 1 )
 		{
 			return ( I ) impl::bit_reverse_lookup_table[ uint8_t( value ) ];
@@ -498,7 +508,7 @@ namespace xstd
 			}
 			return ( I ) u;
 		}
-
+#endif
 	}
 
 	// Used to find a bit with a specific value in a linear memory region.
