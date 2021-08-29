@@ -44,7 +44,7 @@ namespace xstd
 		x ^= x >> 18;
 		return rotl( uint32_t( x >> 27 ), shift );
 	}
-	[[nodiscard]] static constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 0 )
+	[[nodiscard]] static constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( true )
 		{
@@ -57,7 +57,7 @@ namespace xstd
 	{
 		return piecewise( pce_32( value ), pce_32( value ) );
 	}
-	[[nodiscard]] static constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 0 )
+	[[nodiscard]] static constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( true )
 		{
@@ -81,7 +81,7 @@ namespace xstd
 		inline constexpr void seed( uint64_t s ) { state = basic_pcg<>{ s }.state; }
 
 		constexpr basic_pcg( const basic_pcg& o ) = default;
-		constexpr basic_pcg& operator=( const basic_pcg<>& o ) = default;
+		constexpr basic_pcg& operator=( const basic_pcg& o ) = default;
 
 		static inline constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
 		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
@@ -244,7 +244,7 @@ namespace xstd
 	template<Integral T = uint64_t>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
 		return impl::uniform_eval( key, min, max );
 	}
 
@@ -265,7 +265,7 @@ namespace xstd
 	template<Iterable It, Integral T = iterable_val_t<It>>
 	FORCE_INLINE static constexpr void fill_crandom( It&& cnt, uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
 		for ( auto& v : cnt )
 			v = impl::uniform_eval<T>( lce_64( key ), min, max );
 	}
@@ -306,7 +306,7 @@ namespace xstd
 	template<typename T, size_t... I>
 	FORCE_INLINE static constexpr std::array<T, sizeof...( I )> make_crandom_n( uint64_t key, T min, T max, std::index_sequence<I...> )
 	{
-		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
 		return { impl::uniform_eval( lce_64( ( I, key ) ), min, max )... };
 	}
 	template<typename T, size_t N>
