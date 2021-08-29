@@ -203,7 +203,7 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 	#pragma warning( disable: 4141 )
 	#define PURE_FN
 	#define FLATTEN
-	#define COLD         
+	#define COLD         __declspec(noinline)     
 	#define FORCE_INLINE __forceinline
 	#define NO_INLINE    __declspec(noinline)
 	#define NO_DEBUG
