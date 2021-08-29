@@ -1156,26 +1156,6 @@ namespace xstd
 	};
 	template<typename T>
 	using allocator_delete = typename impl::allocator_delete<T>::type;
-
-	// Completes an operation on a structure via atomic compare-exchange.
-	//
-	template<typename T, typename F>
-	FORCE_INLINE static void atomic_rmw( volatile T& p, F&& fn )
-	{
-		T expected = p;
-		while ( true )
-		{
-			T desired = expected;
-			fn( desired );
-			if ( cmpxchg<T>( p, expected, desired ) )
-				break;
-		}
-	}
-	template<typename T, typename F>
-	FORCE_INLINE static void atomic_rmw( std::atomic<T>& data, F&& fn )
-	{
-		atomic_rmw( *( volatile T* ) &data, std::forward<F>( fn ) );
-	}
 };
 
 // Shorten ranges / view.

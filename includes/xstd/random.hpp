@@ -4,7 +4,7 @@
 #include <type_traits>
 #include <array>
 #include <iterator>
-#include "type_helpers.hpp"
+#include "bitwise.hpp"
 
 // [Configuration]
 // XSTD_RANDOM_THREAD_LOCAL: If set, will use the thread local qualifier for the random number generator.
@@ -16,17 +16,96 @@
 // [Configuration]
 // XSTD_RANDOM_FIXED_SEED: If set, uses it as a fixed seed for the random number generator
 //
-#if DEBUG_BUILD
-	#define XSTD_RANDOM_FIXED_SEED 0x87c417a5e80d9c5f
-#endif
-//-- #undef XSTD_RANDOM_FIXED_SEED
-
-
 #if GNU_COMPILER
     #pragma GCC diagnostic ignored "-Wunused-value"
 #endif
 namespace xstd
 {
+	// Linear congruential generator.
+	//
+	static constexpr uint64_t lce_64( uint64_t& value )
+	{
+		return ( value = 6364136223846793005 * value + 1442695040888963407 );
+	}
+	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
+	{
+		while ( true )
+		{
+			uint64_t result = lce_64( value );
+			if ( !offset-- )
+				return result;
+		}
+	}
+
+	// Permuted congruential generator.
+	//
+	static constexpr uint32_t pce_32( uint64_t& value )
+	{
+		uint64_t x = std::exchange( value, value * 6364136223846793005 + 1 );
+		uint8_t shift = uint8_t( x >> 59 );
+		x ^= x >> 18;
+		return rotl( uint32_t( x >> 27 ), shift );
+	}
+	[[nodiscard]] static constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 0 )
+	{
+		while ( true )
+		{
+			uint32_t result = pce_32( value );
+			if ( !offset-- )
+				return result;
+		}
+	}
+	static constexpr uint64_t pce_64( uint64_t& value )
+	{
+		return piecewise( pce_32( value ), pce_32( value ) );
+	}
+	[[nodiscard]] static constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 0 )
+	{
+		while ( true )
+		{
+			uint64_t result = pce_64( value );
+			if ( !offset-- )
+				return result;
+		}
+	}
+
+	// Implement an atomic PCG.
+	//
+	template<xstd::Unsigned T = uint64_t>
+	struct basic_atomic_pcg
+	{
+		using result_type = T;
+		static constexpr uint64_t multiplier = 6364136223846793005;
+		static constexpr uint64_t increment =  1;
+
+		std::atomic<uint64_t> state = 0;
+		basic_atomic_pcg( uint64_t state = 0 ) { seed( state ); }
+
+		void seed( uint64_t s ) { pce_32( ++s ); state = s; }
+		static constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
+		static constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
+		constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
+
+		[[nodiscard]] result_type operator()()
+		{
+			uint32_t results[ ( sizeof( T ) + 3 ) / 4 ];
+			for ( auto& result : results )
+			{
+				uint64_t x = state.load( std::memory_order::relaxed );
+				while ( true )
+					if ( state.compare_exchange_strong( x, x * multiplier + increment ) ) [[likely]]
+						break;
+
+				uint8_t shift = uint8_t( x >> 59 );
+				x ^= x >> 18;
+				result = rotl( uint32_t( x >> 27 ), shift );
+			}
+			return *( result_type* ) &results;
+		}
+	};
+	using atomic_pcg =   basic_atomic_pcg<uint32_t>;
+	using atomic_pcg64 = basic_atomic_pcg<uint64_t>;
+
 	namespace impl
 	{
 #ifndef XSTD_RANDOM_FIXED_SEED
@@ -80,26 +159,39 @@ namespace xstd
 		}
 	};
 
-	// Linear congruential generator.
-	//
-	static constexpr uint64_t lce_64( uint64_t& value )
-	{
-		return ( value = 6364136223846793005 * value + 1442695040888963407 );
-	}
-	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
-	{
-		do
-			lce_64( value );
-		while ( offset-- );
-		return value;
-	}
-
 	// Changes the random seed.
 	// - If XSTD_RANDOM_THREAD_LOCAL is set, will be a thread-local change, else global.
 	//
-	static void seed_rng( size_t n ) 
+	static void seed_rng( size_t n )
 	{
 		impl::get_runtime_rng().seed( n ); 
+	}
+
+	// Generates a secure random number.
+	//
+	template<Integral T = uint64_t>
+	static T make_srandom()
+	{
+		using U = std::random_device::result_type;
+		U seed[ ( sizeof( T ) + sizeof( U ) - 1 ) / sizeof( U ) ];
+		for( auto& v : seed )
+			v = std::random_device{}();
+		return *( T* ) &seed[ 0 ];
+	}
+	template<Integral T = uint64_t>
+	static T make_srandom( T min, T max = std::numeric_limits<T>::max() )
+	{
+		if ( __is_consteval( min ) && min == std::numeric_limits<T>::min() &&
+			  __is_consteval( max ) && max == std::numeric_limits<T>::max() )
+			return make_srandom<T>();
+
+		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
+		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( std::random_device{} );
+	}
+	template<FloatingPoint T>
+	static T make_srandom( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	{
+		return std::uniform_real_distribution<T>{ min, max }( std::random_device{} );
 	}
 
 	// Generates a single random number.
@@ -113,6 +205,10 @@ namespace xstd
 	template<Integral T = uint64_t>
 	static T make_random( T min, T max = std::numeric_limits<T>::max() )
 	{
+		if ( __is_consteval( min ) && min == std::numeric_limits<T>::min() &&
+			  __is_consteval( max ) && max == std::numeric_limits<T>::max() )
+			return make_random<T>();
+
 		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}
@@ -124,7 +220,7 @@ namespace xstd
 	template<Integral T = uint64_t>
 	static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		return impl::uniform_eval( key, min, max );
 	}
 
@@ -133,13 +229,19 @@ namespace xstd
 	template<Iterable It, Integral T = iterable_val_t<It>>
 	static void fill_random( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		for( auto& v : cnt )
+		for ( auto& v : cnt )
 			v = make_random<T>( min, max );
+	}
+	template<Iterable It, Integral T = iterable_val_t<It>>
+	static void fill_srandom( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	{
+		for ( auto& v : cnt )
+			v = make_srandom<T>( min, max );
 	}
 	template<Iterable It, Integral T = iterable_val_t<It>>
 	static constexpr void fill_crandom( It&& cnt, uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		for ( auto& v : cnt )
 			v = impl::uniform_eval<T>( lce_64( key ), min, max );
 	}
@@ -151,6 +253,12 @@ namespace xstd
 	{
 		using V = std::underlying_type_t<T>;
 		return ( T ) make_random<V>( V( min ), V( max ) );
+	}
+	template<Enum T>
+	static T make_srandom( T min, T max )
+	{
+		using V = std::underlying_type_t<T>;
+		return ( T ) make_srandom<V>( V( min ), V( max ) );
 	}
 	template<Enum T>
 	static constexpr T make_crandom( uint64_t key, T min, T max )
@@ -167,15 +275,25 @@ namespace xstd
 		return { ( I, make_random<T>( min ,max ) )... };
 	}
 	template<typename T, size_t... I>
+	static std::array<T, sizeof...( I )> make_srandom_n( T min, T max, std::index_sequence<I...> )
+	{
+		return { ( I, make_srandom<T>( min ,max ) )... };
+	}
+	template<typename T, size_t... I>
 	static constexpr std::array<T, sizeof...( I )> make_crandom_n( uint64_t key, T min, T max, std::index_sequence<I...> )
 	{
-		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		return { impl::uniform_eval( lce_64( ( I, key ) ), min, max )... };
 	}
 	template<typename T, size_t N>
 	static std::array<T, N> make_random_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return make_random_n<T>( min, max, std::make_index_sequence<N>{} );
+	}
+	template<typename T, size_t N>
+	static std::array<T, N> make_srandom_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	{
+		return make_srandom_n<T>( min, max, std::make_index_sequence<N>{} );
 	}
 	template<typename T, size_t N>
 	static constexpr std::array<T, N> make_crandom_n( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
@@ -196,7 +314,17 @@ namespace xstd
 		auto size = std::size( source );
 		return *std::next( std::begin( source ), make_random<size_t>( 0, size - 1 ) );
 	}
-
+	template<typename T>
+	static auto pick_srandom( std::initializer_list<T> list )
+	{
+		return *( list.begin() + make_srandom<size_t>( 0, list.size() - 1 ) );
+	}
+	template<Iterable T>
+	static decltype( auto ) pick_srandomi( T&& source )
+	{
+		auto size = std::size( source );
+		return *std::next( std::begin( source ), make_srandom<size_t>( 0, size - 1 ) );
+	}
 	template<uint64_t key, typename... Tx>
 	static constexpr decltype( auto ) pick_crandom( Tx&&... args )
 	{
@@ -228,11 +356,27 @@ namespace xstd
 		}
 	}
 	template<Iterable T>
+	static void shuffle_srandom( T& source )
+	{
+		if ( std::size( source ) <= 1 )
+			return;
+
+		size_t n = 1;
+		auto beg = std::begin( source );
+		auto end = std::end( source );
+		for ( auto it = std::next( beg ); it != end; ++n, ++it )
+		{
+			size_t off = make_srandom<size_t>( 0, n );
+			if ( off != n )
+				std::iter_swap( it, std::next( beg, off ) );
+		}
+	}
+	template<Iterable T>
 	static constexpr void shuffle_crandom( uint64_t key, T& source )
 	{
 		if ( std::size( source ) <= 1 )
 			return;
-		key = lce_64_n( impl::crandom_default_seed ^ key, key & 3 );
+		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 
 		size_t n = 1;
 		auto beg = std::begin( source );
