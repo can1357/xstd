@@ -87,7 +87,7 @@ namespace xstd
 		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
 		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
 
-		[[nodiscard]] constexpr result_type operator()()
+		[[nodiscard]] inline constexpr result_type operator()()
 		{
 			std::array<uint32_t, ( sizeof( T ) + 3 ) / 4> results = {};
 			for ( auto& result : results )
@@ -115,20 +115,28 @@ namespace xstd
 		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
 		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
 
-		[[nodiscard]] result_type operator()()
+		[[nodiscard]] inline result_type operator()()
 		{
-			std::array<uint32_t, ( sizeof( T ) + 3 ) / 4> results = {};
-			for ( auto& result : results )
-			{
-				uint64_t x = state.load( std::memory_order::relaxed );
-				while ( true )
-					if ( state.compare_exchange_strong( x, x * multiplier + increment ) ) [[likely]]
-						break;
+			static constexpr size_t step_count = ( sizeof( T ) + 3 ) / 4;
 
-				uint8_t shift = uint8_t( x >> 59 );
-				x ^= x >> 18;
-				result = rotl( uint32_t( x >> 27 ), shift );
+			// Generate all keys in one step.
+			//
+			std::array<uint64_t, step_count> keys = {};
+			uint64_t expected = state.load( std::memory_order::relaxed );
+			while ( true )
+			{
+				uint64_t desired = expected;
+				for ( auto& key : keys )
+					key = std::exchange( desired, desired * multiplier + increment );
+				if ( state.compare_exchange_strong( expected, desired ) )
+					break;
 			}
+
+			// Mask and return.
+			//
+			std::array<uint32_t, step_count> results = {};
+			for ( size_t n = 0; n != step_count; n++ )
+				results[ n ] = pce_32( keys[ n ] );
 			return *( result_type* ) &results;
 		}
 	};
@@ -178,7 +186,7 @@ namespace xstd
 	// Changes the random seed.
 	// - If XSTD_RANDOM_THREAD_LOCAL is set, will be a thread-local change, else global.
 	//
-	static void seed_rng( size_t n )
+	FORCE_INLINE static void seed_rng( size_t n )
 	{
 		impl::get_runtime_rng().seed( n ); 
 	}
@@ -186,7 +194,7 @@ namespace xstd
 	// Generates a secure random number.
 	//
 	template<Integral T = uint64_t>
-	static T make_srandom()
+	FORCE_INLINE static T make_srandom()
 	{
 		using U = std::random_device::result_type;
 		U seed[ ( sizeof( T ) + sizeof( U ) - 1 ) / sizeof( U ) ];
@@ -195,7 +203,7 @@ namespace xstd
 		return *( T* ) &seed[ 0 ];
 	}
 	template<Integral T = uint64_t>
-	static T make_srandom( T min, T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static T make_srandom( T min, T max = std::numeric_limits<T>::max() )
 	{
 		if ( __is_consteval( min ) && min == std::numeric_limits<T>::min() &&
 			  __is_consteval( max ) && max == std::numeric_limits<T>::max() )
@@ -205,7 +213,7 @@ namespace xstd
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( std::random_device{} );
 	}
 	template<FloatingPoint T>
-	static T make_srandom( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static T make_srandom( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return std::uniform_real_distribution<T>{ min, max }( std::random_device{} );
 	}
@@ -213,13 +221,13 @@ namespace xstd
 	// Generates a single random number.
 	//
 	template<Integral T = uint64_t>
-	static T make_random()
+	FORCE_INLINE static T make_random()
 	{
 		uint64_t result = impl::get_runtime_rng()();
 		return ( T& ) result;
 	}
 	template<Integral T = uint64_t>
-	static T make_random( T min, T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static T make_random( T min, T max = std::numeric_limits<T>::max() )
 	{
 		if ( __is_consteval( min ) && min == std::numeric_limits<T>::min() &&
 			  __is_consteval( max ) && max == std::numeric_limits<T>::max() )
@@ -229,12 +237,12 @@ namespace xstd
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}
 	template<FloatingPoint T>
-	static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
 	}
 	template<Integral T = uint64_t>
-	static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		return impl::uniform_eval( key, min, max );
@@ -243,19 +251,19 @@ namespace xstd
 	// Fills the given range with randoms.
 	//
 	template<Iterable It, Integral T = iterable_val_t<It>>
-	static void fill_random( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static void fill_random( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		for ( auto& v : cnt )
 			v = make_random<T>( min, max );
 	}
 	template<Iterable It, Integral T = iterable_val_t<It>>
-	static void fill_srandom( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static void fill_srandom( It&& cnt, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		for ( auto& v : cnt )
 			v = make_srandom<T>( min, max );
 	}
 	template<Iterable It, Integral T = iterable_val_t<It>>
-	static constexpr void fill_crandom( It&& cnt, uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static constexpr void fill_crandom( It&& cnt, uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		for ( auto& v : cnt )
@@ -265,19 +273,19 @@ namespace xstd
 	// Enum equivalents.
 	//
 	template<Enum T>
-	static T make_random( T min, T max )
+	FORCE_INLINE static T make_random( T min, T max )
 	{
 		using V = std::underlying_type_t<T>;
 		return ( T ) make_random<V>( V( min ), V( max ) );
 	}
 	template<Enum T>
-	static T make_srandom( T min, T max )
+	FORCE_INLINE static T make_srandom( T min, T max )
 	{
 		using V = std::underlying_type_t<T>;
 		return ( T ) make_srandom<V>( V( min ), V( max ) );
 	}
 	template<Enum T>
-	static constexpr T make_crandom( uint64_t key, T min, T max )
+	FORCE_INLINE static constexpr T make_crandom( uint64_t key, T min, T max )
 	{
 		using V = std::underlying_type_t<T>;
 		return ( T ) make_crandom<V>( key, V( min ), V( max ) );
@@ -286,33 +294,33 @@ namespace xstd
 	// Generates an array of random numbers.
 	//
 	template<typename T, size_t... I>
-	static std::array<T, sizeof...( I )> make_random_n( T min, T max, std::index_sequence<I...> )
+	FORCE_INLINE static std::array<T, sizeof...( I )> make_random_n( T min, T max, std::index_sequence<I...> )
 	{
 		return { ( I, make_random<T>( min ,max ) )... };
 	}
 	template<typename T, size_t... I>
-	static std::array<T, sizeof...( I )> make_srandom_n( T min, T max, std::index_sequence<I...> )
+	FORCE_INLINE static std::array<T, sizeof...( I )> make_srandom_n( T min, T max, std::index_sequence<I...> )
 	{
 		return { ( I, make_srandom<T>( min ,max ) )... };
 	}
 	template<typename T, size_t... I>
-	static constexpr std::array<T, sizeof...( I )> make_crandom_n( uint64_t key, T min, T max, std::index_sequence<I...> )
+	FORCE_INLINE static constexpr std::array<T, sizeof...( I )> make_crandom_n( uint64_t key, T min, T max, std::index_sequence<I...> )
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, key & 3 );
 		return { impl::uniform_eval( lce_64( ( I, key ) ), min, max )... };
 	}
 	template<typename T, size_t N>
-	static std::array<T, N> make_random_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static std::array<T, N> make_random_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return make_random_n<T>( min, max, std::make_index_sequence<N>{} );
 	}
 	template<typename T, size_t N>
-	static std::array<T, N> make_srandom_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static std::array<T, N> make_srandom_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return make_srandom_n<T>( min, max, std::make_index_sequence<N>{} );
 	}
 	template<typename T, size_t N>
-	static constexpr std::array<T, N> make_crandom_n( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static constexpr std::array<T, N> make_crandom_n( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		return make_crandom_n<T>( key, min, max, std::make_index_sequence<N>{} );
 	}
@@ -320,34 +328,34 @@ namespace xstd
 	// Picks a random item from the initializer list / argument pack.
 	//
 	template<typename T>
-	static auto pick_random( std::initializer_list<T> list )
+	FORCE_INLINE static auto pick_random( std::initializer_list<T> list )
 	{
 		return *( list.begin() + make_random<size_t>( 0, list.size() - 1 ) );
 	}
 	template<Iterable T>
-	static decltype( auto ) pick_randomi( T&& source )
+	FORCE_INLINE static decltype( auto ) pick_randomi( T&& source )
 	{
 		auto size = std::size( source );
 		return *std::next( std::begin( source ), make_random<size_t>( 0, size - 1 ) );
 	}
 	template<typename T>
-	static auto pick_srandom( std::initializer_list<T> list )
+	FORCE_INLINE static auto pick_srandom( std::initializer_list<T> list )
 	{
 		return *( list.begin() + make_srandom<size_t>( 0, list.size() - 1 ) );
 	}
 	template<Iterable T>
-	static decltype( auto ) pick_srandomi( T&& source )
+	FORCE_INLINE static decltype( auto ) pick_srandomi( T&& source )
 	{
 		auto size = std::size( source );
 		return *std::next( std::begin( source ), make_srandom<size_t>( 0, size - 1 ) );
 	}
 	template<uint64_t key, typename... Tx>
-	static constexpr decltype( auto ) pick_crandom( Tx&&... args )
+	FORCE_INLINE static constexpr decltype( auto ) pick_crandom( Tx&&... args )
 	{
 		return std::get<make_crandom<size_t>( key, 0, sizeof...( args ) - 1 )>( std::tuple<Tx&&...>{ std::forward<Tx>( args )... } );
 	}
 	template<uint64_t key, Iterable T>
-	static constexpr decltype( auto ) pick_crandomi( T& source )
+	FORCE_INLINE static constexpr decltype( auto ) pick_crandomi( T& source )
 	{
 		auto size = std::size( source );
 		return *std::next( std::begin( source ), make_crandom<size_t>( key, 0, size - 1 ) );
@@ -356,7 +364,7 @@ namespace xstd
 	// Shuffles a container in a random manner.
 	//
 	template<Iterable T>
-	static void shuffle_random( T& source )
+	FORCE_INLINE static void shuffle_random( T& source )
 	{
 		if ( std::size( source ) <= 1 )
 			return;
@@ -372,7 +380,7 @@ namespace xstd
 		}
 	}
 	template<Iterable T>
-	static void shuffle_srandom( T& source )
+	FORCE_INLINE static void shuffle_srandom( T& source )
 	{
 		if ( std::size( source ) <= 1 )
 			return;
@@ -388,7 +396,7 @@ namespace xstd
 		}
 	}
 	template<Iterable T>
-	static constexpr void shuffle_crandom( uint64_t key, T& source )
+	FORCE_INLINE static constexpr void shuffle_crandom( uint64_t key, T& source )
 	{
 		if ( std::size( source ) <= 1 )
 			return;
