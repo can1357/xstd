@@ -1072,18 +1072,18 @@ namespace xstd
 	// Identity function that hints to the compiler to be maximally pessimistic about the operation.
 	//
 	template<typename T>
-	FORCE_INLINE static T& black_box( T& value )
+	FORCE_INLINE static T black_box( T value )
 	{
 #if GNU_COMPILER
 		if constexpr ( Integral<T> )
 			asm volatile( "" : "+r" ( value ) );
 		else
 			asm volatile( "" : "+m" ( value ) );
+		return value;
 #else
 		volatile T* dummy = &value;
-		*dummy;
+		return *dummy;
 #endif
-		return value;
 	}
 
 	// Cold call allows you to call out whilist making sure the target does not get inlined.
