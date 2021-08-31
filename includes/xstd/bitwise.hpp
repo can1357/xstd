@@ -94,61 +94,94 @@ namespace xstd
 
 	// Implement platform-indepdenent bitwise operations.
 	//
-	__forceinline static constexpr bitcnt_t popcnt( uint64_t x )
+	template<Integral T = uint64_t>
+	__forceinline static constexpr bitcnt_t popcnt( T x )
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
 		if ( !std::is_constant_evaluated() )
 		{
 #if MS_COMPILER && AMD64_TARGET
-			return ( bitcnt_t ) __popcnt64( x );
-#elif __has_builtin(__builtin_popcountll)
-			return ( bitcnt_t ) __builtin_popcountll( x );
+			if constexpr ( sizeof( T ) == 8 )
+				return ( bitcnt_t ) __popcnt64( x );
+			else
+				return ( bitcnt_t ) __popcnt( x );
+#elif __has_builtin(__builtin_popcount)
+			if constexpr ( sizeof( T ) == 8 )
+				return ( bitcnt_t ) __builtin_popcountll( x );
+			else
+				return ( bitcnt_t ) __builtin_popcount( x );
 #endif
 		}
 		bitcnt_t count = 0;
-		for ( bitcnt_t i = 0; i < 64; i++, x >>= 1 )
+		for ( bitcnt_t i = 0; i != ( sizeof( T ) * 8 ); i++, x >>= 1 )
 			count += ( bitcnt_t ) ( x & 1 );
 		return count;
 	}
-	__forceinline static constexpr bitcnt_t msb( uint64_t x )
+
+	template<Integral T = uint64_t>
+	__forceinline static constexpr bitcnt_t msb( T x )
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
 		if ( !std::is_constant_evaluated() )
 		{
-#if __has_builtin(__builtin_ctzll)
-			return 63 - __builtin_clzll( x );
+#if __has_builtin(__builtin_ctz)
+			if constexpr ( sizeof( T ) == 8 )
+				return 63 - __builtin_clzll( x );
+			else
+				return 31 - __builtin_clz( x );
 #elif MS_COMPILER && AMD64_TARGET
-			unsigned long idx;
-			return _BitScanReverse64( &idx, x ) ? idx : -1;
+			if constexpr ( sizeof( T ) == 8 )
+			{
+				unsigned long idx;
+				return _BitScanReverse64( &idx, x ) ? idx : -1;
+			}
+			else
+			{
+				unsigned long idx;
+				return _BitScanReverse( &idx, x ) ? idx : -1;
+			}
 #endif
 		}
 
 		// Start scan loop, return idx if found, else -1.
 		//
-		for ( bitcnt_t i = 63; i >= 0; i-- )
+		for ( bitcnt_t i = ( sizeof( T ) * 8 ) - 1; i >= 0; i-- )
 			if ( x & ( 1ull << i ) )
 				return i;
 		return -1;
 	}
-	__forceinline static constexpr bitcnt_t lsb( uint64_t x )
+
+	template<Integral T = uint64_t>
+	__forceinline static constexpr bitcnt_t lsb( T x )
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
 		if ( !std::is_constant_evaluated() )
 		{
 #if MS_COMPILER && AMD64_TARGET
-			unsigned long idx;
-			return _BitScanForward64( &idx, x ) ? idx : -1;
-#elif __has_builtin(__builtin_ctzll)
-			return x ? __builtin_ctzll( x ) : -1;
+			if constexpr ( sizeof( T ) == 8 )
+			{
+				unsigned long idx;
+				return _BitScanForward64( &idx, x ) ? idx : -1;
+		}
+			else
+			{
+				unsigned long idx;
+				return _BitScanForward( &idx, x ) ? idx : -1;
+			}
+#elif __has_builtin(__builtin_ctz)
+			if constexpr ( sizeof( T ) == 8 )
+				return x ? __builtin_ctzll( x ) : -1;
+			else
+				return x ? __builtin_ctz( x ) : -1;
 #endif
 		}
 
 		// Start scan loop, return idx if found, else -1.
 		//
-		for ( bitcnt_t i = 0; i <= 63; i++ )
+		for ( bitcnt_t i = 0; i != ( sizeof( T ) * 8 ); i++ )
 			if ( x & ( 1ull << i ) )
 				return i;
 		return -1;
@@ -520,7 +553,6 @@ namespace xstd
 		constexpr size_t bit_size = sizeof( T ) * 8;
 		using uint_t = std::make_unsigned_t<T>;
 		using int_t =  std::make_signed_t<T>;
-		const auto scanner = reverse ? msb : lsb;
 
 		// Generate the xor mask, if we're looking for 1, -!1 will evaluate to 0,
 		// otherwise -!0 will evaluate to 0xFF.. in order to flip all bits.
@@ -534,7 +566,7 @@ namespace xstd
 		{
 			// Return if we could find the bit in the block:
 			//
-			if ( bitcnt_t i = scanner( *it ^ xor_mask ); i >= 0 )
+			if ( bitcnt_t i = reverse ? msb( *it ^ xor_mask ) : lsb( *it ^ xor_mask ); i >= 0 )
 				return n + i;
 		}
 
@@ -548,12 +580,11 @@ namespace xstd
 	template<typename T>
 	static constexpr void bit_enum( uint64_t mask, T&& fn, bool reverse = false )
 	{
-		const auto scanner = reverse ? msb : lsb;
 		while ( true )
 		{
 			// If scanner returns negative, break.
 			//
-			bitcnt_t idx = scanner( mask );
+			bitcnt_t idx = reverse ? msb( mask ) : lsb( mask );
 			if ( idx < 0 ) return;
 
 			// Reset the bit and invoke the callback.

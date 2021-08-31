@@ -111,7 +111,7 @@ namespace xstd
 		{
 			int32_t prev = share_count.exchange( 0 );
 			mutex.unlock();
-			dassert( prev == -1 );
+			dassert_s( prev == -1 );
 		}
 		FORCE_INLINE void unlock_shared()
 		{
