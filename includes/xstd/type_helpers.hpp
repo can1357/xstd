@@ -780,29 +780,88 @@ namespace xstd
 		return impl::make_constant_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
 	}
 
+	// Visit strategies:
+	//
+	namespace impl
+	{
+#define __visit_8(i, x)		\
+		case (i+0): x(i+0);	\
+		case (i+1): x(i+1);	\
+		case (i+2): x(i+2);	\
+		case (i+3): x(i+3);	\
+		case (i+4): x(i+4);	\
+		case (i+5): x(i+5);	\
+		case (i+6): x(i+6);	\
+		case (i+7): x(i+7);	
+#define __visit_64(i, x)        \
+		__visit_8(i+(8*0), x)     \
+		__visit_8(i+(8*1), x)     \
+		__visit_8(i+(8*2), x)     \
+		__visit_8(i+(8*3), x)     \
+		__visit_8(i+(8*4), x)     \
+		__visit_8(i+(8*5), x)     \
+		__visit_8(i+(8*6), x)     \
+		__visit_8(i+(8*7), x)
+#define __visit_256(i, x)        \
+		__visit_64(i+(64*0), x)    \
+		__visit_64(i+(64*1), x)    \
+		__visit_64(i+(64*2), x)    \
+		__visit_64(i+(64*3), x)
+#define __visitor(i) 						       \
+		if constexpr ( ( i ) < Lim ) {	       \
+			return fn( const_tag<size_t(i)>{} ); \
+		}											       \
+		unreachable();							       \
+
+		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_8( size_t n, F&& fn ) { switch ( n ) { __visit_8( 0, __visitor ); default: unreachable(); } }
+		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: unreachable(); } }
+		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_256( size_t n, F&& fn ) { switch ( n ) { __visit_256( 0, __visitor ); default: unreachable(); } }
+#undef __visitor
+#undef __visit_256
+#undef __visit_64
+#undef __visit_8
+	};
+
+	// Strict numeric visit.
+	//
+	template<size_t Count, typename F>
+	__forceinline static constexpr decltype( auto ) visit_index( size_t n, F&& fn )
+	{
+		if constexpr ( Count <= 8 )
+			return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
+		else if constexpr ( Count <= 64 )
+			return impl::numeric_visit_64<Count>( n, std::forward<F>( fn ) );
+		else if constexpr ( Count <= 256 )
+			return impl::numeric_visit_256<Count>( n, std::forward<F>( fn ) );
+		else
+		{
+			constexpr size_t Midline = Count / 2;
+			if ( n >= Midline )
+				return visit_index<Count - Midline>( n - Midline, [ & ] <size_t N> ( const_tag<N> ) { fn( const_tag<N + Midline>{} ); } );
+			else
+				return visit_index<Midline>( n, std::forward<F>( fn ) );
+		}
+	}
+
 	// Implement helper for visit on numeric range.
 	//
 	template<auto First, auto Last, typename T, typename K = decltype( First ), typename R = decltype( std::declval<T>()( const_tag<K(First)>{} ) )>
 	FLATTEN __forceinline static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<Void<R>, bool, std::optional<R>>
 	{
-		if constexpr( First <= Last )
+		if ( First <= key && key <= Last )
 		{
-			if ( key == First )
+			return visit_index<size_t( Last ) - size_t( First ) + 1>( size_t( key ) - size_t( First ), [ & ] <size_t N> ( const_tag<N> )
 			{
 				if constexpr ( std::is_void_v<R> )
 				{
-					f( const_tag<First>{} );
+					f( const_tag<K( N + size_t( First ) )>{} );
 					return true;
 				}
 				else
 				{
 					return std::optional{ f( const_tag<First>{} ) };
 				}
-			}
-			else
-			{
-				return visit_range<K( size_t( First ) + 1 ), Last, T, K>( key, std::forward<T>( f ) );
-			}
+			} );
 		}
 		else
 		{
