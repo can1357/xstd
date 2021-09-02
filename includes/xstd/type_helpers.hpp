@@ -802,11 +802,15 @@ namespace xstd
 		__visit_8(i+(8*5), x)     \
 		__visit_8(i+(8*6), x)     \
 		__visit_8(i+(8*7), x)
-#define __visit_256(i, x)        \
+#define __visit_512(i, x)        \
 		__visit_64(i+(64*0), x)    \
 		__visit_64(i+(64*1), x)    \
 		__visit_64(i+(64*2), x)    \
-		__visit_64(i+(64*3), x)
+		__visit_64(i+(64*3), x)    \
+		__visit_64(i+(64*4), x)    \
+		__visit_64(i+(64*5), x)    \
+		__visit_64(i+(64*6), x)    \
+		__visit_64(i+(64*7), x)
 #define __visitor(i) 						       \
 		if constexpr ( ( i ) < Lim ) {	       \
 			return fn( const_tag<size_t(i)>{} ); \
@@ -815,9 +819,9 @@ namespace xstd
 
 		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_8( size_t n, F&& fn ) { switch ( n ) { __visit_8( 0, __visitor ); default: unreachable(); } }
 		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: unreachable(); } }
-		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_256( size_t n, F&& fn ) { switch ( n ) { __visit_256( 0, __visitor ); default: unreachable(); } }
+		template<size_t Lim, typename F> static constexpr decltype( auto ) numeric_visit_512( size_t n, F&& fn ) { switch ( n ) { __visit_512( 0, __visitor ); default: unreachable(); } }
 #undef __visitor
-#undef __visit_256
+#undef __visit_512
 #undef __visit_64
 #undef __visit_8
 	};
@@ -831,10 +835,12 @@ namespace xstd
 			return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
 		else if constexpr ( Count <= 64 )
 			return impl::numeric_visit_64<Count>( n, std::forward<F>( fn ) );
-		else if constexpr ( Count <= 256 )
-			return impl::numeric_visit_256<Count>( n, std::forward<F>( fn ) );
+		else if constexpr ( Count <= 512 )
+			return impl::numeric_visit_512<Count>( n, std::forward<F>( fn ) );
 		else
 		{
+			// Binary search.
+			//
 			constexpr size_t Midline = Count / 2;
 			if ( n >= Midline )
 				return visit_index<Count - Midline>( n - Midline, [ & ] <size_t N> ( const_tag<N> ) { fn( const_tag<N + Midline>{} ); } );

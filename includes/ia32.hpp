@@ -22756,6 +22756,21 @@ namespace ia32
 		return ~crc32ci( ptr, length, ~crc );
 	}
 
+	// Non-temporal memory helpers.
+	//
+	template<typename Vec>
+	_LINKAGE Vec load_non_temporal( const Vec* p )
+	{
+		Vec r;
+		asm volatile( "vmovntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
+		return r;
+	}
+	template<typename Vec>
+	_LINKAGE void store_non_temporal( Vec* p, Vec r )
+	{
+		asm volatile( "vmovntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
+	}
+
 	// RAII wrapper for IRQL.
 	//
 	template<irql_t new_irql>
