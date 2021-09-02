@@ -97,6 +97,13 @@ namespace xstd
 			}
 			return cp;
 		}
+		inline static constexpr uint32_t decode( const T*& in )
+		{
+			std::basic_string_view<T> tmp{ in, in + max_out };
+			uint32_t cp = decode( tmp );
+			in = tmp.data();
+			return cp;
+		}
 	};
 
 	// UTF-16.
@@ -115,7 +122,6 @@ namespace xstd
 			if ( cp <= 0xFFFF )
 			{
 				*out++ = ( T ) cp;
-				*out = 0; // Hint to vectorization that this address is available.
 			}
 			else
 			{
@@ -148,6 +154,13 @@ namespace xstd
 			uint32_t hi = c2 - 0xDC00;
 			return 0x10000 + ( hi | ( lo << 10 ) );
 		}
+		inline static constexpr uint32_t decode( const T*& in )
+		{
+			std::basic_string_view<T> tmp{ in, in + max_out };
+			uint32_t cp = decode( tmp );
+			in = tmp.data();
+			return cp;
+		}
 	};
 
 	// UTF-32.
@@ -170,6 +183,13 @@ namespace xstd
 			uint32_t c = ( uint32_t ) in.front();
 			in.remove_prefix( 1 );
 			return c;
+		}
+		inline static constexpr uint32_t decode( const char32_t*& in )
+		{
+			std::basic_string_view<char32_t> tmp{ in, in + max_out };
+			uint32_t cp = decode( tmp );
+			in = tmp.data();
+			return cp;
 		}
 	};
 
