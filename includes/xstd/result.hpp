@@ -202,7 +202,7 @@ namespace xstd
 		constexpr void assert() const
 		{
 			if ( !success() ) [[unlikely]]
-				error( XSTD_ESTR( "Accessing failed result with: %s" ), message() );
+				xstd::cold_call( [ & ] { error( XSTD_ESTR( "Accessing failed result with: %s" ), message() ); } );
 		}
 
 		// String conversion.
