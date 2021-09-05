@@ -206,7 +206,7 @@ namespace xstd
 		// Container interface.
 		//
 		inline constexpr bool empty() const { return length == 0; }
-		inline constexpr size_t size() const { return length; }
+		inline constexpr size_t size() const { assume( length <= N ); return length; }
 		inline constexpr size_t max_size() const { return N; }
 		inline constexpr size_t capacity() const { return N; }
 		inline iterator data() { return &at( 0 ); }
@@ -216,9 +216,9 @@ namespace xstd
 		inline const_iterator begin() const { return data(); }
 		inline const_iterator cbegin() const { return data(); }
 
-		inline iterator end() { return data() + length; }
-		inline const_iterator end() const { return data() + length; }
-		inline const_iterator cend() const { return data() + length; }
+		inline iterator end() { return data() + size(); }
+		inline const_iterator end() const { return data() + size(); }
+		inline const_iterator cend() const { return data() + size(); }
 
 		inline reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
 		inline const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
@@ -450,7 +450,7 @@ namespace xstd
 		// Container interface.
 		//
 		inline constexpr bool empty() const { return length == 0; }
-		inline constexpr size_t size() const { return length; }
+		inline constexpr size_t size() const { assume( length <= N ); return length; }
 		inline constexpr size_t max_size() const { return N; }
 		inline constexpr size_t capacity() const { return N; }
 		inline constexpr iterator data() { return &at( 0 ); }
@@ -460,9 +460,9 @@ namespace xstd
 		inline constexpr const_iterator begin() const { return data(); }
 		inline constexpr const_iterator cbegin() const { return data(); }
 
-		inline constexpr iterator end() { return data() + length; }
-		inline constexpr const_iterator end() const { return data() + length; }
-		inline constexpr const_iterator cend() const { return data() + length; }
+		inline constexpr iterator end() { return data() + size(); }
+		inline constexpr const_iterator end() const { return data() + size(); }
+		inline constexpr const_iterator cend() const { return data() + size(); }
 
 		inline constexpr reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
 		inline constexpr const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
