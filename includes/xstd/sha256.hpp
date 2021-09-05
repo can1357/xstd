@@ -171,7 +171,7 @@ namespace xstd
 				leftover_offset = 0;
 			}
 
-			// Pad with zeros and append the big endian lenght at the end.
+			// Pad with zeros and append the big endian length at the end.
 			//
 			std::fill( leftover.begin() + leftover_offset, leftover.end() - 8, 0 );
 			leftover[ block_size - 1 ] = ( uint8_t ) ( bit_count );
