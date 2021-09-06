@@ -1170,7 +1170,7 @@ namespace xstd
 		{
 			static std::atomic<bool> ran = false;
 			if ( !ran.exchange( true ) )
-				fn();
+				cold_call( fn );
 		}
 		else
 		{
@@ -1178,15 +1178,17 @@ namespace xstd
 			static std::optional<R> result = std::nullopt;
 			if ( status != 2 )
 			{
-				int expected = 0;
-				if ( status.compare_exchange_strong( expected, 1, std::memory_order::acquire ) )
+				cold_call( [ & ]
 				{
-					result.emplace( fn() );
-					status.store( 2, std::memory_order::release );
-				}
-
-				while ( status.load( std::memory_order::relaxed ) != 2 )
-					yield_cpu();
+					int expected = 0;
+					if ( status.compare_exchange_strong( expected, 1, std::memory_order::acquire ) )
+					{
+						result.emplace( fn() );
+						status.store( 2, std::memory_order::release );
+					}
+					while ( status.load( std::memory_order::relaxed ) != 2 )
+						yield_cpu();
+				} );
 			}
 			return result.value();
 		}
