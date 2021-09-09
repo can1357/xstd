@@ -21680,35 +21680,37 @@ namespace ia32
 
 		FORCE_INLINE uint32_t get_limit() const
 		{
-				uint32_t lim = limit_low;
-				lim |= uint32_t( limit_high ) << 16;
-				if ( granularity ) return lim << 12;
-				else return lim;
+			uint32_t lim = limit_low;
+			lim |= uint32_t( limit_high ) << 16;
+			if ( granularity ) return lim << 12;
+			else return lim;
 		}
 		FORCE_INLINE void set_limit( uint32_t lim )
 		{
-				if ( lim > 0xFFFFF )
-				{
-					granularity = true;
-					lim >>= 12;
-				}
-				limit_low = lim & 0xFFFF;
-				limit_high = ( lim >> 16 ) & 0xF;
+			if ( lim > 0xFFFFF )
+			{
+				granularity = true;
+				lim >>= 12;
+			}
+			limit_low = lim & 0xFFFF;
+			limit_high = ( lim >> 16 ) & 0xF;
 		}
 		FORCE_INLINE xstd::any_ptr get_offset() const
 		{
-				uint64_t adr = offset_low;
-				adr |= uint64_t( offset_middle_0 ) << 16;
-				adr |= uint64_t( offset_middle_1 ) << 24;
-				adr |= uint64_t( offset_high ) << 32;
-				return adr;
+			//uint64_t adr = offset_low;
+			//adr |= uint64_t( offset_middle_0 ) << 16;
+			//adr |= uint64_t( offset_middle_1 ) << 24;
+			//adr |= uint64_t( offset_high ) << 32;
+			uint64_t adr = xstd::ref_at<uint32_t>( this, 2 ) & 0xFFFFFF;
+			adr |= xstd::ref_at<uint64_t>( this, 7 ) << 24;
+			return adr;
 		}
 		FORCE_INLINE void set_offset( xstd::any_ptr ptr )
 		{
-				offset_low = ptr & 0xFFFF;
-				offset_middle_0 = ( ptr >> 16 ) & 0xFF;
-				offset_middle_1 = ( ptr >> 24 ) & 0xFF;
-				offset_high = ( ptr >> 32 ) & 0xFFFFFFFF;
+			offset_low = ptr & 0xFFFF;
+			offset_middle_0 = ( ptr >> 16 ) & 0xFF;
+			offset_middle_1 = ( ptr >> 24 ) & 0xFF;
+			offset_high = ( ptr >> 32 ) & 0xFFFFFFFF;
 		}
 	};
 	using tss_entry = gdt_entry_ex;
@@ -21729,13 +21731,15 @@ namespace ia32
 		uint8_t  present       : 1;
 		uint16_t offset_middle;
 		uint32_t offset_high;
-		uint32_t reserved_2;
+		uint32_t reserved_2;        // 0
 
 		FORCE_INLINE xstd::any_ptr get_handler() const
 		{
+			//uint64_t adr = offset_low;
+			//adr |= uint64_t( offset_middle ) << 16;
+			//adr |= uint64_t( offset_high ) << 32;
 			uint64_t adr = offset_low;
-			adr |= uint64_t( offset_middle ) << 16;
-			adr |= uint64_t( offset_high ) << 32;
+			adr |= xstd::ref_at<uint64_t>( this, 6 ) << 16;
 			return adr;
 		}
 		FORCE_INLINE void set_handler( xstd::any_ptr ptr )
