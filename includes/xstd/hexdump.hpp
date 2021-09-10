@@ -16,19 +16,19 @@ namespace xstd::fmt
 		bool uppercase = true;
 	};
 
+	// Dictionaries.
+	//
+	inline constexpr char upper_dict[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+	inline constexpr char lower_dict[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
 	// Prints a singular hexadecimal digit to the buffer given.
 	//
 	template<typename C>
 	inline static constexpr void print_hex_digit( C* out, uint8_t value, bool uppercase = false )
 	{
-		for ( size_t n = 0; n != 2; n++ )
-		{
-			uint8_t r = ( value >> ( 4 - ( n * 4 ) ) ) & 0xF;
-			if ( r <= 9 )
-				out[ n ] = '0' + r;
-			else
-				out[ n ] = ( r - 0xA ) + ( uppercase ? 'A' : 'a' );
-		}
+		const auto dict = uppercase ? &upper_dict[ 0 ] : &lower_dict[ 0 ];
+		out[ 0 ] = dict[ value >> 4 ];
+		out[ 1 ] = dict[ value & 0xF ];
 	}
 
 	// Optimized hexdump for constant size input with no configuration.
