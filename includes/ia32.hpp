@@ -22766,13 +22766,21 @@ namespace ia32
 	_LINKAGE Vec load_non_temporal( const Vec* p )
 	{
 		Vec r;
+#if __AVX__
 		asm volatile( "vmovntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
+#else
+		asm volatile( "movntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
+#endif
 		return r;
 	}
 	template<typename Vec>
 	_LINKAGE void store_non_temporal( Vec* p, Vec r )
 	{
+#if __AVX__
 		asm volatile( "vmovntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
+#else
+		asm volatile( "movntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
+#endif
 	}
 
 	// RAII wrapper for IRQL.
