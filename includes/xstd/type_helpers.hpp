@@ -307,7 +307,78 @@ namespace xstd
 	template<FloatingPoint T1, FloatingPoint T2>
 	using floating_min_t = std::conditional_t<( sizeof( T1 ) < sizeof( T2 ) ), T1, T2>;
 
-	// Functor traits.
+	// Function traits.
+	//
+	template<typename F>
+	struct function_traits;
+
+	// Function pointers:
+	//
+	template<typename R, typename... Tx>
+	struct function_traits<R(*)(Tx...)>
+	{
+		static constexpr bool is_lambda = false;
+		static constexpr bool is_vararg = false;
+
+		using return_type = R;
+		using arguments =   std::tuple<Tx...>;
+		using owner =       void;
+	};
+	template<typename R, typename... Tx>
+	struct function_traits<R(*)(Tx..., ...)> : function_traits<R(*)(Tx...)>
+	{
+		static constexpr bool is_vararg = true;
+	};
+
+	// Member functions:
+	//
+	template<typename C, typename R, typename... Tx>
+	struct function_traits<R(C::*)(Tx...)>
+	{
+		static constexpr bool is_lambda = false;
+		static constexpr bool is_vararg = false;
+
+		using return_type = R;
+		using arguments =   std::tuple<Tx...>;
+		using owner =       C;
+	};
+	template<typename C, typename R, typename... Tx>
+	struct function_traits<R(C::*)(Tx..., ...)> : function_traits<R(C::*)(Tx...)>
+	{
+		static constexpr bool is_vararg = true;
+	};
+	template<typename C, typename R, typename... Tx>
+	struct function_traits<R(C::*)(Tx...) const>
+	{
+		static constexpr bool is_lambda = false;
+		static constexpr bool is_vararg = false;
+
+		using return_type = R;
+		using arguments =   std::tuple<Tx...>;
+		using owner =       const C;
+	};
+	template<typename C, typename R, typename... Tx>
+	struct function_traits<R(C::*)(Tx..., ...) const> : function_traits<R(C::*)(Tx...) const>
+	{
+		static constexpr bool is_vararg = true;
+	};
+
+	// Lambdas or callables.
+	//
+	template<typename F>
+	concept CallableObject = requires{ &F::operator(); };
+	template<CallableObject F>
+	struct function_traits<F> : function_traits<decltype( &F::operator() )>
+	{
+		static constexpr bool is_lambda = true;
+	};
+
+	template<typename F>
+	concept Function = requires{ typename function_traits<F>::arguments; };
+	template<typename F>
+	concept Lambda = Function<F> && function_traits<F>::is_lambda;
+
+	// Callable traits.
 	//
 	template<typename T, typename... Args>
 	concept InvocableWith = requires( T && x ) { x( std::declval<Args>()... ); };

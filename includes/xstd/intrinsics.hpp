@@ -358,7 +358,7 @@ FORCE_INLINE static void yield_cpu()
 #ifndef XSTD_HAS_TASK_PRIORITY
 	#define XSTD_HAS_TASK_PRIORITY KERNEL_TARGET
 #endif
-FORCE_INLINE static void set_task_priority( uint8_t value )
+FORCE_INLINE static void set_task_priority( [[maybe_unused]] uint8_t value )
 {
 #if MS_COMPILER && AMD64_TARGET && XSTD_HAS_TASK_PRIORITY
 	__writecr8( value );
