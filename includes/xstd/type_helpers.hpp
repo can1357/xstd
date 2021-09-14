@@ -19,6 +19,42 @@
 
 namespace xstd
 {
+	// Type namer.
+	//
+	template<typename T>
+	struct type_name
+	{
+		template<typename __id__ = T>
+		static _CONSTEVAL std::string_view __id__()
+		{
+			auto [sig, begin, delta, end] = std::tuple{
+#if GNU_COMPILER
+				std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
+#else
+				std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +1, ">"
+#endif
+			};
+
+			// Find the beginning of the name.
+			//
+			size_t f = sig.size();
+			while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
+				if ( f == 0 ) return "";
+			f += begin.size() + delta;
+
+			// Find the end of the string.
+			//
+			auto l = sig.find_first_of( end, f );
+			if ( l == std::string::npos )
+				return "";
+
+			// Return the value.
+			//
+			return sig.substr( f, l - f );
+		}
+		inline _CONSTEVAL operator std::string_view() const { return type_name<T>::__id__<T>(); }
+	};
+
 	// Type tag.
 	//
 	template<typename T>
@@ -47,35 +83,7 @@ namespace xstd
 
 		// Returns the name of the type.
 		//
-		template<typename __id__ = T>
-		static _CONSTEVAL std::string_view to_string()
-		{
-			std::string_view sig = FUNCTION_NAME;
-			auto [begin, delta, end] = std::tuple{
-#if MS_COMPILER
-				std::string_view{ "<" },                      0,  ">"
-#else
-				std::string_view{ "__id__" },                 +3, "];"
-#endif
-			};
-
-			// Find the beginning of the name.
-			//
-			size_t f = sig.size();
-			while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
-				if ( f == 0 ) return "";
-			f += begin.size() + delta;
-
-			// Find the end of the string.
-			//
-			auto l = sig.find_first_of( end, f );
-			if ( l == std::string::npos )
-				return "";
-
-			// Return the value.
-			//
-			return sig.substr( f, l - f );
-		}
+		static _CONSTEVAL std::string_view to_string() { return type_name<T>{}; }
 	};
 
 	// Constant tag.
@@ -306,6 +314,16 @@ namespace xstd
 	using integral_min_t = std::conditional_t<( sizeof( T1 ) < sizeof( T2 ) ), T1, T2>;
 	template<FloatingPoint T1, FloatingPoint T2>
 	using floating_min_t = std::conditional_t<( sizeof( T1 ) < sizeof( T2 ) ), T1, T2>;
+	
+	// Checks if the type is a member function or not.
+	//
+	template<typename T>                                 struct is_member_function { static constexpr bool value = false; };
+	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...)>             { static constexpr bool value = true; };
+	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)>        { static constexpr bool value = true; };
+	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; };
+	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; };
+	template<typename T>
+	static constexpr bool is_member_function_v = is_member_function<T>::value;
 
 	// Function traits.
 	//
@@ -365,14 +383,8 @@ namespace xstd
 
 	// Lambdas or callables.
 	//
-	template<typename F>
-	concept CallableObject = requires{ &F::operator(); };
-	template<CallableObject F>
-	struct function_traits<F> : function_traits<decltype( &F::operator() )>
-	{
-		static constexpr bool is_lambda = true;
-	};
-
+	template<typename F> concept CallableObject = requires{ is_member_function_v<decltype(&F::operator())>; };
+	template<CallableObject F> struct function_traits<F> : function_traits<decltype( &F::operator() )> { static constexpr bool is_lambda = true; };
 	template<typename F>
 	concept Function = requires{ typename function_traits<F>::arguments; };
 	template<typename F>
@@ -670,14 +682,11 @@ namespace xstd
 		template<typename T, typename = void> struct is_member_reference { static constexpr bool value = false; };
 		template<typename C, typename M> struct is_member_reference<member_reference_t<C, M>, void> { static constexpr bool value = true; };
 
-		template<typename T, typename = void> struct is_member_function { static constexpr bool value = false; };
-		template<typename C, typename R, typename... A> struct is_member_function<member_function_t<C, R, A...>, void> { static constexpr bool value = true; };
-
 		template<typename T, typename = void> struct is_static_function { static constexpr bool value = false; };
 		template<typename R, typename... A> struct is_static_function<static_function_t<R, A...>, void> { static constexpr bool value = true; };
 	};
 	template<typename T> concept MemberReference = impl::is_member_reference<T>::value;
-	template<typename T> concept MemberFunction = impl::is_member_function<T>::value;
+	template<typename T> concept MemberFunction = is_member_function_v<T>;
 	template<typename T> concept StaticFunction = impl::is_static_function<T>::value;
 
 	// Returns the offset/size of given member reference.
