@@ -19,40 +19,105 @@
 
 namespace xstd
 {
-	// Type namer.
+	// Type/value namers.
 	//
-	template<typename T>
-	struct type_name
+	namespace impl
 	{
-		template<typename __id__ = T>
-		static _CONSTEVAL std::string_view __id__()
+		template<typename T>
+		struct type_namer
 		{
-			auto [sig, begin, delta, end] = std::tuple{
+			template<typename __id__ = T>
+			static _CONSTEVAL std::string_view __id__()
+			{
+				auto [sig, begin, delta, end] = std::tuple{
 #if GNU_COMPILER
-				std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
+					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
 #else
-				std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +1, ">"
+					std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +1, ">"
 #endif
-			};
+				};
 
-			// Find the beginning of the name.
-			//
-			size_t f = sig.size();
-			while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
-				if ( f == 0 ) return "";
-			f += begin.size() + delta;
+				// Find the beginning of the name.
+				//
+				size_t f = sig.size();
+				while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
+					if ( f == 0 ) return "";
+				f += begin.size() + delta;
 
-			// Find the end of the string.
-			//
-			auto l = sig.find_first_of( end, f );
-			if ( l == std::string::npos )
-				return "";
+				// Find the end of the string.
+				//
+				auto l = sig.find_first_of( end, f );
+				if ( l == std::string::npos )
+					return "";
 
-			// Return the value.
-			//
-			return sig.substr( f, l - f );
+				// Return the value.
+				//
+				return sig.substr( f, l - f );
+			}
+
+			static constexpr auto name = [ ] ()
+			{
+				constexpr std::string_view view = type_namer<T>::__id__<T>();
+				std::array<char, view.length() + 1> data = {};
+				std::copy( view.begin(), view.end(), data.data() );
+				return data;
+			}( );
+			inline _CONSTEVAL operator std::string_view() const { return { &name[ 0 ], &name[ name.size() - 1 ] }; }
+			inline _CONSTEVAL operator const char* ( ) const { return &name[ 0 ]; }
+		};
+		template<auto V>
+		struct value_namer
+		{
+			template<auto __id__ = V>
+			static _CONSTEVAL std::string_view __id__()
+			{
+				auto [sig, begin, delta, end] = std::tuple{
+#if GNU_COMPILER
+					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
+#else
+					std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +0, ">"
+#endif
+				};
+
+				// Find the beginning of the name.
+				//
+				size_t f = sig.size();
+				while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
+					if ( f == 0 ) return "";
+				f += begin.size() + delta;
+
+				// Find the end of the string.
+				//
+				auto l = sig.find_first_of( end, f );
+				if ( l == std::string::npos )
+					return "";
+
+				// Return the value.
+				//
+				return sig.substr( f, l - f );
+			}
+
+			static constexpr auto name = [ ] ()
+			{
+				constexpr std::string_view view = value_namer<V>::__id__<V>();
+				std::array<char, view.length() + 1> data = {};
+				std::copy( view.begin(), view.end(), data.data() );
+				return data;
+			}( );
+			inline _CONSTEVAL operator std::string_view() const { return { &name[ 0 ], &name[ name.size() - 1 ] }; }
+			inline _CONSTEVAL operator const char* ( ) const { return &name[ 0 ]; }
+		};
+
+		static _CONSTEVAL size_t ctti_hash( const char* sig )
+		{
+			size_t tmp = 0xdb88df354763d75f;
+			while ( *sig )
+			{
+				tmp ^= *sig++;
+				tmp *= 0x100000001B3;
+			}
+			return tmp;
 		}
-		inline _CONSTEVAL operator std::string_view() const { return type_name<T>::__id__<T>(); }
 	};
 
 	// Type tag.
@@ -60,70 +125,35 @@ namespace xstd
 	template<typename T>
 	struct type_tag 
 	{ 
-		using type = T; 
+		using type = T;
 
 		// Returns a 64-bit hash that can be used to identify the type.
 		//
-		template<typename __id__ = T>
-		static _CONSTEVAL size_t _hasher()
-		{
-			const char* sig = FUNCTION_NAME;
-			size_t tmp = 0xdb88df354763d75f;
-			while ( *sig )
-			{
-				tmp ^= *sig++;
-				tmp *= 0x00000100000001B3;
-			}
-			return tmp;
-		}
-		static _CONSTEVAL size_t hash()
-		{
-			return std::integral_constant<size_t, _hasher()>{};
-		}
+		template<auto t = T> static _CONSTEVAL size_t hash() { return std::integral_constant<size_t, impl::ctti_hash( FUNCTION_NAME )>{}; }
 
 		// Returns the name of the type.
 		//
-		static _CONSTEVAL std::string_view to_string() { return type_name<T>{}; }
+		template<auto C = 0> static _CONSTEVAL std::string_view to_string() { return impl::type_namer<T>{}; }
+		template<auto C = 0> static _CONSTEVAL const char* c_str() { return impl::type_namer<T>{}; }
 	};
 
 	// Constant tag.
 	//
-	template<auto v>
+	template<auto V>
 	struct const_tag
 	{
-		using value_type = decltype( v );
-		static constexpr value_type value = v;
+		using value_type = decltype( V );
+		static constexpr value_type value = V;
 		constexpr operator value_type() const noexcept { return value; }
 
-		template<auto __id__ = v>
-		static constexpr std::string_view to_string()
-		{
-			std::string_view sig = FUNCTION_NAME;
-			auto [begin, delta, end] = std::tuple{
-#if MS_COMPILER
-				std::string_view{ "<" },                      0,  ">"
-#else
-				std::string_view{ "__id__" },                 +3, "];"
-#endif
-			};
+		// Returns a 64-bit hash that can be used to identify the value.
+		//
+		template<auto v = V> static _CONSTEVAL size_t hash() { return std::integral_constant<size_t, impl::ctti_hash( FUNCTION_NAME )>{}; }
 
-			// Find the beginning of the name.
-			//
-			size_t f = sig.size();
-			while( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
-				if( f == 0 ) return "";
-			f += begin.size() + delta;
-
-			// Find the end of the string.
-			//
-			auto l = sig.find_first_of( end, f );
-			if ( l == std::string::npos )
-				return "";
-
-			// Return the value.
-			//
-			return sig.substr( f, l - f );
-		}
+		// Returns the name of the value.
+		//
+		template<auto C = 0> static _CONSTEVAL std::string_view to_string() { return impl::value_namer<V>{}; }
+		template<auto C = 0> static _CONSTEVAL const char* c_str() { return impl::value_namer<V>{}; }
 	};
 	
 	// Check for specialization.
