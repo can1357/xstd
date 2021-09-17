@@ -152,7 +152,7 @@ namespace xstd
 
 		// Finalization of the hash.
 		//
-		__forceinline constexpr void finalize() noexcept
+		constexpr void finalize() noexcept
 		{
 			if ( finalized ) [[likely]]
 				return;
