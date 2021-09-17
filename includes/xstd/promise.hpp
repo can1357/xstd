@@ -172,9 +172,14 @@ namespace xstd
 				if ( !evt.wait_for( time ) )
 				{
 					if constexpr ( std::is_same_v<status_type, xstd::exception> )
-						return xstd::exception{ XSTD_ESTR( "Promise timed out." ) };
+					{
+						static constexpr auto store = xstd::exception{ XSTD_ESTR( "Promise timed out." ) };
+						return store;
+					}
 					else
+					{
 						return xstd::static_default{};
+					}
 				}
 			}
 			evt.wait();
