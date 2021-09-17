@@ -421,7 +421,7 @@ namespace xstd
 	//
 	namespace impl
 	{
-		inline task<> handle_completion( xstd::spinlock& list_lock, std::vector<coroutine_handle<>> continuation_list )
+		inline task<> handle_completion( xstd::spinlock& list_lock, std::vector<coroutine_handle<>>& continuation_list )
 		{
 			std::lock_guard _g{ list_lock };
 			for ( auto&& entry : std::exchange( continuation_list, {} ) )

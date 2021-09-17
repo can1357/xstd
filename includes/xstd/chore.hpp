@@ -1,7 +1,6 @@
 #pragma once
 #include "intrinsics.hpp"
 #include "time.hpp"
-#include "event.hpp"
 #include <thread>
 
 // [Configuration]
