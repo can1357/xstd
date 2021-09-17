@@ -1,5 +1,6 @@
 #pragma once
 #include <optional>
+#include <variant>
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
@@ -12,53 +13,8 @@
 
 namespace xstd
 {
-	struct default_result {};
-
 	namespace impl
 	{
-		template<typename T> concept HasInlineStTraits = requires( const T& x ) { T{ T::success_value }; T{ T::failure_value }; ( bool ) T::is_success( x ); };
-		template<typename T> concept HasInlineMfTraits = requires( const T& x ) { T{ T::success_value }; T{ T::failure_value }; ( bool ) x.is_success(); };
-		template<typename T> concept HasInlineAutoTraits = !HasInlineStTraits<T> && !HasInlineMfTraits<T> && requires( const T& x ) { T{ T::success_value }; T{ T::failure_value }; x.operator bool(); };
-		template<typename T> concept HasExternTraits = requires { T::status_traits::is_success( std::declval<const T&>() ); T{ T::status_traits::success_value }; T{ T::status_traits::failure_value }; };
-
-		template<typename T>
-		struct default_traits {};
-
-		// Fixed success/failure value + static function for success check.
-		//
-		template<HasInlineStTraits T>
-		struct default_traits<T> 
-		{
-			static constexpr auto success_value = T::success_value;
-			static constexpr auto failure_value = T::failure_value;
-			constexpr static inline bool is_success( const T& v ) { return T::is_success( v ); }
-		};
-
-		// Fixed success/failure value + member function for success check.
-		//
-		template<HasInlineMfTraits T>
-		struct default_traits<T>
-		{
-			static constexpr auto success_value = T::success_value;
-			static constexpr auto failure_value = T::failure_value;
-			constexpr static inline bool is_success( const T& v ) { return v.is_success(); }
-		};
-
-		// Fixed success/failure value + decay to bool for success check.
-		//
-		template<HasInlineAutoTraits T>
-		struct default_traits<T>
-		{
-			static constexpr auto success_value = T::success_value;
-			static constexpr auto failure_value = T::failure_value;
-			constexpr static inline bool is_success( const T& v ) { return v.operator bool(); }
-		};
-
-		// Redirection to external class.
-		//
-		template<HasExternTraits T>
-		struct default_traits<T> : T::status_traits {};
-
 		// Optimization for monostate.
 		//
 		struct TRIVIAL_ABI optional_monostate
@@ -78,11 +34,119 @@ namespace xstd
 		};
 	};
 
+	// Define an exception type.
+	//
+	struct TRIVIAL_ABI exception
+	{
+		union
+		{
+			const char* full_value = nullptr;
+			struct
+			{
+				int64_t pointer        : 63;
+				uint64_t mismatch_bit  : 1;
+			};
+		};
+
+		// Wrappers allowing union-like access whilist staying constexpr.
+		//
+		inline constexpr void set_value( const char* new_value, bool allocated )
+		{
+			full_value = new_value;
+			if ( !std::is_constant_evaluated() )
+			{
+				if ( allocated )
+				{
+					mismatch_bit = !mismatch_bit;
+					assume( ( const char* ) pointer != full_value );
+				}
+				else
+				{
+					assume( ( const char* ) pointer == full_value );
+				}
+			}
+		}
+		inline constexpr const char* get_value() const noexcept
+		{
+			if ( std::is_constant_evaluated() )
+				return full_value;
+			else
+				return ( const char* ) ( uint64_t ) pointer;
+		}
+		inline constexpr bool is_allocated() const noexcept
+		{
+			if ( !std::is_constant_evaluated() )
+				return ( const char* ) pointer != full_value;
+			else
+				return false;
+		}
+
+		// Construction from string view and string literal.
+		//
+		inline constexpr exception() {}
+		inline constexpr exception( std::nullptr_t ) {}
+		inline constexpr exception( const char* str ) { set_value( str, false ); }
+		inline exception( std::string_view str ) { assign_string( str ); }
+
+		// Copy and move.
+		//
+		inline constexpr exception( const exception& other ) { assign( other ); }
+		inline constexpr exception( exception&& other ) noexcept { swap( other ); }
+		inline constexpr exception& operator=( const exception& other ) { assign( other ); return *this; }
+		inline constexpr exception& operator=( exception&& other ) noexcept { swap( other ); return *this; }
+		inline constexpr void swap( exception& o )
+		{
+			std::swap( full_value, o.full_value );
+		}
+		inline constexpr void assign( const exception& o )
+		{
+			if ( !std::is_constant_evaluated() )
+			{
+				if ( o.is_allocated() )
+					return assign_string( o.get() );
+			}
+			full_value = o.full_value;
+		}
+		COLD inline void assign_string( std::string_view str )
+		{
+			reset();
+			size_t length = str.length();
+			char* res = new char[ length + 1 ];
+			std::copy( str.begin(), str.end(), res );
+			res[ length ] = 0;
+			set_value( res, true );
+		}
+
+		// Deallocate on deconstruction.
+		//
+		inline constexpr void reset()
+		{
+			if ( !std::is_constant_evaluated() )
+			{
+				if ( is_allocated() )
+					delete[] get_value();
+			}
+			full_value = nullptr;
+		}
+		inline constexpr ~exception() { reset(); }
+
+		// Observers.
+		//
+		inline constexpr bool empty() const { return !full_value; }
+		inline constexpr explicit operator bool() const { return empty(); }
+
+		// Getters.
+		//
+		inline std::string to_string() const { return c_str(); }
+		inline constexpr const char* data() const { return c_str(); }
+		inline constexpr const char* c_str() const { return full_value ? get_value() : ""; }
+		inline constexpr std::string_view get() const { return c_str(); }
+	};
+
 	// Status traits.
 	//
 	template<typename T>
-	struct status_traits : impl::default_traits<T> {};
-
+	struct status_traits : T::status_traits {};
 	template<>
 	struct status_traits<bool>
 	{
@@ -95,18 +159,17 @@ namespace xstd
 		//
 		constexpr static inline bool is_success( bool v ) { return v; }
 	};
-
 	template<>
-	struct status_traits<std::string>
+	struct status_traits<exception>
 	{
 		// Generic success and failure values.
 		//
-		static constexpr char success_value[] = "";
-		static constexpr char failure_value[] = "?";
+		static constexpr exception success_value{ nullptr };
+		static constexpr exception failure_value{ "?" };
 
 		// Declare basic traits.
 		//
-		static inline bool is_success( const std::string& v ) { return v.empty(); }
+		static inline bool is_success( const exception& o ) { return o.empty(); }
 	};
 
 	// Declares a light-weight object wrapping a result type with a status code.
@@ -122,16 +185,12 @@ namespace xstd
 		//
 		Status status = Status{ traits::failure_value };
 		store_type result = std::nullopt;
-
+	
 		// Invalid value construction.
 		//
 		constexpr basic_result() {}
 		constexpr basic_result( std::nullopt_t ) {}
-
-		// Default value construction via tag.
-		//
-		constexpr basic_result( default_result ) requires DefaultConstructable<Value> : status( Status{ traits::success_value } ), result( Value{} ) {}
-
+	
 		// Consturction with value/state combination.
 		//
 		template<typename T> requires ( Constructable<Value, T&&> && ( !Constructable<Status, T&&> || Same<std::decay_t<T>, Value> ) )
@@ -143,9 +202,9 @@ namespace xstd
 				if ( traits::is_success( this->status ) )
 					result.emplace();
 		}
-		template<typename T, typename S>  requires ( Constructable<Value, T&&> && Constructable<Status, S&&> )
+		template<typename T, typename S>
 		constexpr basic_result( T&& value, S&& status ) : status( std::forward<S>( status ) ), result( std::forward<T>( value ) ) {}
-
+	
 		// Result conversion.
 		//
 		template<typename T> requires( !Same<T, Value> && ( Constructable<Value, const T&> || Same<Value, std::monostate> ) )
@@ -164,20 +223,27 @@ namespace xstd
 					result.emplace( other.value() );
 			}
 		}
-
+	
 		// Default copy and move.
 		//
 		constexpr basic_result( basic_result&& ) noexcept = default;
 		constexpr basic_result( const basic_result& ) = default;
 		constexpr basic_result& operator=( basic_result&& ) noexcept = default;
 		constexpr basic_result& operator=( const basic_result& ) = default;
-
+	
 		// Setters.
 		//
 		template<typename S>
 		constexpr void raise( S&& _status )
 		{
 			status = std::forward<S>( _status );
+		}
+		template<typename T>
+		constexpr Value& emplace( T&& value )
+		{
+			auto& v = result.emplace( std::forward<T>( value ) );
+			status = Status{ traits::success_value };
+			return v;
 		}
 		template<typename T, typename S>
 		constexpr Value& emplace( T&& value, S&& _status )
@@ -204,7 +270,7 @@ namespace xstd
 			if ( !success() ) [[unlikely]]
 				xstd::cold_call( [ & ] { error( XSTD_ESTR( "Accessing failed result with: %s" ), message() ); } );
 		}
-
+	
 		// String conversion.
 		//
 		std::string to_string() const
@@ -216,7 +282,7 @@ namespace xstd
 			else                                    
 				return "(Success)";
 		}
-
+	
 		// For accessing the value, replicate the std::optional interface.
 		//
 		constexpr const Value& value() const &
@@ -238,7 +304,7 @@ namespace xstd
 		{
 			return success() ? result.value() : o;
 		}
-
+	
 		// Accessors.
 		//
 		constexpr decltype(auto) operator->()
@@ -260,12 +326,63 @@ namespace xstd
 		constexpr const Value& operator*() const & { return value(); }
 	};
 
-	template<typename T = std::monostate, typename S = bool>
-	using result = basic_result<T, S>;
-
 	template<typename T = std::monostate>
-	using string_result = basic_result<T, std::string>;
+	using result = basic_result<T, exception>;
 };
+
+namespace std
+{
+	template<typename F, typename T, typename S>
+	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>& res )
+	{
+		if ( res.success() ) return fn( res.value() );
+		else                 return fn( res.status );
+	}
+	template<typename F, typename T, typename S>
+	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>&& res )
+	{
+		if ( res.success() ) return fn( std::move( res.value() ) );
+		else                 return fn( std::move( res.status ) );
+	}
+
+	template<typename F, typename T, typename S>
+	static constexpr decltype( auto ) visit( F&& fn, const xstd::basic_result<T, S>& res )
+	{
+		if ( res.success() ) return fn( res.value() );
+		else                 return fn( res.status );
+	}
+
+	template<typename F, typename T, typename S, typename... Ox>
+	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>& res, Ox&&... rest )
+	{
+		return visit( [ & ] <typename... Tx> ( Tx&&... vx ) -> decltype( auto )
+		{
+			if ( res.success() ) return fn( res.value(), std::forward<Tx>( vx )... );
+			else                 return fn( res.status, std::forward<Tx>( vx )... );
+		}, std::forward<Ox>( rest )... );
+	}
+
+	template<typename F, typename T, typename S, typename... Ox>
+	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>&& res, Ox&&... rest )
+	{
+		return visit( [ & ] <typename... Tx> ( Tx&&... vx ) -> decltype( auto )
+		{
+			if ( res.success() ) return fn( std::move( res.value() ), std::forward<Tx>( vx )... );
+			else                 return fn( std::move( res.status ), std::forward<Tx>( vx )... );
+		}, std::forward<Ox>( rest )... );
+	}
+
+	template<typename F, typename T, typename S, typename... Ox>
+	static constexpr decltype( auto ) visit( F&& fn, const xstd::basic_result<T, S>& res, Ox&&... rest )
+	{
+		return visit( [ & ] <typename... Tx> ( Tx&&... vx ) -> decltype( auto )
+		{
+			if ( res.success() ) return fn( res.value(), std::forward<Tx>( vx )... );
+			else                 return fn( res.status, std::forward<Tx>( vx )... );
+		}, std::forward<Ox>( rest )... );
+	}
+};
+
 
 #if HAS_MS_EXTENSIONS
 	#pragma pack(pop)

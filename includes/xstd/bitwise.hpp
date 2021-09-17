@@ -16,6 +16,12 @@ namespace xstd
 	template<typename T>
 	__forceinline static constexpr T align_up( T value, size_t alignment )
 	{
+#if __has_builtin(__builtin_align_up)
+		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
+			return __builtin_align_up( ( void* ) value, alignment );
+		else
+			return __builtin_align_up( value, alignment );
+#else
 		using I = convert_int_t<T>;
 		using U = convert_uint_t<T>;
 
@@ -31,10 +37,17 @@ namespace xstd
 			uval += U( ( -I( uval ) ) % alignment );
 			return ( T ) ( uval );
 		}
+#endif
 	}
 	template<typename T>
 	__forceinline static constexpr T align_down( T value, size_t alignment )
 	{
+#if __has_builtin(__builtin_align_down)
+		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
+			return __builtin_align_down( ( void* ) value, alignment );
+		else
+			return __builtin_align_down( value, alignment );
+#else
 		using U = convert_uint_t<T>;
 		if ( std::is_constant_evaluated() )
 		{
@@ -48,15 +61,23 @@ namespace xstd
 			uval -= uval % alignment;
 			return ( T ) ( uval );
 		}
+#endif
 	}
 	template<typename T>
 	__forceinline static constexpr bool is_aligned( T value, size_t alignment )
-	{		
+	{
+#if __has_builtin(__builtin_is_aligned)
+		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
+			return __builtin_is_aligned( ( void* ) value, alignment );
+		else
+			return __builtin_is_aligned( value, alignment );
+#else
 		using U = convert_uint_t<T>;
 		if ( std::is_constant_evaluated() )
 			return !( bit_cast<U>( value ) % alignment );
 		else
 			return !( U( value ) % alignment );
+#endif
 	}
 
 	// Extracts the sign bit from the given value.

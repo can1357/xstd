@@ -21,9 +21,9 @@ namespace xstd
 {
 	// Declare the forwarded types.
 	//
-	template<typename T = std::monostate, template<typename> typename R = string_result>
+	template<typename T = std::monostate, template<typename> typename R = result>
 	struct promise_base;
-	template<typename T = std::monostate, template<typename> typename R = string_result>
+	template<typename T = std::monostate, template<typename> typename R = result>
 	using promise = std::shared_ptr<promise_base<T, R>>;
 
 	// Declare the base promise implementation.
@@ -304,19 +304,19 @@ namespace xstd
 
 	// Declare the promise creation wrappers.
 	//
-	template<typename T = std::monostate, template<typename> typename R = string_result, typename... Tx>
+	template<typename T = std::monostate, template<typename> typename R = result, typename... Tx>
 	inline promise<T, R> make_promise( Tx&&... args )
 	{
 		return std::make_shared<promise_base<T, R>>( std::forward<Tx>( args )... );
 	}
-	template<typename T = std::monostate, template<typename> typename R = string_result, typename... Tx>
+	template<typename T = std::monostate, template<typename> typename R = result, typename... Tx>
 	inline promise<T, R> make_rejected_promise( Tx&&... status )
 	{
 		promise<T, R> pr = make_promise<T, R>();
 		pr->reject( std::forward<Tx>( status )... );
 		return pr;
 	}
-	template<typename T = std::monostate, template<typename> typename R = string_result, typename... Tx>
+	template<typename T = std::monostate, template<typename> typename R = result, typename... Tx>
 	inline promise<T, R> make_resolved_promise( Tx&&... value )
 	{
 		promise<T, R> pr = make_promise<T, R>();

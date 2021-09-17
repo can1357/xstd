@@ -18,7 +18,7 @@ namespace xstd::gzip
 {
 	// Compression wrapper.
 	//
-	inline static string_result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
+	inline static result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
 	{
 		z_stream stream;
 		memset( &stream, 0, sizeof( z_stream ) );
@@ -27,7 +27,7 @@ namespace xstd::gzip
 		stream.next_in = ( uint8_t* ) data;
 		stream.avail_in = narrow_cast<uInt>( len );
 
-		string_result<std::vector<uint8_t>> res;
+		result<std::vector<uint8_t>> res;
 		std::vector<uint8_t>& buffer = res.result.emplace();
 		do
 		{
@@ -57,14 +57,14 @@ namespace xstd::gzip
 		return res;
 	}
 	template<ContiguousIterable T> requires ( !Pointer<T> )
-	inline static string_result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
+	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
 	{
 		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level, strategy );
 	}
 
 	// Decompression wrapper.
 	//
-	inline static string_result<std::vector<uint8_t>> decompress( const void* data, size_t len )
+	inline static result<std::vector<uint8_t>> decompress( const void* data, size_t len )
 	{
 		z_stream stream;
 		memset( &stream, 0, sizeof( z_stream ) );
@@ -73,7 +73,7 @@ namespace xstd::gzip
 		stream.next_in = ( uint8_t* ) data;
 		stream.avail_in = narrow_cast<uInt>( len );
 
-		string_result<std::vector<uint8_t>> res;
+		result<std::vector<uint8_t>> res;
 		std::vector<uint8_t>& buffer = res.result.emplace();
 		do
 		{
@@ -103,7 +103,7 @@ namespace xstd::gzip
 		return res;
 	}
 	template<Iterable T>
-	inline static string_result<std::vector<uint8_t>> decompress( T&& cont )
+	inline static result<std::vector<uint8_t>> decompress( T&& cont )
 	{
 		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 	}

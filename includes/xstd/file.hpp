@@ -34,7 +34,7 @@ namespace xstd
 	};
 
 	template<typename T = std::monostate>
-	using io_result = result<T, io_state>;
+	using io_result = basic_result<T, io_state>;
 };
 
 // Declare a simple interface to read/write files for convenience.
@@ -101,7 +101,7 @@ namespace xstd::file
 		// Write the data and return.
 		//
 		file.write( ( char* ) data, size );
-		return default_result{};
+		return std::monostate{};
 	}
 
 	template<Iterable C = std::initializer_list<uint8_t>> requires ( Trivial<iterable_val_t<C>> )
@@ -124,7 +124,7 @@ namespace xstd::file
 		{
 			file.write( ( char* ) &*std::begin( container ), std::size( container ) * sizeof( iterable_val_t<C> ) );
 		}
-		return default_result{};
+		return std::monostate{};
 	}
 
 	// String I/O.
@@ -175,7 +175,7 @@ namespace xstd::file
 			file.write( view.data(), view.size() );
 			file << std::endl;
 		}
-		return default_result{};
+		return std::monostate{};
 	}
 
 	template<String S = std::string_view>
@@ -193,6 +193,6 @@ namespace xstd::file
 		//
 		std::basic_string_view<char_type> view = data;
 		file.write( view.data(), view.size() );
-		return default_result{};
+		return std::monostate{};
 	}
 };

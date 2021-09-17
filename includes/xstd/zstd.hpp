@@ -46,7 +46,7 @@ namespace xstd::zstd
 	// Result type.
 	//
 	template<typename T = std::monostate>
-	using result = xstd::result<T, status>;
+	using result = xstd::basic_result<T, status>;
 
 	// Simple compression wrapper.
 	//

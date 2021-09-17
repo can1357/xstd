@@ -427,7 +427,7 @@ namespace ia32::smbios
 
 	// Given the SMBIOS data range, returns the parsed table.
 	//
-	inline static xstd::string_result<table> parse( std::string_view range, bool lenient = true )
+	inline static xstd::result<table> parse( std::string_view range, bool lenient = true )
 	{
 		table result = {};
 		while ( !range.empty() )
