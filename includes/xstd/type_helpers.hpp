@@ -129,7 +129,7 @@ namespace xstd
 
 		// Returns a 64-bit hash that can be used to identify the type.
 		//
-		template<auto t = T> static _CONSTEVAL size_t hash() { return std::integral_constant<size_t, impl::ctti_hash( FUNCTION_NAME )>{}; }
+		template<typename t = T> static _CONSTEVAL size_t hash() { return std::integral_constant<size_t, impl::ctti_hash( FUNCTION_NAME )>{}; }
 
 		// Returns the name of the type.
 		//
