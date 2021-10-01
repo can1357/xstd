@@ -18,8 +18,8 @@ namespace xstd
 		Ptr       storage;
 		mask_type mask;
 
-		inline constexpr operator bool() const noexcept { return ( *storage & mask ) != 0; }
-		inline constexpr const bool_proxy& operator=( bool value ) const noexcept requires ( !Const<std::remove_pointer_t<Ptr>> )
+		constexpr operator bool() const noexcept { return ( *storage & mask ) != 0; }
+		constexpr const bool_proxy& operator=( bool value ) const noexcept requires ( !Const<std::remove_pointer_t<Ptr>> )
 		{
 			if ( value ) *storage |= mask;
 			else         *storage &= ~mask;
@@ -51,63 +51,63 @@ namespace xstd
 
 		// Support random iteration.
 		//
-		inline constexpr bool_iterator& operator++()
+		constexpr bool_iterator& operator++()
 		{
 			size_t at_max = ( proxy.mask >> ( bit_count - 1 ) ) & 1;
 			proxy.storage += at_max;
 			proxy.mask = rotl( proxy.mask, 1 );
 			return *this;
 		}
-		inline constexpr bool_iterator& operator--()
+		constexpr bool_iterator& operator--()
 		{
 			size_t at_max = proxy.mask & 1;
 			proxy.storage -= at_max;
 			proxy.mask = rotr( proxy.mask, 1 );
 			return *this;
 		}
-		inline constexpr bool_iterator& operator+=( int64_t diff )
+		constexpr bool_iterator& operator+=( int64_t diff )
 		{
 			proxy.storage += ( msb( proxy.mask ) + diff ) / bit_count;
 			proxy.mask = rotl( proxy.mask, diff );
 			return *this;
 		}
-		inline constexpr bool_iterator& operator-=( int64_t diff )
+		constexpr bool_iterator& operator-=( int64_t diff )
 		{
 			proxy.storage -= ( diff + 63 - msb( proxy.mask ) ) / bit_count;
 			proxy.mask = rotr( proxy.mask, diff );
 			return *this;
 		}
-		inline constexpr bool_iterator operator+( ptrdiff_t d ) { auto s = *this; s += d; return s; }
-		inline constexpr bool_iterator operator-( ptrdiff_t d ) { auto s = *this; s -= d; return s; }
-		inline constexpr bool_iterator operator++( int ) { auto s = *this; operator++(); return s; }
-		inline constexpr bool_iterator operator--( int ) { auto s = *this; operator--(); return s; }
+		constexpr bool_iterator operator+( ptrdiff_t d ) { auto s = *this; s += d; return s; }
+		constexpr bool_iterator operator-( ptrdiff_t d ) { auto s = *this; s -= d; return s; }
+		constexpr bool_iterator operator++( int ) { auto s = *this; operator++(); return s; }
+		constexpr bool_iterator operator--( int ) { auto s = *this; operator--(); return s; }
 
 		// Comparison against another iterator.
 		//
-		inline constexpr bool operator==( const bool_iterator& other ) const
+		constexpr bool operator==( const bool_iterator& other ) const
 		{ 
 			return proxy.storage == other.proxy.storage && proxy.mask == other.proxy.mask; 
 		}
-		inline constexpr bool operator!=( const bool_iterator& other ) const
+		constexpr bool operator!=( const bool_iterator& other ) const
 		{ 
 			return proxy.storage != other.proxy.storage || proxy.mask != other.proxy.mask; 
 		}
-		inline constexpr bool operator<( const bool_iterator& other ) const
+		constexpr bool operator<( const bool_iterator& other ) const
 		{ 
 			return proxy.storage < other.proxy.storage || ( proxy.storage == other.proxy.storage && proxy.mask < other.proxy.mask ); 
 		}
 
 		// Distance calculation.
 		//
-		inline constexpr ptrdiff_t operator-( const bool_iterator& other ) const
+		constexpr ptrdiff_t operator-( const bool_iterator& other ) const
 		{
 			return ( ( proxy.storage - other.proxy.storage ) * bit_count ) + msb( proxy.mask ) - msb( other.proxy.mask );
 		}
 
 		// Dereferencing.
 		//
-		inline constexpr const bool_proxy<Ptr>& operator*() const { return proxy; }
-		inline constexpr const bool_proxy<Ptr>* operator->() const { return &proxy; }
+		constexpr const bool_proxy<Ptr>& operator*() const { return proxy; }
+		constexpr const bool_proxy<Ptr>* operator->() const { return &proxy; }
 	};
 	template<Pointer Ptr> bool_iterator( bool_proxy<Ptr> )->bool_iterator<Ptr>;
 
@@ -143,27 +143,27 @@ namespace xstd
 
 		// Container interface.
 		//
-		inline constexpr bool empty() const { return N == 0; }
-		inline constexpr size_t size() const { return N; }
-		inline constexpr iterator begin() { return { bool_proxy<uint64_t*>{ &blocks[ 0 ], 1ull } }; }
-		inline constexpr iterator end() { return { bool_proxy<uint64_t*>{ &blocks[ N / 64 ], 1ull << ( N & 63 ) } }; }
-		inline constexpr const_iterator begin() const { return { bool_proxy<const uint64_t*>{ &blocks[ 0 ], 1ull } }; }
-		inline constexpr const_iterator end() const { return { bool_proxy<const uint64_t*>{ &blocks[ N / 64 ], 1ull << ( N & 63 ) } }; }
-		inline constexpr reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
-		inline constexpr reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
-		inline constexpr const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
-		inline constexpr const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
+		constexpr bool empty() const { return N == 0; }
+		constexpr size_t size() const { return N; }
+		constexpr iterator begin() { return { bool_proxy<uint64_t*>{ &blocks[ 0 ], 1ull } }; }
+		constexpr iterator end() { return { bool_proxy<uint64_t*>{ &blocks[ N / 64 ], 1ull << ( N & 63 ) } }; }
+		constexpr const_iterator begin() const { return { bool_proxy<const uint64_t*>{ &blocks[ 0 ], 1ull } }; }
+		constexpr const_iterator end() const { return { bool_proxy<const uint64_t*>{ &blocks[ N / 64 ], 1ull << ( N & 63 ) } }; }
+		constexpr reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
+		constexpr reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
+		constexpr const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
+		constexpr const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
 
 		// Gets the value of the Nth bit.
 		//
-		inline constexpr bool_proxy<uint64_t*> at( size_t n ) { return *( begin() + n ); }
-		inline constexpr bool_proxy<const uint64_t*> at( size_t n ) const { return *( begin() + n ); }
-		inline constexpr bool_proxy<uint64_t*> operator[]( size_t n ) { return *( begin() + n ); }
-		inline constexpr bool_proxy<const uint64_t*> operator[]( size_t n ) const { return *( begin() + n ); }
+		constexpr bool_proxy<uint64_t*> at( size_t n ) { return *( begin() + n ); }
+		constexpr bool_proxy<const uint64_t*> at( size_t n ) const { return *( begin() + n ); }
+		constexpr bool_proxy<uint64_t*> operator[]( size_t n ) { return *( begin() + n ); }
+		constexpr bool_proxy<const uint64_t*> operator[]( size_t n ) const { return *( begin() + n ); }
 
 		// Sets the value of the Nth bit.
 		//
-		inline constexpr bool set( size_t n, bool v )
+		constexpr bool set( size_t n, bool v )
 		{
 			dassert( n < N );
 			if ( v ) return bit_set( &blocks[ n / 64 ], n & 63 );
@@ -177,7 +177,7 @@ namespace xstd
 namespace std
 {
 	template<xstd::Pointer Ptr>
-	inline xstd::bool_iterator<Ptr> find( const xstd::bool_iterator<Ptr>& first, const xstd::bool_iterator<Ptr>& last, bool value ) noexcept
+	xstd::bool_iterator<Ptr> find( const xstd::bool_iterator<Ptr>& first, const xstd::bool_iterator<Ptr>& last, bool value ) noexcept
 	{
 		if ( first == last ) return last;
 

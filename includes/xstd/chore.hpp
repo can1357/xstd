@@ -14,7 +14,7 @@ namespace xstd
 {
 	// Registers a chore that will be invoked either at a set time, or if left empty immediately but in an async context.
 	//
-	template<typename T> requires Invocable<T, void>
+	template<typename T>
 	inline void chore( T&& fn, timestamp due_time, int64_t priority = -1 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
@@ -28,12 +28,12 @@ namespace xstd
 		} ).detach();
 #endif
 	}
-	template<typename T> requires Invocable<T, void>
+	template<typename T>
 	inline void chore( T&& fn, duration delay, int64_t priority = -1 )
 	{
 		return chore( std::forward<T>( fn ), time::now() + delay, priority );
 	}
-	template<typename T> requires Invocable<T, void>
+	template<typename T>
 	inline void chore( T&& fn, int64_t priority = -1 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER

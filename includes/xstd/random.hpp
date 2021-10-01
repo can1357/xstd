@@ -150,7 +150,7 @@ namespace xstd
 #if XSTD_RANDOM_THREAD_LOCAL
 	#define __xstd_rng thread_local pcg64
 #else
-	#define __xstd_rng atomic_pcg64
+	#define __xstd_rng pcg64
 #endif
 
 #ifndef XSTD_RANDOM_FIXED_SEED

@@ -59,31 +59,31 @@ namespace xstd
 
 		// Implement copy/move construction and assignment.
 		//
-		inline small_vector( small_vector&& o ) noexcept
+		small_vector( small_vector&& o ) noexcept
 		{
 			length = std::exchange( o.length, 0 );
 			std::uninitialized_move_n( o.begin(), length, begin() );
 		}
-		inline small_vector( const small_vector& o ) requires CopyConstructable<T>
+		small_vector( const small_vector& o ) requires CopyConstructable<T>
 		{
 			length = o.length;
 			std::uninitialized_copy_n( o.begin(), length, begin() );
 		}
-		inline small_vector& operator=( small_vector&& o ) noexcept
+		small_vector& operator=( small_vector&& o ) noexcept
 		{
 			clear();
 			length = std::exchange( o.length, 0 );
 			std::uninitialized_move_n( o.begin(), length, begin() );
 			return *this;
 		}
-		inline small_vector& operator=( const small_vector& o ) requires CopyConstructable<T>
+		small_vector& operator=( const small_vector& o ) requires CopyConstructable<T>
 		{
 			clear();
 			length = o.length;
 			std::uninitialized_copy_n( o.begin(), length, begin() );
 			return *this;
 		}
-		inline void swap( small_vector& o )
+		void swap( small_vector& o )
 		{
 			if constexpr ( TriviallySwappable<T> )
 			{
@@ -105,7 +105,7 @@ namespace xstd
 
 		// Value removal.
 		//
-		inline iterator erase( const_iterator first, const_iterator last )
+		iterator erase( const_iterator first, const_iterator last )
 		{
 			size_t count = ( size_type ) std::distance( first, last );
 			std::destroy_n( first, count );
@@ -113,16 +113,16 @@ namespace xstd
 			length -= count;
 			return ( iterator ) first;
 		}
-		inline iterator erase( const_iterator pos )
+		iterator erase( const_iterator pos )
 		{
 			return erase( pos, pos + 1 );
 		}
-		inline void pop_back()
+		void pop_back()
 		{
 			std::destroy_at( &back() );
 			--length;
 		}
-		inline void clear()
+		void clear()
 		{
 			std::destroy_n( begin(), std::exchange( length, 0 ) );
 		}
@@ -130,7 +130,7 @@ namespace xstd
 		// Value insertion.
 		//
 		template<typename... Tx>
-		inline reference emplace( const_iterator pos, Tx&&... args )
+		reference emplace( const_iterator pos, Tx&&... args )
 		{
 			if ( length )
 			{
@@ -142,7 +142,7 @@ namespace xstd
 			return *( iterator ) pos;
 		}
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		inline iterator insert( const_iterator pos, It1&& first, It2&& last )
+		iterator insert( const_iterator pos, It1&& first, It2&& last )
 		{
 			auto count = ( size_type ) std::distance( first, last );
 			if ( ( length + count ) > N )
@@ -156,24 +156,24 @@ namespace xstd
 			length += count;
 			return ( iterator ) pos;
 		}
-		inline iterator insert( const_iterator pos, const T& value )
+		iterator insert( const_iterator pos, const T& value )
 		{
 			return &emplace( pos, value );
 		}
-		inline iterator insert( const_iterator pos, T&& value )
+		iterator insert( const_iterator pos, T&& value )
 		{
 			return &emplace( pos, std::move( value ) );
 		}
-		inline void push_back( const T& value )
+		void push_back( const T& value )
 		{
 			insert( end(), value );
 		}
 		template<typename... Tx>
-		inline reference emplace_back( Tx&&... args )
+		reference emplace_back( Tx&&... args )
 		{
 			return emplace( end(), std::forward<Tx>( args )... );
 		}
-		inline void resize( size_t n ) requires DefaultConstructable<T>
+		void resize( size_t n ) requires DefaultConstructable<T>
 		{
 			if ( n > length )
 				std::uninitialized_default_construct( end(), begin() + n );
@@ -181,7 +181,7 @@ namespace xstd
 				std::destroy_n( begin() + n, length - n );
 			length = ( size_type ) n;
 		}
-		inline void resize( size_t n, const T& value )
+		void resize( size_t n, const T& value )
 		{
 			if ( n > length )
 				std::uninitialized_fill_n( begin() + length, n - length, value );
@@ -193,7 +193,7 @@ namespace xstd
 		// Value assignment.
 		//
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		inline iterator assign( It1&& first, It2&& last )
+		iterator assign( It1&& first, It2&& last )
 		{
 			clear();
 			return insert( begin(), std::forward<It1>( first ), std::forward<It2>( last ) );
@@ -201,37 +201,37 @@ namespace xstd
 
 		// Clear the vector at destruction.
 		//
-		inline ~small_vector() { clear(); }
+		~small_vector() { clear(); }
 
 		// Container interface.
 		//
-		inline constexpr bool empty() const { return length == 0; }
-		inline constexpr size_t size() const { assume( length <= N ); return length; }
-		inline constexpr size_t max_size() const { return N; }
-		inline constexpr size_t capacity() const { return N; }
-		inline iterator data() { return &at( 0 ); }
-		inline const_iterator data() const { return &at( 0 ); }
+		constexpr bool empty() const { return length == 0; }
+		constexpr size_t size() const { assume( length <= N ); return length; }
+		constexpr size_t max_size() const { return N; }
+		constexpr size_t capacity() const { return N; }
+		iterator data() { return &at( 0 ); }
+		const_iterator data() const { return &at( 0 ); }
 
-		inline iterator begin() { return data(); }
-		inline const_iterator begin() const { return data(); }
-		inline const_iterator cbegin() const { return data(); }
+		iterator begin() { return data(); }
+		const_iterator begin() const { return data(); }
+		const_iterator cbegin() const { return data(); }
 
-		inline iterator end() { return data() + size(); }
-		inline const_iterator end() const { return data() + size(); }
-		inline const_iterator cend() const { return data() + size(); }
+		iterator end() { return data() + size(); }
+		const_iterator end() const { return data() + size(); }
+		const_iterator cend() const { return data() + size(); }
 
-		inline reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
-		inline const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
-		inline const_reverse_iterator crbegin() const { return std::reverse_iterator{ end() }; }
+		reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
+		const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
+		const_reverse_iterator crbegin() const { return std::reverse_iterator{ end() }; }
 
-		inline reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
-		inline const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
-		inline const_reverse_iterator crend() const { return std::reverse_iterator{ begin() }; }
+		reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
+		const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
+		const_reverse_iterator crend() const { return std::reverse_iterator{ begin() }; }
 
 		// No-ops.
 		//
-		inline constexpr void shrink_to_fit() {}
-		inline constexpr void reserve( size_t ) {}
+		constexpr void shrink_to_fit() {}
+		constexpr void reserve( size_t ) {}
 
 		// Decay to vector.
 		//
@@ -239,25 +239,25 @@ namespace xstd
 
 		// Indexing.
 		//
-		inline reference at( size_t n ) { return ( ( value_type* ) space )[ n ]; }
-		inline const_reference at( size_t n ) const { return ( ( const value_type* ) space )[ n ]; }
-		inline reference front() { return at( 0 ); }
-		inline const_reference front() const { return at( 0 ); }
-		inline reference back() { return at( length - 1 ); }
-		inline const_reference back() const { return at( length - 1 ); }
-		inline reference operator[]( size_t n ) { return at( n ); }
-		inline const_reference operator[]( size_t n ) const { return at( n ); }
+		reference at( size_t n ) { return ( ( value_type* ) space )[ n ]; }
+		const_reference at( size_t n ) const { return ( ( const value_type* ) space )[ n ]; }
+		reference front() { return at( 0 ); }
+		const_reference front() const { return at( 0 ); }
+		reference back() { return at( length - 1 ); }
+		const_reference back() const { return at( length - 1 ); }
+		reference operator[]( size_t n ) { return at( n ); }
+		const_reference operator[]( size_t n ) const { return at( n ); }
 
 		// Comparison.
 		//
 		template<Iterable C>
-		inline bool operator==( const C& c ) const
+		bool operator==( const C& c ) const
 		{
 			if ( std::size( c ) != size() )
 				return false;
 			return std::equal( std::begin( c ), std::end( c ), begin() );
 		}
-		template<Iterable C> inline bool operator!=( const C& c ) const { return !operator==( c ); }
+		template<Iterable C> bool operator!=( const C& c ) const { return !operator==( c ); }
 	};
 
 	// If trivial type, implement the constexpr version.
@@ -312,31 +312,31 @@ namespace xstd
 
 		// Implement copy/move construction and assignment.
 		//
-		inline constexpr small_vector( small_vector&& o ) noexcept
+		constexpr small_vector( small_vector&& o ) noexcept
 		{
 			length = std::exchange( o.length, 0 );
 			std::copy_n( std::make_move_iterator( o.begin() ), length, begin() );
 		}
-		inline constexpr small_vector( const small_vector& o )
+		constexpr small_vector( const small_vector& o )
 		{
 			length = o.length;
 			std::copy_n( o.begin(), length, begin() );
 		}
-		inline constexpr small_vector& operator=( small_vector&& o ) noexcept
+		constexpr small_vector& operator=( small_vector&& o ) noexcept
 		{
 			clear();
 			length = std::exchange( o.length, 0 );
 			std::copy_n( std::make_move_iterator( o.begin() ), length, begin() );
 			return *this;
 		}
-		inline constexpr small_vector& operator=( const small_vector& o )
+		constexpr small_vector& operator=( const small_vector& o )
 		{
 			clear();
 			length = o.length;
 			std::copy_n( o.begin(), length, begin() );
 			return *this;
 		}
-		inline constexpr void swap( small_vector& o )
+		constexpr void swap( small_vector& o )
 		{
 			if constexpr ( TriviallySwappable<T> )
 			{
@@ -358,7 +358,7 @@ namespace xstd
 
 		// Value removal.
 		//
-		inline constexpr iterator erase( const_iterator _first, const_iterator _last )
+		constexpr iterator erase( const_iterator _first, const_iterator _last )
 		{
 			iterator first = &space[ _first - begin() ];
 			iterator last = &space[ _last - begin() ];
@@ -368,15 +368,15 @@ namespace xstd
 			length -= count;
 			return first;
 		}
-		inline constexpr iterator erase( const_iterator pos )
+		constexpr iterator erase( const_iterator pos )
 		{
 			return erase( pos, pos + 1 );
 		}
-		inline constexpr void pop_back()
+		constexpr void pop_back()
 		{
 			--length;
 		}
-		inline constexpr void clear()
+		constexpr void clear()
 		{
 			length = 0;
 		}
@@ -384,7 +384,7 @@ namespace xstd
 		// Value insertion.
 		//
 		template<typename... Tx>
-		inline constexpr reference emplace( const_iterator _pos, Tx&&... args )
+		constexpr reference emplace( const_iterator _pos, Tx&&... args )
 		{
 			iterator pos = &space[ _pos - cbegin() ];
 			if ( length )
@@ -397,7 +397,7 @@ namespace xstd
 			return *pos;
 		}
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		inline constexpr iterator insert( const_iterator _pos, It1&& first, It2&& last )
+		constexpr iterator insert( const_iterator _pos, It1&& first, It2&& last )
 		{
 			iterator pos = &space[ _pos - cbegin() ];
 
@@ -413,24 +413,24 @@ namespace xstd
 			length += count;
 			return pos;
 		}
-		inline constexpr iterator insert( const_iterator pos, const T& value )
+		constexpr iterator insert( const_iterator pos, const T& value )
 		{
 			return &emplace( pos, value );
 		}
-		inline constexpr iterator insert( const_iterator pos, T&& value )
+		constexpr iterator insert( const_iterator pos, T&& value )
 		{
 			return &emplace( pos, std::move( value ) );
 		}
-		inline constexpr void push_back( const T& value )
+		constexpr void push_back( const T& value )
 		{
 			insert( end(), value );
 		}
 		template<typename... Tx>
-		inline constexpr reference emplace_back( Tx&&... args )
+		constexpr reference emplace_back( Tx&&... args )
 		{
 			return emplace( end(), std::forward<Tx>( args )... );
 		}
-		inline constexpr void resize( size_t n, const T& value = {} )
+		constexpr void resize( size_t n, const T& value = {} )
 		{
 			if ( n > length )
 				std::fill_n( begin() + length, n - length, value );
@@ -440,7 +440,7 @@ namespace xstd
 		// Value assignment.
 		//
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		inline constexpr iterator assign( It1&& first, It2&& last )
+		constexpr iterator assign( It1&& first, It2&& last )
 		{
 			clear();
 			return insert( begin(), std::forward<It1>( first ), std::forward<It2>( last ) );
@@ -449,58 +449,58 @@ namespace xstd
 
 		// Container interface.
 		//
-		inline constexpr bool empty() const { return length == 0; }
-		inline constexpr size_t size() const { assume( length <= N ); return length; }
-		inline constexpr size_t max_size() const { return N; }
-		inline constexpr size_t capacity() const { return N; }
-		inline constexpr iterator data() { return &at( 0 ); }
-		inline constexpr const_iterator data() const { return &at( 0 ); }
+		constexpr bool empty() const { return length == 0; }
+		constexpr size_t size() const { assume( length <= N ); return length; }
+		constexpr size_t max_size() const { return N; }
+		constexpr size_t capacity() const { return N; }
+		constexpr iterator data() { return &at( 0 ); }
+		constexpr const_iterator data() const { return &at( 0 ); }
 
-		inline constexpr iterator begin() { return data(); }
-		inline constexpr const_iterator begin() const { return data(); }
-		inline constexpr const_iterator cbegin() const { return data(); }
+		constexpr iterator begin() { return data(); }
+		constexpr const_iterator begin() const { return data(); }
+		constexpr const_iterator cbegin() const { return data(); }
 
-		inline constexpr iterator end() { return data() + size(); }
-		inline constexpr const_iterator end() const { return data() + size(); }
-		inline constexpr const_iterator cend() const { return data() + size(); }
+		constexpr iterator end() { return data() + size(); }
+		constexpr const_iterator end() const { return data() + size(); }
+		constexpr const_iterator cend() const { return data() + size(); }
 
-		inline constexpr reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
-		inline constexpr const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
-		inline constexpr const_reverse_iterator crbegin() const { return std::reverse_iterator{ end() }; }
+		constexpr reverse_iterator rbegin() { return std::reverse_iterator{ end() }; }
+		constexpr const_reverse_iterator rbegin() const { return std::reverse_iterator{ end() }; }
+		constexpr const_reverse_iterator crbegin() const { return std::reverse_iterator{ end() }; }
 
-		inline constexpr reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
-		inline constexpr const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
-		inline constexpr const_reverse_iterator crend() const { return std::reverse_iterator{ begin() }; }
+		constexpr reverse_iterator rend() { return std::reverse_iterator{ begin() }; }
+		constexpr const_reverse_iterator rend() const { return std::reverse_iterator{ begin() }; }
+		constexpr const_reverse_iterator crend() const { return std::reverse_iterator{ begin() }; }
 
 		// No-ops.
 		//
-		inline constexpr void shrink_to_fit() {}
-		inline constexpr void reserve( size_t ) {}
+		constexpr void shrink_to_fit() {}
+		constexpr void reserve( size_t ) {}
 
 		// Decay to vector.
 		//
-		inline operator std::vector<T>() requires DefaultConstructable<T> { return { begin(), end() }; }
+		operator std::vector<T>() requires DefaultConstructable<T> { return { begin(), end() }; }
 
 		// Indexing.
 		//
-		inline constexpr reference at( size_t n ) { return space[ n ]; }
-		inline constexpr const_reference at( size_t n ) const { return space[ n ]; }
-		inline constexpr reference front() { return at( 0 ); }
-		inline constexpr const_reference front() const { return at( 0 ); }
-		inline constexpr reference back() { return at( length - 1 ); }
-		inline constexpr const_reference back() const { return at( length - 1 ); }
-		inline constexpr reference operator[]( size_t n ) { return at( n ); }
-		inline constexpr const_reference operator[]( size_t n ) const { return at( n ); }
+		constexpr reference at( size_t n ) { return space[ n ]; }
+		constexpr const_reference at( size_t n ) const { return space[ n ]; }
+		constexpr reference front() { return at( 0 ); }
+		constexpr const_reference front() const { return at( 0 ); }
+		constexpr reference back() { return at( length - 1 ); }
+		constexpr const_reference back() const { return at( length - 1 ); }
+		constexpr reference operator[]( size_t n ) { return at( n ); }
+		constexpr const_reference operator[]( size_t n ) const { return at( n ); }
 
 		// Comparison.
 		//
 		template<Iterable C>
-		inline constexpr bool operator==( const C& c ) const
+		constexpr bool operator==( const C& c ) const
 		{
 			if ( std::size( c ) != size() )
 				return false;
 			return std::equal( std::begin( c ), std::end( c ), begin() );
 		}
-		template<Iterable C> inline constexpr bool operator!=( const C& c ) const { return !operator==( c ); }
+		template<Iterable C> constexpr bool operator!=( const C& c ) const { return !operator==( c ); }
 	};
 };

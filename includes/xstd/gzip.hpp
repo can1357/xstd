@@ -11,14 +11,20 @@
 // XSTD_GZIP_DEFAULT_LEVEL: Sets the default ZLIB compression level.
 //
 #ifndef XSTD_GZIP_DEFAULT_LEVEL
-	#define XSTD_GZIP_DEFAULT_LEVEL Z_BEST_COMPRESSION
+	#define XSTD_GZIP_DEFAULT_LEVEL Z_DEFAULT_COMPRESSION
 #endif
 
 namespace xstd::gzip
 {
+	// Compression Levels.
+	//
+	inline constexpr int min_level = Z_NO_COMPRESSION;
+	inline constexpr int default_level = XSTD_GZIP_DEFAULT_LEVEL;
+	inline constexpr int max_level = Z_BEST_COMPRESSION;
+
 	// Compression wrapper.
 	//
-	inline static result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
+	inline static result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = default_level, int strategy = Z_DEFAULT_STRATEGY )
 	{
 		z_stream stream;
 		memset( &stream, 0, sizeof( z_stream ) );
@@ -57,7 +63,7 @@ namespace xstd::gzip
 		return res;
 	}
 	template<ContiguousIterable T> requires ( !Pointer<T> )
-	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_GZIP_DEFAULT_LEVEL, int strategy = Z_DEFAULT_STRATEGY )
+	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = default_level, int strategy = Z_DEFAULT_STRATEGY )
 	{
 		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level, strategy );
 	}

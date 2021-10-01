@@ -37,7 +37,7 @@ namespace xstd
 
 			// Default construction.
 			//
-			inline constexpr flat_map_entry() : flat_map_entry( K(), V() ) {};
+			constexpr flat_map_entry() : flat_map_entry( K(), V() ) {};
 			
 			// Default move.
 			//
@@ -46,8 +46,8 @@ namespace xstd
 			
 			// Cloning copy.
 			//
-			inline constexpr flat_map_entry( const flat_map_entry& o ) : pair( std::make_unique<std::pair<K, V>>( *o.pair ) ), hash( o.hash ) {}
-			inline constexpr flat_map_entry& operator=( const flat_map_entry& o )
+			constexpr flat_map_entry( const flat_map_entry& o ) : pair( std::make_unique<std::pair<K, V>>( *o.pair ) ), hash( o.hash ) {}
+			constexpr flat_map_entry& operator=( const flat_map_entry& o )
 			{
 				*pair = *o.pair;
 				hash = o.hash;
@@ -57,24 +57,24 @@ namespace xstd
 			// Constructed from a key-value pair.
 			//
 			template<typename K2, typename V2>
-			inline constexpr flat_map_entry( std::pair<K2, V2>&& pair ) : pair( std::make_unique<std::pair<K, V>>( std::move( pair ) ) ), hash( Hs{}( this->pair->first ) ) {}
+			constexpr flat_map_entry( std::pair<K2, V2>&& pair ) : pair( std::make_unique<std::pair<K, V>>( std::move( pair ) ) ), hash( Hs{}( this->pair->first ) ) {}
 			template<typename K2, typename V2>
-			inline constexpr flat_map_entry( const std::pair<K2, V2>& pair ) : pair( std::make_unique<std::pair<K, V>>( pair.first, pair.second ) ), hash( Hs{}( this->pair->first ) ) {}
-			inline constexpr flat_map_entry( K key, V value ) : pair( std::make_unique<std::pair<K, V>>( std::move( key ), std::move( value ) ) ), hash( Hs{}( this->pair->first ) ) {}
+			constexpr flat_map_entry( const std::pair<K2, V2>& pair ) : pair( std::make_unique<std::pair<K, V>>( pair.first, pair.second ) ), hash( Hs{}( this->pair->first ) ) {}
+			constexpr flat_map_entry( K key, V value ) : pair( std::make_unique<std::pair<K, V>>( std::move( key ), std::move( value ) ) ), hash( Hs{}( this->pair->first ) ) {}
 
 			// View from the iterator.
 			//
-			inline constexpr std::pair<const K, V>& view() & { return *( std::pair<const K, V>* ) pair.get(); }
-			inline constexpr const std::pair<const K, V>& view() const & { return *( const std::pair<const K, V>* ) pair.get(); }
+			constexpr std::pair<const K, V>& view() & { return *( std::pair<const K, V>* ) pair.get(); }
+			constexpr const std::pair<const K, V>& view() const & { return *( const std::pair<const K, V>* ) pair.get(); }
 
 			// Comparison.
 			//
-			inline constexpr bool operator<( size_t o ) const { return hash < o; }
-			inline constexpr bool operator==( size_t o ) const { return hash == o; }
-			inline constexpr bool operator!=( size_t o ) const { return hash != o; }
-			inline constexpr bool operator<( const flat_map_entry& o ) const { return hash < o.hash; }
-			inline constexpr bool operator==( const flat_map_entry& o ) const { return hash == o.hash && pair->first == o.pair->first; }
-			inline constexpr bool operator!=( const flat_map_entry& o ) const { return hash != o.hash || pair->first != o.pair->first; }
+			constexpr bool operator<( size_t o ) const { return hash < o; }
+			constexpr bool operator==( size_t o ) const { return hash == o; }
+			constexpr bool operator!=( size_t o ) const { return hash != o; }
+			constexpr bool operator<( const flat_map_entry& o ) const { return hash < o.hash; }
+			constexpr bool operator==( const flat_map_entry& o ) const { return hash == o.hash && pair->first == o.pair->first; }
+			constexpr bool operator!=( const flat_map_entry& o ) const { return hash != o.hash || pair->first != o.pair->first; }
 		};
 		template<typename K, typename V>
 		struct flat_smap_entry
@@ -83,7 +83,7 @@ namespace xstd
 
 			// Default construction.
 			//
-			inline constexpr flat_smap_entry() : flat_smap_entry( K(), V() ) {};
+			constexpr flat_smap_entry() : flat_smap_entry( K(), V() ) {};
 			
 			// Default move.
 			//
@@ -92,8 +92,8 @@ namespace xstd
 			
 			// Cloning copy.
 			//
-			inline constexpr flat_smap_entry( const flat_smap_entry& o ) : pair( std::make_unique<std::pair<K, V>>( *o.pair ) ) {}
-			inline constexpr flat_smap_entry& operator=( const flat_smap_entry& o )
+			constexpr flat_smap_entry( const flat_smap_entry& o ) : pair( std::make_unique<std::pair<K, V>>( *o.pair ) ) {}
+			constexpr flat_smap_entry& operator=( const flat_smap_entry& o )
 			{
 				*pair = *o.pair;
 				return *this;
@@ -102,24 +102,24 @@ namespace xstd
 			// Constructed from a key-value pair.
 			//
 			template<typename K2, typename V2>
-			inline constexpr flat_smap_entry( std::pair<K2, V2>&& pair ) : pair( std::make_unique<std::pair<K, V>>( std::move( pair ) ) ) {}
+			constexpr flat_smap_entry( std::pair<K2, V2>&& pair ) : pair( std::make_unique<std::pair<K, V>>( std::move( pair ) ) ) {}
 			template<typename K2, typename V2>
-			inline constexpr flat_smap_entry( const std::pair<K2, V2>& pair ) : pair( std::make_unique<std::pair<K, V>>( pair.first, pair.second ) ) {}
-			inline constexpr flat_smap_entry( K key, V value ) : pair( std::make_unique<std::pair<K, V>>( std::move( key ), std::move( value ) ) ) {}
+			constexpr flat_smap_entry( const std::pair<K2, V2>& pair ) : pair( std::make_unique<std::pair<K, V>>( pair.first, pair.second ) ) {}
+			constexpr flat_smap_entry( K key, V value ) : pair( std::make_unique<std::pair<K, V>>( std::move( key ), std::move( value ) ) ) {}
 
 			// View from the iterator.
 			//
-			inline constexpr std::pair<const K, V>& view() & { return *( std::pair<const K, V>* ) pair.get(); }
-			inline constexpr const std::pair<const K, V>& view() const & { return *( const std::pair<const K, V>* ) pair.get(); }
+			constexpr std::pair<const K, V>& view() & { return *( std::pair<const K, V>* ) pair.get(); }
+			constexpr const std::pair<const K, V>& view() const & { return *( const std::pair<const K, V>* ) pair.get(); }
 
 			// Comparison.
 			//
-			template<typename T> inline constexpr bool operator<( const T& o ) const { return pair->first < o; }
-			template<typename T> inline constexpr bool operator==( const T& o ) const { return pair->first == o; }
-			template<typename T> inline constexpr bool operator!=( const T& o ) const { return pair->first != o; }
-			template<> inline constexpr bool operator< <flat_smap_entry>( const flat_smap_entry& o ) const { return pair->first < o.pair->first; }
-			template<> inline constexpr bool operator== <flat_smap_entry>( const flat_smap_entry& o ) const { return pair->first == o.pair->first; }
-			template<> inline constexpr bool operator!= <flat_smap_entry>( const flat_smap_entry& o ) const { return pair->first != o.pair->first; }
+			template<typename T> constexpr bool operator<( const T& o ) const { return pair->first < o; }
+			template<typename T> constexpr bool operator==( const T& o ) const { return pair->first == o; }
+			template<typename T> constexpr bool operator!=( const T& o ) const { return pair->first != o; }
+			template<> constexpr bool operator< <flat_smap_entry>( const flat_smap_entry& o ) const { return pair->first < o.pair->first; }
+			template<> constexpr bool operator== <flat_smap_entry>( const flat_smap_entry& o ) const { return pair->first == o.pair->first; }
+			template<> constexpr bool operator!= <flat_smap_entry>( const flat_smap_entry& o ) const { return pair->first != o.pair->first; }
 		};
 		template<typename K, typename V, typename Hs>
 		struct inplace_flat_map_entry
@@ -129,36 +129,36 @@ namespace xstd
 
 			// Default construction.
 			//
-			inline constexpr inplace_flat_map_entry() : inplace_flat_map_entry( K(), V() ) {};
+			constexpr inplace_flat_map_entry() : inplace_flat_map_entry( K(), V() ) {};
 			
 			// Default move/copy.
 			//
-			inline constexpr inplace_flat_map_entry( inplace_flat_map_entry&& ) noexcept = default;
-			inline constexpr inplace_flat_map_entry( const inplace_flat_map_entry& ) = default;
-			inline constexpr inplace_flat_map_entry& operator=( inplace_flat_map_entry&& ) noexcept = default;
-			inline constexpr inplace_flat_map_entry& operator=( const inplace_flat_map_entry& ) = default;
+			constexpr inplace_flat_map_entry( inplace_flat_map_entry&& ) noexcept = default;
+			constexpr inplace_flat_map_entry( const inplace_flat_map_entry& ) = default;
+			constexpr inplace_flat_map_entry& operator=( inplace_flat_map_entry&& ) noexcept = default;
+			constexpr inplace_flat_map_entry& operator=( const inplace_flat_map_entry& ) = default;
 
 			// Constructed from a key-value pair.
 			//
 			template<typename K2, typename V2>
-			inline constexpr inplace_flat_map_entry( std::pair<K2, V2>&& pair ) : pair( std::move( pair ) ), hash( Hs{}( this->pair.first ) ) {}
+			constexpr inplace_flat_map_entry( std::pair<K2, V2>&& pair ) : pair( std::move( pair ) ), hash( Hs{}( this->pair.first ) ) {}
 			template<typename K2, typename V2>
-			inline constexpr inplace_flat_map_entry( const std::pair<K2, V2>& pair ) : pair( pair ), hash( Hs{}( this->pair.first ) ) {}
-			inline constexpr inplace_flat_map_entry( K key, V value ) : pair( std::move( key ), std::move( value ) ), hash( Hs{}( this->pair.first ) ) {}
+			constexpr inplace_flat_map_entry( const std::pair<K2, V2>& pair ) : pair( pair ), hash( Hs{}( this->pair.first ) ) {}
+			constexpr inplace_flat_map_entry( K key, V value ) : pair( std::move( key ), std::move( value ) ), hash( Hs{}( this->pair.first ) ) {}
 
 			// View from the iterator.
 			//
-			inline constexpr std::pair<const K, V>& view() & { return *( std::pair<const K, V>* ) &pair; }
-			inline constexpr const std::pair<const K, V>& view() const & { return *( const std::pair<const K, V>* ) &pair; }
+			constexpr std::pair<const K, V>& view() & { return *( std::pair<const K, V>* ) &pair; }
+			constexpr const std::pair<const K, V>& view() const & { return *( const std::pair<const K, V>* ) &pair; }
 
 			// Comparison.
 			//
-			inline constexpr bool operator<( size_t o ) const { return hash < o; }
-			inline constexpr bool operator==( size_t o ) const { return hash == o; }
-			inline constexpr bool operator!=( size_t o ) const { return hash != o; }
-			inline constexpr bool operator<( const inplace_flat_map_entry& o ) const { return hash < o.hash; }
-			inline constexpr bool operator==( const inplace_flat_map_entry& o ) const { return hash == o.hash && pair.first == o.pair.first; }
-			inline constexpr bool operator!=( const inplace_flat_map_entry& o ) const { return hash != o.hash || pair.first != o.pair.first; }
+			constexpr bool operator<( size_t o ) const { return hash < o; }
+			constexpr bool operator==( size_t o ) const { return hash == o; }
+			constexpr bool operator!=( size_t o ) const { return hash != o; }
+			constexpr bool operator<( const inplace_flat_map_entry& o ) const { return hash < o.hash; }
+			constexpr bool operator==( const inplace_flat_map_entry& o ) const { return hash == o.hash && pair.first == o.pair.first; }
+			constexpr bool operator!=( const inplace_flat_map_entry& o ) const { return hash != o.hash || pair.first != o.pair.first; }
 		};
 		template<typename K, typename V>
 		struct inplace_flat_smap_entry
@@ -167,7 +167,7 @@ namespace xstd
 
 			// Default construction.
 			//
-			inline constexpr inplace_flat_smap_entry() : inplace_flat_smap_entry( K(), V() ) {};
+			constexpr inplace_flat_smap_entry() : inplace_flat_smap_entry( K(), V() ) {};
 
 			// Default move.
 			//
@@ -176,8 +176,8 @@ namespace xstd
 
 			// Cloning copy.
 			//
-			inline constexpr inplace_flat_smap_entry( const inplace_flat_smap_entry& o ) : pair( o.pair ) {}
-			inline constexpr inplace_flat_smap_entry& operator=( const inplace_flat_smap_entry& o )
+			constexpr inplace_flat_smap_entry( const inplace_flat_smap_entry& o ) : pair( o.pair ) {}
+			constexpr inplace_flat_smap_entry& operator=( const inplace_flat_smap_entry& o )
 			{
 				pair = o.pair;
 				return *this;
@@ -186,24 +186,24 @@ namespace xstd
 			// Constructed from a key-value pair.
 			//
 			template<typename K2, typename V2>
-			inline constexpr inplace_flat_smap_entry( std::pair<K2, V2>&& pair ) : pair( std::move( pair ) ) {}
+			constexpr inplace_flat_smap_entry( std::pair<K2, V2>&& pair ) : pair( std::move( pair ) ) {}
 			template<typename K2, typename V2>
-			inline constexpr inplace_flat_smap_entry( const std::pair<K2, V2>& pair ) : pair( pair.first, pair.second ) {}
-			inline constexpr inplace_flat_smap_entry( K key, V value ) : pair( std::move( key ), std::move( value ) ) {}
+			constexpr inplace_flat_smap_entry( const std::pair<K2, V2>& pair ) : pair( pair.first, pair.second ) {}
+			constexpr inplace_flat_smap_entry( K key, V value ) : pair( std::move( key ), std::move( value ) ) {}
 
 			// View from the iterator.
 			//
-			inline constexpr std::pair<const K, V>& view()& { return *( std::pair<const K, V>* ) &pair; }
-			inline constexpr const std::pair<const K, V>& view() const& { return *( const std::pair<const K, V>* ) &pair; }
+			constexpr std::pair<const K, V>& view()& { return *( std::pair<const K, V>* ) &pair; }
+			constexpr const std::pair<const K, V>& view() const& { return *( const std::pair<const K, V>* ) &pair; }
 
 			// Comparison.
 			//
-			template<typename T> inline constexpr bool operator<( const T& o ) const { return pair.first < o; }
-			template<typename T> inline constexpr bool operator==( const T& o ) const { return pair.first == o; }
-			template<typename T> inline constexpr bool operator!=( const T& o ) const { return pair.first != o; }
-			template<> inline constexpr bool operator< <inplace_flat_smap_entry>( const inplace_flat_smap_entry& o ) const { return pair.first < o.pair.first; }
-			template<> inline constexpr bool operator== <inplace_flat_smap_entry>( const inplace_flat_smap_entry& o ) const { return pair.first == o.pair.first; }
-			template<> inline constexpr bool operator!= <inplace_flat_smap_entry>( const inplace_flat_smap_entry& o ) const { return pair.first != o.pair.first; }
+			template<typename T> constexpr bool operator<( const T& o ) const { return pair.first < o; }
+			template<typename T> constexpr bool operator==( const T& o ) const { return pair.first == o; }
+			template<typename T> constexpr bool operator!=( const T& o ) const { return pair.first != o; }
+			template<> constexpr bool operator< <inplace_flat_smap_entry>( const inplace_flat_smap_entry& o ) const { return pair.first < o.pair.first; }
+			template<> constexpr bool operator== <inplace_flat_smap_entry>( const inplace_flat_smap_entry& o ) const { return pair.first == o.pair.first; }
+			template<> constexpr bool operator!= <inplace_flat_smap_entry>( const inplace_flat_smap_entry& o ) const { return pair.first != o.pair.first; }
 		};
 
 		// Common iterator type.
@@ -222,42 +222,42 @@ namespace xstd
 			// Constructed by the original iterator.
 			//
 			It at;
-			inline constexpr flat_map_iterator( It i ) : at( std::move( i ) ) {}
+			constexpr flat_map_iterator( It i ) : at( std::move( i ) ) {}
 
 			// Default copy/move.
 			//
-			inline constexpr flat_map_iterator( flat_map_iterator&& ) noexcept = default;
-			inline constexpr flat_map_iterator( const flat_map_iterator& ) = default;
-			inline constexpr flat_map_iterator& operator=( flat_map_iterator&& ) noexcept = default;
-			inline constexpr flat_map_iterator& operator=( const flat_map_iterator& ) = default;
+			constexpr flat_map_iterator( flat_map_iterator&& ) noexcept = default;
+			constexpr flat_map_iterator( const flat_map_iterator& ) = default;
+			constexpr flat_map_iterator& operator=( flat_map_iterator&& ) noexcept = default;
+			constexpr flat_map_iterator& operator=( const flat_map_iterator& ) = default;
 
 			// Support bidirectional/random iteration.
 			//
-			inline constexpr flat_map_iterator& operator++() { ++at; return *this; }
-			inline constexpr flat_map_iterator operator++( int ) { auto s = *this; operator++(); return s; }
-			inline constexpr flat_map_iterator& operator--() { --at; return *this; }
-			inline constexpr flat_map_iterator operator--( int ) { auto s = *this; operator--(); return s; }
-			inline constexpr flat_map_iterator& operator+=( difference_type d ) { at += d; return *this; }
-			inline constexpr flat_map_iterator& operator-=( difference_type d ) { at -= d; return *this; }
-			inline constexpr flat_map_iterator operator+( difference_type d ) const { auto s = *this; s += d; return s; }
-			inline constexpr flat_map_iterator operator-( difference_type d ) const { auto s = *this; s -= d; return s; }
+			constexpr flat_map_iterator& operator++() { ++at; return *this; }
+			constexpr flat_map_iterator operator++( int ) { auto s = *this; operator++(); return s; }
+			constexpr flat_map_iterator& operator--() { --at; return *this; }
+			constexpr flat_map_iterator operator--( int ) { auto s = *this; operator--(); return s; }
+			constexpr flat_map_iterator& operator+=( difference_type d ) { at += d; return *this; }
+			constexpr flat_map_iterator& operator-=( difference_type d ) { at -= d; return *this; }
+			constexpr flat_map_iterator operator+( difference_type d ) const { auto s = *this; s += d; return s; }
+			constexpr flat_map_iterator operator-( difference_type d ) const { auto s = *this; s -= d; return s; }
 
 			// Equality check against another iterator and difference.
 			//
-			template<typename It2> inline constexpr bool operator==( const flat_map_iterator<It2>& other ) const { return at == other.at; }
-			template<typename It2> inline constexpr bool operator!=( const flat_map_iterator<It2>& other ) const { return at != other.at; }
-			template<typename It2> inline constexpr difference_type operator-( const flat_map_iterator<It2>& other ) const { return at - other.at; }
+			template<typename It2> constexpr bool operator==( const flat_map_iterator<It2>& other ) const { return at == other.at; }
+			template<typename It2> constexpr bool operator!=( const flat_map_iterator<It2>& other ) const { return at != other.at; }
+			template<typename It2> constexpr difference_type operator-( const flat_map_iterator<It2>& other ) const { return at - other.at; }
 
 			// Override accessor to redirect to the pair.
 			//
-			inline constexpr reference operator*() const { return at->view(); }
-			inline constexpr pointer operator->() const { return &at->view(); }
+			constexpr reference operator*() const { return at->view(); }
+			constexpr pointer operator->() const { return &at->view(); }
 		};
 
 		// Interpolated lower-bound implementation.
 		//
 		template <typename It>
-		inline constexpr It interp_search( It begin, It end, size_t hash )
+		constexpr It interp_search( It begin, It end, size_t hash )
 		{
 			while ( true )
 			{
@@ -341,27 +341,27 @@ namespace xstd
 		// Constructed by iterator pairs / initializer list.
 		//
 		template<typename It1, typename It2>
-		inline constexpr basic_flat_map( It1&& beg, It2&& end )
+		constexpr basic_flat_map( It1&& beg, It2&& end )
 		{ 
 			values.insert( values.begin(), std::forward<It1>( beg ), std::forward<It2>( end ) );
 			std::sort( values.begin(), values.end() );
 		}
-		inline constexpr basic_flat_map( const std::initializer_list<std::pair<K, V>>& list ) : basic_flat_map( list.begin(), list.end() ) {}
+		constexpr basic_flat_map( const std::initializer_list<std::pair<K, V>>& list ) : basic_flat_map( list.begin(), list.end() ) {}
 
 		// Implement the STL map interface.
 		// - Note: Bucket details do not take multi-levelness of this container into account.
 		//
-		inline constexpr iterator begin() { return values.begin(); }
-		inline constexpr iterator end() { return values.end(); }
-		inline constexpr const_iterator begin() const { return values.begin(); }
-		inline constexpr const_iterator end() const { return values.end(); }
-		inline constexpr size_t size() const { return values.size(); }
-		inline constexpr bool empty() const { return values.empty(); }
+		constexpr iterator begin() { return values.begin(); }
+		constexpr iterator end() { return values.end(); }
+		constexpr const_iterator begin() const { return values.begin(); }
+		constexpr const_iterator end() const { return values.end(); }
+		constexpr size_t size() const { return values.size(); }
+		constexpr bool empty() const { return values.empty(); }
 
 		// Internal searcher, returns [value pos, insertation pos].
 		// 
 		template<typename Kx>
-		inline constexpr std::pair<real_iterator, real_iterator> searcher( const Kx& key, bool for_insert )
+		constexpr std::pair<real_iterator, real_iterator> searcher( const Kx& key, bool for_insert )
 		{
 			// If adaptive search is enabled and there's less than 8 items:
 			//
@@ -427,16 +427,16 @@ namespace xstd
 
 		// -- Lookup.
 		//
-		template<typename Kx> inline constexpr iterator find( const Kx& key ) { return searcher( key, false ).first; }
-		template<typename Kx> inline constexpr const_iterator find( const Kx& key ) const { return const_iterator{ make_mutable( this )->find( key ).at }; }
-		template<typename Kx> inline constexpr auto& at( const Kx& key ) { return find( key )->second; }
-		template<typename Kx> inline constexpr auto& at( const Kx& key ) const { return find( key )->second; }
-		template<typename Kx> inline constexpr bool contains( const Kx& key ) const { return find( key ) != end(); }
+		template<typename Kx> constexpr iterator find( const Kx& key ) { return searcher( key, false ).first; }
+		template<typename Kx> constexpr const_iterator find( const Kx& key ) const { return const_iterator{ make_mutable( this )->find( key ).at }; }
+		template<typename Kx> constexpr auto& at( const Kx& key ) { return find( key )->second; }
+		template<typename Kx> constexpr auto& at( const Kx& key ) const { return find( key )->second; }
+		template<typename Kx> constexpr bool contains( const Kx& key ) const { return find( key ) != end(); }
 
 		// -- Insertation.
 		//
 		template<typename Kx = K, typename... Tx>
-		inline constexpr std::pair<iterator, bool> emplace( const Kx& key, Tx&&... args )
+		constexpr std::pair<iterator, bool> emplace( const Kx& key, Tx&&... args )
 		{
 			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
@@ -445,7 +445,7 @@ namespace xstd
 			return { vit, true };
 		}
 		template<typename Kx = K, typename Vx>
-		inline constexpr std::pair<iterator, bool> insert_or_assign( const Kx& key, Vx&& value )
+		constexpr std::pair<iterator, bool> insert_or_assign( const Kx& key, Vx&& value )
 		{
 			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
@@ -457,27 +457,27 @@ namespace xstd
 			return { vit, true };
 		}
 		template<typename Kx = K>
-		inline constexpr std::pair<iterator, bool> insert( const Kx& key, V&& value )
+		constexpr std::pair<iterator, bool> insert( const Kx& key, V&& value )
 		{
 			return emplace( key, std::forward<V>( value ) );
 		}
 		template<typename Kx = K>
-		inline constexpr std::pair<iterator, bool> insert( std::pair<Kx, V> pair )
+		constexpr std::pair<iterator, bool> insert( std::pair<Kx, V> pair )
 		{
 			return emplace( std::move( pair.first ), std::move( pair.second ) );
 		}
 		template<typename It1, typename It2>
-		inline constexpr void insert( It1 it, const It2& it2 )
+		constexpr void insert( It1 it, const It2& it2 )
 		{
 			while ( it != it2 )
 				insert( *it++ );
 		}
-		inline constexpr iterator erase( const iterator& it )
+		constexpr iterator erase( const iterator& it )
 		{
 			return values.erase( it.at );
 		}
 		template<typename Kx>
-		inline constexpr size_t erase( const Kx& key )
+		constexpr size_t erase( const Kx& key )
 		{
 			auto it = find( key );
 			if ( it != end() )
@@ -491,7 +491,7 @@ namespace xstd
 		// -- Default lookup or insert.
 		//
 		template<typename Kx>
-		inline constexpr V& operator[]( const Kx& key ) 
+		constexpr V& operator[]( const Kx& key ) 
 		{
 			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
@@ -501,18 +501,18 @@ namespace xstd
 
 		// -- Details.
 		//
-		inline constexpr hasher hash_function() const { return hasher{}; }
-		inline constexpr void reserve( size_t n ) { values.reserve( n ); }
+		constexpr hasher hash_function() const { return hasher{}; }
+		constexpr void reserve( size_t n ) { values.reserve( n ); }
 
 		// Resets the state.
 		//
-		inline constexpr void clear() { values.clear(); }
+		constexpr void clear() { values.clear(); }
 
 		// Redirect comparison to the container.
 		//
-		inline constexpr bool operator==( const basic_flat_map& o ) const { return values == o.values; }
-		inline constexpr bool operator!=( const basic_flat_map& o ) const { return values != o.values; }
-		inline constexpr bool operator<( const basic_flat_map& o ) const { return values < o.values; }
+		constexpr bool operator==( const basic_flat_map& o ) const { return values == o.values; }
+		constexpr bool operator!=( const basic_flat_map& o ) const { return values != o.values; }
+		constexpr bool operator<( const basic_flat_map& o ) const { return values < o.values; }
 	};
 
 	// Ordered map.
@@ -556,27 +556,27 @@ namespace xstd
 		// Constructed by iterator pairs / initializer list.
 		//
 		template<typename It1, typename It2>
-		inline constexpr basic_sorted_flat_map( It1&& beg, It2&& end )
+		constexpr basic_sorted_flat_map( It1&& beg, It2&& end )
 		{ 
 			values.insert( values.begin(), std::forward<It1>( beg ), std::forward<It2>( end ) );
 			std::sort( values.begin(), values.end() );
 		}
-		inline constexpr basic_sorted_flat_map( const std::initializer_list<std::pair<K, V>>& list ) : basic_sorted_flat_map( list.begin(), list.end() ) {}
+		constexpr basic_sorted_flat_map( const std::initializer_list<std::pair<K, V>>& list ) : basic_sorted_flat_map( list.begin(), list.end() ) {}
 
 		// Implement the STL map interface.
 		// - Note: Bucket details do not take multi-levelness of this container into account.
 		//
-		inline constexpr iterator begin() { return values.begin(); }
-		inline constexpr iterator end() { return values.end(); }
-		inline constexpr const_iterator begin() const { return values.begin(); }
-		inline constexpr const_iterator end() const { return values.end(); }
-		inline constexpr size_t size() const { return values.size(); }
-		inline constexpr bool empty() const { return values.empty(); }
+		constexpr iterator begin() { return values.begin(); }
+		constexpr iterator end() { return values.end(); }
+		constexpr const_iterator begin() const { return values.begin(); }
+		constexpr const_iterator end() const { return values.end(); }
+		constexpr size_t size() const { return values.size(); }
+		constexpr bool empty() const { return values.empty(); }
 
 		// Internal searcher, returns [value pos, insertation pos].
 		// 
 		template<typename Kx>
-		inline constexpr std::pair<real_iterator, real_iterator> searcher( const Kx& key, [[maybe_unused]] bool for_insert = false )
+		constexpr std::pair<real_iterator, real_iterator> searcher( const Kx& key, [[maybe_unused]] bool for_insert = false )
 		{
 			// Find the position, if the key is matching return the iterator, else only 
 			// return as the insertion pos.
@@ -590,20 +590,20 @@ namespace xstd
 
 		// -- Lookup.
 		//
-		template<typename Kx> inline constexpr iterator find( const Kx& key ) { return searcher( key, false ).first; }
-		template<typename Kx> inline constexpr const_iterator find( const Kx& key ) const { return const_iterator{ make_mutable( this )->find( key ).at }; }
-		template<typename Kx> inline constexpr auto& at( const Kx& key ) { return find( key )->second; }
-		template<typename Kx> inline constexpr auto& at( const Kx& key ) const { return find( key )->second; }
-		template<typename Kx> inline constexpr bool contains( const Kx& key ) const { return find( key ) != end(); }
-		template<typename Kx> inline constexpr iterator lower_bound( const Kx& key ) { return std::lower_bound( values.begin(), values.end(), key ); }
-		template<typename Kx> inline constexpr const_iterator lower_bound( const Kx& key ) const { return std::lower_bound( values.begin(), values.end(), key ); }
-		template<typename Kx> inline constexpr iterator upper_bound( const Kx& key ) { return std::upper_bound( values.begin(), values.end(), key ); }
-		template<typename Kx> inline constexpr const_iterator upper_bound( const Kx& key ) const { return std::upper_bound( values.begin(), values.end(), key ); }
+		template<typename Kx> constexpr iterator find( const Kx& key ) { return searcher( key, false ).first; }
+		template<typename Kx> constexpr const_iterator find( const Kx& key ) const { return const_iterator{ make_mutable( this )->find( key ).at }; }
+		template<typename Kx> constexpr auto& at( const Kx& key ) { return find( key )->second; }
+		template<typename Kx> constexpr auto& at( const Kx& key ) const { return find( key )->second; }
+		template<typename Kx> constexpr bool contains( const Kx& key ) const { return find( key ) != end(); }
+		template<typename Kx> constexpr iterator lower_bound( const Kx& key ) { return std::lower_bound( values.begin(), values.end(), key ); }
+		template<typename Kx> constexpr const_iterator lower_bound( const Kx& key ) const { return std::lower_bound( values.begin(), values.end(), key ); }
+		template<typename Kx> constexpr iterator upper_bound( const Kx& key ) { return std::upper_bound( values.begin(), values.end(), key ); }
+		template<typename Kx> constexpr const_iterator upper_bound( const Kx& key ) const { return std::upper_bound( values.begin(), values.end(), key ); }
 
 		// -- Insertation.
 		//
 		template<typename Kx = K, typename... Tx>
-		inline constexpr std::pair<iterator, bool> emplace( const Kx& key, Tx&&... args )
+		constexpr std::pair<iterator, bool> emplace( const Kx& key, Tx&&... args )
 		{
 			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
@@ -612,7 +612,7 @@ namespace xstd
 			return { vit, true };
 		}
 		template<typename Kx = K, typename Vx>
-		inline constexpr std::pair<iterator, bool> insert_or_assign( const Kx& key, Vx&& value )
+		constexpr std::pair<iterator, bool> insert_or_assign( const Kx& key, Vx&& value )
 		{
 			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
@@ -624,27 +624,27 @@ namespace xstd
 			return { vit, true };
 		}
 		template<typename Kx = K>
-		inline constexpr std::pair<iterator, bool> insert( const Kx& key, V&& value )
+		constexpr std::pair<iterator, bool> insert( const Kx& key, V&& value )
 		{
 			return emplace( key, std::forward<V>( value ) );
 		}
 		template<typename Kx = K>
-		inline constexpr std::pair<iterator, bool> insert( std::pair<Kx, V> pair )
+		constexpr std::pair<iterator, bool> insert( std::pair<Kx, V> pair )
 		{
 			return emplace( std::move( pair.first ), std::move( pair.second ) );
 		}
 		template<typename It1, typename It2>
-		inline constexpr void insert( It1 it, const It2& it2 )
+		constexpr void insert( It1 it, const It2& it2 )
 		{
 			while ( it != it2 )
 				insert( *it++ );
 		}
-		inline constexpr iterator erase( const iterator& it )
+		constexpr iterator erase( const iterator& it )
 		{
 			return values.erase( it.at );
 		}
 		template<typename Kx>
-		inline constexpr size_t erase( const Kx& key )
+		constexpr size_t erase( const Kx& key )
 		{
 			auto it = find( key );
 			if ( it != end() )
@@ -658,7 +658,7 @@ namespace xstd
 		// -- Default lookup or insert.
 		//
 		template<typename Kx>
-		inline constexpr V& operator[]( const Kx& key ) 
+		constexpr V& operator[]( const Kx& key ) 
 		{
 			auto [vit, iit] = searcher( key, true );
 			if ( vit != values.end() )
@@ -668,17 +668,17 @@ namespace xstd
 
 		// -- Details.
 		//
-		inline constexpr void reserve( size_t n ) { values.reserve( n ); }
+		constexpr void reserve( size_t n ) { values.reserve( n ); }
 
 		// Resets the state.
 		//
-		inline constexpr void clear() { values.clear(); }
+		constexpr void clear() { values.clear(); }
 
 		// Redirect comparison to the container.
 		//
-		inline constexpr bool operator==( const basic_sorted_flat_map& o ) const { return values == o.values; }
-		inline constexpr bool operator!=( const basic_sorted_flat_map& o ) const { return values != o.values; }
-		inline constexpr bool operator<( const basic_sorted_flat_map& o ) const { return values < o.values; }
+		constexpr bool operator==( const basic_sorted_flat_map& o ) const { return values == o.values; }
+		constexpr bool operator!=( const basic_sorted_flat_map& o ) const { return values != o.values; }
+		constexpr bool operator<( const basic_sorted_flat_map& o ) const { return values < o.values; }
 	};
 
 	// Variants.

@@ -12,20 +12,25 @@
 // XSTD_ZSTD_DEFAULT_LEVEL: Sets the default ZSTD compression level.
 //
 #ifndef XSTD_ZSTD_DEFAULT_LEVEL
-	#define XSTD_ZSTD_DEFAULT_LEVEL 14
+	#define XSTD_ZSTD_DEFAULT_LEVEL ZSTD_CLEVEL_DEFAULT
 #endif
 
 namespace xstd::zstd
 {
+	// Compression Levels.
+	//
+	inline const int min_level = ZSTD_minCLevel();
+	inline constexpr int default_level = XSTD_ZSTD_DEFAULT_LEVEL;
+	inline const int max_level = ZSTD_maxCLevel();
+
+	// Status type.
+	//
 	struct status_traits
 	{
 		inline static constexpr size_t success_value = 0;
 		inline static constexpr size_t failure_value = ZSTD_CONTENTSIZE_ERROR;
 		inline static bool is_success( auto&& v ) { return int64_t( size_t( v ) ) >= 0; }
 	};
-
-	// Status type.
-	//
 	struct TRIVIAL_ABI status
 	{
 		using status_traits = status_traits;
@@ -50,7 +55,7 @@ namespace xstd::zstd
 
 	// Simple compression wrapper.
 	//
-	inline static result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = XSTD_ZSTD_DEFAULT_LEVEL )
+	inline static result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = default_level )
 	{
 		result<std::vector<uint8_t>> res;
 		auto& buffer = res.result.emplace( std::vector<uint8_t>( ZSTD_compressBound( len ), 0 ) );
@@ -60,7 +65,7 @@ namespace xstd::zstd
 		return res;
 	}
 	template<ContiguousIterable T> requires ( !Pointer<T> )
-	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_ZSTD_DEFAULT_LEVEL )
+	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = default_level )
 	{
 		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level );
 	}
@@ -96,7 +101,7 @@ namespace xstd::zstd
 
 		// Simple compression.
 		//
-		inline result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = XSTD_ZSTD_DEFAULT_LEVEL )
+		inline result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = default_level )
 		{
 			result<std::vector<uint8_t>> res;
 			auto& buffer = res.result.emplace( std::vector<uint8_t>( ZSTD_compressBound( len ), 0 ) );
@@ -106,7 +111,7 @@ namespace xstd::zstd
 			return res;
 		}
 		template<ContiguousIterable T> requires ( !Pointer<T> )
-		inline result<std::vector<uint8_t>> compress( T&& cont, int level = XSTD_ZSTD_DEFAULT_LEVEL )
+		inline result<std::vector<uint8_t>> compress( T&& cont, int level = default_level )
 		{
 			return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level );
 		}
