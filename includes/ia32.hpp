@@ -22628,6 +22628,52 @@ namespace ia32
 		asm volatile( "xrstorsq %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
 	}
 
+	// String intrinsics.
+	//
+	enum sidd : uint8_t
+	{
+		// Data format.
+		sidd_ubyte =                0<<0,
+		sidd_uword =                1<<0,
+		sidd_sbyte =                2<<0,
+		sidd_sword =                3<<0,
+
+		// Comparison operator.
+		sidd_cmp_eq_any =           0<<2,
+		sidd_cmp_range =            1<<2,
+		sidd_cmp_eq_each =          2<<2,
+		sidd_cmp_eq_ordered =       3<<2,
+
+		// Polarity.
+		sidd_pol_pos =              0<<4,
+		sidd_pol_neg =              1<<4,
+		sidd_pol_mask_pos =         2<<4,
+		sidd_pol_mask_neg =         3<<4,
+
+		// Output selection in cmpXstri.
+		sidd_least_sig =            0<<6,
+		sidd_most_sig =             1<<6,
+		
+		// Output selection in cmpXstrm.
+		sidd_bit_mask =             0<<6,
+		sidd_unit_mask =            1<<6,
+	};
+	typedef char v16qi __attribute__((__vector_size__(16)));
+	template<uint8_t mode> _LINKAGE int cmpstr( v16qi a, v16qi b )  { return __builtin_ia32_pcmpistri128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstra( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistria128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstrc( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistric128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstro( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistrio128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstrs( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistris128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstrz( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistriz128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE v16qi cmpstrm( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistrm128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstr( v16qi a, int la, v16qi b, int lb )  { return __builtin_ia32_pcmpestri128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstra( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestria128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstrc( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestric128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstro( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrio128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstrs( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestris128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE int cmpstrz( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestriz128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE v16qi cmpstrm( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrm128( a, la, b, lb, mode ); }
+
 	// Misc.
 	//
 	_LINKAGE void nop()
@@ -22783,6 +22829,32 @@ namespace ia32
 #endif
 	}
 
+	// Unaligned memory helpers.
+	//
+	template<typename Vec>
+	_LINKAGE Vec load_unaligned( const Vec* p )
+	{
+		struct wrapper
+		{
+			Vec value;
+		} __attribute__((packed, may_alias));
+		return ( ( wrapper* ) p )->value;
+	}
+	template<typename Vec> 
+	_LINKAGE Vec load_unaligned( const void* p ) { return load_unaligned<Vec>( ( const Vec* ) p ); }
+	
+	template<typename Vec>
+	_LINKAGE void store_unaligned( const Vec* p, Vec r )
+	{
+		struct wrapper
+		{
+			Vec value;
+		} __attribute__((packed, may_alias));
+		( ( wrapper* ) p )->value = r;
+	}
+	template<typename Vec>
+	_LINKAGE void store_unaligned( const void* p, Vec r ) { return store_unaligned<Vec>( ( const Vec* ) p, r ); }
+	
 	// RAII wrapper for IRQL.
 	//
 	template<irql_t new_irql>
