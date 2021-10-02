@@ -149,9 +149,9 @@ namespace xstd
 		{
 #if __has_builtin(__builtin_ctz)
 			if constexpr ( sizeof( T ) == 8 )
-				return 63 - __builtin_clzll( x );
+				return x ? 63 - __builtin_clzll( x ) : -1;
 			else
-				return 31 - __builtin_clz( x );
+				return x ? 31 - __builtin_clz( x ) : -1;
 #elif MS_COMPILER && AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
 			{
@@ -186,7 +186,7 @@ namespace xstd
 			{
 				unsigned long idx;
 				return _BitScanForward64( &idx, x ) ? idx : -1;
-		}
+			}
 			else
 			{
 				unsigned long idx;
