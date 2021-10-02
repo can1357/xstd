@@ -1085,7 +1085,7 @@ namespace xstd
 
 		// If no storage required:
 		//
-		if constexpr ( std::is_default_constructible_v<F> )
+		if constexpr ( std::is_default_constructible_v<F> && sizeof( F ) == sizeof( std::monostate ) )
 		{
 			functor = [ ] ( void* ) -> Ret { return F{}(); };
 			discard = [ ] ( void* argument ) {};
