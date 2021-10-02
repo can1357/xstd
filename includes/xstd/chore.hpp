@@ -86,18 +86,19 @@ namespace xstd
 
 		// Coroutine handle.
 		//
-		template<typename P>
-		struct function_store<coroutine_handle<P>>
+		template<>
+		struct function_store<coroutine_handle<>>
 		{
 			static void __cdecl run( void* adr )
 			{
-				coroutine_handle<P>::from_address( adr ).resume();
+				coroutine_handle<>::from_address( adr ).resume();
 			}
-			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<P> hnd )
+			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<> hnd )
 			{
 				return { &run, hnd.address() };
 			}
 		};
+		template<NonVoid P> struct function_store<coroutine_handle<P>> : function_store<coroutine_handle<>>{};
 
 		// Flattens the function.
 		//
