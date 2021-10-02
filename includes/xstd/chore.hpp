@@ -1,6 +1,7 @@
 #pragma once
 #include "intrinsics.hpp"
 #include "time.hpp"
+#include "coro.hpp"
 #include "event.hpp"
 #include <thread>
 
@@ -13,6 +14,100 @@
 
 namespace xstd
 {
+	namespace impl
+	{
+		// Lambda.
+		//
+		template<typename F>
+		struct function_store
+		{
+			static void __cdecl run( void* adr )
+			{
+				// Stateless:
+				//
+				if constexpr ( DefaultConstructable<F> && sizeof( F ) == sizeof( std::monostate ) )
+				{
+					F{}();
+				}
+				// State fits a pointer:
+				//
+				else if constexpr ( sizeof( F ) <= sizeof( void* ) )
+				{
+					auto& fn = *( F* ) &adr; 
+					fn(); 
+					std::destroy_at( &fn );
+				}
+				// Large state:
+				//
+				else
+				{
+					auto* fn = ( F* ) adr;
+					( *fn )(); 
+					delete fn;
+				}
+			}
+
+			template<typename... Tx>
+			static std::pair<void( __cdecl* )( void* ), void*> apply( Tx&&... args )
+			{
+				// Stateless:
+				//
+				void* ctx;
+				if constexpr ( DefaultConstructable<F> && sizeof( F ) == sizeof( std::monostate ) )
+				{
+					ctx = nullptr;
+				}
+				// State fits a pointer:
+				//
+				else if constexpr ( sizeof( F ) <= sizeof( void* ) )
+				{
+					new ( &ctx ) F( std::forward<Tx>( args )... );
+				}
+				// Large state:
+				//
+				else
+				{
+					ctx = new F( std::forward<Tx>( args )... );
+				}
+				return { &run, ctx };
+			}
+		};
+
+		// Function pointer.
+		//
+		template<typename T> requires ( Void<T> || TriviallyDestructable<T> )
+		struct function_store<T(__cdecl*)()>
+		{
+			static std::pair<void( __cdecl* )( void* ), void*> apply( T( __cdecl* ptr )( ) )
+			{
+				return { ( void( __cdecl* )( void* ) ) ptr, nullptr };
+			}
+		};
+
+		// Coroutine handle.
+		//
+		template<typename P>
+		struct function_store<coroutine_handle<P>>
+		{
+			static void __cdecl run( void* adr )
+			{
+				coroutine_handle<P>::from_address( adr ).resume();
+			}
+			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<P> hnd )
+			{
+				return { &run, hnd.address() };
+			}
+		};
+
+		// Flattens the function.
+		//
+		template<typename F>
+		inline std::pair<void( __cdecl* )( void* ), void*> flatten( F&& fn )
+		{
+			return function_store<std::decay_t<F>>::apply( std::forward<F>( fn ) );
+		}
+	};
+
 	// Registers a chore.
 	//
 	template<typename T>
@@ -21,7 +116,7 @@ namespace xstd
 		int64_t tick_count = delay / 100ns;
 
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
+		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_SCHEDULER( func, arg, priority, tick_count < 1 ? 1ull : size_t( tick_count ), nullptr );
 #else
 		std::thread( [ fn = std::forward<T>( fn ), delay ]()
@@ -42,7 +137,7 @@ namespace xstd
 		assume( evt != nullptr );
 
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
+		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_SCHEDULER( func, arg, priority, 0, evt );
 #else
 		std::thread( [ fn = std::forward<T>( fn ), evt ]()
@@ -56,7 +151,7 @@ namespace xstd
 	inline void chore( T&& fn, [[maybe_unused]] int64_t priority = -1 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
-		auto [func, arg, _] = flatten( std::forward<T>( fn ) );
+		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_SCHEDULER( func, arg, priority, 0, nullptr );
 #else
 		std::thread( std::forward<T>( fn ) ).detach();

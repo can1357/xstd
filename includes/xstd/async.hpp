@@ -75,7 +75,9 @@ namespace xstd
 	struct yield
 	{
 		bool await_ready() { return false; }
-		void await_suspend( coroutine_handle<> h ) { chore( h ); }
+
+		template<typename Pr>
+		void await_suspend( coroutine_handle<Pr> h ) { chore( h ); }
 		void await_resume() {}
 	};
 
@@ -86,7 +88,9 @@ namespace xstd
 		duration delay;
 
 		bool await_ready() { return false; }
-		void await_suspend( coroutine_handle<> h ) { chore( h, delay ); }
+
+		template<typename Pr>
+		void await_suspend( coroutine_handle<Pr> h ) { chore( h, delay ); }
 		void await_resume() {}
 	};
 
@@ -101,7 +105,9 @@ namespace xstd
 		yield_until( const event_primitive& evt ) : evt( evt.handle() ) {}
 
 		bool await_ready() { return false; }
-		void await_suspend( coroutine_handle<> h ) { chore( h, evt ); }
+
+		template<typename Pr>
+		void await_suspend( coroutine_handle<Pr> h ) { chore( h, evt ); }
 		void await_resume() {}
 	};
 };
