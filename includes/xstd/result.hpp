@@ -38,55 +38,58 @@ namespace xstd
 	//
 	struct TRIVIAL_ABI exception
 	{
-		union
-		{
-			const char* full_value = nullptr;
-			struct
-			{
-				int64_t pointer        : 63;
-				uint64_t mismatch_bit  : 1;
-			};
-		};
+		const char* full_value = nullptr;
+		bool alloc_flag = false;
 
 		// Wrappers allowing union-like access whilist staying constexpr.
 		//
 		inline constexpr void set_value( const char* new_value, bool allocated )
 		{
 			full_value = new_value;
-			if ( !std::is_constant_evaluated() )
-			{
-				if ( allocated )
-				{
-					mismatch_bit = !mismatch_bit;
-					assume( ( const char* ) pointer != full_value );
-				}
-				else
-				{
-					assume( ( const char* ) pointer == full_value );
-				}
-			}
+			alloc_flag = allocated;
 		}
 		inline constexpr const char* get_value() const noexcept
 		{
-			if ( std::is_constant_evaluated() )
-				return full_value;
-			else
-				return ( const char* ) ( uint64_t ) pointer;
+			return full_value;
 		}
 		inline constexpr bool is_allocated() const noexcept
 		{
 			if ( !std::is_constant_evaluated() )
-				return ( const char* ) pointer != full_value;
+				return alloc_flag;
 			else
 				return false;
 		}
 
-		// Construction from string view and string literal.
+		// Construction from string literal.
 		//
 		inline constexpr exception() {}
 		inline constexpr exception( std::nullptr_t ) {}
 		inline constexpr exception( const char* str ) { set_value( str, false ); }
-		inline exception( std::string_view str ) { assign_string( str ); }
+
+		// Construction from string.
+		//
+		inline exception( const std::string& str ) { assign_string( str.data(), str.length() ); }
+		COLD void assign_string( const char* data, size_t length = std::string::npos )
+		{
+			if ( length == std::string::npos )
+				length = strlen( data );
+			char* res = new char[ length + 1 ];
+			std::copy( data, data + length, res );
+			res[ length ] = 0;
+			reset();
+			set_value( res, true );
+		}
+		
+		// Construction from formatted string.
+		//
+		template<typename... Tx> requires ( sizeof...( Tx ) > 0 )
+		inline exception( const char* fmt, Tx&&... args ) { assign_fmt( fmt, std::forward<Tx>( args )... ); }
+		template<typename... Tx>
+		COLD void assign_fmt( const char* fmt, Tx&&... args )
+		{
+			std::string buffer{ xstd::fmt::str( fmt, std::forward<Tx>( args )... ) };
+			assign_string( buffer.data(), buffer.length() );
+		}
 
 		// Copy and move.
 		//
@@ -97,24 +100,19 @@ namespace xstd
 		inline constexpr void swap( exception& o )
 		{
 			std::swap( full_value, o.full_value );
+			std::swap( alloc_flag, o.alloc_flag );
 		}
 		inline constexpr void assign( const exception& o )
 		{
 			if ( !std::is_constant_evaluated() )
 			{
 				if ( o.is_allocated() )
-					return assign_string( o.get() );
+					return assign_string( o.c_str() );
+				else if ( is_allocated() )
+					reset();
 			}
 			full_value = o.full_value;
-		}
-		COLD inline void assign_string( std::string_view str )
-		{
-			reset();
-			size_t length = str.length();
-			char* res = new char[ length + 1 ];
-			std::copy( str.begin(), str.end(), res );
-			res[ length ] = 0;
-			set_value( res, true );
+			alloc_flag = o.alloc_flag;
 		}
 
 		// Deallocate on deconstruction.
@@ -127,13 +125,14 @@ namespace xstd
 					delete[] get_value();
 			}
 			full_value = nullptr;
+			alloc_flag = false;
 		}
 		inline constexpr ~exception() { reset(); }
 
 		// Observers.
 		//
-		inline constexpr bool empty() const { return !full_value; }
-		inline constexpr explicit operator bool() const { return empty(); }
+		inline constexpr bool has_value() const { return full_value; }
+		inline constexpr explicit operator bool() const { return has_value(); }
 
 		// Getters.
 		//
@@ -141,6 +140,12 @@ namespace xstd
 		inline constexpr const char* data() const { return c_str(); }
 		inline constexpr const char* c_str() const { return full_value ? get_value() : ""; }
 		inline constexpr std::string_view get() const { return c_str(); }
+		inline constexpr size_t size() const { return get().size(); };
+		inline constexpr size_t length() const { return size(); };
+		inline constexpr bool empty() const { return size() == 0; };
+		inline constexpr const char& operator[]( size_t n ) const { return data()[ n ]; };
+		inline constexpr auto begin() const { return get().begin(); }
+		inline constexpr auto end() const { return get().end(); }
 	};
 
 	// Status traits.
@@ -164,23 +169,39 @@ namespace xstd
 	{
 		// Generic success and failure values.
 		//
-		static constexpr exception success_value{ nullptr };
-		static constexpr exception failure_value{ "?" };
+		static constexpr const char* success_value = nullptr;
+		static constexpr const char* failure_value = "?";
 
 		// Declare basic traits.
 		//
-		static inline bool is_success( const exception& o ) { return o.empty(); }
+		constexpr static inline bool is_success( const exception& o ) { return !o.has_value(); }
+	};
+	struct no_status {};
+	template<>
+	struct status_traits<no_status>
+	{
+		// Generic success and failure values.
+		//
+		static constexpr no_status success_value{};
+		static constexpr no_status failure_value{};
+
+		// Declare basic traits.
+		//
+		constexpr static inline bool is_success( const no_status& ) { return true; }
 	};
 
 	// Declares a light-weight object wrapping a result type with a status code.
 	//
+	struct in_place_success_t {};
+	struct in_place_failure_t {};
 	template <typename Value, typename Status>
 	struct TRIVIAL_ABI basic_result
 	{
-		using value_type =     Value;
+		using value_type =     std::conditional_t<Same<Value, void>, std::monostate, Value>;
 		using status_type =    Status;
 		using traits =         status_traits<Status>;
-		using store_type =     std::conditional_t<Same<Value, std::monostate>, impl::optional_monostate, std::optional<Value>>;
+		using store_type =     std::conditional_t<Same<value_type, std::monostate>, impl::optional_monostate, std::optional<value_type>>;
+
 		// Status code and the value itself.
 		//
 		Status status = Status{ traits::failure_value };
@@ -193,24 +214,33 @@ namespace xstd
 	
 		// Consturction with value/state combination.
 		//
-		template<typename T> requires ( Constructable<Value, T&&> && ( !Constructable<Status, T&&> || Same<std::decay_t<T>, Value> ) )
+		template<typename T> requires ( Constructable<value_type, T> && ( !Constructable<Status, T> || Same<std::decay_t<T>, value_type> ) && !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
 		constexpr basic_result( T&& value ) : status( Status{ traits::success_value } ), result( std::forward<T>( value ) ) {}
-		template<typename S> requires ( Constructable<Status, S&&> && ( !Constructable<Value, S&&> || Same<std::decay_t<S>, Status> ) )
+		template<typename S> requires ( Constructable<Status, S> && ( !Constructable<value_type, S> || Same<std::decay_t<S>, Status> ) && !Same<std::decay_t<S>, in_place_success_t> && !Same<std::decay_t<S>, in_place_failure_t> )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
-			if constexpr ( DefaultConstructable<Value> )
+			if constexpr ( DefaultConstructable<value_type> )
 				if ( traits::is_success( this->status ) )
 					result.emplace();
 		}
-		template<typename T, typename S>
+		template<typename T, typename S> requires ( !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
 		constexpr basic_result( T&& value, S&& status ) : status( std::forward<S>( status ) ), result( std::forward<T>( value ) ) {}
 	
+		template<typename... Args>
+		constexpr basic_result( in_place_success_t, Args&&... args ) : status( Status{ traits::success_value } ), result( std::forward<Args>( args )... ) {}
+		template<typename... Args>
+		constexpr basic_result( in_place_failure_t, Args&&... args )
+		{
+			if constexpr ( sizeof...( Args ) != 0 )
+				status = Status{ std::forward<Args>( args )... };
+		}
+
 		// Result conversion.
 		//
-		template<typename T> requires( !Same<T, Value> && ( Constructable<Value, const T&> || Same<Value, std::monostate> ) )
+		template<typename T> requires( !Same<T, value_type> && ( Constructable<value_type, const T&> || Same<value_type, std::monostate> ) )
 		constexpr basic_result( const basic_result<T, Status>& other )
 		{
-			if constexpr ( Same<Value, std::monostate> )
+			if constexpr ( Same<value_type, std::monostate> )
 			{
 				status = other.status;
 				if ( traits::is_success( status ) )
@@ -236,17 +266,27 @@ namespace xstd
 		template<typename S>
 		constexpr void raise( S&& _status )
 		{
-			status = std::forward<S>( _status );
+			Status st{ std::forward<S>( _status ) };
+			if ( traits::is_success( st ) ) [[unlikely]]
+				status = Status{ traits::failure_value };
+			else
+				std::swap( st, status );
+		}
+		constexpr value_type& emplace() requires ( Void<Value> || DefaultConstructable<Value> )
+		{
+			auto& v = result.emplace();
+			status = Status{ traits::success_value };
+			return v;
 		}
 		template<typename T>
-		constexpr Value& emplace( T&& value )
+		constexpr value_type& emplace( T&& value )
 		{
 			auto& v = result.emplace( std::forward<T>( value ) );
 			status = Status{ traits::success_value };
 			return v;
 		}
 		template<typename T, typename S>
-		constexpr Value& emplace( T&& value, S&& _status )
+		constexpr value_type& emplace( T&& value, S&& _status )
 		{
 			auto& v = result.emplace( std::forward<T>( value ) );
 			status = std::forward<S>( _status );
@@ -277,7 +317,7 @@ namespace xstd
 		{
 			if ( fail() ) 
 				return fmt::str( "(Fail='%s')", message() );
-			if constexpr ( StringConvertible<Value> && !Same<std::monostate, Value> ) 
+			if constexpr ( StringConvertible<value_type> && !Same<std::monostate, value_type> ) 
 				return fmt::str( "(Result='%s')", fmt::as_string( result ) );
 			else                                    
 				return "(Success)";
@@ -285,50 +325,58 @@ namespace xstd
 	
 		// For accessing the value, replicate the std::optional interface.
 		//
-		constexpr const Value& value() const &
+		constexpr const value_type& value() const &
 		{
 			assert();
 			return result.value();
 		}
-		constexpr Value& value() &
+		constexpr value_type& value() &
 		{
 			assert();
 			return result.value();
 		}
-		constexpr Value&& value() &&
+		constexpr value_type&& value() &&
 		{
 			assert();
 			return std::move( result ).value();
 		}
-		constexpr Value value_or( const Value& o ) const
+		constexpr value_type value_or( const value_type& o ) const
 		{
 			return success() ? result.value() : o;
 		}
-	
+
 		// Accessors.
 		//
 		constexpr decltype(auto) operator->()
 		{ 
-			if constexpr ( PointerLike<Value> )
+			if constexpr ( PointerLike<value_type> )
 				return value();
 			else
 				return &value(); 
 		}
 		constexpr decltype( auto ) operator->() const
 		{
-			if constexpr ( PointerLike<Value> )
+			if constexpr ( PointerLike<value_type> )
 				return value();
 			else
 				return &value();
 		}
-		constexpr Value& operator*() & { return value(); }
-		constexpr Value&& operator*() && { return std::move( *this ).value(); }
-		constexpr const Value& operator*() const & { return value(); }
+		constexpr value_type& operator*() & { return value(); }
+		constexpr value_type&& operator*() && { return std::move( *this ).value(); }
+		constexpr const value_type& operator*() const & { return value(); }
+
+		// Implement comparison against the stored result.
+		//
+		template<typename Cmp> requires EqualComparable<const value_type&, const Cmp&>
+		constexpr bool operator==( const Cmp& other ) const { return success() && value() == other; }
+		template<typename Cmp> requires NotEqualComparable<const value_type&, const Cmp&>
+		constexpr bool operator!=( const Cmp& other ) const { return !success() || value() != other; }
 	};
 
-	template<typename T = std::monostate>
+	template<typename T = void>
 	using result = basic_result<T, exception>;
 };
+
 
 namespace std
 {

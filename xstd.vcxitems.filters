@@ -34,6 +34,9 @@
     <Filter Include="IA32">
       <UniqueIdentifier>{ab273180-b1d8-4950-8681-e8f6683e0f78}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Coroutines">
+      <UniqueIdentifier>{ac99e164-ade4-4e9e-83be-281842395beb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp">
@@ -138,9 +141,6 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp">
       <Filter>Algorithms</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp">
-      <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp">
       <Filter>Thread</Filter>
@@ -275,7 +275,25 @@
       <Filter>Algorithms</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp">
-      <Filter>Thread</Filter>
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_generator.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\ref_counted.hpp">
+      <Filter>Containers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

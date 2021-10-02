@@ -3,41 +3,64 @@
 #include <array>
 #include <mutex>
 #include <vector>
+#include <deque>
 #include <string_view>
 #include "spinlock.hpp"
 #include "type_helpers.hpp"
-#include "promise.hpp"
+#include "future.hpp"
+#include "coro.hpp"
 
 namespace xstd::tcp
 {
-	template<bool has_ack = true>
+	struct packet_processor_state
+	{
+		size_t             skip_count = 0;
+		size_t             size_requested = 0;
+		bool               retry_on_timer = false;
+		std::string_view   last_view = {};
+		coroutine_handle<> continuation = {};
+	};
+	struct packet_awaitable
+	{
+		packet_processor_state* ref;
+		size_t n;
+
+		inline bool await_ready() { return !ref; }
+		inline void await_suspend( coroutine_handle<> hnd ) { ref->size_requested = n; ref->continuation = hnd; }
+		inline std::string_view await_resume() { return ref ? ref->last_view : std::string_view{}; }
+	};
+
 	struct client
 	{
-		// Socket state.
-		// -- Should be resolved by the network layer.
+		// Promise fulfilled once the socket is closed.
 		//
-		xstd::promise<> socket_closed = xstd::make_promise();
-		xstd::promise<> socket_connected = xstd::make_promise();
+		future<exception, no_status> socket_closed;
 
 		// Receive buffer.
 		//
 		size_t rx_buffer_offset = 0;
 		std::vector<uint8_t> rx_buffer;
-		xstd::spinlock rx_lock;
 
 		// Transmission queues.
 		//
-		xstd::spinlock tx_lock;
-		std::atomic<size_t> last_ack_id = 0;
+		spinlock tx_lock;
+		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
-		std::vector<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
-		std::vector<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
+		std::deque<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
+		std::deque<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
 
-		// Implemented by application, tries parsing the given data range as a singular 
-		// packet returns non-zero size if data is (partially?) consumed, else returns zero 
-		// indicating more data is needed.
+		// Packet processor state.
 		//
-		virtual size_t packet_parse( std::string_view data ) = 0;
+		packet_processor_state pp = {};
+
+		// Whether or not the client has acknowledgment control.
+		//
+		const bool has_ack;
+		inline client( bool has_ack ) : has_ack( has_ack ) {}
+
+		// Implemented by network layer, starts the connection.
+		//
+		virtual future<> connect( const std::array<uint8_t, 4>& ip, uint16_t port ) = 0;
 
 		// Implemented by network layer, tries to send the data given over the socket, returns 
 		// non-zero size if data is (partially?) sent, else returns zero indicating error.
@@ -50,38 +73,34 @@ namespace xstd::tcp
 
 		// Implemented by network layer, closes the connection.
 		//
-		virtual void socket_close() = 0;
-
-		// Implemented by network layer, starts the connection.
-		//
-		virtual promise<> socket_connect( const std::array<uint8_t, 4>& ip, uint16_t port ) = 0;
+		virtual bool socket_close() = 0;
 
 		// Enables or disables the nagle's algorithm.
 		//
 		virtual bool socket_set_nagle( bool ) { return false; }
 
-		// Internal function used to flush the queues, must be called with the lock.
+		// Internal function used to flush the queues.
 		//
-		void flush_queues()
+		void flush_queues( bool locked )
 		{
-			// Clear the acknowledgment queue.
-			//
-			for ( auto it = ack_queue.begin(); it != ack_queue.end(); )
+			std::unique_lock lock{ tx_lock, std::defer_lock_t{} };
+			if ( !locked )
 			{
-				if ( it->second > last_ack_id )
-					break;
-				it = ack_queue.erase( it );
+				if ( tx_queue.empty() )
+					return;
+				else
+					lock.lock();
 			}
 
 			// Write back the transaction queue.
 			//
 			bool wb_retry = true;
-			for ( auto it = tx_queue.begin(); it != tx_queue.end(); )
+			while( !tx_queue.empty() )
 			{
 				// Try writing it to the socket.
 				//
-				auto& [buffer, written] = *it;
-				size_t count = socket_write( buffer.data() + written, buffer.size() - written, std::next( it ) == tx_queue.end() );
+				auto& [buffer, written] = tx_queue.front();
+				size_t count = socket_write( buffer.data() + written, buffer.size() - written, tx_queue.size() == 1 );
 				written += count;
 				last_tx_id += count;
 
@@ -101,9 +120,9 @@ namespace xstd::tcp
 
 				// Move the data over to the acknowledgment queue and erase it from the current queue.
 				//
-				if constexpr ( has_ack )
+				if ( has_ack )
 					ack_queue.emplace_back( std::move( buffer ), last_tx_id );
-				it = tx_queue.erase( it );
+				tx_queue.pop_front();
 			}
 		}
 
@@ -111,37 +130,72 @@ namespace xstd::tcp
 		//
 		virtual void on_timer()
 		{
-			if ( this->is_closed() ) return;
-
-			// Flush all queues.
+			// Handle pending packet processing.
 			//
-			std::lock_guard _g{ tx_lock };
-			flush_queues();
+			if ( std::exchange( pp.retry_on_timer, false ) ) [[unlikely]]
+				on_socket_receive( {} );
+
+			// Flush the queues.
+			//
+			flush_queues( false );
 		}
 
 		// Invoked by application to write data to the socket.
 		//
 		void write( std::vector<uint8_t> data )
 		{
-			if ( this->is_closed() ) return;
-
-			// Append the data onto tx queue and try submitting to the network layer.
-			//
 			std::lock_guard _g{ tx_lock };
+
+			// Append the data onto tx queue, flush the queues.
+			//
 			tx_queue.emplace_back( std::move( data ), 0 );
-			flush_queues();
+			flush_queues( true );
 		}
 
 		// Invoked by network layer to indicate the target acknowledged a number of bytes from our output queue.
-		// - if has_ack == 0, can be used to indicate an arbitrary amount of data can be written again.
+		// - if HasAck == 0, can be used to indicate an arbitrary amount of data can be written again.
 		//
 		void on_socket_ack( size_t n )
 		{
-			if ( this->is_closed() ) return;
-			last_ack_id += n;
-
 			std::lock_guard _g{ tx_lock };
-			flush_queues();
+
+			// Clear the acknowledgment queue.
+			//
+			if ( n )
+			{
+				last_ack_id += n;
+				while ( !ack_queue.empty() && ack_queue.front().second <= last_ack_id )
+					ack_queue.pop_front();
+			}
+
+			// Flush the queues.
+			//
+			flush_queues( true );
+		}
+
+		// Receives the data, if given of an expected size.
+		// -- Must be only called by a single consumer.
+		//
+		auto recv( size_t n = 0 ) 
+		{
+			if ( is_closed() ) return packet_awaitable{ nullptr, 0 };
+			else               return packet_awaitable{ &pp, n };
+		}
+
+		// Marks data processed.
+		//
+		void forward( size_t n ) { pp.skip_count += n; }
+		void forward_to( std::string_view iterated ) { pp.skip_count = pp.last_view.size() - iterated.size(); }
+
+		// Invoked by the network layer on the close event to indicate that the socket has closed.
+		//
+		void on_close()
+		{
+			if ( pp.continuation )
+			{
+				pp.last_view = {};
+				std::exchange( pp.continuation, nullptr )( );
+			}
 		}
 
 		// Invoked by network layer to indicate the socket received data.
@@ -150,14 +204,43 @@ namespace xstd::tcp
 		{
 			if ( this->is_closed() ) return;
 
+			auto packet_parse = [ & ] ( std::string_view new_data ) -> size_t
+			{
+				// If no continuation set, return 0 and set retry flag.
+				//
+				if ( !pp.continuation.handle )
+				{
+					pp.retry_on_timer = true;
+					return 0;
+				}
+
+				if ( size_t req = pp.size_requested )
+				{
+					if ( new_data.size() < req )
+						return 0;
+					pp.last_view = new_data.substr( 0, req );
+					std::exchange( pp.continuation, nullptr )( );
+					pp.last_view = {};
+					return req;
+				}
+				else
+				{
+					pp.last_view = new_data;
+					std::exchange( pp.continuation, nullptr )( );
+					pp.last_view = {};
+					return std::exchange( pp.skip_count, 0 );
+				}
+			};
+
 			// If receive buffer is empty, try parsing the segment without any copy.
 			//
-			std::unique_lock lock{ rx_lock };
 			if ( rx_buffer.empty() )
 			{
+				if ( segment.empty() )
+					return;
+
 				// While packets are parsed:
 				//
-				lock.unlock();
 				while ( size_t n = packet_parse( segment ) )
 				{
 					// Remove the consumed range and return if empty.
@@ -166,7 +249,6 @@ namespace xstd::tcp
 					if ( segment.empty() )
 						return;
 				}
-				lock.lock();
 
 				// Append the rest to the receive buffer.
 				//
@@ -191,6 +273,7 @@ namespace xstd::tcp
 					//
 					if ( it.empty() )
 					{
+						rx_buffer_offset = 0;
 						rx_buffer.clear();
 						return;
 					}
@@ -205,13 +288,9 @@ namespace xstd::tcp
 
 		// Expose the socket state.
 		//
-		bool is_connected() const
-		{
-			return !socket_closed->fulfilled() && socket_connected->fulfilled();
-		}
 		bool is_closed() const
 		{
-			return socket_closed->fulfilled() || socket_connected->failed();
+			return socket_closed.fulfilled();
 		}
 	};
 };

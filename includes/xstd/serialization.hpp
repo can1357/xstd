@@ -110,37 +110,46 @@ namespace xstd
 		}
 		serialization& write( const void* src, size_t length )
 		{
-			output_stream.insert( output_stream.end(), ( uint8_t* ) src, ( ( uint8_t* ) src ) + length );
+			output_stream.insert( output_stream.end(), ( const uint8_t* ) src, ( const uint8_t* ) src + length );
 			return *this;
 		}
 
 		// Index read/write.
 		//
+		static constexpr size_t max_index_length = ( 64 + 6 ) / 7;
 		void write_idx( size_t idx )
 		{
+			uint8_t buffer[ max_index_length ];
+			size_t iterator = 0;
+
 			while( true )
 			{
 				uint8_t seg = idx & 0x7F;
 				if ( ( idx >> 7 ) == 0 )
 					seg |= 0x80;
-				write( &seg, 1 );
+				buffer[ iterator++ ] = seg;
 				idx >>= 7;
 				if ( seg & 0x80 ) break;
 			}
+			write( &buffer[ 0 ], iterator );
 		}
 		size_t read_idx()
 		{
+			size_t limit = std::min( max_index_length, input_stream.size() );
 			size_t idx = 0;
-			size_t shift = 0;
-			while ( true )
+			uint8_t shift = 0;
+			for( size_t i = 0; i != limit; i++ )
 			{
-				uint8_t seg;
-				read( &seg, 1 );
+				uint8_t seg = input_stream[ i ];
 				idx |= uint64_t( seg & 0x7F ) << shift;
 				shift += 7;
 				if ( seg & 0x80 )
+				{
+					input_stream = input_stream.subspan( i + 1 );
 					return idx;
+				}
 			}
+			throw_fmt( XSTD_ESTR( "Invalid index value." ) );
 		}
 
 		// Provide templated member helper for convenience.
@@ -285,11 +294,11 @@ namespace xstd
 	template<Trivial T> requires DefaultSerialized<T>
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value )
+		static void apply( serialization& ctx, const T& value )
 		{
 			ctx.write( &value, sizeof( T ) );
 		}
-		static inline T reflect( serialization& ctx )
+		static T reflect( serialization& ctx )
 		{
 			std::remove_const_t<T> value;
 			ctx.read( &value, sizeof( T ) );
@@ -299,11 +308,11 @@ namespace xstd
 	template<Atomic T>
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value )
+		static void apply( serialization& ctx, const T& value )
 		{
 			return serialize( ctx, value.load() );
 		}
-		static inline T reflect( serialization& ctx )
+		static T reflect( serialization& ctx )
 		{
 			return T{ deserialize<typename T::value_type>( ctx ) };
 		}
@@ -311,13 +320,13 @@ namespace xstd
 	template<Iterable T> requires ( DefaultSerialized<T> && !Trivial<T> )
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value )
+		static void apply( serialization& ctx, const T& value )
 		{
 			ctx.write_idx( std::size( value ) );
 			for ( auto& entry : value )
 				serialize( ctx, entry );
 		}
-		static inline T reflect( serialization& ctx )
+		static T reflect( serialization& ctx )
 		{
 			size_t cnt = ctx.read_idx();
 			if constexpr ( is_std_array_v<T> )
@@ -334,24 +343,24 @@ namespace xstd
 				for ( size_t n = 0; n != cnt; n++ )
 					entries.emplace_back( deserialize<iterable_val_t<T>>( ctx ) );
 	
-				return T{
-					 std::make_move_iterator( entries.begin() ),
-					 std::make_move_iterator( entries.end() )
-				};
+				if constexpr ( Same<T, std::vector<iterable_val_t<T>>> )
+					return entries;
+				else
+					return T{ std::make_move_iterator( entries.begin() ), std::make_move_iterator( entries.end() ) };
 			}
 		}
 	};
 	template<Tuple T>
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value )
+		static void apply( serialization& ctx, const T& value )
 		{
 			make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
 			{
 				serialize( ctx, std::get<N>( value ) );
 			} );
 		}
-		static inline T reflect( serialization& ctx )
+		static T reflect( serialization& ctx )
 		{
 			if constexpr ( is_specialization_v<std::pair, T> )
 			{
@@ -372,41 +381,33 @@ namespace xstd
 	template<Variant T>
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value )
+		static void apply( serialization& ctx, const T& value )
 		{
-			size_t idx = value.index() + 1;
-			ctx.write_idx( idx );
-			if ( !idx ) return;
-
+			size_t idx = value.index();
+			ctx.write_idx( idx + 1 );
+			if ( idx == std::variant_npos )
+				return;
 			std::visit( [ & ] ( const auto& ref )
 			{
 				serialize( ctx, ref );
 			}, value );
 		}
-		static inline T reflect( serialization& ctx )
+		static T reflect( serialization& ctx )
 		{
 			size_t idx = ctx.read_idx();
 			if ( idx == 0 ) return {};
 			--idx;
 
-			auto resolve = [ & ] <auto N> ( auto && self, const_tag<N> )
+			return visit_index<std::variant_size_v<T>>( idx, [ & ] <size_t N> ( const_tag<N> ) -> T
 			{
-				if constexpr ( N != std::variant_size_v<T> )
-				{
-					if ( idx == N )
-						return T( deserialize<std::variant_alternative_t<N, T>>( ctx ) );
-					else
-						return self( self, const_tag<N + 1>{} );
-				}
-				return T{};
-			};
-			return resolve( resolve, const_tag<0>{} );
+				return T{ std::in_place_index_t<N>{}, deserialize<std::variant_alternative_t<N, T>>( ctx ) };
+			} );
 		}
 	};
 	template<Optional T>
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value )
+		static void apply( serialization& ctx, const T& value )
 		{
 			if ( value.has_value() )
 			{
@@ -418,7 +419,7 @@ namespace xstd
 				serialize<int8_t>( ctx, 0 );
 			}
 		}
-		static inline T reflect( serialization& ctx )
+		static T reflect( serialization& ctx )
 		{
 			if ( deserialize<int8_t>( ctx ) )
 				return T{ deserialize<typename T::value_type>( ctx ) };
@@ -429,28 +430,79 @@ namespace xstd
 	template<>
 	struct serializer<hash_t>
 	{
-		static inline void apply( serialization& ctx, const hash_t& value )
+		static void apply( serialization& ctx, const hash_t& value )
 		{
 			ctx.write( &value, sizeof( value ) );
 		}
-		static inline hash_t reflect( serialization& ctx )
+		static hash_t reflect( serialization& ctx )
 		{
 			hash_t value;
 			ctx.read( &value, sizeof( value ) );
 			return value;
 		}
 	};
-	
+
+	// Acceleration for std::basic_string, std::vector<trivial>, std::array<trivial>.
+	//
+	template<Trivial T>
+	struct serializer<std::vector<T>>
+	{
+		static void apply( serialization& ctx, const std::vector<T>& value )
+		{
+			ctx.write_idx( value.size() );
+			ctx.write( value.data(), value.size() * sizeof( T ) );
+		}
+		static std::vector<T> reflect( serialization& ctx )
+		{
+			std::vector<T> result;
+			result.resize( ctx.read_idx() );
+			ctx.read( result.data(), result.size() * sizeof( T ) );
+			return result;
+		}
+	};
+	template<Trivial T, size_t N>
+	struct serializer<std::array<T, N>>
+	{
+		static void apply( serialization& ctx, const std::array<T, N>& value )
+		{
+			ctx.write_idx( N );
+			ctx.write( value.data(), N * sizeof( T ) );
+		}
+		static std::array<T, N> reflect( serialization& ctx )
+		{
+			std::array<T, N> result;
+			ctx.read_idx();
+			ctx.read( result.data(), N * sizeof( T ) );
+			return result;
+		}
+	};
+	template<typename T>
+	struct serializer<std::basic_string<T>>
+	{
+		static void apply( serialization& ctx, const std::basic_string<T>& value )
+		{
+			ctx.write_idx( value.size() );
+			ctx.write( value.data(), value.size() * sizeof( T ) );
+		}
+		static std::basic_string<T> reflect( serialization& ctx )
+		{
+			std::basic_string<T> result;
+			result.resize( ctx.read_idx() );
+			ctx.read( result.data(), result.size() * sizeof( T ) );
+			return result;
+		}
+	};
+
 	// Implement it for pointer types the type is final.
 	//
 	template<impl::SafeObj T>
 	struct serializer<T*>
 	{
-		static inline void apply( serialization& ctx, T* value )
+		static void apply( serialization& ctx, T* value )
 		{
 			ctx.serialize_pointer( value, false );
 		}
-		static inline T* reflect( serialization& ctx )
+		static T* reflect( serialization& ctx )
 		{
 			return ctx.deserialize_pointer<T>().get();
 		}
@@ -458,11 +510,11 @@ namespace xstd
 	template<impl::SafeObj T>
 	struct serializer<const T*>
 	{
-		static inline void apply( serialization& ctx, const T* value )
+		static void apply( serialization& ctx, const T* value )
 		{
 			ctx.serialize_pointer( value, false );
 		}
-		static inline const T* reflect( serialization& ctx )
+		static const T* reflect( serialization& ctx )
 		{
 			return ctx.deserialize_pointer<T>().get();
 		}
@@ -470,11 +522,11 @@ namespace xstd
 	template<impl::SafeObj T>
 	struct serializer<std::shared_ptr<T>>
 	{
-		static inline void apply( serialization& ctx, const std::shared_ptr<T>& value )
+		static void apply( serialization& ctx, const std::shared_ptr<T>& value )
 		{
 			ctx.serialize_pointer( value.get(), true );
 		}
-		static inline std::shared_ptr<T> reflect( serialization& ctx )
+		static std::shared_ptr<T> reflect( serialization& ctx )
 		{
 			return ctx.deserialize_pointer<T>();
 		}
@@ -482,11 +534,11 @@ namespace xstd
 	template<impl::SafeObj T>
 	struct serializer<shared<T>>
 	{
-		static inline void apply( serialization& ctx, const shared<T>& value )
+		static void apply( serialization& ctx, const shared<T>& value )
 		{
 			ctx.serialize_pointer( value.get(), true );
 		}
-		static inline shared<T> reflect( serialization& ctx )
+		static shared<T> reflect( serialization& ctx )
 		{
 			return ctx.deserialize_xpointer<T>();
 		}
@@ -494,11 +546,11 @@ namespace xstd
 	template<impl::SafeObj T>
 	struct serializer<std::weak_ptr<T>>
 	{
-		static inline void apply( serialization& ctx, const std::weak_ptr<T>& value )
+		static void apply( serialization& ctx, const std::weak_ptr<T>& value )
 		{
 			ctx.serialize_pointer( value.lock().get(), false );
 		}
-		static inline std::weak_ptr<T> reflect( serialization& ctx )
+		static std::weak_ptr<T> reflect( serialization& ctx )
 		{
 			return ctx.deserialize_pointer<T>();
 		}
@@ -506,11 +558,11 @@ namespace xstd
 	template<impl::SafeObj T>
 	struct serializer<weak<T>>
 	{
-		static inline void apply( serialization& ctx, const weak<T>& value )
+		static void apply( serialization& ctx, const weak<T>& value )
 		{
 			ctx.serialize_pointer( value.lock().get(), false );
 		}
-		static inline weak<T> reflect( serialization& ctx )
+		static weak<T> reflect( serialization& ctx )
 		{
 			return ctx.deserialize_xpointer<T>();
 		}
@@ -518,11 +570,11 @@ namespace xstd
 	template<impl::SafeObj T>
 	struct serializer<std::unique_ptr<T>>
 	{
-		static inline void apply( serialization& ctx, const std::unique_ptr<T>& value )
+		static void apply( serialization& ctx, const std::unique_ptr<T>& value )
 		{
 			ctx.serialize_pointer( value.get(), true );
 		}
-		static inline std::unique_ptr<T> reflect( serialization& ctx )
+		static std::unique_ptr<T> reflect( serialization& ctx )
 		{
 			return ctx.deserialize_pointer_u<T>();
 		}
@@ -533,11 +585,11 @@ namespace xstd
 	template<typename T> requires ( CustomSerializable<T> || CustomDeserializable<T> )
 	struct serializer<T>
 	{
-		static inline void apply( serialization& ctx, const T& value ) requires CustomSerializable<T>
+		static void apply( serialization& ctx, const T& value ) requires CustomSerializable<T>
 		{
 			value.serialize( ctx );
 		}
-		static inline T reflect( serialization& ctx ) requires CustomDeserializable<T>
+		static T reflect( serialization& ctx ) requires CustomDeserializable<T>
 		{
 			return T::deserialize( ctx );
 		}
@@ -550,7 +602,7 @@ namespace xstd
 	{
 		using T = decltype( std::declval<O&>().tie() );
 	
-		static inline void apply( serialization& ctx, const O& value )
+		static void apply( serialization& ctx, const O& value )
 		{
 			auto tied = const_cast< O& >( value ).tie();
 			make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
@@ -558,7 +610,7 @@ namespace xstd
 				serialize( ctx, std::get<N>( tied ) );
 			} );
 		}
-		static inline O reflect( serialization& ctx )
+		static O reflect( serialization& ctx )
 		{
 			O value = {};
 			auto tied = value.tie();
@@ -576,8 +628,8 @@ namespace xstd
 	template<>
 	struct serializer<std::monostate>
 	{
-		static inline void apply( serialization&, const std::monostate& ) {}
-		static inline std::monostate reflect( serialization& ) { return {}; }
+		static void apply( serialization&, const std::monostate& ) {}
+		static std::monostate reflect( serialization& ) { return {}; }
 	};
 	template<typename T>
 	using serializer_t = serializer<std::remove_cvref_t<T>>;
@@ -585,17 +637,17 @@ namespace xstd
 	// Implement the simple interface.
 	//
 	template<typename T>
-	static inline std::vector<uint8_t> serialize( const T& value, bool no_header = false )
+	static std::vector<uint8_t> serialize( const T& value, bool no_header = false )
 	{
 		serialization ctx = {};
 		serializer_t<T>::apply( ctx, value );
 		return ctx.dump( no_header );
 	}
-	template<typename T> static inline void serialize( serialization& ctx, const T& value ) { serializer_t<T>::apply( ctx, value ); }
-	template<typename T> static inline T deserialize( serialization& ctx ) { return serializer_t<T>::reflect( ctx ); }
-	template<typename T> static inline T deserialize( serialization&& ctx ) { return serializer_t<T>::reflect( ctx ); }
-	template<typename T> static inline void deserialize( T& out, serialization& ctx ) { out = serializer_t<T>::reflect( ctx ); }
-	template<typename T> static inline void deserialize( T& out, serialization&& ctx ) { out = serializer_t<T>::reflect( ctx ); }
+	template<typename T> static void serialize( serialization& ctx, const T& value ) { serializer_t<T>::apply( ctx, value ); }
+	template<typename T> static T deserialize( serialization& ctx ) { return serializer_t<T>::reflect( ctx ); }
+	template<typename T> static T deserialize( serialization&& ctx ) { return serializer_t<T>::reflect( ctx ); }
+	template<typename T> static void deserialize( T& out, serialization& ctx ) { out = serializer_t<T>::reflect( ctx ); }
+	template<typename T> static void deserialize( T& out, serialization&& ctx ) { out = serializer_t<T>::reflect( ctx ); }
 	
 	// Implement the final steps.
 	//
@@ -686,25 +738,25 @@ namespace xstd
 // Overload streaming operators.
 //
 template<typename T>
-inline static xstd::serialization& operator>>( xstd::serialization& self, T& v )
+static xstd::serialization& operator>>( xstd::serialization& self, T& v )
 {
 	v = self.read<T>();
 	return self;
 }
 template<typename T>
-inline static xstd::serialization& operator<<( T& v, xstd::serialization& self )
+static xstd::serialization& operator<<( T& v, xstd::serialization& self )
 {
 	v = self.read<T>();
 	return self;
 }
 template<typename T>
-inline static xstd::serialization& operator>>( const T& v, xstd::serialization& self )
+static xstd::serialization& operator>>( const T& v, xstd::serialization& self )
 {
 	self.write( v );
 	return self;
 }
 template<typename T>
-inline static xstd::serialization& operator<<( xstd::serialization& self, const T& v )
+static xstd::serialization& operator<<( xstd::serialization& self, const T& v )
 {
 	self.write( v );
 	return self;

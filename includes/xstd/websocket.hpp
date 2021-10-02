@@ -3,18 +3,56 @@
 #include <string>
 #include <string_view>
 #include <optional>
+#include "generator.hpp"
 #include "spinlock.hpp"
 #include "time.hpp"
 #include "random.hpp"
 #include "tcp.hpp"
+#include "task.hpp"
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
+// Define status codes and the traits.
+//
+namespace xstd
+{
+	namespace ws
+	{
+		enum status_code : uint16_t
+		{
+			status_none =              0,
+			status_shutdown =          1000,
+			status_going_away =        1001,
+			status_protocol_error =    1002,
+			status_unknown_operation = 1003,
+			status_unknown =           1005, // Do not send.
+			status_connection_reset =  1006, // Do not send.
+			status_invalid_data =      1007,
+			status_policy_violation =  1008,
+			status_data_too_large =    1009,
+			status_missing_extension = 1010,
+			status_unexpected_error =  1011,
+		};
+		inline constexpr status_code application_status( uint16_t i ) { return status_code( 1100 + i ); }
+	};
+
+	template<>
+	struct status_traits<ws::status_code>
+	{
+		static constexpr ws::status_code success_value = ws::status_none;
+		static constexpr ws::status_code failure_value = ws::status_unknown;
+		constexpr static inline bool is_success( uint16_t s ) { return s == ws::status_none; }
+	};
+};
+
+// Start the websocket implementation.
+//
 namespace xstd::ws
 {
 	static constexpr uint8_t length_extend_u16 = 126;
 	static constexpr uint8_t length_extend_u64 = 127;
-	static constexpr size_t length_limit = 64_mb;
+	static constexpr size_t default_length_limit = 64_mb;
+	static constexpr size_t max_packet_size = 63_kb; // 65535 - max_net_header_size - 34;
 
 	// Websocket opcodes and the traits.
 	//
@@ -32,24 +70,6 @@ namespace xstd::ws
 	{
 		return op >= opcode::close;
 	}
-
-	// Websocket status codes.
-	//
-	enum status_code : uint16_t
-	{
-		status_none =              0,
-		status_shutdown =          1000,
-		status_going_away =        1001,
-		status_protocol_error =    1002,
-		status_unknown_operation = 1003,
-		status_unknown =           1005, // Do not send.
-		status_connection_reset =  1006, // Do not send.
-		status_invalid_data =      1007,
-		status_policy_violation =  1008,
-		status_data_too_large =    1009,
-		status_missing_extension = 1010,
-		status_unexpected_error =  1011,
-	};
 
 	// Networked packet header.
 	//
@@ -74,6 +94,14 @@ namespace xstd::ws
 		for ( size_t n = 0; n != len; n++ )
 			data[ n ] ^= kb[ n % 4 ];
 	}
+	inline void masked_copy( uint8_t* out, any_ptr ptr, size_t len, uint32_t key )
+	{
+		if ( !key ) return;
+		uint8_t* data = ptr;
+		auto* kb = ( const uint8_t* ) &key;
+		for ( size_t n = 0; n != len; n++ )
+			out[ n ] = data[ n ] ^ kb[ n % 4 ];
+	}
 
 	// Parsed packet header.
 	//
@@ -81,8 +109,8 @@ namespace xstd::ws
 	{
 		// Opcode and packet length.
 		//
-		opcode op = opcode::maximum;
 		size_t length = 0;
+		opcode op = opcode::maximum;
 		bool finished = true;
 
 		// Mask key, omitted if zero.
@@ -164,16 +192,14 @@ namespace xstd::ws
 		buffer = it;
 		return 0;
 	}
-	inline void write( std::vector<uint8_t>& buffer, header& hdr )
+	inline size_t write( uint8_t* buffer, header& hdr )
 	{
+		size_t length = 0;
 		auto write = [ & ] <typename T> ( const T& v )
 		{
-			buffer.insert( buffer.end(), ( uint8_t* ) &v, ( uint8_t* ) std::next( &v ) );
+			*( T* ) &buffer[ length ] = v;
+			length += sizeof( T );
 		};
-
-		// Reserve enough space to hold the maximum header length and the data implied by the header.
-		//
-		buffer.reserve( buffer.size() + max_net_header_size + hdr.length );
 
 		// Create the networked header and write it including extended size if relevant.
 		//
@@ -204,249 +230,217 @@ namespace xstd::ws
 		//
 		if ( hdr.mask_key )
 			write( hdr.mask_key );
+		
+		// Return the length of the header.
+		//
+		return length;
+	}
+	
+	// Generic send implementation.
+	//
+	inline void send( tcp::client& socket, opcode op, const void* src, size_t length )
+	{
+		auto submit = [ & ] ( header hdr, std::span<const uint8_t> body )
+		{
+			// Update the length in the header, pick a mask key.
+			//
+			hdr.length = body.size();
+			hdr.mask_key = xstd::make_random<uint32_t>( 1, UINT32_MAX );
+			
+			// Write the header.
+			//
+			std::vector<uint8_t> buffer( max_net_header_size + body.size() );
+			auto it = write( buffer.data(), hdr );
+			
+			// Write the data.
+			//
+			masked_copy( buffer.data() + it, body.data(), body.size(), hdr.mask_key );
+			
+			// Resize the buffer and send it.
+			//
+			buffer.resize( it + body.size() );
+			socket.tx_queue.emplace_back( std::move( buffer ), 0 );
+		};
+
+		// Acquire the TX queue lock and reserve the slots.
+		//
+		std::lock_guard _g{ socket.tx_lock };
+		std::span data{ ( const uint8_t* ) src, ( const uint8_t* ) src + length };
+
+		// Split the packets into continuation lengths.
+		//
+		while ( data.size() > max_packet_size )
+		{
+			submit( { .op = op, .finished = false }, data.subspan( 0, max_packet_size ) );
+			data = data.subspan( max_packet_size );
+			op = opcode::continuation;
+		}
+		submit( { .op = op, .finished = true }, data );
+
+		// Flush the queues.
+		//
+		socket.flush_queues( true );
 	}
 
-	// Define the websocket client.
+	// Helpers for specific opcodes.
 	//
-	template<typename transport_layer>
-	struct client : transport_layer
+	inline void send( tcp::client& socket, std::string_view text )
 	{
-		// Status of the WebSocket.
-		//
-		std::atomic<status_code> status = status_none;
+		send( socket, opcode::text, text.data(), text.size() );
+	}
+	inline void send( tcp::client& socket, std::span<const uint8_t> data )
+	{
+		send( socket, opcode::binary, data.data(), data.size() );
+	}
+	inline void close( tcp::client& socket, status_code status )
+	{
+		if ( socket.is_closed() ) return;
+		send( socket, opcode::close, &status, sizeof( status ) );
+		socket.socket_close();
+	}
+	inline void ping( tcp::client& socket, std::span<const uint8_t> data )
+	{
+		send( socket, opcode::ping, data.data(), data.size() );
+	}
+	inline void pong( tcp::client& socket, std::span<const uint8_t> data )
+	{
+		send( socket, opcode::pong, data.data(), data.size() );
+	}
 
-		// Status of our ping-pong requests.
-		//
-		uint32_t ping_key = make_random<uint32_t>();
-		timestamp last_ping = {};
-		timestamp last_pong = {};
-
-		// Receive buffer and the state of the fragmentation handlers.
-		//
-		xstd::spinlock receive_spinlock;
-		std::optional<std::pair<header, std::vector<uint8_t>>> fragmented_packet;
-
-		// Implemented by the application layer.
-		//
-		virtual bool on_receive( opcode op, std::string_view data ) = 0;
-
-		// Handles an incoming websocket packet.
-		//
-		void handle_packet( const header& hdr, std::string_view data )
+	// Packet parser.
+	//
+	inline generator<std::pair<opcode, std::span<uint8_t>>> parser( tcp::client& socket, status_code& status, size_t length_limit = default_length_limit )
+	{
+		auto accept_packet = [ & ] () -> xstd::task<std::pair<header, std::span<uint8_t>>, status_code>
 		{
-			if ( transport_layer::is_closed() ) return;
-
-			// Handle known control frames.
-			//
-			if ( hdr.op == opcode::close )
-			{
-				// Read the status code and invoke the callback.
-				//
-				auto status_ex = status_none;
-				if ( data.size() >= 2 )
-					status.compare_exchange_strong( status_ex, bswap( *( status_code* ) data.data() ) );
-				else
-					status.compare_exchange_strong( status_ex, status_shutdown );
-				transport_layer::socket_close();
-			}
-			else if ( hdr.op == opcode::ping )
-			{
-				// Send a pong and continue.
-				//
-				send_packet( opcode::pong, data.data(), data.size() );
-			}
-			else if ( hdr.op == opcode::pong )
-			{
-				// No operation, just update the timer if same key.
-				//
-				if ( last_ping > last_pong && ping_key && data.size() == 4 && ping_key == *( uint32_t* ) data.data() )
-				{
-					last_pong = time::now();
-					ping_key = 0;
-				}
-			}
-			// Call into application.
-			//
-			else if ( !on_receive( hdr.op, data ) )
-			{
-				close( status_unknown_operation );
-			}
-		}
-
-		// Sends a websocket packet.
-		//
-		void send_packet( opcode op, std::vector<uint8_t> data = {} )
-		{
-			if ( transport_layer::is_closed() ) return;
-			
-			// Validate the length.
-			//
-			if ( data.size() > length_limit )
-				return close( status_data_too_large );
-
-			// Create the header.
-			//
-			header hdr = {
-				.op = op,
-				.length = data.size(),
-				.finished = true,
-				.mask_key = make_random<uint32_t>( 1, UINT32_MAX )
-			};
-			dassert( hdr.mask_key );
-
-			// Serialize the header into the transmit buffer.
-			//
-			std::vector<uint8_t> hdr_buffer = {};
-			hdr_buffer.reserve( 14 );
-			ws::write( hdr_buffer, hdr );
-
-			// Append the data as well and mask it.
-			//
-			data.insert( data.begin(), hdr_buffer.begin(), hdr_buffer.end() );
-			mask_buffer( data.data() + hdr_buffer.size(), data.size() - hdr_buffer.size(), hdr.mask_key );
-			
-			// Write to the TCP socket.
-			//
-			transport_layer::write( std::move( data ) );
-		}
-		void send_packet( opcode op, const void* data, size_t length ) { return send_packet( op, std::vector<uint8_t>{ ( uint8_t* ) data, ( uint8_t* ) data + length } ); }
-
-		// Ping-pong helper, returns latest measured latency or zero.
-		//
-		duration ping()
-		{
-			auto t = last_pong - last_ping;
-			ping_key = make_random<uint32_t>( 1 );
-			last_ping = time::now();
-			send_packet( opcode::ping, &ping_key, sizeof( ping_key ) );
-			return t;
-		}
-
-		// Terminates the connection.
-		//
-		void close( status_code st = status_shutdown )
-		{
-			if ( transport_layer::is_closed() ) return;
-			if ( st != status_none )
-			{
-				status_code status_ex = status_none;
-				if ( status.compare_exchange_strong( status_ex, st ) )
-				{
-					st = bswap( st );
-					send_packet( opcode::close, &st, sizeof( st ) );
-					transport_layer::socket_writeback();
-				}
-			}
-			transport_layer::socket_close();
-		}
-
-		// Parses packets from the TCP stream.
-		//
-		size_t packet_parse( std::string_view data ) override
-		{
-			const char* it_original = data.data();
-
-			// Read the headers:
+			// Read the header.
 			//
 			header hdr = {};
-			int state = read( data, hdr );
-			// Propagate error.
-			if ( state > 0 )
+			while ( true )
 			{
-				close( ( status_code ) state );
-				return 0;
-			}
-			// Pending header, break.
-			else if ( state < 0 )
-				return 0;
-			// Check for the length limit.
-			else if ( hdr.length > length_limit )
-			{
-				close( status_data_too_large );
-				return 0;
-			}
-			// Pending body, break.
-			else if ( data.size() < hdr.length )
-				return 0;;
+				auto data = co_await socket.recv();
+				if ( data.empty() )
+					co_yield status_connection_reset;
 
-			// Get the data buffer and mask it if relevant.
-			//
-			std::string_view data_buffer = data.substr( 0, hdr.length );
-			mask_buffer( data_buffer.data(), data_buffer.size(), hdr.mask_key );
-			data.remove_prefix( hdr.length );
+				int result = read( data, hdr );
+				if ( result < 0 )
+					continue;
 
-			// If control frame, handle ignoring continuation state:
-			//
-			if ( hdr.is_control_frame() )
-			{
-				handle_packet( hdr, data_buffer );
+				if ( result > 0 )
+					co_yield ( status_code ) result;
+				socket.forward_to( data );
+				break;
 			}
-			// If continuation frame:
-			//
-			else if ( hdr.op == opcode::continuation )
-			{
-				std::unique_lock lock{ receive_spinlock };
 
-				// If no unfinished packet exists, terminate due to corrupt stream.
-				//
-				if ( !fragmented_packet )
+			// Validate the header.
+			//
+			if ( hdr.length > length_limit )
+				co_yield status_data_too_large;
+
+			// Wait for the body.
+			//
+			auto sstr = co_await socket.recv( hdr.length );
+			if ( sstr.empty() )
+				co_yield status_connection_reset;
+
+			std::span<uint8_t> result_data = { ( uint8_t* ) sstr.data(), sstr.size() };
+			mask_buffer( result_data.data(), result_data.size(), hdr.mask_key );
+			co_return std::pair{ hdr, result_data };
+		};
+
+		status = status_code::status_none;
+		while ( true )
+		{
+			// Accept a packet.
+			//
+			auto res = co_await accept_packet();
+			if ( res.fail() )
+			{
+				close( socket, ( status = res.status ) );
+				co_return;
+			}
+			auto [hdr, data] = *res;
+
+			// Fail if continuation packet.
+			//
+			if ( hdr.op == opcode::continuation )
+			{
+				close( socket, ( status = status_protocol_error ) ); // Did not expect a continuation.
+				co_return;
+			}
+
+			// If control frame, handle seperately and continue.
+			//
+			if ( hdr.is_control_frame() || hdr.finished )
+			{
+				switch ( hdr.op )
 				{
-					lock.unlock();
-					close( status_protocol_error );
-					return 0;
+					case opcode::ping:
+						pong( socket, data );
+						break;
+					case opcode::close:
+						status = data.size() == 2 ? bswap( *( status_code* ) data.data() ) : status_unknown;
+						socket.socket_close();
+						co_return;
+					default:
+						co_yield std::pair{ hdr.op, data };
+						break;
+				}
+				continue;
+			}
+
+			// Start fragmented packet.
+			//
+			std::vector<uint8_t> fragmented_packet{ data.begin(), data.end() };
+			while ( true )
+			{
+				// Accept a packet.
+				//
+				auto res = co_await accept_packet();
+				if ( res.fail() )
+				{
+					close( socket, ( status = res.status ) );
+					co_return;
+				}
+				auto [hdr, data] = *res;
+
+				// If control frame, handle seperately and continue.
+				//
+				if ( hdr.is_control_frame() )
+				{
+					switch ( hdr.op )
+					{
+						case opcode::ping: 
+							pong( socket, data ); 
+							break;
+						case opcode::close:
+							status = data.size() == 2 ? bswap( *( status_code* ) data.data() ) : status_unknown;
+							co_return;
+						default:
+							co_yield std::pair{ hdr.op, data };
+							break;
+					}
+					continue;
 				}
 
-				// Append the data onto the streamed packet.
+				// Add fragment.
 				//
-				fragmented_packet->second.insert(
-					fragmented_packet->second.end(),
-					data_buffer.begin(),
-					data_buffer.end()
-				);
+				if ( hdr.op != opcode::continuation )
+				{
+					close( socket, ( status = status_protocol_error ) ); // Unfinished fragmented packet.
+					co_return;
+				}
+				fragmented_packet.insert( fragmented_packet.end(), data.begin(), data.end() );
 
-				// If packet finishes on this frame, handle the packet and reset fragmented packet.
+				// If we finished the continuation stream, break.
 				//
 				if ( hdr.finished )
-				{
-					auto packet = std::exchange( fragmented_packet, std::nullopt ).value();
-					lock.unlock();
-
-					std::string_view full_data = { ( char* ) packet.second.data(), packet.second.size() };
-					handle_packet( packet.first, full_data );
-				}
-			}
-			// If fragmented packet:
-			//
-			else if ( !hdr.finished )
-			{
-				// If there is already another fragmented packet, terminate due to corrupt stream.
-				//
-				if ( fragmented_packet )
-				{
-					close( status_protocol_error );
-					return 0;
-				}
-
-				// Save the fragmented packet.
-				//
-				std::unique_lock lock{ receive_spinlock };
-				auto& buf = fragmented_packet.emplace( std::pair{ hdr, std::vector<uint8_t>{} } ).second;
-				buf.insert( buf.end(), data_buffer.begin(), data_buffer.end() );
-			}
-			// If any other packet fitting in one frame, handle it.
-			//
-			else
-			{
-				handle_packet( hdr, data_buffer );
+					break;
 			}
 
-			// Return the consumed size.
+			// Yield the final packet.
 			//
-			return data.data() - it_original;
+			co_yield std::pair{ hdr.op, std::span<uint8_t>{ fragmented_packet } };
 		}
-
-		// Close the stream on destruction.
-		//
-		~client() { close( status_none ); }
-	};
+	}
 };

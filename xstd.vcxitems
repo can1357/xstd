@@ -25,6 +25,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\asn1.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_generator.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\circular_buffer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_hashmap.hpp" />
@@ -42,6 +44,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fetch_once.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\graph.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\enum_name.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp" />
@@ -66,10 +70,10 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\nested_range.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\oid.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\promise.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\random.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range_map.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\ref_counted.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
@@ -85,6 +89,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\string_literal.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\strong_formatting.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task_guard.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\text.hpp" />

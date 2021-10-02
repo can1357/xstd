@@ -164,9 +164,9 @@ namespace xstd
 		{
 			return &emplace( pos, std::move( value ) );
 		}
-		void push_back( const T& value )
+		bool push_back( const T& value )
 		{
-			insert( end(), value );
+			return insert( end(), value ) != nullptr;
 		}
 		template<typename... Tx>
 		reference emplace_back( Tx&&... args )
@@ -421,9 +421,9 @@ namespace xstd
 		{
 			return &emplace( pos, std::move( value ) );
 		}
-		constexpr void push_back( const T& value )
+		constexpr bool push_back( const T& value )
 		{
-			insert( end(), value );
+			return insert( end(), value ) != nullptr;
 		}
 		template<typename... Tx>
 		constexpr reference emplace_back( Tx&&... args )

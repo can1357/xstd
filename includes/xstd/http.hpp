@@ -4,6 +4,8 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include "generator.hpp"
+#include "tcp.hpp"
 #include "text.hpp"
 #include "assert.hpp"
 
@@ -103,17 +105,8 @@ namespace xstd::http
 	// Declare the I/O helpers.
 	//
 	template<typename T> requires ( HeaderMap<T> || Same<header_list, T> )
-	inline void write( std::string& output, const T& headers )
+	inline void write( std::vector<uint8_t>& output, const T& headers )
 	{
-		// Reserve the space we need to write the headers.
-		//
-		output.reserve( output.size() + std::accumulate( headers.begin(), headers.end(), 0ull, [ ] ( size_t n, auto& pair )
-		{
-			return n + pair.first.size() + 2 + pair.second.size() + 2;
-		} ) );
-
-		// Write all headers.
-		//
 		for ( auto& [key, value] : headers )
 		{
 			output.insert( output.end(), key.begin(), key.end() );
@@ -170,18 +163,17 @@ namespace xstd::http
 	// Declare the I/O helpers.
 	//
 	template<RequestHeader T>
-	inline void write( std::string& output, const T& header )
+	inline void write( std::vector<uint8_t>& output, const T& header )
 	{
-		// Reserve the size required and then write it.
-		//
 		dassert( header.method < method_id::maximum );
 		auto& method = method_map[ size_t( header.method ) ];
-		output.reserve( output.size() + method.size() + 1 + header.path.size() + 1 + strlen( "HTTP/1.1\r\n" ) );
-		output += method;
-		output += ' ';
-		output += header.path;
-		output += ' ';
-		output += "HTTP/1.1\r\n";
+		output.insert( output.end(), method.begin(), method.end() );
+		output.insert( output.end(), ' ' );
+		output.insert( output.end(), header.path.begin(), header.path.end() );
+		output.insert( output.end(), ' ' );
+
+		constexpr std::string_view version = "HTTP/1.1\r\n";
+		output.insert( output.end(), version.begin(), version.end() );
 	}
 	template<RequestHeader T>
 	inline bool read( std::string_view& input, T& header )
@@ -236,18 +228,23 @@ namespace xstd::http
 	// Declare the I/O helpers.
 	//
 	template<ResponseHeader T>
-	inline void write( std::string& output, const T& header )
+	inline void write( std::vector<uint8_t>& output, const T& header )
 	{
-		// Reserve the size required and then write it.
-		//
 		dassert( header.method < method_id::maximum );
 		auto& method = method_map[ size_t( header.method ) ];
-		output.reserve( output.size() + strlen( "HTTP/1.1 " ) + 5 + header.message.size() + 2 );
-		output += "HTTP/1.1 ";
-		output += std::to_string( header.status );
-		output += ' ';
-		output += header.message;
-		output += "\r\n";
+
+		constexpr std::string_view version = "HTTP/1.1 ";
+		output.insert( output.end(), version.begin(), version.end() );
+
+		std::array<char, 4> status = {
+			'0' + char( int( header.status / 100 ) % 10 ),
+			'0' + char( int( header.status / 10 ) % 10 ),
+			'0' + char( int( header.status / 1 ) % 10 ),
+			' '
+		};
+		output.insert( output.end(), status.begin(), status.end() );
+		output.insert( output.end(), header.message.begin(), header.message.end() );
+		output.insert( output.end(), { '\r', '\n' } );
 	}
 	template<ResponseHeader T>
 	inline bool read( std::string_view& input, T& header )
@@ -366,11 +363,11 @@ namespace xstd::http
 
 		// Formats the header.
 		//
-		std::string write_headers() const
+		std::vector<uint8_t> write_headers() const
 		{
 			// Write the request header and the common headers.
 			//
-			std::string output = {};
+			std::vector<uint8_t> output = {};
 			http::write( output, meta );
 			http::write( output, headers );
 
@@ -378,21 +375,23 @@ namespace xstd::http
 			//
 			if ( !body.empty() && !headers.contains( "Content-Length" ) )
 			{
-				output += "Content-Length: ";
-				output += std::to_string( body.size() );
-				output += "\r\n";
+				constexpr std::string_view clen = "Content-Length: ";
+				output.insert( output.end(), clen.begin(), clen.end() );
+				std::string body_len = std::to_string( body.size() );
+				output.insert( output.end(), body_len.begin(), body_len.end() );
+				output.insert( output.end(), { '\r', '\n' } );
 			}
 			return output;
 		}
 
 		// Formats the header and the body.
 		//
-		std::string write() const
+		std::vector<uint8_t> write() const
 		{
-			std::string result = write_headers();
-			result += "\r\n";
-			result.insert( result.end(), body.begin(), body.end() );
-			return result;
+			std::vector<uint8_t> output = write_headers();
+			output.insert( output.end(), { '\r', '\n' } );
+			output.insert( output.end(), body.begin(), body.end() );
+			return output;
 		}
 	};
 
@@ -471,4 +470,29 @@ namespace xstd::http
 			return retval;
 		}
 	};
+
+	// Sends a request through the TCP socket.
+	//
+	inline void send( tcp::client& socket, request req )
+	{
+		socket.write( req.write() );
+	}
+
+	// Parses HTTP responses.
+	//
+	inline generator<response> parser( tcp::client& socket )
+	{
+		while ( true )
+		{
+			auto view = co_await socket.recv();
+			if ( view.empty() )
+				co_return;
+
+			if ( auto result = response::parse( view ) )
+			{
+				socket.forward_to( view );
+				co_yield *result;
+			}
+		}
+	}
 };
