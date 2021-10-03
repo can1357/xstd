@@ -155,7 +155,29 @@ namespace xstd
 		template<auto C = 0> static _CONSTEVAL std::string_view to_string() { return impl::value_namer<V>{}; }
 		template<auto C = 0> static _CONSTEVAL const char* c_str() { return impl::value_namer<V>{}; }
 	};
-	
+
+	// String literal.
+	//
+	template <size_t N>
+	struct string_literal
+	{
+		char value[ N ]{};
+		constexpr string_literal( const char( &str )[ N ] ) { std::copy_n( str, N, value ); }
+
+		// Observers.
+		//
+		inline constexpr const char* c_str() const { return &value[ 0 ]; }
+		inline constexpr const char* data() const { return c_str(); }
+		inline constexpr std::string_view get() const { return { c_str(), c_str() + size() }; }
+		inline constexpr size_t size() const { return N - 1; }
+		inline constexpr size_t length() const { return size(); }
+		inline constexpr bool empty() const { return size() == 0; }
+		inline constexpr const char& operator[]( size_t n ) const { return c_str()[ n ]; }
+		inline constexpr auto begin() const { return get().begin(); }
+		inline constexpr auto end() const { return get().end(); }
+		inline std::string to_string() const { return c_str(); }
+	};
+
 	// Check for specialization.
 	//
 	template<typename T, size_t N>
@@ -679,18 +701,75 @@ namespace xstd
 	{
 		if ( !std::is_constant_evaluated() )
 			return *( const To* ) &src;
-#if HAS_BIT_CAST
+#if HAS_BIT_CAST && !defined(__INTELLISENSE__)
 		else
 			return __builtin_bit_cast( To, src );
+#else
+		return std::bit_cast< To >( src );
 #endif
 		unreachable();
 	}
 	template<typename T>
 	concept Bitcastable = requires( T x ) { bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
-	template<typename T>
-	__forceinline static auto& bytes( T& src ) noexcept
+
+	template<typename T> requires ( !Reference<T> && !Const<T> )
+	__forceinline static auto& as_bytes( T& src ) noexcept
 	{
-		return carry_const( src, ( std::array<uint8_t, sizeof( T )>& ) src );
+		return ( std::array<uint8_t, sizeof( T )>& ) src;
+	}
+	template<typename T> requires ( !Reference<T> && !Const<T> )
+	__forceinline static auto& as_bytes( const T& src ) noexcept
+	{
+		return ( const std::array<uint8_t, sizeof( T )>& ) src;
+	}
+	template<typename T>
+	__forceinline static void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
+	{
+		if constexpr ( sizeof( T ) <= 32 )
+		{
+			auto& __restrict va = as_bytes( a );
+			const auto& __restrict vb = as_bytes( b );
+			for ( size_t n = 0; n != sizeof( T ); n++ )
+				va[ n ] = vb[ n ];
+		}
+		else
+		{
+			memcpy( &a, &b, sizeof( T ) );
+		}
+	}
+	template<typename T>
+	__forceinline static void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
+	{
+		if constexpr ( sizeof( T ) <= 32 )
+		{
+			auto& __restrict va = as_bytes( a );
+			auto& __restrict vb = as_bytes( b );
+			auto tmp = va;
+			va = vb;
+			vb = tmp;
+		}
+		else
+		{
+			std::swap( as_bytes( a ), as_bytes( b ) );
+		}
+	}
+	template<typename T>
+	__forceinline static bool trivial_equals( const T& a, const T& b ) noexcept
+	{
+		if constexpr ( sizeof( T ) <= 32 )
+		{
+			const auto& va = as_bytes( a );
+			const auto& vb = as_bytes( b );
+
+			bool mismatch = false;
+			for ( size_t n = 0; n != sizeof( T ); n++ )
+				mismatch |= va[ n ] != vb[ n ];
+			return !mismatch;
+		}
+		else
+		{
+			return !memcmp( a, b, sizeof( T ) );
+		}
 	}
 
 	// Member reference helper.
