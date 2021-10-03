@@ -22,11 +22,12 @@ namespace xstd
 
 		// Implement the interface.
 		// - void wait() const
-		// - bool wait_for(ms) const
+		// - bool wait_for( ms ) const
 		// - void reset()
 		// - void notify()
 		// - auto handle() const
 		// - static void wait_from_handle( handle_t )
+		// - static bool wait_from_handle( handle_t, ms )
 		//
 		inline void wait() const
 		{
@@ -45,6 +46,7 @@ namespace xstd
 		inline auto handle() const { return this; }
 
 		static void wait_from_handle( const event_primitive* handle ) { return handle->wait(); }
+		static bool wait_from_handle( const event_primitive* handle, long long milliseconds ) { return handle->wait_for( milliseconds ); }
 	};
 };
 #else

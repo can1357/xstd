@@ -14,8 +14,26 @@ namespace xstd
 		struct wait_block
 		{
 			wait_block* volatile next = nullptr;
-			event_base           event = {};
+			xstd::event_base     event = {};
 		};
+
+		template<typename T, typename S>
+		inline const basic_result<T, S>& timeout_result()
+		{
+			if constexpr ( Same<S, xstd::exception> )
+			{
+				static const basic_result<T, S> timeout = xstd::exception{ XSTD_ESTR( "Promise timed out." ) };
+				return timeout;
+			}
+			else if constexpr ( Same<S, no_status> )
+			{
+				xstd::error( XSTD_ESTR( "Promise timed out." ) );
+			}
+			else
+			{
+				return xstd::static_default{};
+			}
+		}
 	};
 
 	// Base of the promise type.
@@ -64,6 +82,46 @@ namespace xstd
 				std::destroy_at( &result );
 		}
 
+		// Wait block helpers.
+		//
+		bool register_wait_block( impl::wait_block& wb ) const
+		{
+			// Acquire the state lock, if already finished fail.
+			//
+			std::lock_guard _g{ state_lock };
+			if ( finished() ) [[unlikely]]
+				return false;
+
+			// Link the wait block and return.
+			//
+			wb.next = events;
+			events = &wb;
+			return true;
+		}
+		bool deregister_wait_block( impl::wait_block& wb ) const
+		{
+			// Acquire the state lock.
+			//
+			std::lock_guard _g{ state_lock };
+
+			// If event is already signalled, return.
+			//
+			if ( wb.event.signalled() )
+				return false;
+
+			// Find the entry before our entry, unlink and return.
+			//
+			for ( auto it = ( impl::wait_block* ) &events; it; it = it->next )
+			{
+				if ( it->next == &wb )
+				{
+					it->next = wb.next;
+					break;
+				}
+			}
+			return true;
+		}
+
 		// Waits for the event to be complete.
 		//
 		const basic_result<T, S>& wait() const
@@ -71,22 +129,15 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return unrace();
 
-			impl::wait_block block = {};
-
-			// Link the wait block.
+			// Register a wait block.
 			//
-			{
-				std::lock_guard _g{ state_lock };
-				if ( finished() )
-					return unrace();
-
-				block.next = events;
-				events = &block;
-			}
-
-			// Wait on it and then return.
+			impl::wait_block wb = {};
+			if ( !register_wait_block( wb ) )
+				return unrace();
+			
+			// Wait for completion and return the result.
 			//
-			block.event.wait();
+			wb.event.wait();
 			return result;
 		}
 		const basic_result<T, S>& wait_for( duration time ) const
@@ -94,55 +145,25 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return unrace();
 
-			impl::wait_block block = {};
-
-			// Link the wait block.
+			// Register a wait block.
 			//
-			{
-				std::lock_guard _g{ state_lock };
-				if ( finished() )
-					return unrace();
-
-				block.next = events;
-				events = &block;
-			}
+			impl::wait_block wb = {};
+			if ( !register_wait_block( wb ) )
+				return unrace();
 
 			// Wait on it and then return on success.
 			//
-			if ( block.event.wait_for( time ) )
+			if ( wb.event.wait_for( time ) )
 				return result;
 
-			// Acquire list lock again.
+			// Deregister the wait block, if we fail return the result.
 			//
-			std::lock_guard _g{ state_lock };
-
-			// If signalled, return.
-			//
-			if ( block.event.signalled() )
+			if ( !deregister_wait_block( wb ) )
 				return result;
 
-			// Find the entry before our entry and unlink:
+			// Return the timeout.
 			//
-			for ( auto it = ( impl::wait_block* ) &events; it; it = it->next )
-			{
-				if ( it->next == &block )
-				{
-					it->next = block.next;
-					break;
-				}
-			}
-
-			// Return the invalid result.
-			//
-			if constexpr ( Same<S, xstd::exception> )
-			{
-				static const basic_result<T, S> timeout = xstd::exception{ XSTD_ESTR( "Promise timed out." ) };
-				return timeout;
-			}
-			else
-			{
-				return xstd::static_default{};
-			}
+			return impl::timeout_result<T, S>();
 		}
 
 		// Chain/unchain a coroutine.
@@ -463,7 +484,6 @@ namespace xstd
 	struct unique_future : promise_ref<T, S, false>
 	{
 		using promise_ref<T, S, false>::promise_ref;
-		mutable coroutine_handle<> awaiting_as = nullptr;
 
 		// No copy, default move.
 		//
@@ -471,41 +491,6 @@ namespace xstd
 		unique_future& operator=( const unique_future& ) = delete;
 		unique_future( unique_future&& ) noexcept = default;
 		unique_future& operator=( unique_future&& ) noexcept = default;
-
-		bool await_ready()
-		{
-			if ( !this->finished() )
-				return false;
-			this->unrace();
-			return true;
-		}
-		bool await_suspend( coroutine_handle<> hnd )
-		{
-			if ( this->listen( hnd ) )
-			{
-				awaiting_as = hnd;
-				return true;
-			}
-			return false;
-		}
-		auto await_resume() const
-		{
-			awaiting_as = nullptr;
-			if constexpr ( Same<S, no_status> )
-			{
-				if constexpr ( !Same<T, void> )
-					return std::move( make_mutable( this->result() ) ).value();
-			}
-			else
-			{
-				return std::move( make_mutable( this->result() ) );
-			}
-		}
-		~unique_future()
-		{
-			if ( awaiting_as )
-				this->unlisten( awaiting_as );
-		}
 	};
 
 	struct make_awaitable_tag_t {};
@@ -529,6 +514,8 @@ namespace xstd
 		unique_future<T, S> move() { return { std::move( *this ) }; }
 	};
 
+	// Factories for the promises.
+	//
 	template<typename T = void, typename S = xstd::exception>
 	inline promise<T, S> make_promise()
 	{
@@ -536,7 +523,6 @@ namespace xstd
 		res->refs.store( 1 /*promise flag*/, std::memory_order::relaxed );
 		return promise<T, S>{ res };
 	}
-
 	template<typename T = void, typename S = xstd::exception>
 	inline promise<T, S> make_rejected_promise( S&& status )
 	{
@@ -573,7 +559,7 @@ namespace xstd
 					hnd.promise().promise.signal();
 					hnd.destroy();
 				}
-				void await_resume() const noexcept {}
+				void await_resume() const noexcept { unreachable(); }
 			};
 
 			future<T, S> get_return_object() { return promise; }
@@ -625,7 +611,7 @@ namespace xstd
 					hnd.promise().promise.signal();
 					hnd.destroy();
 				}
-				void await_resume() const noexcept {}
+				void await_resume() const noexcept { unreachable(); }
 			};
 
 			future<void, S> get_return_object() { return promise; }
@@ -725,6 +711,51 @@ namespace xstd
 					return promise.result().value();
 				else
 					return promise.result();
+			}
+			~awaitable()
+			{
+				if ( awaiting_as )
+					promise.unlisten( awaiting_as );
+			}
+		};
+		return awaitable{ std::move( ref ) };
+	}
+	template<typename T, typename S>
+	auto operator co_await( unique_future<T, S> ref )
+	{
+		struct awaitable
+		{
+			promise_ref<T, S, false> promise;
+			mutable coroutine_handle<> awaiting_as = nullptr;
+
+			bool await_ready()
+			{
+				if ( !promise.finished() )
+					return false;
+				promise.unrace();
+				return true;
+			}
+			bool await_suspend( coroutine_handle<> hnd )
+			{
+				if ( promise.listen( hnd ) )
+				{
+					awaiting_as = hnd;
+					return true;
+				}
+				return false;
+			}
+			auto await_resume() const
+			{
+				awaiting_as = nullptr;
+				if constexpr ( Same<S, no_status> )
+				{
+					if constexpr ( !Same<T, void> )
+						return std::move( make_mutable( promise.result() ) ).value();
+				}
+				else
+				{
+					return std::move( make_mutable( promise.result() ) );
+				}
 			}
 			~awaitable()
 			{

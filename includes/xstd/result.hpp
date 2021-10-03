@@ -133,19 +133,16 @@ namespace xstd
 		//
 		inline constexpr bool has_value() const { return full_value; }
 		inline constexpr explicit operator bool() const { return has_value(); }
-
-		// Getters.
-		//
-		inline std::string to_string() const { return c_str(); }
-		inline constexpr const char* data() const { return c_str(); }
 		inline constexpr const char* c_str() const { return full_value ? get_value() : ""; }
+		inline constexpr const char* data() const { return c_str(); }
 		inline constexpr std::string_view get() const { return c_str(); }
 		inline constexpr size_t size() const { return get().size(); };
 		inline constexpr size_t length() const { return size(); };
 		inline constexpr bool empty() const { return size() == 0; };
-		inline constexpr const char& operator[]( size_t n ) const { return data()[ n ]; };
+		inline constexpr const char& operator[]( size_t n ) const { return c_str()[ n ]; };
 		inline constexpr auto begin() const { return get().begin(); }
 		inline constexpr auto end() const { return get().end(); }
+		inline std::string to_string() const { return c_str(); }
 	};
 
 	// Status traits.

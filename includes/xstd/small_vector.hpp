@@ -340,7 +340,7 @@ namespace xstd
 		{
 			if constexpr ( TriviallySwappable<T> )
 			{
-				std::swap( bytes( *this ), bytes( o ) );
+				trivial_swap( *this, o );
 			}
 			else
 			{

@@ -103,7 +103,7 @@ namespace xstd
 		{
 			inline bool await_ready() { return false; }
 			inline void await_suspend( coroutine_handle<> hnd ) { hnd.destroy(); }
-			inline void await_resume() const {}
+			inline void await_resume() const { unreachable(); }
 		};
 	};
 	using namespace coro_export;

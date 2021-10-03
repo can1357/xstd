@@ -22292,10 +22292,29 @@ namespace ia32
 	_LINKAGE void read_idtr( void* ptr ) { asm volatile( "sidt %0" : "=m" ( *( segment_descriptor_register_64* ) ptr ) :: ); }
 	_LINKAGE void read_gdtr( void* ptr ) { asm volatile( "sgdt %0" : "=m" ( *( segment_descriptor_register_64* ) ptr ) :: ); }
 
-	_LINKAGE std::pair<idt_entry*, size_t> get_idt() { segment_descriptor_register_64 desc; read_idtr( &desc ); return { xstd::any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / 16 }; }
-	_LINKAGE std::pair<gdt_entry*, size_t> get_gdt() { segment_descriptor_register_64 desc; read_gdtr( &desc ); return { xstd::any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / 8 }; }
-	_LINKAGE void set_idt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 16 - 1 ); write_idtr( &desc ); }
-	_LINKAGE void set_gdt( xstd::any_ptr base_address, size_t length ) { segment_descriptor_register_64 desc; desc.base_address = base_address; desc.limit = uint16_t( length * 8 - 1 );  write_gdtr( &desc ); }
+	_LINKAGE void write_idtr( segment_descriptor_register_64 desc ) { write_idtr( &desc ); }
+	_LINKAGE void write_gdtr( segment_descriptor_register_64 desc ) { write_gdtr( &desc ); }
+	_LINKAGE segment_descriptor_register_64 read_idtr() { segment_descriptor_register_64 r; read_idtr( &r ); return r; }
+	_LINKAGE segment_descriptor_register_64 read_gdtr() { segment_descriptor_register_64 r; read_gdtr( &r ); return r; }
+
+	_LINKAGE std::pair<idt_entry*, size_t> get_idt() 
+	{ 
+		auto desc = read_idtr(); 
+		return { xstd::any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / sizeof( idt_entry ) }; 
+	}
+	_LINKAGE std::pair<gdt_entry*, size_t> get_gdt() 
+	{ 
+		auto desc = read_gdtr(); 
+		return { xstd::any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / sizeof( gdt_entry ) }; 
+	}
+	_LINKAGE void set_idt( xstd::any_ptr base_address, size_t length ) 
+	{ 
+		write_idtr( { uint16_t( length * sizeof( idt_entry ) - 1 ), base_address } );
+	}
+	_LINKAGE void set_gdt( xstd::any_ptr base_address, size_t length ) 
+	{ 
+		write_gdtr( { uint16_t( length * sizeof( gdt_entry ) - 1 ), base_address } );
+	}
 
 	// Segment selectors.
 	//
