@@ -95,26 +95,18 @@ namespace xstd
 		}
 		FORCE_INLINE void lock_shared()
 		{
-			uint16_t value = counter.load();
-
-			__hint_unroll_n( 2 )
 			while ( true )
 			{
-				// If not exclusively owned, try incrementing the lock count.
+				// Yield the CPU until the exclusive lock is gone.
 				//
-				if ( value < ( UINT16_MAX - 1 ) ) [[likely]]
-				{
-					if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
-						return;
-				}
-				// Otherwise, yield the CPU until we can lock again.
+				uint16_t value;
+				while ( ( value = counter.load() ) >= ( UINT16_MAX - 1 ) ) [[unlikely]]
+					yield_cpu();
+
+				// Try incrementing share count.
 				//
-				else
-				{
-					do
-						yield_cpu();
-					while ( ( value = counter.load() ) >= ( UINT16_MAX - 1 ) );
-				}
+				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
+					return;
 			}
 		}
 		FORCE_INLINE void upgrade()
