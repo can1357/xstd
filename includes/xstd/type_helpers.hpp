@@ -725,7 +725,7 @@ namespace xstd
 	template<typename T>
 	__forceinline static void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 32 )
+		if constexpr ( sizeof( T ) <= 128 )
 		{
 			auto& __restrict va = as_bytes( a );
 			const auto& __restrict vb = as_bytes( b );
@@ -740,7 +740,7 @@ namespace xstd
 	template<typename T>
 	__forceinline static void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 32 )
+		if constexpr ( sizeof( T ) <= 128 )
 		{
 			auto& __restrict va = as_bytes( a );
 			auto& __restrict vb = as_bytes( b );
@@ -756,7 +756,7 @@ namespace xstd
 	template<typename T>
 	__forceinline static bool trivial_equals( const T& a, const T& b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 32 )
+		if constexpr ( sizeof( T ) <= 128 )
 		{
 			const auto& va = as_bytes( a );
 			const auto& vb = as_bytes( b );
