@@ -33,7 +33,7 @@ namespace xstd
 			status_missing_extension = 1010,
 			status_unexpected_error =  1011,
 		};
-		inline constexpr status_code application_status( uint16_t i ) { return status_code( 1100 + i ); }
+		inline constexpr status_code application_status( uint16_t i ) { return status_code( 4000 + i ); }
 	};
 
 	template<>
