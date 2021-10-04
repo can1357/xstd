@@ -28,22 +28,27 @@ namespace xstd
 			promise_type() {}
 			~promise_type() 
 			{
+				dassert( !continuation ); // Should not leak continuation!
 				if ( done ) 
 					std::destroy_at( &value ); 
 			}
 
 			struct final_awaitable
 			{
-				bool has_continuation = false;
-				bool await_ready() noexcept { return !has_continuation; }
-				coroutine_handle<> await_suspend( coroutine_handle<promise_type> hnd ) noexcept { return hnd.promise().continuation; }
+				bool await_ready() noexcept { return false; }
+				bool await_suspend( coroutine_handle<promise_type> handle ) noexcept 
+				{
+					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
+						c();
+					return true;
+				}
 				void await_suspend( coroutine_handle<> ) noexcept {};
 				void await_resume() const noexcept {}
 			};
 
 			task<T, S> get_return_object() { return *this; }
 			suspend_always initial_suspend() noexcept { return {}; }
-			final_awaitable final_suspend() noexcept { return { continuation != nullptr }; }
+			final_awaitable final_suspend() noexcept { return {}; }
 			void unhandled_exception() {}
 			
 			template<typename V> 
@@ -57,7 +62,7 @@ namespace xstd
 			{
 				std::construct_at( &value, in_place_failure_t{}, std::forward<V>( v ) );
 				done = true;
-				return { continuation != nullptr };
+				return {};
 			}
 		};
 
@@ -122,20 +127,29 @@ namespace xstd
 			bool done = false;
 
 			promise_type() {}
-			~promise_type() { if ( done ) std::destroy_at( &value ); }
+			~promise_type()
+			{
+				dassert( !continuation ); // Should not leak continuation!
+				if ( done )
+					std::destroy_at( &value );
+			}
 			
 			struct final_awaitable
 			{
-				bool has_continuation = false;
-				bool await_ready() noexcept { return !has_continuation; }
-				coroutine_handle<> await_suspend( coroutine_handle<promise_type> hnd ) noexcept { return hnd.promise().continuation; }
+				bool await_ready() noexcept { return false; }
+				bool await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				{
+					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
+						c();
+					return true;
+				}
 				void await_suspend( coroutine_handle<> ) noexcept {};
 				void await_resume() const noexcept {}
 			};
 
 			task<void, S> get_return_object() { return *this; }
 			suspend_always initial_suspend() noexcept { return {}; }
-			final_awaitable final_suspend() noexcept { return { continuation != nullptr }; }
+			final_awaitable final_suspend() noexcept { return {}; }
 			void unhandled_exception() {}
 			
 			void return_void() 
@@ -148,7 +162,7 @@ namespace xstd
 			{
 				std::construct_at( &value, in_place_failure_t{}, std::forward<V>( v ) );
 				done = true;
-				return { continuation != nullptr };
+				return {};
 			}
 		};
 
