@@ -321,7 +321,7 @@ namespace xstd
 	template <template<typename...> typename Tmp, typename T>
 	concept Specialization = is_specialization_v<Tmp, T>;
 	template<typename T, typename... Args>
-	concept Constructable = requires( Args&&... a ) { T( std::forward<Args>( a )... ); };
+	concept Constructable = requires( Args&&... a ) { T{ std::forward<Args>( a )... }; };
 	template<typename From, typename To>
 	concept Assignable = std::is_assignable_v<From, To>;
 	template<typename T>
@@ -1149,37 +1149,35 @@ namespace xstd
 	template<auto V>
 	using integral_shrink_t = decltype( impl::integral_shrink<V>() );
 
-	// Rvalue initializer list.
+	// Initializer list with rvalue iterator.
 	//
 	template<typename T>
 	struct rvalue_wrap
 	{
 		mutable T value;
-		template<typename... Tx>
+
+		template<typename... Tx> requires Constructable<T, Tx...>
 		constexpr rvalue_wrap( Tx&&... args ) noexcept : value{ std::forward<Tx>( args )... } {}
+
+		// Copy by move.
+		//
+		constexpr rvalue_wrap( const rvalue_wrap& o ) noexcept : value( o.get() ) {}
+		constexpr rvalue_wrap& operator=( const rvalue_wrap& o ) noexcept { value = o.get(); return *this; }
+		
+		// Default move.
+		//
+		constexpr rvalue_wrap( rvalue_wrap&& ) noexcept = default;
+		constexpr rvalue_wrap& operator=( rvalue_wrap&& ) noexcept = default;
+
+		// Getter.
+		//
+		constexpr T&& get() const noexcept { return std::move( value ); }
 		constexpr operator T&&() const noexcept { return std::move( value ); }
 	};
 	template<typename T> rvalue_wrap( T )->rvalue_wrap<T>;
 
 	template<typename T>
-	struct rvalue_initializer_list
-	{
-		using value_type =      T;
-		using reference =       T&&;
-		using const_reference = T&&;
-		using size_type =       size_t;
-		using iterator =        const rvalue_wrap<T>*;
-		using const_iterator =  const rvalue_wrap<T>*;
-
-		std::initializer_list<rvalue_wrap<T>> list;
-		constexpr rvalue_initializer_list( std::initializer_list<rvalue_wrap<T>> list ) noexcept : list( list ) {}
-
-		constexpr size_t size() const noexcept { return list.size(); }
-		constexpr auto begin() const noexcept { return list.begin(); }
-		constexpr auto end() const noexcept { return list.end(); }
-	};
-	template<typename T, typename... Tx> requires ( Same<Tx, T> && ... )
-	rvalue_initializer_list( T, Tx... )->rvalue_initializer_list<T>;
+	using rvalue_initializer_list = std::initializer_list<rvalue_wrap<T>>;
 
 	// Tiable comperators.
 	//
