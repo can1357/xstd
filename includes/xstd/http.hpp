@@ -350,45 +350,39 @@ namespace xstd::http
 
 	// Describes a HTTP request.
 	//
-	struct request
+	struct request_view
 	{
 		// Headers of the request.
 		//
-		request_header meta = {};
-		header_map headers = {};
-		
+		request_header_view meta = {};
+		header_list headers = {};
+
 		// Body of the request.
 		//
-		std::vector<uint8_t> body = {};
+		std::span<const uint8_t> body = {};
 
-		// Formats the header.
+		// Formats the header and the body.
 		//
-		std::vector<uint8_t> write_headers() const
+		std::vector<uint8_t> write( bool content_length_set = false ) const
 		{
 			// Write the request header and the common headers.
 			//
 			std::vector<uint8_t> output = {};
+			output.reserve( body.size() + 512 );
 			http::write( output, meta );
 			http::write( output, headers );
 
 			// If there is a body and Content-Length is not set, do so.
 			//
-			if ( !body.empty() && !headers.contains( "Content-Length" ) )
+			if ( !body.empty() && !content_length_set )
 			{
-				constexpr std::string_view clen = "Content-Length: ";
-				output.insert( output.end(), clen.begin(), clen.end() );
-				std::string body_len = std::to_string( body.size() );
-				output.insert( output.end(), body_len.begin(), body_len.end() );
-				output.insert( output.end(), { '\r', '\n' } );
+				char buffer[ 128 ];
+				int length = sprintf_s( buffer, "Content-Length: %llu\r\n", body.size() );
+				output.insert( output.end(), &buffer[ 0 ], &buffer[ length ] );
 			}
-			return output;
-		}
 
-		// Formats the header and the body.
-		//
-		std::vector<uint8_t> write() const
-		{
-			std::vector<uint8_t> output = write_headers();
+			// Finalize header list, write the body.
+			//
 			output.insert( output.end(), { '\r', '\n' } );
 			output.insert( output.end(), body.begin(), body.end() );
 			return output;
@@ -461,7 +455,7 @@ namespace xstd::http
 				else
 				{
 
-					if ( result.content_length > input.size() )
+					if ( result.content_length >= input.size() )
 						result.body.assign( input.begin(), input.begin() + result.content_length ), input.remove_prefix( result.content_length );
 					else
 						return std::nullopt;
@@ -473,14 +467,25 @@ namespace xstd::http
 
 	// Sends a request through the TCP socket.
 	//
-	inline void send( tcp::client& socket, request req )
+	inline void send( tcp::client& socket, method_id method, std::string_view path, header_list headers, std::span<const uint8_t> body = {} )
 	{
-		socket.write( req.write() );
+		socket.write( request_view{ .meta = { method, path }, .headers = headers, .body = body }.write() );
+	}
+
+	// Wrappers for the most common methods.
+	//
+	inline void get( tcp::client& socket, std::string_view path, header_list headers, std::span<const uint8_t> body = {} )
+	{
+		send( socket, method_id::GET, path, headers, body );
+	}
+	inline void post( tcp::client& socket, std::string_view path, header_list headers, std::span<const uint8_t> body = {} )
+	{
+		send( socket, method_id::POST, path, headers, body );
 	}
 
 	// Parses HTTP responses.
 	//
-	inline generator<response> parser( tcp::client& socket )
+	inline generator<response> parser( tcp::client& socket, bool header_only = false )
 	{
 		while ( true )
 		{
@@ -488,7 +493,7 @@ namespace xstd::http
 			if ( view.empty() )
 				co_return;
 
-			if ( auto result = response::parse( view ) )
+			if ( auto result = response::parse( view, header_only ) )
 			{
 				socket.forward_to( view );
 				co_yield *result;
