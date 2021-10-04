@@ -295,6 +295,7 @@ namespace xstd::ws
 	inline void close( tcp::client& socket, status_code status )
 	{
 		if ( socket.is_closed() ) return;
+		status = bswap( status );
 		send( socket, opcode::close, &status, sizeof( status ) );
 		socket.socket_close();
 	}

@@ -1149,6 +1149,38 @@ namespace xstd
 	template<auto V>
 	using integral_shrink_t = decltype( impl::integral_shrink<V>() );
 
+	// Rvalue initializer list.
+	//
+	template<typename T>
+	struct rvalue_wrap
+	{
+		mutable T value;
+		template<typename... Tx>
+		constexpr rvalue_wrap( Tx&&... args ) noexcept : value{ std::forward<Tx>( args )... } {}
+		constexpr operator T&&() const noexcept { return std::move( value ); }
+	};
+	template<typename T> rvalue_wrap( T )->rvalue_wrap<T>;
+
+	template<typename T>
+	struct rvalue_initializer_list
+	{
+		using value_type =      T;
+		using reference =       T&&;
+		using const_reference = T&&;
+		using size_type =       size_t;
+		using iterator =        const rvalue_wrap<T>*;
+		using const_iterator =  const rvalue_wrap<T>*;
+
+		std::initializer_list<rvalue_wrap<T>> list;
+		constexpr rvalue_initializer_list( std::initializer_list<rvalue_wrap<T>> list ) noexcept : list( list ) {}
+
+		constexpr size_t size() const noexcept { return list.size(); }
+		constexpr auto begin() const noexcept { return list.begin(); }
+		constexpr auto end() const noexcept { return list.end(); }
+	};
+	template<typename T, typename... Tx>
+	rvalue_initializer_list( T, Tx... )->rvalue_initializer_list<T>;
+
 	// Tiable comperators.
 	//
 	struct tie_equal_to
