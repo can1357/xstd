@@ -210,6 +210,14 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 #endif
 
 #if GNU_COMPILER
+	#define LAMBDA_INLINE __attribute__((always_inline))
+#elif MS_COMPILER
+	#define LAMBDA_INLINE [[msvc::forceinline]]
+#else
+	#define LAMBDA_INLINE
+#endif
+
+#if GNU_COMPILER
 	#define TRIVIAL_ABI    __attribute__((trivial_abi))
 #else
 	#define TRIVIAL_ABI

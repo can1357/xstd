@@ -112,7 +112,7 @@ namespace xstd
 	// Time constrained chores.
 	//
 	template<typename T>
-	inline void chore( T&& fn, duration delay, int32_t priority = -1 )
+	inline void chore( T&& fn, duration delay, [[maybe_unused]] int32_t priority = -1 )
 	{
 #ifdef XSTD_CHORE_SCHEDULER
 		int64_t tick_count = delay / 100ns;
@@ -129,7 +129,7 @@ namespace xstd
 #endif
 	}
 	template<typename T>
-	inline void chore( T&& fn, timestamp due_time, int32_t priority = -1 )
+	inline void chore( T&& fn, timestamp due_time, [[maybe_unused]] int32_t priority = -1 )
 	{
 		return chore( std::forward<T>( fn ), due_time - time::now(), priority );
 	}
@@ -137,7 +137,7 @@ namespace xstd
 	// Event constrained chores.
 	//
 	template<typename T>
-	inline void chore( T&& fn, event_handle evt, int32_t priority = -1 )
+	inline void chore( T&& fn, event_handle evt, [[maybe_unused]] int32_t priority = -1 )
 	{
 		assume( evt != nullptr );
 
@@ -156,7 +156,7 @@ namespace xstd
 	// Event constrained chores with timeout.
 	//
 	template<typename T>
-	inline void chore( T&& fn, event_handle evt, duration timeout, int32_t priority = -1 )
+	inline void chore( T&& fn, event_handle evt, duration timeout, [[maybe_unused]] int32_t priority = -1 )
 	{
 		assume( evt != nullptr );
 
