@@ -1,6 +1,4 @@
 #pragma once
-#include <mutex>
-#include <shared_mutex>
 #include <memory>
 #include <functional>
 #include <atomic>
@@ -9,16 +7,17 @@
 #include "type_helpers.hpp"
 
 // [Configuration]
-// XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the atomic waits.
+// XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the std::future<> waits.
 //
 #ifndef XSTD_OS_EVENT_PRIMITIVE
+#include <future>
 namespace xstd
 {
 	struct event_primitive
 	{
-		mutable std::shared_timed_mutex mtx = {};
-		inline default_event_primitive() { mtx.lock(); };
-		inline ~default_event_primitive() { ( void ) mtx.try_lock(); mtx.unlock(); }
+		std::promise<void> promise;
+		std::future<void> future;
+		inline event_primitive() { reset(); }
 
 		// Implement the interface.
 		// - void wait() const
@@ -31,20 +30,23 @@ namespace xstd
 		//
 		inline void wait() const
 		{
-			mtx.lock_shared();
-			mtx.unlock_shared();
+			future.wait();
 		}
 		inline bool wait_for( long long milliseconds ) const
 		{
-			if ( !mtx.try_lock_shared_for( time::milliseconds{ milliseconds } ) )
-				return false;
-			mtx.unlock_shared();
-			return true;
+			return future.wait_for( time::milliseconds{ milliseconds } ) == std::future_status::ready;
 		}
-		inline void reset() { mtx.lock(); }
-		inline void notify() { mtx.unlock(); }
-		inline auto handle() const { return this; }
+		inline void reset()
+		{
+			promise = {};
+			future = promise.get_future();
+		}
+		inline void notify() 
+		{ 
+			promise.set_value(); 
+		}
 
+		inline auto handle() const { return this; }
 		static void wait_from_handle( const event_primitive* handle ) { return handle->wait(); }
 		static bool wait_from_handle( const event_primitive* handle, long long milliseconds ) { return handle->wait_for( milliseconds ); }
 	};
@@ -61,7 +63,7 @@ namespace xstd
 
 	// Wrap the event primitive with a easy to check flag.
 	//
-	struct event_base : event_primitive
+	struct event_base
 	{
 		event_primitive primitive = {};
 
