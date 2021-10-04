@@ -176,3 +176,30 @@ namespace xstd
 	};
 	namespace std::experimental { using namespace xstd::coro_export; };
 #endif
+
+namespace xstd
+{
+	// Helper to get the promise from a coroutine handle.
+	//
+	template<typename Promise>
+	FORCE_INLINE static Promise& get_promise( coroutine_handle<> hnd )
+	{ 
+		return coroutine_handle<Promise>::from_address( hnd.address() ).promise();
+	}
+
+	// Helper to get the current coroutine handle / promise.
+	//
+#if GNU_COMPILER
+	// Clang:
+	FORCE_INLINE static coroutine_handle<> this_coroutine( void* adr = __builtin_coro_frame() ) { return coroutine_handle<>::from_address( adr ); }
+#else
+	// MSVC:
+	FORCE_INLINE static coroutine_handle<> this_coroutine( void* adr = _coro_frame_ptr() ) { return coroutine_handle<>::from_address( adr ); }
+#endif
+
+	template<typename C, typename Promise = typename coroutine_traits<C>::promise_type>
+	FORCE_INLINE static Promise& this_promise( coroutine_handle<> h = this_coroutine() )
+	{ 
+		return get_promise<Promise>( h );
+	}
+};
