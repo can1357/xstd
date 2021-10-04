@@ -52,7 +52,6 @@ namespace xstd
 			bool operator!=( const iterator& rhs ) const { return handle != rhs.handle; }
 			T&& operator*() const { return *std::move( handle.promise().current ); }
 		};
-
 		iterator begin() { return finished() ? end() : ++iterator{ handle }; }
 		iterator end() { return {}; }
 

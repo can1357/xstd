@@ -305,7 +305,18 @@ namespace xstd
 		constexpr void assert() const
 		{
 			if ( !success() ) [[unlikely]]
-				xstd::cold_call( [ & ] { error( XSTD_ESTR( "Accessing failed result with: %s" ), message() ); } );
+			{
+				if constexpr ( is_debug_build() )
+				{
+					xstd::cold_call( [ & ] { log( XSTD_ESTR( "Accessing failed result with: %s" ), message() ); } );
+					debugbreak();
+					exit( 0 );
+				}
+				else
+				{
+					xstd::cold_call( [ & ] { error( XSTD_ESTR( "Accessing failed result with: %s" ), message() ); } );
+				}
+			}
 		}
 	
 		// String conversion.

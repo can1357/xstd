@@ -34,6 +34,7 @@ namespace xstd
 			status_unexpected_error =  1011,
 		};
 		inline constexpr status_code application_status( uint16_t i ) { return status_code( 4000 + i ); }
+		inline constexpr status_code parser_status( uint16_t i ) { return status_code( 4500 + i ); }
 	};
 
 	template<>
@@ -152,11 +153,11 @@ namespace xstd::ws
 		// Validate according to the RFC.
 		//
 		if ( net.rsvd )
-			return status_protocol_error;
+			return parser_status( 1 );
 		if ( hdr.is_control_frame() && !hdr.finished )
-			return status_protocol_error;
+			return parser_status( 2 );
 		if ( hdr.is_control_frame() && hdr.length >= length_extend_u16 )
-			return status_protocol_error;
+			return parser_status( 3 );
 
 		// Read the extended length if relevant.
 		//
@@ -172,7 +173,7 @@ namespace xstd::ws
 				return -1;
 			hdr.length = bswap( ( uint64_t& ) hdr.length );
 			if ( hdr.length > INT64_MAX )
-				return status_protocol_error;
+				return parser_status( 4 );
 		}
 
 		// Read the masking key if relevant.
