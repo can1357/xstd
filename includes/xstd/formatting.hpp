@@ -93,20 +93,29 @@ namespace xstd::fmt
 
 		// Prints a hexadecimal number.
 		//
-		inline static std::string print_u64x( uint64_t num, std::string_view pfx = "0x" )
+		template<Unsigned I>
+		FORCE_INLINE inline static std::string print_ux( I num, std::string_view pfx = "0x" )
 		{
-			std::string buf( 16, '\x0' );
-			for ( size_t n = 0; n != 8; n++ )
+			std::string buf( pfx.size() + sizeof( I ) * 2, '\x0' );
+
+			auto it = std::copy( pfx.begin(), pfx.end(), buf.begin() );
+
+			// Find the first non-zero digit.
+			//
+			int index = sizeof( I ) * 8;
+			while ( true )
 			{
-				uint64_t digit = num >> ( ( 7 - n ) * 8 );
-				print_hex_digit( &buf[ n * 2 ], uint8_t( digit ), true );
+				index -= 4;
+				if ( ( num >> index ) || !index )
+					break;
 			}
-			size_t p = buf.find_first_not_of( '0' );
-			if ( p == std::string::npos )
-				buf.resize( 1 );
-			else
-				buf.erase( buf.begin(), buf.begin() + p );
-			buf.insert( buf.begin(), pfx.begin(), pfx.end() );
+
+			// Write all digits and resize.
+			//
+			for ( ; index >= 0; index -= 4 )
+				*it++ = upper_dict[ ( num >> index ) & 0xF ];
+
+			buf.resize( it - buf.begin() );
 			return buf;
 		}
 	};
@@ -224,17 +233,12 @@ namespace xstd::fmt
 			if constexpr ( std::is_signed_v<base_type> )
 			{
 				if ( x < 0 )
-					return impl::print_u64x( -x, "-0x" );
+					return impl::print_ux( ( uint64_t ) -x, "-0x" );
 			}
-			return impl::print_u64x( x, "0x" );
+			return impl::print_ux( ( uint64_t ) x, "0x" );
 		}
 		else if constexpr ( std::is_same_v<base_type, uint8_t> )
 		{
-			if constexpr ( std::is_signed_v<base_type> )
-			{
-				if ( x < 0 )
-					return impl::print_u64x( -x, "-0x" );
-			}
 			std::string buf( 4, '\x0' );
 			buf[ 0 ] = '0';
 			buf[ 1 ] = 'x';
@@ -508,12 +512,13 @@ namespace xstd::fmt
 	{
 		if constexpr ( !std::is_signed_v<T> )
 		{
-			return impl::print_u64x( value, "0x" );
+			return impl::print_ux<T>( value, "0x" );
 		}
 		else
 		{
-			if ( value >= 0 ) return impl::print_u64x( value, "0x" );
-			else              return impl::print_u64x( -value, "-0x" );
+			using U = std::make_unsigned_t<T>;
+			if ( value >= 0 ) return impl::print_ux( ( U ) value, "0x" );
+			else              return impl::print_ux( ( U ) -value, "-0x" );
 		}
 	}
 
@@ -521,8 +526,8 @@ namespace xstd::fmt
 	//
 	inline static std::string offset( int64_t value )
 	{
-		if ( value >= 0 ) return impl::print_u64x( value, "+ 0x" );
-		else              return impl::print_u64x( -value, "- 0x" );
+		if ( value >= 0 ) return impl::print_ux( ( uint64_t ) value, "+ 0x" );
+		else              return impl::print_ux( ( uint64_t ) -value, "- 0x" );
 	}
 };
 #undef HAS_RTTI
