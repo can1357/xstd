@@ -1178,7 +1178,7 @@ namespace xstd
 		constexpr auto begin() const noexcept { return list.begin(); }
 		constexpr auto end() const noexcept { return list.end(); }
 	};
-	template<typename T, typename... Tx>
+	template<typename T, typename... Tx> requires ( Same<Tx, T> && ... )
 	rvalue_initializer_list( T, Tx... )->rvalue_initializer_list<T>;
 
 	// Tiable comperators.
