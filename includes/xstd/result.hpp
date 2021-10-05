@@ -352,11 +352,15 @@ namespace xstd
 		{
 			return success() ? result.value() : o;
 		}
+		constexpr value_type value_or( value_type o ) &&
+		{
+			return success() ? std::move( result ).value() : std::move( o );
+		}
 
 		// Accessors.
 		//
-		constexpr decltype(auto) operator->()
-		{ 
+		constexpr decltype( auto ) operator->()
+		{
 			if constexpr ( PointerLike<value_type> )
 				return value();
 			else
