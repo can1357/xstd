@@ -74,7 +74,7 @@ namespace xstd
 				
 				// Apply the patch.
 				//
-				vmovntdq  xmmword ptr [r10],        xmm0
+				vmovups   xmmword ptr [r10],        xmm0
 				sfence
 
 			retry:
@@ -98,12 +98,11 @@ namespace xstd
 	{
 		uint64_t tmp;
 		asm volatile(
-			".align 0x10;"
 			".byte 0x2E;"        // 0x0: cs
 			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
 			"call   %c2;"        // 0xb: call   rel32
 #if DEBUG_BUILD
-			: "=a" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
+			: "=c" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #else
 			: "=r" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #endif
