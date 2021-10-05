@@ -102,7 +102,7 @@ namespace xstd
 			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
 			"call   %c2;"        // 0xb: call   rel32
 #if DEBUG_BUILD
-			: "=c" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
+			: "=a" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #else
 			: "=r" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
 #endif
