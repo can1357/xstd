@@ -1273,7 +1273,7 @@ namespace xstd
 	FORCE_INLINE static T black_box( T value )
 	{
 #if GNU_COMPILER
-		if constexpr ( Integral<T> )
+		if constexpr ( Integral<T> || Pointer<T> || Enum<T> || FloatingPoint<T> )
 			asm volatile( "" : "+r" ( value ) );
 		else
 			asm volatile( "" : "+m" ( value ) );
