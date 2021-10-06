@@ -22246,17 +22246,16 @@ namespace ia32
 		template<size_t U, typename T>
 		_LINKAGE inline void unroll_for( const T& fn, xstd::any_ptr ptr, size_t count, size_t granularity )
 		{
-			ptrdiff_t ustep = ( ptrdiff_t ) ( U * granularity );
-			ptrdiff_t n = ( ptrdiff_t ) count;
-			for ( ; n >= ustep; n -= ustep )
+			size_t n = ( count + ( granularity - 1 ) ) / granularity;
+			for ( ; n >= U; n -= U )
 			{
 				__hint_unroll()
-				for ( size_t i = 0; i != U; i++, ptr += granularity )
-					fn( ptr );
+				for ( size_t i = 0; i != U; i++ )
+					fn( ptr ), ptr += granularity;
 			}
 
-			for ( ; n >= 0; n -= granularity, ptr += granularity )
-				fn( ptr );
+			for ( ; n > 0; n-- )
+				fn( ptr ), ptr += granularity;
 		}
 	}
 	_LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = page_size )
