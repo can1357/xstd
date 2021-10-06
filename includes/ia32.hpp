@@ -21955,6 +21955,27 @@ namespace ia32
 	{
 		asm volatile( "wrfsbase %0" :: "r" ( value.address ) : );
 	}
+	_LINKAGE uint32_t read_gsbase32()
+	{
+		uint32_t value;
+		asm volatile( "rdgsbase %0" : "=r" ( value ) :: );
+		return value;
+	}
+	_LINKAGE void write_gsbase32( uint32_t value )
+	{
+		asm volatile( "wrgsbase %0" :: "r" ( value ) : );
+	}
+	_LINKAGE uint32_t read_fsbase32()
+	{
+		uint32_t value;
+		asm volatile( "rdfsbase %0" : "=r" ( value ) :: );
+		return value;
+	}
+	_LINKAGE void write_fsbase32( uint32_t value )
+	{
+		asm volatile( "wrfsbase %0" :: "r" ( value ) : );
+	}
+
 	_LINKAGE void swapgs()
 	{
 		asm volatile( "swapgs" ::: "memory" );
