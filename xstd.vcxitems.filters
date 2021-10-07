@@ -145,9 +145,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\transform.hpp">
-      <Filter>Thread</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\spinlock.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
