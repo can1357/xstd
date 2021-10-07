@@ -13,7 +13,24 @@ namespace xstd
 	template<Integral Dst, Integral Src>
 	__forceinline static constexpr bool narrow_viable( Src o )
 	{
-		return ( ( Dst ) o ) == o;
+		// Src signed == Dst signed:
+		//
+		if constexpr ( Signed<Dst> == Signed<Src> )
+		{
+			return ( ( Dst ) o ) == o;
+		}
+		// Src signed, Dst unsigned:
+		//
+		else if constexpr ( Signed<Src> )
+		{
+			return o >= 0 && narrow_viable<Dst>( ( std::make_unsigned_t<Src> ) o );
+		}
+		// Dst signed, Src unsigned:
+		//
+		else
+		{
+			return o <= ( ( uint64_t ) std::numeric_limits<Dst>::max() );
+		}
 	}
 	template<Integral Dst, Integral Src>
 	__forceinline static constexpr bool narrow_viable( Src o, int bits /*for bitfields.*/ )
