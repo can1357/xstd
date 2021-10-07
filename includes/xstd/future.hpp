@@ -228,7 +228,7 @@ namespace xstd
 				// Notify all events.
 				//
 				for ( auto it = events; it; it = it->next )
-					it->event.notify();
+					it->event.notify( true );
 				events = nullptr;
 			}
 

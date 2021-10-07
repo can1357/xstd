@@ -82,34 +82,89 @@ namespace xstd
 		//
 		inline event_handle handle() const { return primitive.handle(); }
 
-		// Wrap all functions with a flag to reduce latency.
+		// Wrap all functions with a flag to reduce latency and to prevent races in the primitive.
+		// & 1 = signalled
+		// & 2 = resetting
 		//
 		std::atomic<uint16_t> flag = 0;
-		inline bool signalled() const
+		
+		// Checks whether or nor the event is signalled.
+		//
+		inline bool signalled() const { return flag.load( std::memory_order::relaxed ) & 1; }
+
+		// Tries to reset the event flag, fails if already reset.
+		//
+		inline bool reset()
 		{
-			return flag.load( std::memory_order::relaxed );
-		}
-		inline void reset()
-		{
-			if ( bit_reset( flag, 0 ) )
+			// Expect signalled flag and try to acquire the reset ownership.
+			//
+			uint16_t expected = 1;
+			if ( flag.compare_exchange_strong( expected, 1 | 2, std::memory_order::seq_cst ) )
+			{
+				// Reset the primitive, then reset the flag.
+				//
 				primitive.reset();
+				std::atomic_thread_fence( std::memory_order::seq_cst );
+				flag.store( 0, std::memory_order::release );
+				return true;
+			}
+			return false;
 		}
+		
+		// Tries to set the event flag, fails if already set.
+		// - If relaxed parameter is set, it is assumed that this event will be never reset and will take the shorter route.
+		//
+		inline bool notify( bool relaxed = false )
+		{
+			if ( relaxed )
+			{
+				if ( bit_set( flag, 0 ) ) [[unlikely]]
+					return false;
+				primitive.notify();
+			}
+			else
+			{
+				uint16_t expected = flag.load( std::memory_order::relaxed );
+				while ( true )
+				{
+					// Spin while in-between states.
+					//
+					if ( expected & 2 )
+					{
+						yield_cpu();
+						expected = flag.load( std::memory_order::relaxed );
+						continue;
+					}
+
+					// Fail if already notified.
+					//
+					if ( expected & 1 )
+						return false;
+
+					// If we exchange succesfully, notify and indicate success.
+					//
+					if ( flag.compare_exchange_strong( expected, 1, std::memory_order::seq_cst ) )
+					{
+						primitive.notify();
+						return true;
+					}
+				}
+			}
+		}
+
+		// Waits for the event to be set.
+		//
 		inline void wait() const
 		{
-			if ( signalled() ) return;
+			if ( signalled() ) 
+				return;
 			primitive.wait();
 		}
 		inline bool wait_for( long long milliseconds ) const
 		{
-			if ( signalled() ) return true;
+			if ( signalled() ) 
+				return true;
 			return primitive.wait_for( milliseconds );
-		}
-		inline bool notify()
-		{
-			if ( bit_set( flag, 0 ) )
-				return false;
-			primitive.notify();
-			return true;
 		}
 
 		// Wait for wrapper.
