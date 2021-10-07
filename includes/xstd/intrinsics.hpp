@@ -135,6 +135,7 @@ inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
 // Determine the compiler.
 //
 #if defined(__GNUC__) || defined(__clang__) || defined(__EMSCRIPTEN__) || defined(__MINGW64__)
+	#pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
 	#define MS_COMPILER       0
 	#define GNU_COMPILER      1
 #ifdef _MSC_VER
