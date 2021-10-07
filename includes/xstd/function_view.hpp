@@ -37,7 +37,7 @@ namespace xstd
 				//
 				if constexpr ( traits::is_stateless )
 				{
-					fn = [ ] ( void* obj, Args... args ) -> Ret
+					fn = [ ] ( void*, Args... args ) -> Ret
 					{
 						return F{}( std::move( args )... );
 					};
