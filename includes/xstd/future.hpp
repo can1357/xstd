@@ -3,9 +3,17 @@
 #include "event.hpp"
 #include "coro.hpp"
 #include "spinlock.hpp"
+#include "scope_tpr.hpp"
 #include "formatting.hpp"
 #include "time.hpp"
 #include <vector>
+
+// [[Configuration]]
+// XSTD_PROMISE_TASK_PRIORITY: Task priority set when acquiring promise related locks.
+//
+#ifndef XSTD_PROMISE_TASK_PRIORITY
+	#define XSTD_PROMISE_TASK_PRIORITY 2
+#endif
 
 namespace xstd
 {
@@ -63,7 +71,7 @@ namespace xstd
 
 		// Lock guarding continuation list and the event list.
 		//
-		mutable xstd::spinlock          state_lock = {};
+		mutable spinlock                state_lock = {};
 
 		// Promise state.
 		//
@@ -88,6 +96,7 @@ namespace xstd
 		{
 			// Acquire the state lock, if already finished fail.
 			//
+			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
 			std::lock_guard _g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
@@ -102,6 +111,7 @@ namespace xstd
 		{
 			// Acquire the state lock.
 			//
+			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
 			std::lock_guard _g{ state_lock };
 
 			// If event is already signalled, return.
@@ -173,6 +183,7 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return false;
 
+			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
 			std::lock_guard _g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
@@ -185,6 +196,7 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return false;
 
+			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
 			std::lock_guard _g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
@@ -203,7 +215,10 @@ namespace xstd
 		void signal()
 		{
 			std::vector<coroutine_handle<>> list = {};
+
+			uint8_t prev = get_task_priority();
 			{
+				scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{ prev };
 				std::lock_guard _g{ state_lock };
 
 				// Swap the list.
@@ -219,8 +234,16 @@ namespace xstd
 
 			// Invoke all continuation handles.
 			//
-			for ( auto& cb : list )
-				cb();
+			if ( prev )
+			{
+				for ( auto& cb : list )
+					xstd::chore( std::move( cb ) );
+			}
+			else
+			{
+				for ( auto& cb : list )
+					cb();
+			}
 		}
 
 		// Resolution of the promise value.
