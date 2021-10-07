@@ -19,13 +19,13 @@ namespace xstd
 
 		// Null construction.
 		//
-		function_view() {}
-		function_view( std::nullptr_t ) {}
+		constexpr function_view() {}
+		constexpr function_view( std::nullptr_t ) {}
 
 		// Construct from any functor.
 		//
 		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
-		function_view( F& functor )
+		constexpr function_view( F& functor )
 		{
 			using traits = function_traits<F>;
 
@@ -65,22 +65,22 @@ namespace xstd
 		
 		// Unsafe for storage.
 		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
-		function_view( F&& functor ) : function_view( functor ) {}
+		constexpr function_view( F&& functor ) : function_view( functor ) {}
 
 		// Default copy/move.
 		//
-		function_view( function_view&& ) noexcept = default;
-		function_view( const function_view& ) = default;
-		function_view& operator=( function_view&& ) noexcept = default;
-		function_view& operator=( const function_view& ) = default;
+		constexpr function_view( function_view&& ) noexcept = default;
+		constexpr function_view( const function_view& ) = default;
+		constexpr function_view& operator=( function_view&& ) noexcept = default;
+		constexpr function_view& operator=( const function_view& ) = default;
 
 		// Validity check via cast to bool.
 		//
-		explicit operator bool() const { return obj; }
+		constexpr explicit operator bool() const { return obj; }
 
 		// Redirect to functor.
 		//
-		Ret operator()( Args... args ) const
+		constexpr Ret operator()( Args... args ) const
 		{
 			return fn( obj, std::forward<Args>( args )... );
 		}
