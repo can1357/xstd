@@ -76,7 +76,7 @@ namespace xstd
 
 		// Validity check via cast to bool.
 		//
-		constexpr explicit operator bool() const { return obj; }
+		constexpr explicit operator bool() const { return fn != nullptr; }
 
 		// Redirect to functor.
 		//
