@@ -444,7 +444,7 @@ namespace xstd
 
 	// Acceleration for std::basic_string, std::vector<trivial>, std::array<trivial>.
 	//
-	template<Trivial T>
+	template<Trivial T> requires ( !Pointer<T> )
 	struct serializer<std::vector<T>>
 	{
 		static void apply( serialization& ctx, const std::vector<T>& value )
@@ -460,7 +460,7 @@ namespace xstd
 			return result;
 		}
 	};
-	template<Trivial T, size_t N>
+	template<Trivial T, size_t N> requires ( !Pointer<T> )
 	struct serializer<std::array<T, N>>
 	{
 		static void apply( serialization& ctx, const std::array<T, N>& value )
