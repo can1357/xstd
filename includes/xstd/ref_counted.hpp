@@ -33,7 +33,7 @@ namespace xstd
 		// Move and copy.
 		//
 		ref( ref&& o ) noexcept : ptr( std::exchange( o.ptr, nullptr ) ) {}
-		ref( const ref& o ) : ref( o.ptr ) {}
+		ref( const ref& o ) : ref( o.ptr, true ) {}
 		ref& operator=( ref&& o ) noexcept 
 		{ 
 			std::swap( ptr, o.ptr ); 

@@ -298,8 +298,20 @@ namespace xstd
 		//
 		inline bool finished() const { return state.load( std::memory_order::relaxed ) & state_finished; }
 		inline bool pending() const { return !finished(); }
-		bool fulfilled() const { return finished() && unrace().success(); }
-		bool failed() const { return finished() && unrace().fail(); }
+		bool fulfilled() const 
+		{ 
+			if constexpr ( Same<S, no_status> )
+				return finished();
+			else
+				return finished() && unrace().success(); 
+		}
+		bool failed() const 
+		{ 
+			if constexpr ( Same<S, no_status> )
+				return false;
+			else
+				return finished() && unrace().fail(); 
+		}
 
 		// Helper to reference the result indirectly without a signal and avoiding the race condition.
 		//
