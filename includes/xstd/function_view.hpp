@@ -16,7 +16,6 @@ namespace xstd
 		//
 		void* obj = nullptr;
 		Ret( *fn )( void*, Args... ) = nullptr;
-		bool const_invocable = true;
 
 		// Null construction.
 		//
@@ -25,19 +24,47 @@ namespace xstd
 
 		// Construct from any functor.
 		//
-		template<typename F> requires ( Invocable<F, Ret, Args...> && ( !Same<std::decay_t<F>, function_view> ) )
+		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
 		function_view( F& functor )
 		{
-			obj = ( void* ) &functor;
-			fn = [ ] ( void* obj, Args... args ) -> Ret
+			using traits = function_traits<F>;
+
+			// Lambda?
+			//
+			if constexpr( traits::is_lambda )
 			{
-				return ( *( F* ) obj )( std::forward<Args>( args )... );
-			};
-			const_invocable = Invocable<std::add_const_t<std::decay_t<F>>, Ret, Args...>;
+				// Stateless lambda?
+				//
+				if constexpr ( traits::is_stateless )
+				{
+					fn = [ ] ( void* obj, Args... args ) -> Ret
+					{
+						return F{}( std::move( args )... );
+					};
+				}
+				else
+				{
+					obj = ( void* ) &functor;
+					fn = [ ] ( void* obj, Args... args ) -> Ret
+					{
+						return ( *( F* ) obj )( std::move( args )... );
+					};
+				}
+			}
+			// Function pointer?
+			//
+			else
+			{
+				obj = ( void* ) functor;
+				fn = [ ] ( void* obj, Args... args ) -> Ret
+				{
+					return ( ( F ) obj )( std::move( args )... );
+				};
+			}
 		}
 		
 		// Unsafe for storage.
-		template<typename F> requires ( Invocable<F, Ret, Args...> && ( !Same<std::decay_t<F>, function_view> ) )
+		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
 		function_view( F&& functor ) : function_view( functor ) {}
 
 		// Default copy/move.
@@ -53,13 +80,8 @@ namespace xstd
 
 		// Redirect to functor.
 		//
-		Ret operator()( Args... args )
-		{
-			return fn( obj, std::forward<Args>( args )... );
-		}
 		Ret operator()( Args... args ) const
 		{
-			fassert( const_invocable );
 			return fn( obj, std::forward<Args>( args )... );
 		}
 	};

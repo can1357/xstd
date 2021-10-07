@@ -455,7 +455,11 @@ namespace xstd
 	// Lambdas or callables.
 	//
 	template<typename F> concept CallableObject = requires{ is_member_function_v<decltype(&F::operator())>; };
-	template<CallableObject F> struct function_traits<F> : function_traits<decltype( &F::operator() )> { static constexpr bool is_lambda = true; };
+	template<CallableObject F> struct function_traits<F> : function_traits<decltype( &F::operator() )> 
+	{ 
+		static constexpr bool is_lambda = true;
+		static constexpr bool is_stateless = TriviallyDefaultConstructable<F> && TriviallyDestructable<F> && sizeof( F ) == sizeof( std::monostate );
+	};
 	template<typename F>
 	concept Function = requires{ typename function_traits<F>::arguments; };
 	template<typename F>

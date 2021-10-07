@@ -149,7 +149,7 @@ namespace ia32::mem
 	FORCE_INLINE inline pt_entry_64* get_pte_base( uint16_t self_ref_idx, int8_t depth )
 	{
 		uint64_t result = 0;
-		for ( size_t j = 0; j <= depth; j++ )
+		for ( int8_t j = 0; j <= depth; j++ )
 			result = ( result << 9 ) | self_ref_idx;
 		result <<= 12 + ( pxe_level - depth ) * 9;
 		return ( pt_entry_64* ) make_cannonical( result );
