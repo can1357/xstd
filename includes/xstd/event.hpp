@@ -121,6 +121,7 @@ namespace xstd
 				if ( bit_set( flag, 0 ) ) [[unlikely]]
 					return false;
 				primitive.notify();
+				return true;
 			}
 			else
 			{

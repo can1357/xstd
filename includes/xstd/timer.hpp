@@ -68,7 +68,11 @@ namespace xstd
 		// Null timer.
 		//
 		constexpr timer() {}
-		constexpr timer( std::nullptr_t ) {}
+		constexpr timer( std::nullopt_t ) {}
+
+		// Construct by pointer.
+		//
+		explicit constexpr timer( impl::timer_base* base ) : base( base ) {}
 
 		// Constructed by the functor and the interval.
 		//
@@ -116,9 +120,16 @@ namespace xstd
 		//
 		void cancel()
 		{
-			auto* timer = std::exchange( base, nullptr );
+			auto* timer = release();
 			timer->canceled = true;
 			timer->signal();
+		}
+
+		// Releases the timer so that the destructor will not cancel it.
+		//
+		impl::timer_base* release() 
+		{ 
+			return std::exchange( base, nullptr ); 
 		}
 
 		// Destructor cancels the timer.
