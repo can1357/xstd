@@ -112,7 +112,7 @@ namespace xstd
 		}
 		
 		// Tries to set the event flag, fails if already set.
-		// - If relaxed parameter is set, it is assumed that this event will be never reset and will take the shorter route.
+		// - If relaxed parameter is set, it is assumed that this event will be never reset and a simpler approach will be taken.
 		//
 		inline bool notify( bool relaxed = false )
 		{
