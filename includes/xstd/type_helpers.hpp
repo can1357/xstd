@@ -412,6 +412,7 @@ namespace xstd
 		using return_type = R;
 		using arguments =   std::tuple<Tx...>;
 		using owner =       void;
+		using normal_form = R( Tx... );
 	};
 	template<typename R, typename... Tx>
 	struct function_traits<R(*)(Tx..., ...)> : function_traits<R(*)(Tx...)>
@@ -430,6 +431,7 @@ namespace xstd
 		using return_type = R;
 		using arguments =   std::tuple<Tx...>;
 		using owner =       C;
+		using normal_form = R( Tx... );
 	};
 	template<typename C, typename R, typename... Tx>
 	struct function_traits<R(C::*)(Tx..., ...)> : function_traits<R(C::*)(Tx...)>
@@ -445,6 +447,7 @@ namespace xstd
 		using return_type = R;
 		using arguments =   std::tuple<Tx...>;
 		using owner =       const C;
+		using normal_form = R( Tx... );
 	};
 	template<typename C, typename R, typename... Tx>
 	struct function_traits<R(C::*)(Tx..., ...) const> : function_traits<R(C::*)(Tx...) const>

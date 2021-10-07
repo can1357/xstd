@@ -25,29 +25,32 @@ namespace xstd
 		// Construct from any functor.
 		//
 		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
-		constexpr function_view( F& functor )
+		constexpr function_view( F&& functor )
 		{
-			using traits = function_traits<F>;
+			using Fn =     std::decay_t<F>;
+			using Traits = function_traits<Fn>;
 
 			// Lambda?
 			//
-			if constexpr( traits::is_lambda )
+			if constexpr( Traits::is_lambda )
 			{
 				// Stateless lambda?
 				//
-				if constexpr ( traits::is_stateless )
+				if constexpr ( Traits::is_stateless )
 				{
 					fn = [ ] ( void*, Args... args ) -> Ret
 					{
-						return F{}( std::move( args )... );
+						return Fn{}( std::move( args )... );
 					};
 				}
+				// Stateful lambda.
+				//
 				else
 				{
 					obj = ( void* ) &functor;
 					fn = [ ] ( void* obj, Args... args ) -> Ret
 					{
-						return ( *( F* ) obj )( std::move( args )... );
+						return ( *( Fn* ) obj )( std::move( args )... );
 					};
 				}
 			}
@@ -58,14 +61,10 @@ namespace xstd
 				obj = ( void* ) functor;
 				fn = [ ] ( void* obj, Args... args ) -> Ret
 				{
-					return ( ( F ) obj )( std::move( args )... );
+					return ( ( Fn ) obj )( std::move( args )... );
 				};
 			}
 		}
-		
-		// Unsafe for storage.
-		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
-		constexpr function_view( F&& functor ) : function_view( functor ) {}
 
 		// Default copy/move.
 		//
@@ -85,4 +84,9 @@ namespace xstd
 			return fn( obj, std::forward<Args>( args )... );
 		}
 	};
+
+	// Deduction guide.
+	//
+	template<typename F>
+	function_view( F )->function_view<typename function_traits<F>::normal_form>;
 };
