@@ -78,7 +78,7 @@ namespace xstd
 
 		// Wrap the mutex/recursive_mutex interface.
 		//
-		FORCE_INLINE void lock( bool raised = false )
+		FORCE_INLINE void lock( [[maybe_unused]] bool raised = false )
 		{
 #if !XSTD_HAS_TASK_PRIORITY
 			mutex.lock();
