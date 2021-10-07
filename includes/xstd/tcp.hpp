@@ -6,7 +6,7 @@
 #include <deque>
 #include <string_view>
 #include "spinlock.hpp"
-#include "task_guard.hpp"
+#include "scope_tpr.hpp"
 #include "type_helpers.hpp"
 #include "future.hpp"
 #include "coro.hpp"
@@ -42,16 +42,16 @@ namespace xstd::tcp
 	{
 		// Promise fulfilled once the socket is closed.
 		//
-		future<exception, no_status> socket_closed;
+		future<exception, no_status> socket_closed = nullptr;
 
 		// Receive buffer.
 		//
 		size_t rx_buffer_offset = 0;
-		std::vector<uint8_t> rx_buffer;
+		std::vector<uint8_t> rx_buffer = {};
 
 		// Transmission queues.
 		//
-		task_guard<spinlock, XSTD_SOCKET_TASK_PRIORITY> tx_lock;
+		spinlock tx_lock = {};
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
@@ -88,18 +88,10 @@ namespace xstd::tcp
 		virtual bool socket_set_nagle( bool ) { return false; }
 
 		// Internal function used to flush the queues.
+		// - Caller must hold the lock.
 		//
-		void flush_queues( bool locked )
+		void flush_queues()
 		{
-			std::unique_lock lock{ tx_lock, std::defer_lock_t{} };
-			if ( !locked )
-			{
-				if ( tx_queue.empty() )
-					return;
-				else
-					lock.lock();
-			}
-
 			// Write back the transaction queue.
 			//
 			bool wb_retry = true;
@@ -145,19 +137,24 @@ namespace xstd::tcp
 
 			// Flush the queues.
 			//
-			flush_queues( false );
+			if ( tx_queue.empty() )
+				return;
+			scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
+			std::lock_guard _g{ tx_lock };
+			flush_queues();
 		}
 
 		// Invoked by application to write data to the socket.
 		//
 		void write( std::vector<uint8_t> data )
 		{
+			scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
 			std::lock_guard _g{ tx_lock };
 
 			// Append the data onto tx queue, flush the queues.
 			//
 			tx_queue.emplace_back( std::move( data ), 0 );
-			flush_queues( true );
+			flush_queues();
 		}
 
 		// Invoked by network layer to indicate the target acknowledged a number of bytes from our output queue.
@@ -165,6 +162,7 @@ namespace xstd::tcp
 		//
 		void on_socket_ack( size_t n )
 		{
+			scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
 			std::lock_guard _g{ tx_lock };
 
 			// Clear the acknowledgment queue.
@@ -178,7 +176,7 @@ namespace xstd::tcp
 
 			// Flush the queues.
 			//
-			flush_queues( true );
+			flush_queues();
 		}
 
 		// Receives the data, if given of an expected size.

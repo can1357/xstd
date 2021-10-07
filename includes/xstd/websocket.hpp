@@ -265,6 +265,7 @@ namespace xstd::ws
 
 		// Acquire the TX queue lock and reserve the slots.
 		//
+		scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
 		std::lock_guard _g{ socket.tx_lock };
 		std::span data{ ( const uint8_t* ) src, ( const uint8_t* ) src + length };
 
@@ -280,7 +281,7 @@ namespace xstd::ws
 
 		// Flush the queues.
 		//
-		socket.flush_queues( true );
+		socket.flush_queues();
 	}
 
 	// Helpers for specific opcodes.
