@@ -43,7 +43,7 @@ namespace xstd
 					return true;
 				}
 				void await_suspend( coroutine_handle<> ) noexcept {};
-				void await_resume() const noexcept {}
+				void await_resume() const noexcept { unreachable(); }
 			};
 
 			task<T, S> get_return_object() { return *this; }
@@ -144,7 +144,7 @@ namespace xstd
 					return true;
 				}
 				void await_suspend( coroutine_handle<> ) noexcept {};
-				void await_resume() const noexcept {}
+				void await_resume() const noexcept { unreachable(); }
 			};
 
 			task<void, S> get_return_object() { return *this; }
