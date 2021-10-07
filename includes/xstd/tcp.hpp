@@ -6,9 +6,17 @@
 #include <deque>
 #include <string_view>
 #include "spinlock.hpp"
+#include "task_guard.hpp"
 #include "type_helpers.hpp"
 #include "future.hpp"
 #include "coro.hpp"
+
+// [[Configuration]]
+// XSTD_SOCKET_TASK_PRIORITY: Task priority set when acquiring TCP related locks.
+//
+#ifndef XSTD_SOCKET_TASK_PRIORITY
+	#define XSTD_SOCKET_TASK_PRIORITY 2
+#endif
 
 namespace xstd::tcp
 {
@@ -43,7 +51,7 @@ namespace xstd::tcp
 
 		// Transmission queues.
 		//
-		spinlock tx_lock;
+		task_guard<spinlock, XSTD_SOCKET_TASK_PRIORITY> tx_lock;
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
