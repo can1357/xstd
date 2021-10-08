@@ -187,6 +187,14 @@ namespace xstd
 				}
 			}
 		};
+
+		// Promise ref-counting details.
+		//  - Refs : [24 (Promise) - 8 (Future)]
+		//
+		static constexpr uint32_t future_bit =   0;
+		static constexpr uint32_t promise_bit =  24;
+		static constexpr uint32_t future_flag =  1 << future_bit;
+		static constexpr uint32_t promise_flag = 1 << promise_bit;
 	};
 
 	// Base of the promise type.
@@ -486,13 +494,9 @@ namespace xstd
 	{
 		promise_base<T, S>* ptr = nullptr;
 
-		// Refs : [24 (Promise) - 8 (Future)]
-		//
-		static constexpr uint32_t future_flag =  1;
-		static constexpr uint32_t promise_flag = 1 << 24;
-		static constexpr uint32_t ref_flag = Owner ? promise_flag : future_flag;
-		COLD static void destroy( promise_base<T, S>* ptr ) { delete ptr; }
-		COLD static void break_promise( promise_base<T, S>* ptr ) 
+		static constexpr uint32_t ref_flag = Owner ? impl::promise_flag : impl::future_flag;
+		static void destroy( promise_base<T, S>* ptr ) { delete ptr; }
+		static void break_promise( promise_base<T, S>* ptr ) 
 		{
 			if constexpr ( Same<S, xstd::exception> )
 				ptr->reject( xstd::exception{ XSTD_ESTR( "Promise broken." ) } );
@@ -513,7 +517,7 @@ namespace xstd
 			if constexpr ( Owner )
 			{
 				if ( ptr->pending() ) [[unlikely]]
-					if ( ( ptr->refs.load() & ( promise_flag - 1 ) ) == 1 ) [[unlikely]]
+					if ( ( ptr->refs.load() & ( impl::promise_flag - 1 ) ) == 1 ) [[unlikely]]
 						break_promise( ptr );
 			}
 
@@ -534,12 +538,12 @@ namespace xstd
 				{
 					// Downgrade the reference.
 					//
-					auto prev = ptr->refs.fetch_add( future_flag - promise_flag );
+					auto prev = ptr->refs.fetch_add( impl::future_flag - impl::promise_flag );
 
 					// Break promise if it was the only one.
 					//
 					if ( ptr->pending() ) [[unlikely]]
-						if ( ( prev & ( promise_flag - 1 ) ) == 1 ) [[unlikely]]
+						if ( ( prev & ( impl::promise_flag - 1 ) ) == 1 ) [[unlikely]]
 							break_promise( ptr );
 				}
 				// If it was previously viewing:
@@ -548,7 +552,7 @@ namespace xstd
 				{
 					// Upgrade the reference.
 					//
-					ptr->refs.fetch_add( promise_flag - future_flag );
+					ptr->refs.fetch_add( impl::promise_flag - impl::future_flag );
 				}
 			}
 			return ptr;
@@ -612,11 +616,20 @@ namespace xstd
 		//
 		inline constexpr explicit operator bool() const { return ptr != nullptr; }
 		inline constexpr auto* address() const { return ptr; }
-		inline size_t ref_count() const 
+		inline constexpr size_t promise_count() const
 		{
-			if ( !ptr ) return 0;
-			auto val = ptr->refs.load();
-			return ( val >> 8 ) + ( val & 0xFF );
+			auto flags = ptr->refs.load();
+			return flags >> impl::promise_bit;
+		}
+		inline constexpr size_t future_count() const
+		{
+			auto flags = ptr->refs.load();
+			return flags & ( impl::promise_flag - 1 );
+		}
+		inline constexpr size_t ref_count() const 
+		{
+			auto flags = ptr->refs.load();
+			return ( flags >> impl::promise_bit ) + ( flags & ( impl::promise_flag - 1 ) );
 		}
 
 		// Wrap around the reference.
@@ -716,7 +729,7 @@ namespace xstd
 	inline promise<T, S> make_promise()
 	{
 		auto res = new promise_base<T, S>();
-		res->refs.store( 1 /*promise flag*/ );
+		res->refs.store( impl::promise_flag );
 		return promise<T, S>{ std::in_place_t{}, res };
 	}
 	template<typename T = void, typename S = xstd::exception>
