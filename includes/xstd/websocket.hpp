@@ -265,8 +265,7 @@ namespace xstd::ws
 
 		// Acquire the TX queue lock and reserve the slots.
 		//
-		scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
-		std::lock_guard _g{ socket.tx_lock };
+		xstd::task_lock g{ socket.tx_lock, XSTD_SOCKET_TASK_PRIORITY };
 		std::span data{ ( const uint8_t* ) src, ( const uint8_t* ) src + length };
 
 		// Split the packets into continuation lengths.

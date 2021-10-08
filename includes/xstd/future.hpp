@@ -42,6 +42,151 @@ namespace xstd
 				return xstd::static_default{};
 			}
 		}
+
+		// Small vector implementation.
+		//
+		static constexpr size_t in_place_continuation_count = 2;
+		struct continuation_vector
+		{
+			// In-place buffer.
+			//
+			coroutine_handle<>  ibuffer[ in_place_continuation_count ] = {};
+
+			// Vector descriptor.
+			//
+			uint32_t            length =   0;
+			uint32_t            reserved = in_place_continuation_count;
+			coroutine_handle<>* first =    &ibuffer[ 0 ];
+
+			// No move/copy, default constructed.
+			//
+			constexpr continuation_vector() = default;
+			continuation_vector( const continuation_vector& ) = delete;
+			continuation_vector& operator=( const continuation_vector& ) = delete;
+
+			// Checks whether or not it holds an externally allocated buffer.
+			//
+			FORCE_INLINE bool inplace() const { return first == &ibuffer[ 0 ]; }
+
+			// Make iterable.
+			//
+			FORCE_INLINE size_t size() const { return length; }
+			FORCE_INLINE size_t capacity() const { return reserved; }
+			FORCE_INLINE bool empty() const { return size() == 0; }
+			FORCE_INLINE coroutine_handle<>* begin() { return &first[ 0 ]; }
+			FORCE_INLINE const coroutine_handle<>* begin() const { return &first[ 0 ]; }
+			FORCE_INLINE coroutine_handle<>* end() { return &first[ length ]; }
+			FORCE_INLINE const coroutine_handle<>* end() const { return &first[ length ]; }
+			FORCE_INLINE coroutine_handle<> operator[]( size_t n ) const { return first[ n ]; }
+
+			// Pushes back an entry.
+			//
+			FORCE_INLINE void push( coroutine_handle<> value )
+			{
+				// If it does not fit within the current buffer:
+				//
+				if ( size() == capacity() ) [[unlikely]]
+				{
+					// Allocate a new buffer.
+					//
+					coroutine_handle<>* buffer = new coroutine_handle<>[ capacity() * 4 ];
+					std::copy( begin(), end(), buffer );
+
+					// Free the previous one and assign the new one.
+					//
+					if ( !inplace() )
+						delete[] first;
+					first = buffer;
+				}
+				first[ length++ ] = value;
+			}
+
+			// Finds an entry by value and removes it.
+			//
+			FORCE_INLINE bool pop( coroutine_handle<> value )
+			{
+				auto it = std::find( begin(), end(), value );
+				if ( it == end() ) [[unlikely]]
+					return false;
+				for ( ; ( it + 1 ) != end(); it++ )
+					*it = *( it + 1 );
+				--length;
+				return true;
+			}
+
+			// Remove all entries.
+			//
+			FORCE_INLINE void clear()
+			{
+				if ( !inplace() )
+					delete[] first;
+				first = &ibuffer[ 0 ];
+				length = 0;
+				reserved = in_place_continuation_count;
+			}
+
+			// Free the buffer on destruction.
+			//
+			FORCE_INLINE ~continuation_vector()
+			{
+				if ( !inplace() ) 
+					delete[] first;
+			}
+		};
+
+		// Atomic integer with constexpr fallback and relaxed rules.
+		//
+		template<typename T>
+		struct atomic_integral
+		{
+			T value;
+			FORCE_INLINE constexpr atomic_integral( T value ) : value( value ) {}
+
+			FORCE_INLINE constexpr bool bit_set( int idx )
+			{
+				return xstd::bit_set( value, idx );
+			}
+			FORCE_INLINE constexpr T load() const
+			{
+				if ( std::is_constant_evaluated() )
+					return value;
+				else
+					return std::atomic_ref{ value }.load( std::memory_order::relaxed );
+			}
+			FORCE_INLINE constexpr void store( T new_value )
+			{
+				if ( std::is_constant_evaluated() )
+					value = new_value;
+				else
+					std::atomic_ref{ value }.store( new_value, std::memory_order::release );
+			}
+			FORCE_INLINE constexpr T fetch_add( T increment )
+			{
+				if ( std::is_constant_evaluated() )
+				{
+					T result = value;
+					value += increment;
+					return result;
+				}
+				else
+				{
+					return std::atomic_ref{ value }.fetch_add( increment );
+				}
+			}
+			FORCE_INLINE constexpr T fetch_sub( T decrement )
+			{
+				if ( std::is_constant_evaluated() )
+				{
+					T result = value;
+					value -= decrement;
+					return result;
+				}
+				else
+				{
+					return std::atomic_ref{ value }.fetch_sub( decrement );
+				}
+			}
+		};
 	};
 
 	// Base of the promise type.
@@ -56,30 +201,30 @@ namespace xstd
 		static constexpr uint16_t state_finished =     1 << state_finished_bit;
 		static constexpr uint16_t state_written =      1 << state_written_bit;
 
+		// Reference count.
+		//
+		mutable impl::atomic_integral<uint32_t> refs = { 0 };
+
+		// Lock guarding continuation list and the event list.
+		//
+		mutable spinlock                        state_lock = {};
+
+		// Promise state.
+		//
+		impl::atomic_integral<uint16_t>         state = { 0 };
+
 		// Event and the continuation list.
 		//
 		mutable impl::wait_block*               events = nullptr;
-		mutable std::vector<coroutine_handle<>> continuation = {};
+		mutable impl::continuation_vector       continuation = {};
 
 		// Result.
 		//
 		union
 		{
-			uint8_t                         dummy = 0;
-			basic_result<T, S>              result;
+			uint8_t                              dummy = 0;
+			basic_result<T, S>                   result;
 		};
-
-		// Lock guarding continuation list and the event list.
-		//
-		mutable spinlock                state_lock = {};
-
-		// Promise state.
-		//
-		std::atomic<uint16_t>           state = { 0 };
-
-		// Reference count.
-		//
-		mutable std::atomic<uint32_t>   refs = { 0 };
 
 		// Default constructor/destructor.
 		//
@@ -96,8 +241,7 @@ namespace xstd
 		{
 			// Acquire the state lock, if already finished fail.
 			//
-			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ state_lock };
+			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
 			if ( finished() ) [[unlikely]]
 				return false;
 
@@ -111,8 +255,7 @@ namespace xstd
 		{
 			// Acquire the state lock.
 			//
-			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ state_lock };
+			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
 
 			// If event is already signalled, return.
 			//
@@ -183,12 +326,10 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return false;
 
-			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ state_lock };
+			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
 			if ( finished() ) [[unlikely]]
 				return false;
-
-			continuation.emplace_back( std::move( h ) );
+			continuation.push( h );
 			return true;
 		}
 		bool unlisten( coroutine_handle<> h ) const
@@ -196,17 +337,11 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return false;
 
-			scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ state_lock };
+			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
 			if ( finished() ) [[unlikely]]
 				return false;
-
-			auto it = std::find( continuation.begin(), continuation.end(), h );
-			if ( it != continuation.end() )
-			{
-				std::swap( *it, continuation.back() );
-				continuation.resize( continuation.size() - 1 );
-			}
+			if ( !continuation.pop( h ) ) [[unlikely]]
+				xstd::error( XSTD_ESTR( "Corrupt continuation list." ) );
 			return true;
 		}
 
@@ -214,16 +349,10 @@ namespace xstd
 		//
 		void signal()
 		{
-			std::vector<coroutine_handle<>> list = {};
-
-			uint8_t prev = get_task_priority();
+			uint8_t prev_tp;
 			{
-				scope_tpr<XSTD_PROMISE_TASK_PRIORITY> _t{ prev };
-				std::lock_guard _g{ state_lock };
-
-				// Swap the list.
-				//
-				continuation.swap( list );
+				xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
+				prev_tp = g.prev_tp;
 
 				// Notify all events.
 				//
@@ -232,17 +361,22 @@ namespace xstd
 				events = nullptr;
 			}
 
-			// Invoke all continuation handles.
+			// If there are any continuation entries:
 			//
-			if ( prev )
+			if ( !continuation.empty() )
 			{
-				for ( auto& cb : list )
-					xstd::chore( std::move( cb ) );
-			}
-			else
-			{
-				for ( auto& cb : list )
-					cb();
+				// If task priority is raised, schedule every instance via ::chore, otherwise 
+				// schedule every instance but the first via ::chore and continue from the first one.
+				//
+				coroutine_handle<> cnt = nullptr;
+				if ( !prev_tp )  cnt = continuation[ 0 ];
+				else             xstd::chore( continuation[ 0 ] );
+
+				for ( uint32_t n = 1; n != continuation.size(); n++ )
+					xstd::chore( continuation[ n ] );
+
+				continuation.clear();
+				if ( cnt ) cnt();
 			}
 		}
 
@@ -252,24 +386,24 @@ namespace xstd
 		void reject_unchecked( Args&&... args ) 
 		{ 
 			std::construct_at( &result, in_place_failure_t{}, std::forward<Args>( args )... ); 
-			state.store( state_finished | state_written, std::memory_order::relaxed ); 
+			state.store( state_finished | state_written ); 
 		}
 		template<typename... Args> 
 		void resolve_unchecked( Args&&... args ) 
 		{ 
 			std::construct_at( &result, in_place_success_t{}, std::forward<Args>( args )... ); 
-			state.store( state_finished | state_written, std::memory_order::relaxed ); 
+			state.store( state_finished | state_written ); 
 		}
 		template<typename... Args> 
 		void emplace_unchecked( Args&&... args ) 
 		{ 
 			std::construct_at( &result, std::forward<Args>( args )... ); 
-			state.store( state_finished | state_written, std::memory_order::relaxed );
+			state.store( state_finished | state_written );
 		}
 		template<typename... Args> 
 		bool reject( Args&&... args )  
 		{ 
-			if ( xstd::bit_set( state, state_finished_bit ) ) 
+			if ( state.bit_set( state_finished_bit ) )
 				return false; 
 			reject_unchecked( std::forward<Args>( args )... ); 
 			signal(); 
@@ -277,8 +411,8 @@ namespace xstd
 		}
 		template<typename... Args> 
 		bool resolve( Args&&... args )
-		{ 
-			if ( xstd::bit_set( state, state_finished_bit ) ) 
+		{
+			if ( state.bit_set( state_finished_bit ) )
 				return false; 
 			resolve_unchecked( std::forward<Args>( args )... ); 
 			signal(); 
@@ -286,8 +420,8 @@ namespace xstd
 		}
 		template<typename... Args> 
 		bool emplace( Args&&... args ) 
-		{ 
-			if ( xstd::bit_set( state, state_finished_bit ) ) 
+		{
+			if ( state.bit_set( state_finished_bit ) )
 				return false; 
 			emplace_unchecked( std::forward<Args>( args )... ); 
 			signal(); 
@@ -296,7 +430,7 @@ namespace xstd
 
 		// Exposes information on the promise state.
 		//
-		inline bool finished() const { return state.load( std::memory_order::relaxed ) & state_finished; }
+		inline bool finished() const { return state.load() & state_finished; }
 		inline bool pending() const { return !finished(); }
 		bool fulfilled() const 
 		{ 
@@ -317,7 +451,7 @@ namespace xstd
 		//
 		const basic_result<T, S>& unrace() const
 		{
-			while ( !( state.load( std::memory_order::relaxed ) & state_written ) ) [[unlikely]]
+			while ( !( state.load() & state_written ) ) [[unlikely]]
 				yield_cpu();
 			return result;
 		}
@@ -339,15 +473,23 @@ namespace xstd
 
 	// Promise reference type.
 	//
+	template<typename T, typename S> 
+	struct promise_ref_tag_t {};
+	
+	template<typename V, typename T, typename S>
+	inline constexpr bool is_promise_v = std::is_base_of_v<promise_ref_tag_t<T, S>, V>;
+	template<typename V, typename T, typename S>
+	concept Promise = is_promise_v<V, T, S>;
+
 	template<typename T, typename S, bool Owner>
-	struct promise_ref
+	struct promise_ref : promise_ref_tag_t<T, S>
 	{
 		promise_base<T, S>* ptr = nullptr;
 
-		// Refs : [24 (Future) - 8 (Promise)]
+		// Refs : [24 (Promise) - 8 (Future)]
 		//
-		static constexpr uint32_t future_flag =  0x100;
-		static constexpr uint32_t promise_flag = 0x1;
+		static constexpr uint32_t future_flag =  1;
+		static constexpr uint32_t promise_flag = 1 << 24;
 		static constexpr uint32_t ref_flag = Owner ? promise_flag : future_flag;
 		COLD static void destroy( promise_base<T, S>* ptr ) { delete ptr; }
 		COLD static void break_promise( promise_base<T, S>* ptr ) 
@@ -359,103 +501,117 @@ namespace xstd
 			else
 				ptr->reject();
 		}
-		static void inc_ref( promise_base<T, S>* ptr )
+
+		FORCE_INLINE static void inc_ref( promise_base<T, S>* ptr )
 		{
-			ptr->refs += ref_flag;
+			ptr->refs.fetch_add( ref_flag );
 		}
-		static void dec_ref( promise_base<T, S>* ptr )
+		FORCE_INLINE static void dec_ref( promise_base<T, S>* ptr )
 		{
-			if ( ptr )
+			// Break the promise if this is the only one left.
+			//
+			if constexpr ( Owner )
 			{
-				if constexpr ( Owner )
-				{
-					// Remove the promise reference and add a future reference.
-					//
-					uint32_t prev = ptr->refs.fetch_add( future_flag - promise_flag );
-					
-					// Delete if we were the only reference.
-					//
-					if ( prev == ref_flag )
-						return destroy( ptr );
-
-					// Break promise if we were the only promise.
-					//
-					if ( ( prev & ( future_flag - 1 ) ) == 1 && !ptr->finished() )
+				if ( ptr->pending() ) [[unlikely]]
+					if ( ( ptr->refs.load() & ( promise_flag - 1 ) ) == 1 ) [[unlikely]]
 						break_promise( ptr );
+			}
 
-					// Remove the temporary future reference.
+			// Destroy the object if this is the only one left.
+			//
+			if ( ptr->refs.fetch_sub( ref_flag ) == ref_flag )
+				destroy( ptr );
+		}
+		FORCE_INLINE static promise_base<T, S>* cvt_ref( promise_base<T, S>* ptr, bool was_owning )
+		{
+			// If we have to change the types:
+			//
+			if ( ptr && was_owning != Owner )
+			{
+				// If it was previously owning:
+				//
+				if ( was_owning )
+				{
+					// Downgrade the reference.
 					//
-					if ( ptr->refs.fetch_sub( future_flag ) == future_flag )
-						destroy( ptr );
+					auto prev = ptr->refs.fetch_add( future_flag - promise_flag );
+
+					// Break promise if it was the only one.
+					//
+					if ( ptr->pending() ) [[unlikely]]
+						if ( ( prev & ( promise_flag - 1 ) ) == 1 ) [[unlikely]]
+							break_promise( ptr );
 				}
+				// If it was previously viewing:
+				//
 				else
 				{
-					if ( ptr->refs.fetch_sub( ref_flag ) == ref_flag )
-						destroy( ptr );
+					// Upgrade the reference.
+					//
+					ptr->refs.fetch_add( promise_flag - future_flag );
 				}
 			}
+			return ptr;
 		}
 
 		// Simple constructors.
 		//
-		promise_ref() {}
-		promise_ref( std::nullptr_t ) {}
-		explicit promise_ref( promise_base<T, S>* ptr ) : ptr( ptr ) {}
+		inline constexpr promise_ref() {}
+		inline constexpr promise_ref( std::nullptr_t ) {}
+		inline constexpr promise_ref( std::in_place_t, promise_base<T, S>* ptr ) : ptr( ptr ) {}
 
-		// Copy via ref.
+		// Copy/Move within the same types.
 		//
-		promise_ref( const promise_ref<T, S, Owner>& other )
+		inline constexpr promise_ref( promise_ref&& other ) noexcept : ptr( std::exchange( other.ptr, nullptr ) ) {}
+		inline constexpr promise_ref& operator=( promise_ref&& other ) noexcept { std::swap( ptr, other.ptr ); return *this; }
+		inline constexpr promise_ref( const promise_ref& other ) { reset( other.ptr ); }
+		inline constexpr promise_ref& operator=( const promise_ref& other ) { reset( other.ptr ); return *this; }
+
+		// Copy/Move from parents.
+		//
+		template<typename V> requires Promise<V, T, S>
+		inline constexpr promise_ref( V&& other ) noexcept
 		{
-			ptr = other.ptr;
-			if ( ptr )
-				inc_ref( ptr );
+			adopt( std::exchange( other.ptr, nullptr ), other.is_owning() );
 		}
-		promise_ref& operator=( const promise_ref<T, S, Owner>& other )
+		template<typename V> requires Promise<V, T, S>
+		inline constexpr promise_ref( const V& other ) 
 		{
-			auto prev = std::exchange( ptr, other.ptr );
-			if ( ptr )
-				inc_ref( ptr );
-			if ( prev )
-				dec_ref( prev );
+			reset( other.ptr );
+		}
+		template<typename V> requires Promise<V, T, S>
+		inline constexpr promise_ref& operator=( V&& other ) noexcept
+		{
+			adopt( std::exchange( other.ptr, nullptr ), other.is_owning() );
 			return *this;
 		}
-		promise_ref( const promise_ref<T, S, !Owner>& other )
+		template<typename V> requires Promise<V, T, S>
+		inline constexpr promise_ref& operator=( const V& other )
 		{
-			ptr = other.ptr;
-			if ( ptr )
-				inc_ref( ptr );
-		}
-		promise_ref& operator=( const promise_ref<T, S, !Owner>& other )
-		{
-			auto prev = std::exchange( ptr, other.ptr );
-			if ( ptr )
-				inc_ref( ptr );
-			if ( prev )
-				dec_ref( prev );
-			return *this;
-		}
-
-		// Move via swap.
-		//
-		promise_ref( promise_ref<T, S, Owner>&& other ) noexcept
-		{
-			std::swap( ptr, other.ptr );
-		}
-		promise_ref& operator=( promise_ref<T, S, Owner>&& other ) noexcept
-		{
-			std::swap( ptr, other.ptr );
+			reset( other.ptr );
 			return *this;
 		}
 
 		// Resets the reference.
 		//
-		inline explicit operator bool() const { return ptr != nullptr; }
-		inline void reset() { dec_ref( std::exchange( ptr, nullptr ) ); }
-		inline ~promise_ref() { reset(); }
+		inline constexpr void adopt( promise_base<T, S>* new_ptr, bool was_owning = Owner )
+		{
+			if ( auto* prev_ptr = std::exchange( ptr, cvt_ref( new_ptr, was_owning ) ) )
+				dec_ref( prev_ptr );
+		}
+		inline constexpr void reset( promise_base<T, S>* new_ptr = nullptr )
+		{ 
+			if ( new_ptr ) 
+				inc_ref( new_ptr );
+			if ( auto* prev_ptr = std::exchange( ptr, new_ptr ) )
+				dec_ref( prev_ptr );
+		}
+		inline constexpr ~promise_ref() { reset(); }
 
 		// Reference observer.
 		//
-		inline auto* address() const { return ptr; }
+		inline constexpr explicit operator bool() const { return ptr != nullptr; }
+		inline constexpr auto* address() const { return ptr; }
 		inline size_t ref_count() const 
 		{
 			if ( !ptr ) return 0;
@@ -465,6 +621,7 @@ namespace xstd
 
 		// Wrap around the reference.
 		//
+		inline constexpr bool is_owning() const noexcept { return Owner; }
 		inline void unrace() const { ptr->unrace(); }
 		inline bool finished() const { return ptr->finished(); }
 		inline bool pending() const { return ptr->pending(); }
@@ -518,16 +675,20 @@ namespace xstd
 	template<typename T = void, typename S = xstd::exception>
 	struct unique_future : promise_ref<T, S, false>
 	{
-		using promise_ref<T, S, false>::promise_ref;
+		using reference_type = promise_ref<T, S, false>;
+		using reference_type::reference_type;
+		using reference_type::operator=;
 
-		// No copy, default move.
+		// No copy.
 		//
 		unique_future( const unique_future& ) = delete;
 		unique_future& operator=( const unique_future& ) = delete;
-		unique_future( unique_future&& ) noexcept = default;
-		unique_future& operator=( unique_future&& ) noexcept = default;
-	};
 
+		// Default move.
+		//
+		constexpr unique_future( unique_future&& ) noexcept = default;
+		constexpr unique_future& operator=( unique_future&& ) noexcept = default;
+	};
 	struct make_awaitable_tag_t {};
 
 	// Free-standing promise type.
@@ -535,18 +696,18 @@ namespace xstd
 	template<typename T = void, typename S = xstd::exception>
 	struct promise : promise_ref<T, S, true>, make_awaitable_tag_t
 	{
+		using reference_type = promise_ref<T, S, true>;
+		using reference_type::reference_type;
+		using reference_type::operator=;
+
 		// Traits for co_await.
 		//
 		using value_type =  T;
 		using status_type = S;
-
-		// Redirect constructor to reference type.
-		//
-		using promise_ref<T, S, true>::promise_ref;
-
+		
 		// Make awaitable via move.
 		//
-		unique_future<T, S> move() { return { std::move( *this ) }; }
+		unique_future<T, S> move() { return std::move( *this ); }
 	};
 
 	// Factories for the promises.
@@ -555,8 +716,8 @@ namespace xstd
 	inline promise<T, S> make_promise()
 	{
 		auto res = new promise_base<T, S>();
-		res->refs.store( 1 /*promise flag*/, std::memory_order::relaxed );
-		return promise<T, S>{ res };
+		res->refs.store( 1 /*promise flag*/ );
+		return promise<T, S>{ std::in_place_t{}, res };
 	}
 	template<typename T = void, typename S = xstd::exception>
 	inline promise<T, S> make_rejected_promise( S&& status )
@@ -571,15 +732,15 @@ namespace xstd
 	template<typename T = void, typename S = xstd::exception>
 	struct future : promise_ref<T, S, false>, make_awaitable_tag_t
 	{
+		using reference_type = promise_ref<T, S, false>;
+		using reference_type::reference_type;
+		using reference_type::operator=;
+
 		// Traits for co_await.
 		//
 		using value_type =  T;
 		using status_type = S;
 
-		// Redirect constructor to reference type.
-		//
-		using promise_ref<T, S, false>::promise_ref;
-		
 		// Allow coroutine transformation.
 		//
 		struct promise_type
@@ -618,19 +779,19 @@ namespace xstd
 
 		// Make awaitable via move.
 		//
-		unique_future<T, S> move() { return { std::move( *this ) }; }
+		constexpr unique_future<T, S> move() noexcept { return std::move( *this ); }
 	};
 	template<typename S>
 	struct future<void, S> : promise_ref<void, S, false>, make_awaitable_tag_t
 	{
+		using reference_type = promise_ref<void, S, false>;
+		using reference_type::reference_type;
+		using reference_type::operator=;
+
 		// Traits for co_await.
 		//
 		using value_type =  void;
 		using status_type = S;
-
-		// Redirect constructor to reference type.
-		//
-		using promise_ref<void, S, false>::promise_ref;
 
 		// Allow coroutine transformation.
 		//
@@ -666,7 +827,7 @@ namespace xstd
 
 		// Make awaitable via move.
 		//
-		unique_future<void, S> move() { return { std::move( *this ) }; }
+		constexpr unique_future<void, S> move() noexcept { return std::move( *this ); }
 	};
 
 	// Make promise references co awaitable.

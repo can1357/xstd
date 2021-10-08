@@ -139,8 +139,7 @@ namespace xstd::tcp
 			//
 			if ( tx_queue.empty() )
 				return;
-			scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ tx_lock };
+			xstd::task_lock g{ tx_lock, XSTD_SOCKET_TASK_PRIORITY };
 			flush_queues();
 		}
 
@@ -148,8 +147,7 @@ namespace xstd::tcp
 		//
 		void write( std::vector<uint8_t> data )
 		{
-			scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ tx_lock };
+			xstd::task_lock g{ tx_lock, XSTD_SOCKET_TASK_PRIORITY };
 
 			// Append the data onto tx queue, flush the queues.
 			//
@@ -162,8 +160,7 @@ namespace xstd::tcp
 		//
 		void on_socket_ack( size_t n )
 		{
-			scope_tpr<XSTD_SOCKET_TASK_PRIORITY> _t{};
-			std::lock_guard _g{ tx_lock };
+			xstd::task_lock g{ tx_lock, XSTD_SOCKET_TASK_PRIORITY };
 
 			// Clear the acknowledgment queue.
 			//
