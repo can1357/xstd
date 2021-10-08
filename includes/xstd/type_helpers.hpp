@@ -1302,7 +1302,7 @@ namespace xstd
 	// Runs the given lambda only if it's the first time.
 	//
 	template<typename F> requires ( !Pointer<F> )
-	NO_INLINE COLD static decltype( auto ) run_once( F&& fn )
+	FORCE_INLINE inline decltype( auto ) run_once( F&& fn )
 	{
 		using R = decltype( fn() );
 
