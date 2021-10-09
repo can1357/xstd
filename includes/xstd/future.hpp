@@ -25,22 +25,18 @@ namespace xstd
 			xstd::event_base     event = {};
 		};
 
+		template<typename T>
+		inline const basic_result<T, xstd::exception> timeout_result_v{ in_place_failure_t{}, XSTD_ESTR( "Promise timed out." ) };
+
 		template<typename T, typename S>
 		inline const basic_result<T, S>& timeout_result()
 		{
 			if constexpr ( Same<S, xstd::exception> )
-			{
-				static const basic_result<T, S> timeout = xstd::exception{ XSTD_ESTR( "Promise timed out." ) };
-				return timeout;
-			}
+				return timeout_result_v<T>;
 			else if constexpr ( Same<S, no_status> )
-			{
 				xstd::error( XSTD_ESTR( "Promise timed out." ) );
-			}
 			else
-			{
 				return xstd::static_default{};
-			}
 		}
 
 		// Small vector implementation.
@@ -290,41 +286,52 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return unrace();
 
-			// Register a wait block.
-			//
 			impl::wait_block wb = {};
 			if ( !register_wait_block( wb ) )
 				return unrace();
 			
-			// Wait for completion and return the result.
-			//
 			wb.event.wait();
 			return result;
+		}
+		basic_result<T, S> wait_move()
+		{
+			if ( finished() ) [[likely]]
+				return std::move( *( unrace(), &result ) );
+
+			impl::wait_block wb = {};
+			if ( !register_wait_block( wb ) )
+				return std::move( *( unrace(), &result ) );
+
+			wb.event.wait();
+			return std::move( result );
 		}
 		const basic_result<T, S>& wait_for( duration time ) const
 		{
 			if ( finished() ) [[likely]]
 				return unrace();
 
-			// Register a wait block.
-			//
 			impl::wait_block wb = {};
 			if ( !register_wait_block( wb ) )
 				return unrace();
 
-			// Wait on it and then return on success.
-			//
-			if ( wb.event.wait_for( time ) )
+			if ( wb.event.wait_for( time ) || !deregister_wait_block( wb ) )
 				return result;
+			else
+				return impl::timeout_result<T, S>();
+		}
+		basic_result<T, S> wait_for_move( duration time ) const
+		{
+			if ( finished() ) [[likely]]
+				return std::move( *( unrace(), &result ) );
 
-			// Deregister the wait block, if we fail return the result.
-			//
-			if ( !deregister_wait_block( wb ) )
-				return result;
+			impl::wait_block wb = {};
+			if ( !register_wait_block( wb ) )
+				return std::move( *( unrace(), &result ) );
 
-			// Return the timeout.
-			//
-			return impl::timeout_result<T, S>();
+			if ( wb.event.wait_for( time ) || !deregister_wait_block( wb ) )
+				return std::move( result );
+			else
+				return impl::timeout_result<T, S>();
 		}
 
 		// Chain/unchain a coroutine.
@@ -457,7 +464,7 @@ namespace xstd
 
 		// Helper to reference the result indirectly without a signal and avoiding the race condition.
 		//
-		const basic_result<T, S>& unrace() const
+		inline const basic_result<T, S>& unrace() const
 		{
 			while ( !( state.load() & state_written ) ) [[unlikely]]
 				yield_cpu();
@@ -644,8 +651,8 @@ namespace xstd
 		inline bool unlisten( coroutine_handle<> h ) const { return ptr->unlisten( h ); }
 		inline const basic_result<T, S>& wait() const { return ptr->wait(); }
 		inline const basic_result<T, S>& wait_for( duration time ) const { return ptr->wait_for( time ); }
-		inline std::string to_string() const { return ptr->to_string(); }
 		inline const basic_result<T, S>& result() const { fassert( finished() ); return ptr->unrace(); }
+		inline std::string to_string() const { return ptr->to_string(); }
 		
 		template<typename... Tx>
 		inline bool resolve( Tx&&... value ) const requires Owner
@@ -701,6 +708,12 @@ namespace xstd
 		//
 		constexpr unique_future( unique_future&& ) noexcept = default;
 		constexpr unique_future& operator=( unique_future&& ) noexcept = default;
+
+		// Make wait/wait_for/result move.
+		//
+		inline basic_result<T, S> wait() const { return reference_type::ptr->wait_move(); }
+		inline basic_result<T, S> wait_for( duration time ) const { return reference_type::ptr->wait_for_move( time ); }
+		inline basic_result<T, S> result() const { fassert( finished() ); reference_type::ptr->unrace(); return std::move( ptr->result ); }
 	};
 	struct make_awaitable_tag_t {};
 
@@ -980,4 +993,12 @@ namespace xstd
 	template<typename T, typename S> future( promise<T, S> )->future<T, S>;
 	template<typename T, typename S> future( unique_future<T, S>&& )->future<T, S>;
 	template<typename T, typename S> unique_future( promise<T, S> )->unique_future<T, S>;
+
+	// Override coroutine traits to allow unique_future.
+	//
+	template<typename T, typename S, typename... A>
+	struct coroutine_traits<xstd::unique_future<T, S>, A...>
+	{
+		using promise_type = typename xstd::future<T, S>::promise_type;
+	};
 };

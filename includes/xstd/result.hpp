@@ -201,18 +201,25 @@ namespace xstd
 
 		// Status code and the value itself.
 		//
-		Status status = Status{ traits::failure_value };
+		Status status;
 		store_type result = std::nullopt;
 	
 		// Invalid value construction.
 		//
-		constexpr basic_result() {}
-		constexpr basic_result( std::nullopt_t ) {}
-	
+		constexpr basic_result() : status{ traits::failure_value } {}
+		constexpr basic_result( std::nullopt_t ) : basic_result() {}
+
+		// Default copy and move.
+		//
+		constexpr basic_result( basic_result&& ) noexcept = default;
+		constexpr basic_result( const basic_result& ) = default;
+		constexpr basic_result& operator=( basic_result&& ) noexcept = default;
+		constexpr basic_result& operator=( const basic_result& ) = default;
+
 		// Consturction with value/state combination.
 		//
 		template<typename T> requires ( Constructable<value_type, T> && ( !Constructable<Status, T> || Same<std::decay_t<T>, value_type> ) && !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
-		constexpr basic_result( T&& value ) : status( Status{ traits::success_value } ), result( std::forward<T>( value ) ) {}
+		constexpr basic_result( T&& value ) : status{ traits::success_value }, result( std::forward<T>( value ) ) {}
 		template<typename S> requires ( Constructable<Status, S> && ( !Constructable<value_type, S> || Same<std::decay_t<S>, Status> ) && !Same<std::decay_t<S>, in_place_success_t> && !Same<std::decay_t<S>, in_place_failure_t> )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
@@ -224,40 +231,16 @@ namespace xstd
 		constexpr basic_result( T&& value, S&& status ) : status( std::forward<S>( status ) ), result( std::forward<T>( value ) ) {}
 	
 		template<typename... Args>
-		constexpr basic_result( in_place_success_t, Args&&... args ) : status( Status{ traits::success_value } ), result( std::forward<Args>( args )... ) {}
+		constexpr basic_result( in_place_success_t, Args&&... args ) : status{ traits::success_value }, result( std::in_place_t{}, std::forward<Args>( args )... ) {}
 		template<typename... Args>
 		constexpr basic_result( in_place_failure_t, Args&&... args )
 		{
 			if constexpr ( sizeof...( Args ) != 0 )
 				status = Status{ std::forward<Args>( args )... };
+			else
+				status = Status{ traits::failure_value };
 		}
 
-		// Result conversion.
-		//
-		template<typename T> requires( !Same<T, value_type> && ( Constructable<value_type, const T&> || Same<value_type, std::monostate> ) )
-		constexpr basic_result( const basic_result<T, Status>& other )
-		{
-			if constexpr ( Same<value_type, std::monostate> )
-			{
-				status = other.status;
-				if ( traits::is_success( status ) )
-					result.emplace();
-			}
-			else
-			{
-				status = other.status;
-				if ( traits::is_success( status ) )
-					result.emplace( other.value() );
-			}
-		}
-	
-		// Default copy and move.
-		//
-		constexpr basic_result( basic_result&& ) noexcept = default;
-		constexpr basic_result( const basic_result& ) = default;
-		constexpr basic_result& operator=( basic_result&& ) noexcept = default;
-		constexpr basic_result& operator=( const basic_result& ) = default;
-	
 		// Setters.
 		//
 		template<typename S>
@@ -269,24 +252,11 @@ namespace xstd
 			else
 				std::swap( st, status );
 		}
-		constexpr value_type& emplace() requires ( Void<Value> || DefaultConstructable<Value> )
+		template<typename... Tx>
+		constexpr value_type& emplace( Tx&&... value )
 		{
-			auto& v = result.emplace();
+			auto& v = result.emplace( std::forward<Tx>( value )... );
 			status = Status{ traits::success_value };
-			return v;
-		}
-		template<typename T>
-		constexpr value_type& emplace( T&& value )
-		{
-			auto& v = result.emplace( std::forward<T>( value ) );
-			status = Status{ traits::success_value };
-			return v;
-		}
-		template<typename T, typename S>
-		constexpr value_type& emplace( T&& value, S&& _status )
-		{
-			auto& v = result.emplace( std::forward<T>( value ) );
-			status = std::forward<S>( _status );
 			return v;
 		}
 		

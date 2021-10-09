@@ -30,7 +30,6 @@ namespace xstd
 	template<typename T>
 	concept Awaitable = requires( T x ) { x.await_ready(); x.await_suspend(); x.await_resume(); };
 
-
 	// Types that are exported as std.
 	//
 	namespace coro_export
@@ -38,8 +37,14 @@ namespace xstd
 #if !MS_COMPILER
 		// Coroutine traits.
 		//
+		template<typename Ret, typename... Args>
+		struct coroutine_traits;
+
 		template<Coroutine Ret, typename... Args>
-		struct coroutine_traits { using promise_type = typename Ret::promise_type; };
+		struct coroutine_traits<Ret, Args...> 
+		{ 
+			using promise_type = typename Ret::promise_type; 
+		};
 
 		// Coroutine handle.
 		//
