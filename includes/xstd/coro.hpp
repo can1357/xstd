@@ -25,6 +25,11 @@ namespace xstd
 #if !HAS_STD_CORO
 	namespace builtin
 	{
+#ifdef __INTELLISENSE__
+		inline void* noop();
+#else
+		inline void* noop() { return __builtin_coro_noop(); }
+#endif
 		inline bool done( void* address ) { return __builtin_coro_done( address ); }
 		inline void resume( void* address ) { __builtin_coro_resume( address ); }
 		inline void destroy( void* address ) { __builtin_coro_destroy( address ); }
@@ -57,8 +62,8 @@ namespace std
 	{
 		void* handle = nullptr;
 
-		inline constexpr coroutine_handle() : handle( nullptr ) {};
-		inline constexpr coroutine_handle( std::nullptr_t ) : handle( nullptr ) {};
+		inline constexpr coroutine_handle() noexcept : handle( nullptr ) {};
+		inline constexpr coroutine_handle( std::nullptr_t ) noexcept : handle( nullptr ) {};
 
 		inline constexpr void* address() const noexcept { return handle; }
 		inline constexpr explicit operator bool() const noexcept { return handle; }
@@ -67,18 +72,30 @@ namespace std
 		inline void destroy() const noexcept { xstd::builtin::destroy( handle ); }
 		inline bool done() const noexcept { return xstd::builtin::done( handle ); }
 		inline void operator()() const { resume(); }
-
-		inline bool operator<( const coroutine_handle& o ) const noexcept { return handle < o.handle; }
-		inline bool operator==( const coroutine_handle& o ) const noexcept { return handle == o.handle; }
-		inline bool operator!=( const coroutine_handle& o ) const noexcept { return handle != o.handle; }
+		
+		template<typename T = void>
+		inline constexpr bool operator==( const coroutine_handle<T>& other ) 
+		{
+			return address() == other.address();
+		}
+		template<typename T = void>
+		inline constexpr bool operator!=( const coroutine_handle<T>& other )
+		{
+			return address() != other.address();
+		}
+		template<typename T = void>
+		inline constexpr bool operator<( const coroutine_handle<T>& other )
+		{
+			return address() < other.address();
+		}
 
 		inline static coroutine_handle<> from_address( void* addr ) noexcept { coroutine_handle<> tmp{}; tmp.handle = addr; return tmp; }
 	};
 	template<typename Promise>
 	struct coroutine_handle : coroutine_handle<>
 	{
-		inline constexpr coroutine_handle() {};
-		inline constexpr coroutine_handle( std::nullptr_t ) : coroutine_handle<>( nullptr ) {};
+		inline constexpr coroutine_handle() noexcept {};
+		inline constexpr coroutine_handle( std::nullptr_t ) noexcept : coroutine_handle<>( nullptr ) {};
 
 		inline Promise& promise() const { return xstd::builtin::to_promise<Promise>( handle ); }
 		inline static coroutine_handle<Promise> from_promise( Promise& pr ) noexcept { return from_address( xstd::builtin::to_handle( pr ) ); }
@@ -93,6 +110,45 @@ namespace std
 			return hash<size_t>{}( ( size_t ) hnd.address() );
 		}
 	};
+
+	// No-op coroutine.
+	//
+	struct noop_coroutine_promise {};
+	template <>
+	struct coroutine_handle<noop_coroutine_promise>
+	{
+		void* handle;
+		inline coroutine_handle() noexcept : handle( xstd::builtin::noop() ) {}
+
+		inline constexpr operator coroutine_handle<>() const noexcept { return coroutine_handle<>::from_address( handle ); }
+		inline constexpr void* address() const noexcept { return handle; }
+		inline constexpr explicit operator bool() const noexcept { return true; }
+
+		inline constexpr void resume() const {}
+		inline constexpr void destroy() const noexcept {}
+		inline constexpr bool done() const noexcept { return false; }
+		inline constexpr void operator()() const { resume(); }
+
+		template<typename T = void>
+		inline constexpr bool operator==( const coroutine_handle<T>& other ) 
+		{
+			return std::is_same_v<T, noop_coroutine_promise> || address() == other.address();
+		}
+		template<typename T = void>
+		inline constexpr bool operator!=( const coroutine_handle<T>& other )
+		{
+			return !std::is_same_v<T, noop_coroutine_promise> && address() != other.address();
+		}
+		template<typename T = void>
+		inline constexpr bool operator<( const coroutine_handle<T>& other )
+		{
+			return !std::is_same_v<T, noop_coroutine_promise> && address() < other.address();
+		}
+
+		inline noop_coroutine_promise& promise() const noexcept { return xstd::builtin::to_promise<noop_coroutine_promise>( handle ); }
+	};
+	using noop_coroutine_handle = coroutine_handle<noop_coroutine_promise>;
+	inline noop_coroutine_handle noop_coroutine() noexcept { return noop_coroutine_handle{}; }
 
 	// Dummy awaitables.
 	//
@@ -121,6 +177,10 @@ namespace xstd
 	using coroutine_traits = std::coroutine_traits<Ret, Args...>;
 	using suspend_always =   std::suspend_always;
 	using suspend_never =    std::suspend_never;
+
+	using noop_coroutine_promise = std::noop_coroutine_promise;
+	using noop_coroutine_handle =  std::noop_coroutine_handle;
+	inline noop_coroutine_handle noop_coroutine() noexcept { return std::noop_coroutine(); }
 
 	// Coroutine traits.
 	//
