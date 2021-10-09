@@ -727,6 +727,12 @@ namespace xstd
 		{ 
 			return ptr->signal(); 
 		}
+
+		// Comparison.
+		//
+		template<typename V> requires Promise<V, T, S> inline constexpr bool operator==( const V& other ) const noexcept { return ptr == other.ptr; }
+		template<typename V> requires Promise<V, T, S> inline constexpr bool operator!=( const V& other ) const noexcept { return ptr != other.ptr; }
+		template<typename V> requires Promise<V, T, S> inline constexpr bool operator<( const V& other )  const noexcept { return ptr < other.ptr; }
 	};
 
 	// Moving awaitable wrapper for promise refences, might be unsafe if shared.
@@ -737,6 +743,9 @@ namespace xstd
 		using reference_type = promise_ref<T, S, false>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
+		using reference_type::operator==;
+		using reference_type::operator!=;
+		using reference_type::operator<;
 
 		// No copy.
 		//
@@ -764,6 +773,9 @@ namespace xstd
 		using reference_type = promise_ref<T, S, true>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
+		using reference_type::operator==;
+		using reference_type::operator!=;
+		using reference_type::operator<;
 
 		// Traits for co_await.
 		//
@@ -797,6 +809,9 @@ namespace xstd
 		using reference_type = promise_ref<T, S, false>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
+		using reference_type::operator==;
+		using reference_type::operator!=;
+		using reference_type::operator<;
 
 		// Traits for co_await.
 		//
@@ -849,6 +864,9 @@ namespace xstd
 		using reference_type = promise_ref<void, S, false>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
+		using reference_type::operator==;
+		using reference_type::operator!=;
+		using reference_type::operator<;
 
 		// Traits for co_await.
 		//
