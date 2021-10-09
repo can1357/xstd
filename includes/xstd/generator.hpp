@@ -17,10 +17,12 @@ namespace xstd
 			struct yield_awaitable
 			{
 				bool await_ready() noexcept { return false; }
-				void await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
-						c();
+						return c;
+					else
+						return noop_coroutine();
 				}
 				void await_resume() noexcept {}
 			};

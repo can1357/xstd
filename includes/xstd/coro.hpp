@@ -73,21 +73,9 @@ namespace std
 		inline bool done() const noexcept { return xstd::builtin::done( handle ); }
 		inline void operator()() const { resume(); }
 		
-		template<typename T = void>
-		inline constexpr bool operator==( const coroutine_handle<T>& other ) 
-		{
-			return address() == other.address();
-		}
-		template<typename T = void>
-		inline constexpr bool operator!=( const coroutine_handle<T>& other )
-		{
-			return address() != other.address();
-		}
-		template<typename T = void>
-		inline constexpr bool operator<( const coroutine_handle<T>& other )
-		{
-			return address() < other.address();
-		}
+		inline constexpr bool operator==( coroutine_handle<> other ) { return address() == other.address(); }
+		inline constexpr bool operator!=( coroutine_handle<> other ) { return address() != other.address(); }
+		inline constexpr bool operator<( coroutine_handle<> other ) { return address() < other.address(); }
 
 		inline static coroutine_handle<> from_address( void* addr ) noexcept { coroutine_handle<> tmp{}; tmp.handle = addr; return tmp; }
 	};
@@ -129,21 +117,13 @@ namespace std
 		inline constexpr bool done() const noexcept { return false; }
 		inline constexpr void operator()() const { resume(); }
 
-		template<typename T = void>
-		inline constexpr bool operator==( const coroutine_handle<T>& other ) 
-		{
-			return std::is_same_v<T, noop_coroutine_promise> || address() == other.address();
-		}
-		template<typename T = void>
-		inline constexpr bool operator!=( const coroutine_handle<T>& other )
-		{
-			return !std::is_same_v<T, noop_coroutine_promise> && address() != other.address();
-		}
-		template<typename T = void>
-		inline constexpr bool operator<( const coroutine_handle<T>& other )
-		{
-			return !std::is_same_v<T, noop_coroutine_promise> && address() < other.address();
-		}
+		inline constexpr bool operator==( coroutine_handle<> other ) { return address() == other.address(); }
+		inline constexpr bool operator!=( coroutine_handle<> other ) { return address() != other.address(); }
+		inline constexpr bool operator<( coroutine_handle<> other ) { return address() < other.address(); }
+
+		inline bool operator==( coroutine_handle<noop_coroutine_promise> ) { return true; }
+		inline bool operator!=( coroutine_handle<noop_coroutine_promise> ) { return false; }
+		inline bool operator<( coroutine_handle<noop_coroutine_promise> ) { return false; }
 
 		inline noop_coroutine_promise& promise() const noexcept { return xstd::builtin::to_promise<noop_coroutine_promise>( handle ); }
 	};

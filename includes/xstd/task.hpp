@@ -36,13 +36,13 @@ namespace xstd
 			struct final_awaitable
 			{
 				bool await_ready() noexcept { return false; }
-				bool await_suspend( coroutine_handle<promise_type> handle ) noexcept 
+				coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
-						c();
-					return true;
+						return c;
+					else
+						return noop_coroutine();
 				}
-				void await_suspend( coroutine_handle<> ) noexcept {};
 				void await_resume() const noexcept { unreachable(); }
 			};
 
@@ -137,13 +137,13 @@ namespace xstd
 			struct final_awaitable
 			{
 				bool await_ready() noexcept { return false; }
-				bool await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
-						c();
-					return true;
+						return c;
+					else
+						return noop_coroutine();
 				}
-				void await_suspend( coroutine_handle<> ) noexcept {};
 				void await_resume() const noexcept { unreachable(); }
 			};
 
