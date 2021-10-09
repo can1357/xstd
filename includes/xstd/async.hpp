@@ -10,25 +10,25 @@ namespace xstd
 	namespace impl
 	{
 		template<typename F, typename R>
-		struct async_promise : promise<R, no_status>
+		struct async_promise : promise<R, void>
 		{
 			F functor;
-			promise<R, no_status> promise = make_promise<R, no_status>();
+			promise<R, void> promise = make_promise<R, void>();
 
 			async_promise( F&& functor ) : functor( std::forward<F>( functor ) ) {}
 			void operator()() const noexcept { promise.resolve( functor() ); }
-			unique_future<R, no_status> get_future() const { return promise; }
+			unique_future<R, void> get_future() const { return promise; }
 		};
 
 		template<typename F>
 		struct async_promise<F, void>
 		{
 			F functor;
-			promise<void, no_status> promise = make_promise<void, no_status>();
+			promise<void, void> promise = make_promise<void, void>();
 
 			async_promise( F&& functor ) : functor( std::forward<F>( functor ) ) {}
 			void operator()() const noexcept { functor(); promise.resolve(); }
-			unique_future<void, no_status> get_future() const { return promise; }
+			unique_future<void, void> get_future() const { return promise; }
 		};
 
 		template<typename F, typename T, typename S>

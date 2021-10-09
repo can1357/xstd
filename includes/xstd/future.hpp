@@ -33,7 +33,7 @@ namespace xstd
 		{
 			if constexpr ( Same<S, xstd::exception> )
 				return timeout_result_v<T>;
-			else if constexpr ( Same<S, no_status> )
+			else if constexpr ( !basic_result<T, S>::has_status )
 				xstd::error( XSTD_ESTR( "Promise timed out." ) );
 			else
 				return xstd::static_default{};
@@ -449,14 +449,14 @@ namespace xstd
 		inline bool pending() const { return !finished(); }
 		bool fulfilled() const 
 		{ 
-			if constexpr ( Same<S, no_status> )
+			if constexpr ( !basic_result<T, S>::has_status )
 				return finished();
 			else
 				return finished() && unrace().success(); 
 		}
 		bool failed() const 
 		{ 
-			if constexpr ( Same<S, no_status> )
+			if constexpr ( !basic_result<T, S>::has_status )
 				return false;
 			else
 				return finished() && unrace().fail(); 
@@ -507,7 +507,7 @@ namespace xstd
 		{
 			if constexpr ( Same<S, xstd::exception> )
 				ptr->reject( xstd::exception{ XSTD_ESTR( "Promise broken." ) } );
-			else if constexpr ( Same<S, no_status> )
+			else if constexpr ( !basic_result<T, S>::has_status )
 				xstd::error( XSTD_ESTR( "Promise broken." ) );
 			else
 				ptr->reject();
@@ -728,9 +728,8 @@ namespace xstd
 
 		// Traits for co_await.
 		//
-		using value_type =  T;
-		using status_type = S;
-		
+		using result_type = basic_result<T, S>;
+
 		// Make awaitable via move.
 		//
 		unique_future<T, S> move() { return std::move( *this ); }
@@ -764,8 +763,7 @@ namespace xstd
 
 		// Traits for co_await.
 		//
-		using value_type =  T;
-		using status_type = S;
+		using result_type = basic_result<T, S>;
 
 		// Allow coroutine transformation.
 		//
@@ -796,7 +794,7 @@ namespace xstd
 			}
 
 			template<typename V>
-			final_awaitable yield_value( V&& v ) requires ( !Same<S, no_status> )
+			final_awaitable yield_value( V&& v ) requires ( basic_result<T, S>::has_status )
 			{
 				promise.reject_unchecked( std::forward<V>( v ) );
 				return {};
@@ -816,8 +814,7 @@ namespace xstd
 
 		// Traits for co_await.
 		//
-		using value_type =  void;
-		using status_type = S;
+		using result_type = basic_result<void, S>;
 
 		// Allow coroutine transformation.
 		//
@@ -844,7 +841,7 @@ namespace xstd
 			void return_void() { promise.resolve_unchecked(); }
 
 			template<typename V>
-			final_awaitable yield_value( V&& v ) requires ( !Same<S, no_status> )
+			final_awaitable yield_value( V&& v ) requires ( result_type::has_status )
 			{
 				promise.reject_unchecked( std::forward<V>( v ) );
 				return {};
@@ -861,7 +858,7 @@ namespace xstd
 	template<typename P> requires std::is_base_of_v<make_awaitable_tag_t, P>
 	auto operator co_await( const P& ref )
 	{
-		using S = typename P::status_type;
+		using R = typename P::result_type;
 
 		struct awaitable
 		{
@@ -884,13 +881,13 @@ namespace xstd
 				}
 				return false;
 			}
-			const auto& await_resume() const
+			decltype( auto ) await_resume() const
 			{
 				awaiting_as = nullptr;
-				if constexpr ( Same<S, no_status> )
-					return promise.result().value();
-				else
+				if constexpr ( R::has_status )
 					return promise.result();
+				else if constexpr( R::has_value )
+					return promise.result().value();
 			}
 			~awaitable()
 			{
@@ -903,7 +900,7 @@ namespace xstd
 	template<typename P> requires std::is_base_of_v<make_awaitable_tag_t, P>
 	auto operator co_await( P&& ref )
 	{
-		using S = typename P::status_type;
+		using R = typename P::result_type;
 
 		struct awaitable
 		{
@@ -929,10 +926,10 @@ namespace xstd
 			auto await_resume() const
 			{
 				awaiting_as = nullptr;
-				if constexpr ( Same<S, no_status> )
-					return promise.result().value();
-				else
+				if constexpr ( R::has_status )
 					return promise.result();
+				else if constexpr ( R::has_value )
+					return promise.result().value();
 			}
 			~awaitable()
 			{
@@ -945,6 +942,8 @@ namespace xstd
 	template<typename T, typename S>
 	auto operator co_await( unique_future<T, S> ref )
 	{
+		using R = basic_result<T, S>;
+
 		struct awaitable
 		{
 			promise_ref<T, S, false> promise;
@@ -969,15 +968,11 @@ namespace xstd
 			auto await_resume() const
 			{
 				awaiting_as = nullptr;
-				if constexpr ( Same<S, no_status> )
-				{
-					if constexpr ( !Same<T, void> )
-						return std::move( make_mutable( promise.result() ) ).value();
-				}
-				else
-				{
+
+				if constexpr ( R::has_status )
 					return std::move( make_mutable( promise.result() ) );
-				}
+				else if constexpr ( R::has_value )
+					return std::move( make_mutable( promise.result() ) ).value();
 			}
 			~awaitable()
 			{

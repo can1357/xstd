@@ -42,7 +42,7 @@ namespace xstd::tcp
 	{
 		// Promise fulfilled once the socket is closed.
 		//
-		future<exception, no_status> socket_closed = nullptr;
+		future<exception, void> socket_closed = nullptr;
 
 		// Receive buffer.
 		//

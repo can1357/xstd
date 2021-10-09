@@ -227,10 +227,10 @@ namespace xstd
 			}
 			const auto& await_resume() const
 			{
-				if constexpr ( Same<S, no_status> )
-					return ref.result().value();
-				else
+				if constexpr ( !basic_result<T, S>::has_status )
 					return ref.result();
+				else
+					return ref.result().value();
 			}
 		};
 		return awaitable{ ref };
@@ -253,7 +253,7 @@ namespace xstd
 			}
 			const auto& await_resume() const
 			{
-				if constexpr ( Same<S, no_status> )
+				if constexpr ( !basic_result<T, S>::has_status )
 					return ref.result().value();
 				else
 					return ref.result();

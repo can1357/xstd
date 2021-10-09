@@ -20,13 +20,8 @@ namespace xstd
 		struct TRIVIAL_ABI optional_monostate
 		{
 			inline static std::monostate _value = {};
-			__forceinline constexpr optional_monostate() noexcept {};
-			__forceinline constexpr optional_monostate( std::nullopt_t ) noexcept {};
-			__forceinline constexpr optional_monostate( std::monostate ) noexcept {};
-			__forceinline constexpr optional_monostate( optional_monostate&& ) noexcept {};
-			__forceinline constexpr optional_monostate( const optional_monostate& ) noexcept {};
-			__forceinline constexpr optional_monostate& operator=( optional_monostate&& ) noexcept { return *this; };
-			__forceinline constexpr optional_monostate& operator=( const optional_monostate& ) noexcept { return *this; };
+			template<typename... Tx> __forceinline constexpr optional_monostate( Tx&&... ) noexcept {};
+			template<typename T> __forceinline constexpr optional_monostate& operator=( T&& ) noexcept { return *this; };
 			__forceinline constexpr std::monostate& emplace() { return _value; }
 			__forceinline constexpr std::monostate& emplace( std::monostate ) { return _value; }
 			__forceinline constexpr std::monostate& value() const noexcept { return _value; }
@@ -173,18 +168,18 @@ namespace xstd
 		//
 		constexpr static inline bool is_success( const exception& o ) { return !o.has_value(); }
 	};
-	struct no_status {};
+	namespace impl { struct no_status {}; };
 	template<>
-	struct status_traits<no_status>
+	struct status_traits<impl::no_status>
 	{
 		// Generic success and failure values.
 		//
-		static constexpr no_status success_value{};
-		static constexpr no_status failure_value{};
+		static constexpr impl::no_status success_value{};
+		static constexpr impl::no_status failure_value{};
 
 		// Declare basic traits.
 		//
-		constexpr static inline bool is_success( const no_status& ) { return true; }
+		constexpr static inline bool is_success( const impl::no_status& ) { return true; }
 	};
 
 	// Declares a light-weight object wrapping a result type with a status code.
@@ -194,14 +189,19 @@ namespace xstd
 	template <typename Value, typename Status>
 	struct TRIVIAL_ABI basic_result
 	{
+		// Traits.
+		//
+		using status_type =    std::conditional_t<Same<Status, void>, impl::no_status, Status>;
 		using value_type =     std::conditional_t<Same<Value, void>, std::monostate, Value>;
-		using status_type =    Status;
-		using traits =         status_traits<Status>;
-		using store_type =     std::conditional_t<Same<value_type, std::monostate>, impl::optional_monostate, std::optional<value_type>>;
+		static constexpr bool has_status = !std::is_same_v<status_type, impl::no_status>;
+		static constexpr bool has_value =  !std::is_same_v<value_type, std::monostate>;
+
+		using traits =         status_traits<status_type>;
+		using store_type =     std::conditional_t<has_value, std::optional<value_type>, impl::optional_monostate>;
 
 		// Status code and the value itself.
 		//
-		Status status;
+		status_type status;
 		store_type result = std::nullopt;
 	
 		// Invalid value construction.
@@ -218,9 +218,9 @@ namespace xstd
 
 		// Consturction with value/state combination.
 		//
-		template<typename T> requires ( Constructable<value_type, T> && ( !Constructable<Status, T> || Same<std::decay_t<T>, value_type> ) && !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
+		template<typename T> requires ( Constructable<value_type, T> && ( !Constructable<status_type, T> || Same<std::decay_t<T>, value_type> ) && !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
 		constexpr basic_result( T&& value ) : status{ traits::success_value }, result( std::forward<T>( value ) ) {}
-		template<typename S> requires ( Constructable<Status, S> && ( !Constructable<value_type, S> || Same<std::decay_t<S>, Status> ) && !Same<std::decay_t<S>, in_place_success_t> && !Same<std::decay_t<S>, in_place_failure_t> )
+		template<typename S> requires ( Constructable<status_type, S> && ( !Constructable<value_type, S> || Same<std::decay_t<S>, status_type> ) && !Same<std::decay_t<S>, in_place_success_t> && !Same<std::decay_t<S>, in_place_failure_t> )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
 			if constexpr ( DefaultConstructable<value_type> )
@@ -236,9 +236,9 @@ namespace xstd
 		constexpr basic_result( in_place_failure_t, Args&&... args )
 		{
 			if constexpr ( sizeof...( Args ) != 0 )
-				status = Status{ std::forward<Args>( args )... };
+				status = status_type{ std::forward<Args>( args )... };
 			else
-				status = Status{ traits::failure_value };
+				status = status_type{ traits::failure_value };
 		}
 
 		// Setters.
@@ -246,9 +246,9 @@ namespace xstd
 		template<typename S>
 		constexpr void raise( S&& _status )
 		{
-			Status st{ std::forward<S>( _status ) };
+			status_type st{ std::forward<S>( _status ) };
 			if ( traits::is_success( st ) ) [[unlikely]]
-				status = Status{ traits::failure_value };
+				status = status_type{ traits::failure_value };
 			else
 				std::swap( st, status );
 		}
@@ -256,7 +256,7 @@ namespace xstd
 		constexpr value_type& emplace( Tx&&... value )
 		{
 			auto& v = result.emplace( std::forward<Tx>( value )... );
-			status = Status{ traits::success_value };
+			status = status_type{ traits::success_value };
 			return v;
 		}
 		
@@ -314,24 +314,6 @@ namespace xstd
 		constexpr value_type value_or( value_type o ) &&
 		{
 			return success() ? std::move( result ).value() : std::move( o );
-		}
-
-		// Conversion to optional.
-		//
-		constexpr std::optional<value_type> to_optional() &
-		{
-			if ( success() ) return result;
-			else             return std::nullopt;
-		}
-		constexpr std::optional<value_type> to_optional() const&
-		{
-			if ( success() ) return result;
-			else             return std::nullopt;
-		}
-		constexpr std::optional<value_type> to_optional() &&
-		{
-			if ( success() ) return std::move( result );
-			else             return std::nullopt;
 		}
 
 		// Accessors.
