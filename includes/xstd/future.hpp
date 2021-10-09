@@ -5,6 +5,7 @@
 #include "chore.hpp"
 #include "spinlock.hpp"
 #include "scope_tpr.hpp"
+#include "hashable.hpp"
 #include "formatting.hpp"
 #include "time.hpp"
 #include <vector>
@@ -660,7 +661,7 @@ namespace xstd
 		// Reference observer.
 		//
 		inline constexpr explicit operator bool() const { return ptr != nullptr; }
-		inline constexpr auto* address() const { return ptr; }
+		inline constexpr promise_ref* address() const { return ptr; }
 		inline constexpr size_t promise_count() const
 		{
 			return impl::count_owners( ptr->refs.load() );
@@ -1045,6 +1046,33 @@ namespace xstd
 	template<typename T, typename S> future( promise<T, S> )->future<T, S>;
 	template<typename T, typename S> future( unique_future<T, S>&& )->future<T, S>;
 	template<typename T, typename S> unique_future( promise<T, S> )->unique_future<T, S>;
+
+	// Make promise types hashable.
+	//
+	template<typename H, typename T, typename S>
+	struct basic_hasher<H, future<T, S>>
+	{
+		__forceinline constexpr hash_t operator()( const future<T, S>& value ) const noexcept
+		{
+			return make_hash<H>( value.address() );
+		}
+	};
+	template<typename H, typename T, typename S>
+	struct basic_hasher<H, unique_future<T, S>>
+	{
+		__forceinline constexpr hash_t operator()( const unique_future<T, S>& value ) const noexcept
+		{
+			return make_hash<H>( value.address() );
+		}
+	};
+	template<typename H, typename T, typename S>
+	struct basic_hasher<H, promise<T, S>>
+	{
+		__forceinline constexpr hash_t operator()( const promise<T, S>& value ) const noexcept
+		{
+			return make_hash<H>( value.address() );
+		}
+	};
 };
 
 // Override coroutine traits to allow unique_future.
