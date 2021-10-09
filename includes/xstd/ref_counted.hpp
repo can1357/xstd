@@ -82,7 +82,7 @@ namespace xstd
 		{
 			size_t n = --ptr->ref_count;
 			if ( !n )
-				cold_call( [ p = std::exchange( ptr, nullptr ) ] { std::destroy_at( p ); } );
+				std::destroy_at( std::exchange( ptr, nullptr ) );
 			return n;
 		}
 		size_t ref_count() const { return ptr->ref_count.load(); }

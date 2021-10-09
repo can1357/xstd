@@ -138,27 +138,30 @@ namespace xstd
 			T value;
 			FORCE_INLINE constexpr atomic_integral( T value ) : value( value ) {}
 
-			FORCE_INLINE constexpr bool bit_set( int idx )
+			FORCE_INLINE constexpr bool bit_set( int idx, bool relax = false )
 			{
-				return xstd::bit_set( value, idx );
+				if ( relax || std::is_constant_evaluated() )
+					return xstd::bit_set( value, idx );
+				else
+					return xstd::bit_set( ( volatile T& ) value, idx );
 			}
-			FORCE_INLINE constexpr T load() const
+			FORCE_INLINE constexpr T load( bool relax = false ) const
 			{
-				if ( std::is_constant_evaluated() )
+				if ( relax || std::is_constant_evaluated() )
 					return value;
 				else
 					return std::atomic_ref{ value }.load( std::memory_order::relaxed );
 			}
-			FORCE_INLINE constexpr void store( T new_value )
+			FORCE_INLINE constexpr void store( T new_value, bool relax = false )
 			{
-				if ( std::is_constant_evaluated() )
+				if ( relax || std::is_constant_evaluated() )
 					value = new_value;
 				else
 					std::atomic_ref{ value }.store( new_value, std::memory_order::release );
 			}
-			FORCE_INLINE constexpr T fetch_add( T increment )
+			FORCE_INLINE constexpr T fetch_add( T increment, bool relax = false )
 			{
-				if ( std::is_constant_evaluated() )
+				if ( relax || std::is_constant_evaluated() )
 				{
 					T result = value;
 					value += increment;
@@ -169,9 +172,9 @@ namespace xstd
 					return std::atomic_ref{ value }.fetch_add( increment );
 				}
 			}
-			FORCE_INLINE constexpr T fetch_sub( T decrement )
+			FORCE_INLINE constexpr T fetch_sub( T decrement, bool relax = false )
 			{
-				if ( std::is_constant_evaluated() )
+				if ( relax || std::is_constant_evaluated() )
 				{
 					T result = value;
 					value -= decrement;
@@ -185,12 +188,21 @@ namespace xstd
 		};
 
 		// Promise ref-counting details.
-		//  - Refs : [24 (Promise) - 8 (Future)]
+		//  - Refs : [24 (Future) - 8 (Promise)]
 		//
-		static constexpr uint32_t future_bit =   0;
-		static constexpr uint32_t promise_bit =  24;
+		static constexpr uint32_t future_bit =   24;
+		static constexpr uint32_t promise_bit =  0;
 		static constexpr uint32_t future_flag =  1 << future_bit;
 		static constexpr uint32_t promise_flag = 1 << promise_bit;
+		inline constexpr uint32_t count_promise( uint32_t x ) { return ( uint8_t ) x; }
+		inline constexpr uint32_t count_future( uint32_t x ) { return x >> 8; }
+
+		// State flags.
+		//
+		static constexpr uint8_t  state_finished_bit = 0;
+		static constexpr uint8_t  state_written_bit =  1;
+		static constexpr uint16_t state_finished =     1 << state_finished_bit;
+		static constexpr uint16_t state_written =      1 << state_written_bit;
 	};
 
 	// Base of the promise type.
@@ -198,13 +210,6 @@ namespace xstd
 	template<typename T, typename S>
 	struct promise_base
 	{
-		// State flags.
-		//
-		static constexpr uint8_t  state_finished_bit = 0;
-		static constexpr uint8_t  state_written_bit =  1;
-		static constexpr uint16_t state_finished =     1 << state_finished_bit;
-		static constexpr uint16_t state_written =      1 << state_written_bit;
-
 		// Reference count.
 		//
 		mutable impl::atomic_integral<uint32_t> refs = { 0 };
@@ -401,24 +406,24 @@ namespace xstd
 		void reject_unchecked( Args&&... args ) 
 		{ 
 			std::construct_at( &result, in_place_failure_t{}, std::forward<Args>( args )... ); 
-			state.store( state_finished | state_written ); 
+			state.store( impl::state_finished | impl::state_written ); 
 		}
 		template<typename... Args> 
 		void resolve_unchecked( Args&&... args ) 
 		{ 
 			std::construct_at( &result, in_place_success_t{}, std::forward<Args>( args )... ); 
-			state.store( state_finished | state_written ); 
+			state.store( impl::state_finished | impl::state_written ); 
 		}
 		template<typename... Args> 
 		void emplace_unchecked( Args&&... args ) 
 		{ 
 			std::construct_at( &result, std::forward<Args>( args )... ); 
-			state.store( state_finished | state_written );
+			state.store( impl::state_finished | impl::state_written );
 		}
 		template<typename... Args> 
 		bool reject( Args&&... args )  
 		{ 
-			if ( state.bit_set( state_finished_bit ) )
+			if ( state.bit_set( impl::state_finished_bit ) )
 				return false; 
 			reject_unchecked( std::forward<Args>( args )... ); 
 			signal(); 
@@ -427,7 +432,7 @@ namespace xstd
 		template<typename... Args> 
 		bool resolve( Args&&... args )
 		{
-			if ( state.bit_set( state_finished_bit ) )
+			if ( state.bit_set( impl::state_finished_bit ) )
 				return false; 
 			resolve_unchecked( std::forward<Args>( args )... ); 
 			signal(); 
@@ -436,7 +441,7 @@ namespace xstd
 		template<typename... Args> 
 		bool emplace( Args&&... args ) 
 		{
-			if ( state.bit_set( state_finished_bit ) )
+			if ( state.bit_set( impl::state_finished_bit ) )
 				return false; 
 			emplace_unchecked( std::forward<Args>( args )... ); 
 			signal(); 
@@ -445,7 +450,7 @@ namespace xstd
 
 		// Exposes information on the promise state.
 		//
-		inline bool finished() const { return state.load() & state_finished; }
+		inline bool finished() const { return state.load() & impl::state_finished; }
 		inline bool pending() const { return !finished(); }
 		bool fulfilled() const 
 		{ 
@@ -466,7 +471,7 @@ namespace xstd
 		//
 		inline const basic_result<T, S>& unrace() const
 		{
-			while ( !( state.load() & state_written ) ) [[unlikely]]
+			while ( !( state.load() & impl::state_written ) ) [[unlikely]]
 				yield_cpu();
 			return result;
 		}
@@ -503,16 +508,21 @@ namespace xstd
 
 		static constexpr uint32_t ref_flag = Owner ? impl::promise_flag : impl::future_flag;
 		static void destroy( promise_base<T, S>* ptr ) { delete ptr; }
-		static void break_promise( promise_base<T, S>* ptr ) 
+		COLD static void break_promise_unchecked( promise_base<T, S>* ptr ) 
 		{
 			if constexpr ( Same<S, xstd::exception> )
-				ptr->reject( xstd::exception{ XSTD_ESTR( "Promise broken." ) } );
+				ptr->reject_unchecked( xstd::exception{ XSTD_ESTR( "Promise broken." ) } );
 			else if constexpr ( !basic_result<T, S>::has_status )
 				xstd::error( XSTD_ESTR( "Promise broken." ) );
 			else
-				ptr->reject();
+				ptr->reject_unchecked();
+			ptr->signal();
 		}
-
+		FORCE_INLINE static void break_promise( promise_base<T, S>* ptr )
+		{
+			if ( !ptr->state.bit_set( impl::state_finished_bit, true /*relaxed since caller makes sure we're the only reference.*/) )
+				break_promise_unchecked( ptr );
+		}
 		FORCE_INLINE static void inc_ref( promise_base<T, S>* ptr )
 		{
 			ptr->refs.fetch_add( ref_flag );
@@ -523,14 +533,14 @@ namespace xstd
 			//
 			if constexpr ( Owner )
 			{
-				if ( ptr->pending() ) [[unlikely]]
-					if ( ( ptr->refs.load() & ( impl::promise_flag - 1 ) ) == 1 ) [[unlikely]]
-						break_promise( ptr );
+				auto counter = ptr->refs.load();
+				if ( impl::count_promise( counter ) == 1 ) [[unlikely]]
+					break_promise( ptr );
 			}
 
 			// Destroy the object if this is the only one left.
 			//
-			if ( ptr->refs.fetch_sub( ref_flag ) == ref_flag )
+			if ( ptr->refs.fetch_sub( ref_flag ) == ref_flag ) [[unlikely]]
 				destroy( ptr );
 		}
 		FORCE_INLINE static promise_base<T, S>* cvt_ref( promise_base<T, S>* ptr, bool was_owning )
@@ -545,13 +555,12 @@ namespace xstd
 				{
 					// Downgrade the reference.
 					//
-					auto prev = ptr->refs.fetch_add( impl::future_flag - impl::promise_flag );
+					auto counter = ptr->refs.fetch_add( impl::future_flag - impl::promise_flag );
 
 					// Break promise if it was the only one.
 					//
-					if ( ptr->pending() ) [[unlikely]]
-						if ( ( prev & ( impl::promise_flag - 1 ) ) == 1 ) [[unlikely]]
-							break_promise( ptr );
+					if ( impl::count_promise( counter ) == 1 ) [[unlikely]]
+						break_promise( ptr );
 				}
 				// If it was previously viewing:
 				//
@@ -625,18 +634,20 @@ namespace xstd
 		inline constexpr auto* address() const { return ptr; }
 		inline constexpr size_t promise_count() const
 		{
-			auto flags = ptr->refs.load();
-			return flags >> impl::promise_bit;
+			return impl::count_promise( ptr->refs.load() );
 		}
 		inline constexpr size_t future_count() const
 		{
-			auto flags = ptr->refs.load();
-			return flags & ( impl::promise_flag - 1 );
+			return impl::count_future( ptr->refs.load() );
 		}
-		inline constexpr size_t ref_count() const 
+		inline constexpr size_t ref_count() const
 		{
 			auto flags = ptr->refs.load();
-			return ( flags >> impl::promise_bit ) + ( flags & ( impl::promise_flag - 1 ) );
+			return impl::count_future( flags ) + impl::count_promise( flags );
+		}
+		inline constexpr bool unique() const
+		{
+			return ptr->refs.load() == ref_flag;
 		}
 
 		// Wrap around the reference.
