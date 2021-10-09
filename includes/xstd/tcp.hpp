@@ -211,7 +211,7 @@ namespace xstd::tcp
 			{
 				// If no continuation set, return 0 and set retry flag.
 				//
-				if ( !pp.continuation.handle )
+				if ( !pp.continuation )
 				{
 					pp.retry_on_timer = true;
 					return 0;

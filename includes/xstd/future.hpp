@@ -2,6 +2,7 @@
 #include "result.hpp"
 #include "event.hpp"
 #include "coro.hpp"
+#include "chore.hpp"
 #include "spinlock.hpp"
 #include "scope_tpr.hpp"
 #include "formatting.hpp"
@@ -751,7 +752,7 @@ namespace xstd
 		//
 		inline basic_result<T, S> wait() const { return reference_type::ptr->wait_move(); }
 		inline basic_result<T, S> wait_for( duration time ) const { return reference_type::ptr->wait_for_move( time ); }
-		inline basic_result<T, S> result() const { fassert( finished() ); reference_type::ptr->unrace(); return std::move( ptr->result ); }
+		inline basic_result<T, S> result() const { fassert( this->finished() ); this->unrace(); return std::move( reference_type::ptr->result ); }
 	};
 	struct make_awaitable_tag_t {};
 
@@ -1026,9 +1027,12 @@ namespace xstd
 	template<typename T, typename S> future( promise<T, S> )->future<T, S>;
 	template<typename T, typename S> future( unique_future<T, S>&& )->future<T, S>;
 	template<typename T, typename S> unique_future( promise<T, S> )->unique_future<T, S>;
+};
 
-	// Override coroutine traits to allow unique_future.
-	//
+// Override coroutine traits to allow unique_future.
+//
+namespace std
+{
 	template<typename T, typename S, typename... A>
 	struct coroutine_traits<xstd::unique_future<T, S>, A...>
 	{

@@ -131,7 +131,7 @@ namespace xstd
 	template<typename T>
 	inline void chore( T&& fn, timestamp due_time )
 	{
-		return chore( std::forward<T>( fn ), due_time - time::now(), priority );
+		return chore( std::forward<T>( fn ), due_time - time::now() );
 	}
 
 	// Event constrained chores.

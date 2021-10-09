@@ -4,17 +4,25 @@
 #include <utility>
 #include "intrinsics.hpp"
 
-#if MS_COMPILER
-	#include <experimental/coroutine>
+#define HAS_STD_CORO MS_COMPILER
+
+#if HAS_STD_CORO
+	#include <coroutine>
 #endif
 
 // Define the core types.
 //
+#if !HAS_STD_CORO
+	namespace std
+	{
+		template<typename Ret, typename... Args>
+		struct coroutine_traits;
+	};
+#endif
+
 namespace xstd
 {
-#if !MS_COMPILER
-	// Builtins.
-	//
+#if !HAS_STD_CORO
 	namespace builtin
 	{
 		inline bool done( void* address ) { return __builtin_coro_done( address ); }
@@ -24,96 +32,113 @@ namespace xstd
 		template<typename P> inline P& to_promise( void* hnd ) { return *( P* ) __builtin_coro_promise( hnd, alignof( P ), false ); }
 	};
 #endif
+};
 
+#if !HAS_STD_CORO
+namespace std
+{
+	// Coroutine traits.
+	//
+	template<typename Ret, typename... Args>
+	struct coroutine_traits;
+	template<typename Ret, typename... Args> 
+	requires requires { typename Ret::promise_type; }
+	struct coroutine_traits<Ret, Args...>
+	{
+		using promise_type = typename Ret::promise_type;
+	};
+
+	// Coroutine handle.
+	//
+	template<typename Promise = void>
+	struct coroutine_handle;
+	template<>
+	struct coroutine_handle<void>
+	{
+		void* handle = nullptr;
+
+		inline constexpr coroutine_handle() : handle( nullptr ) {};
+		inline constexpr coroutine_handle( std::nullptr_t ) : handle( nullptr ) {};
+
+		inline constexpr void* address() const noexcept { return handle; }
+		inline constexpr explicit operator bool() const noexcept { return handle; }
+
+		inline void resume() const { xstd::builtin::resume( handle ); }
+		inline void destroy() const noexcept { xstd::builtin::destroy( handle ); }
+		inline bool done() const noexcept { return xstd::builtin::done( handle ); }
+		inline void operator()() const { resume(); }
+
+		inline bool operator<( const coroutine_handle& o ) const noexcept { return handle < o.handle; }
+		inline bool operator==( const coroutine_handle& o ) const noexcept { return handle == o.handle; }
+		inline bool operator!=( const coroutine_handle& o ) const noexcept { return handle != o.handle; }
+
+		inline static coroutine_handle<> from_address( void* addr ) noexcept { coroutine_handle<> tmp{}; tmp.handle = addr; return tmp; }
+	};
+	template<typename Promise>
+	struct coroutine_handle : coroutine_handle<>
+	{
+		inline constexpr coroutine_handle() {};
+		inline constexpr coroutine_handle( std::nullptr_t ) : coroutine_handle<>( nullptr ) {};
+
+		inline Promise& promise() const { return xstd::builtin::to_promise<Promise>( handle ); }
+		inline static coroutine_handle<Promise> from_promise( Promise& pr ) noexcept { return from_address( xstd::builtin::to_handle( pr ) ); }
+		inline static coroutine_handle<Promise> from_address( void* addr ) noexcept { coroutine_handle<Promise> tmp{}; tmp.handle = addr; return tmp; }
+	};
+
+	template<typename Pr>
+	struct hash<coroutine_handle<Pr>>
+	{
+		inline size_t operator()( const coroutine_handle<Pr>& hnd ) const noexcept
+		{
+			return hash<size_t>{}( ( size_t ) hnd.address() );
+		}
+	};
+
+	// Dummy awaitables.
+	//
+	struct suspend_never
+	{
+		inline bool await_ready() const noexcept { return true; }
+		inline void await_suspend( coroutine_handle<> ) const noexcept {}
+		inline void await_resume() const noexcept {}
+	};
+	struct suspend_always
+	{
+		inline bool await_ready() const noexcept { return false; }
+		inline void await_suspend( coroutine_handle<> ) const noexcept {}
+		inline void await_resume() const noexcept {}
+	};
+};
+#endif
+
+namespace xstd
+{
+	// Import the select types.
+	//
+	template<typename Promise = void>
+	using coroutine_handle = std::coroutine_handle<Promise>;
+	template<typename Ret, typename... Args>
+	using coroutine_traits = std::coroutine_traits<Ret, Args...>;
+	using suspend_always =   std::suspend_always;
+	using suspend_never =    std::suspend_never;
+
+	// Coroutine traits.
+	//
 	template<typename T>
-	concept Coroutine = requires{ typename T::promise_type; };
+	concept Coroutine = requires { typename coroutine_traits<T>::promise_type; };
 	template<typename T>
 	concept Awaitable = requires( T x ) { x.await_ready(); x.await_suspend(); x.await_resume(); };
 
-	// Types that are exported as std.
+	// Suspend type that terminates the coroutine.
 	//
-	namespace coro_export
+	struct suspend_terminate
 	{
-#if !MS_COMPILER
-		// Coroutine traits.
-		//
-		template<typename Ret, typename... Args>
-		struct coroutine_traits;
-
-		template<Coroutine Ret, typename... Args>
-		struct coroutine_traits<Ret, Args...> 
-		{ 
-			using promise_type = typename Ret::promise_type; 
-		};
-
-		// Coroutine handle.
-		//
-		template<typename Promise = void>
-		struct coroutine_handle;
-		template<>
-		struct coroutine_handle<void>
-		{
-			void* handle = nullptr;
-
-			inline coroutine_handle() : handle( nullptr ) {};
-			inline coroutine_handle( std::nullptr_t ) : handle( nullptr ) {};
-
-			inline constexpr void* address() const noexcept { return handle; }
-			inline constexpr explicit operator bool() const noexcept { return handle; }
-
-			inline void resume() const { builtin::resume( handle ); }
-			inline void destroy() const { builtin::destroy( handle ); }
-			inline bool done() const { return builtin::done( handle ); }
-			inline void operator()() const { resume(); }
-
-			inline bool operator<( const coroutine_handle& o ) const noexcept { return handle < o.handle; }
-			inline bool operator==( const coroutine_handle& o ) const noexcept { return handle == o.handle; }
-			inline bool operator!=( const coroutine_handle& o ) const noexcept { return handle != o.handle; }
-
-			inline static coroutine_handle<> from_address( void* addr ) noexcept { coroutine_handle<> tmp{}; tmp.handle = addr; return tmp; }
-		};
-		template<typename Promise>
-		struct coroutine_handle : coroutine_handle<>
-		{
-			inline coroutine_handle() {};
-			inline coroutine_handle( std::nullptr_t ) : coroutine_handle<>( nullptr ) {};
-
-			inline Promise& promise() const { return builtin::to_promise<Promise>( handle ); }
-			inline static coroutine_handle<Promise> from_promise( Promise& pr ) noexcept { return from_address( builtin::to_handle( pr ) ); }
-			inline static coroutine_handle<Promise> from_address( void* addr ) noexcept { coroutine_handle<Promise> tmp{}; tmp.handle = addr; return tmp; }
-		};
-
-		// Dummy awaitables.
-		//
-		struct suspend_never
-		{
-			inline bool await_ready() const noexcept { return true; }
-			inline void await_suspend( coroutine_handle<> ) const noexcept {}
-			inline void await_resume() const noexcept {}
-		};
-		struct suspend_always
-		{
-			inline bool await_ready() const noexcept { return false; }
-			inline void await_suspend( coroutine_handle<> ) const noexcept {}
-			inline void await_resume() const noexcept {}
-		};
-#else
-		template<Coroutine Ret, typename... Args> using coroutine_traits = std::experimental::coroutine_traits<Ret, Args...>;
-		template<typename Promise>                using coroutine_handle = std::experimental::coroutine_handle<Promise>;
-		using suspend_never =  std::experimental::suspend_never;
-		using suspend_always = std::experimental::suspend_always;
-#endif
-
-		struct suspend_terminate
-		{
-			inline bool await_ready() { return false; }
-			inline void await_suspend( coroutine_handle<> hnd ) { hnd.destroy(); }
-			inline void await_resume() const { unreachable(); }
-		};
+		inline bool await_ready() { return false; }
+		inline void await_suspend( coroutine_handle<> hnd ) { hnd.destroy(); }
+		inline void await_resume() const { unreachable(); }
 	};
-	using namespace coro_export;
 
-	// Unique coroutine handle.
+	// Unique coroutine that is destroyed on destruction by caller.
 	//
 	template<typename Pr>
 	struct unique_coroutine
@@ -165,25 +190,7 @@ namespace xstd
 		//
 		~unique_coroutine() { reset(); }
 	};
-};
-#if !MS_COMPILER
-	namespace std 
-	{ 
-		using namespace xstd::coro_export; 
-		template<typename Pr>
-		struct hash<coroutine_handle<Pr>>
-		{
-			inline size_t operator()( const coroutine_handle<Pr>& hnd ) const noexcept 
-			{ 
-				return hash<size_t>{}( ( size_t ) hnd.address() );
-			}
-		};
-	};
-	namespace std::experimental { using namespace xstd::coro_export; };
-#endif
-
-namespace xstd
-{
+	
 	// Helper to get the promise from a coroutine handle.
 	//
 	template<typename Promise>
@@ -194,12 +201,12 @@ namespace xstd
 
 	// Helper to get the current coroutine handle / promise.
 	//
-#if GNU_COMPILER
+#if __clang__
 	// Clang:
 	FORCE_INLINE static coroutine_handle<> this_coroutine( void* adr = __builtin_coro_frame() ) { return coroutine_handle<>::from_address( adr ); }
 #else
-	// MSVC:
-	FORCE_INLINE static coroutine_handle<> this_coroutine( void* adr = _coro_frame_ptr() ) { return coroutine_handle<>::from_address( adr ); }
+	// Not implemented.
+	FORCE_INLINE static coroutine_handle<> this_coroutine( void* adr = nullptr );
 #endif
 
 	template<typename C, typename Promise = typename coroutine_traits<C>::promise_type>
@@ -208,3 +215,24 @@ namespace xstd
 		return get_promise<Promise>( h );
 	}
 };
+
+// Clang requires coroutine_traits under std::experimental.
+//
+#if __clang__
+namespace std::experimental 
+{ 
+	template<typename Promise = void>
+	struct coroutine_handle : xstd::coroutine_handle<Promise> 
+	{
+		using xstd::coroutine_handle<Promise>::coroutine_handle;
+		using xstd::coroutine_handle<Promise>::operator=;
+	};
+
+	template<typename Ret, typename... Args> 
+		requires requires { typename xstd::coroutine_traits<Ret, Args...>::promise_type; }
+	struct coroutine_traits
+	{
+		using promise_type = typename xstd::coroutine_traits<Ret, Args...>::promise_type;
+	};
+};
+#endif
