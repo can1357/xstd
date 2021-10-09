@@ -143,8 +143,16 @@ namespace xstd
 				if ( relax || std::is_constant_evaluated() )
 					return xstd::bit_set( value, idx );
 				else
-					return xstd::bit_set( ( volatile T& ) value, idx );
+					return xstd::bit_set<volatile T>( value, idx );
 			}
+			FORCE_INLINE constexpr bool bit_reset( int idx, bool relax = false )
+			{
+				if ( relax || std::is_constant_evaluated() )
+					return xstd::bit_reset( value, idx );
+				else
+					return xstd::bit_reset<volatile T>( value, idx );
+			}
+
 			FORCE_INLINE constexpr T load( bool relax = false ) const
 			{
 				if ( relax || std::is_constant_evaluated() )
@@ -188,14 +196,12 @@ namespace xstd
 		};
 
 		// Promise ref-counting details.
-		//  - Refs : [24 (Future) - 8 (Promise)]
+		//  - Refs : [24 (Viewing) - 8 (Owning)]
 		//
-		static constexpr uint32_t future_bit =   24;
-		static constexpr uint32_t promise_bit =  0;
-		static constexpr uint32_t future_flag =  1 << future_bit;
-		static constexpr uint32_t promise_flag = 1 << promise_bit;
-		inline constexpr uint32_t count_promise( uint32_t x ) { return ( uint8_t ) x; }
-		inline constexpr uint32_t count_future( uint32_t x ) { return x >> 8; }
+		static constexpr uint32_t owner_flag =  1;
+		static constexpr uint32_t viewer_flag = 1 << 8;
+		FORCE_INLINE static constexpr uint32_t count_owners( uint32_t x ) { return x & 0xFF; }
+		FORCE_INLINE static constexpr uint32_t count_viewers( uint32_t x ) { return x >> 8; }
 
 		// State flags.
 		//
@@ -212,7 +218,7 @@ namespace xstd
 	{
 		// Reference count.
 		//
-		mutable impl::atomic_integral<uint32_t> refs = { 0 };
+		mutable impl::atomic_integral<uint32_t> refs = { impl::owner_flag };
 
 		// Lock guarding continuation list and the event list.
 		//
@@ -235,6 +241,10 @@ namespace xstd
 			basic_result<T, S>                   result;
 		};
 
+		// Allocating co-routine if not manually allocated.
+		//
+		coroutine_handle<>                      coro = nullptr;
+
 		// Default constructor/destructor.
 		//
 		promise_base() {}
@@ -243,6 +253,12 @@ namespace xstd
 			if ( finished() )
 				std::destroy_at( &result );
 		}
+
+		// Constructor for in-place constructed promises.
+		//
+		template<typename Promise>
+		promise_base( std::in_place_t, Promise* promise, uint32_t initial_ref_count = impl::owner_flag )
+			: refs( initial_ref_count ), coro( coroutine_handle<Promise>::from_promise( *promise ) ) {}
 
 		// Wait block helpers.
 		//
@@ -489,6 +505,79 @@ namespace xstd
 			else
 				return fmt::str( "(Rejected='%s')", res.message() );
 		}
+
+		// Helpers for the reference type.
+		//
+		COLD void break_for_deref_unchecked()
+		{
+			if constexpr ( Same<S, xstd::exception> )
+				reject_unchecked( xstd::exception{ XSTD_ESTR( "Promise broken." ) } );
+			else if constexpr ( !basic_result<T, S>::has_status )
+				xstd::error( XSTD_ESTR( "Promise broken." ) );
+			else
+				reject_unchecked();
+			signal();
+		}
+		void break_for_deref() 
+		{
+			if ( !state.bit_set( impl::state_finished_bit, true /*relaxed since caller makes sure we're the only reference.*/ ) )
+				break_for_deref_unchecked();
+		}
+		void destroy()
+		{
+			if ( coro ) coro.destroy();
+			else        delete this;
+		}
+		FORCE_INLINE void inc_ref( bool owner )
+		{
+			refs.fetch_add( owner ? impl::owner_flag : impl::viewer_flag );
+		}
+		FORCE_INLINE void dec_ref( bool owner )
+		{
+			// Break the promise if this is the only one left.
+			//
+			if ( owner )
+			{
+				auto counter = refs.load();
+				if ( impl::count_owners( counter ) == 1 ) [[unlikely]]
+					break_for_deref();
+			}
+
+			// Destroy the object if this is the only one left.
+			//
+			auto flag = owner ? impl::owner_flag : impl::viewer_flag;
+			if ( refs.fetch_sub( flag ) == flag ) [[unlikely]]
+				destroy();
+		}
+		FORCE_INLINE void cvt_ref( bool from_owner, bool to_owner )
+		{
+			// If we have to change the types:
+			//
+			if ( from_owner != to_owner )
+			{
+				// If it was previously owning:
+				//
+				if ( from_owner )
+				{
+					// Downgrade the reference.
+					//
+					auto counter = refs.fetch_add( impl::viewer_flag - impl::owner_flag );
+
+					// Break promise if it was the only one.
+					//
+					if ( impl::count_owners( counter ) == 1 ) [[unlikely]]
+						break_for_deref();
+				}
+				// If it was previously viewing:
+				//
+				else
+				{
+					// Upgrade the reference.
+					//
+					refs.fetch_add( impl::owner_flag - impl::viewer_flag );
+				}
+			}
+		}
 	};
 
 	// Promise reference type.
@@ -506,73 +595,10 @@ namespace xstd
 	{
 		promise_base<T, S>* ptr = nullptr;
 
-		static constexpr uint32_t ref_flag = Owner ? impl::promise_flag : impl::future_flag;
-		static void destroy( promise_base<T, S>* ptr ) { delete ptr; }
-		COLD static void break_promise_unchecked( promise_base<T, S>* ptr ) 
-		{
-			if constexpr ( Same<S, xstd::exception> )
-				ptr->reject_unchecked( xstd::exception{ XSTD_ESTR( "Promise broken." ) } );
-			else if constexpr ( !basic_result<T, S>::has_status )
-				xstd::error( XSTD_ESTR( "Promise broken." ) );
-			else
-				ptr->reject_unchecked();
-			ptr->signal();
-		}
-		FORCE_INLINE static void break_promise( promise_base<T, S>* ptr )
-		{
-			if ( !ptr->state.bit_set( impl::state_finished_bit, true /*relaxed since caller makes sure we're the only reference.*/) )
-				break_promise_unchecked( ptr );
-		}
-		FORCE_INLINE static void inc_ref( promise_base<T, S>* ptr )
-		{
-			ptr->refs.fetch_add( ref_flag );
-		}
-		FORCE_INLINE static void dec_ref( promise_base<T, S>* ptr )
-		{
-			// Break the promise if this is the only one left.
-			//
-			if constexpr ( Owner )
-			{
-				auto counter = ptr->refs.load();
-				if ( impl::count_promise( counter ) == 1 ) [[unlikely]]
-					break_promise( ptr );
-			}
-
-			// Destroy the object if this is the only one left.
-			//
-			if ( ptr->refs.fetch_sub( ref_flag ) == ref_flag ) [[unlikely]]
-				destroy( ptr );
-		}
-		FORCE_INLINE static promise_base<T, S>* cvt_ref( promise_base<T, S>* ptr, bool was_owning )
-		{
-			// If we have to change the types:
-			//
-			if ( ptr && was_owning != Owner )
-			{
-				// If it was previously owning:
-				//
-				if ( was_owning )
-				{
-					// Downgrade the reference.
-					//
-					auto counter = ptr->refs.fetch_add( impl::future_flag - impl::promise_flag );
-
-					// Break promise if it was the only one.
-					//
-					if ( impl::count_promise( counter ) == 1 ) [[unlikely]]
-						break_promise( ptr );
-				}
-				// If it was previously viewing:
-				//
-				else
-				{
-					// Upgrade the reference.
-					//
-					ptr->refs.fetch_add( impl::promise_flag - impl::future_flag );
-				}
-			}
-			return ptr;
-		}
+		// Ownership properties.
+		//
+		inline constexpr bool is_owner() const noexcept { return Owner; }
+		inline constexpr bool is_viewer() const noexcept { return !Owner; }
 
 		// Simple constructors.
 		//
@@ -592,7 +618,7 @@ namespace xstd
 		template<typename V> requires Promise<V, T, S>
 		inline constexpr promise_ref( V&& other ) noexcept
 		{
-			adopt( std::exchange( other.ptr, nullptr ), other.is_owning() );
+			adopt( std::exchange( other.ptr, nullptr ), other.is_owner() );
 		}
 		template<typename V> requires Promise<V, T, S>
 		inline constexpr promise_ref( const V& other ) 
@@ -602,7 +628,7 @@ namespace xstd
 		template<typename V> requires Promise<V, T, S>
 		inline constexpr promise_ref& operator=( V&& other ) noexcept
 		{
-			adopt( std::exchange( other.ptr, nullptr ), other.is_owning() );
+			adopt( std::exchange( other.ptr, nullptr ), other.is_owner() );
 			return *this;
 		}
 		template<typename V> requires Promise<V, T, S>
@@ -614,17 +640,19 @@ namespace xstd
 
 		// Resets the reference.
 		//
-		inline constexpr void adopt( promise_base<T, S>* new_ptr, bool was_owning = Owner )
+		inline constexpr void adopt( promise_base<T, S>* new_ptr, bool from_owner = Owner )
 		{
-			if ( auto* prev_ptr = std::exchange( ptr, cvt_ref( new_ptr, was_owning ) ) )
-				dec_ref( prev_ptr );
+			if ( new_ptr )
+				new_ptr->cvt_ref( from_owner, Owner );
+			if ( auto* prev_ptr = std::exchange( ptr, new_ptr ) )
+				prev_ptr->dec_ref( Owner );
 		}
 		inline constexpr void reset( promise_base<T, S>* new_ptr = nullptr )
 		{ 
-			if ( new_ptr ) 
-				inc_ref( new_ptr );
+			if ( new_ptr )
+				new_ptr->inc_ref( Owner );
 			if ( auto* prev_ptr = std::exchange( ptr, new_ptr ) )
-				dec_ref( prev_ptr );
+				prev_ptr->dec_ref( Owner );
 		}
 		inline constexpr ~promise_ref() { reset(); }
 
@@ -634,25 +662,24 @@ namespace xstd
 		inline constexpr auto* address() const { return ptr; }
 		inline constexpr size_t promise_count() const
 		{
-			return impl::count_promise( ptr->refs.load() );
+			return impl::count_owners( ptr->refs.load() );
 		}
 		inline constexpr size_t future_count() const
 		{
-			return impl::count_future( ptr->refs.load() );
+			return impl::count_viewers( ptr->refs.load() );
 		}
 		inline constexpr size_t ref_count() const
 		{
 			auto flags = ptr->refs.load();
-			return impl::count_future( flags ) + impl::count_promise( flags );
+			return impl::count_owners( flags ) + impl::count_viewers( flags );
 		}
 		inline constexpr bool unique() const
 		{
-			return ptr->refs.load() == ref_flag;
+			return ptr->refs.load() == ( Owner ? impl::owner_flag : impl::viewer_flag );
 		}
 
 		// Wrap around the reference.
 		//
-		inline constexpr bool is_owning() const noexcept { return Owner; }
 		inline void unrace() const { ptr->unrace(); }
 		inline bool finished() const { return ptr->finished(); }
 		inline bool pending() const { return ptr->pending(); }
@@ -751,9 +778,7 @@ namespace xstd
 	template<typename T = void, typename S = xstd::exception>
 	inline promise<T, S> make_promise()
 	{
-		auto res = new promise_base<T, S>();
-		res->refs.store( impl::promise_flag );
-		return promise<T, S>{ std::in_place_t{}, res };
+		return promise<T, S>{ std::in_place_t{}, new promise_base<T, S>() };
 	}
 	template<typename T = void, typename S = xstd::exception>
 	inline promise<T, S> make_rejected_promise( S&& status )
@@ -780,20 +805,21 @@ namespace xstd
 		//
 		struct promise_type
 		{
-			promise<T, S> promise = make_promise<T, S>();
+			promise_base<T, S> pr{ std::in_place_t{}, this, impl::owner_flag + impl::viewer_flag };
 
 			struct final_awaitable
 			{
 				bool await_ready() noexcept { return false; }
 				void await_suspend( coroutine_handle<promise_type> hnd ) noexcept 
 				{ 
-					hnd.promise().promise.signal();
-					hnd.destroy();
+					auto& pr = hnd.promise().pr;
+					pr.signal();
+					pr.dec_ref( true );
 				}
 				void await_resume() const noexcept { unreachable(); }
 			};
 
-			future<T, S> get_return_object() { return promise; }
+			future<T, S> get_return_object() { return { std::in_place_t{}, &pr }; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			final_awaitable final_suspend() noexcept { return {}; }
 			void unhandled_exception() {}
@@ -801,13 +827,13 @@ namespace xstd
 			template<typename V> 
 			void return_value( V&& v )
 			{
-				promise.resolve_unchecked( std::forward<V>( v ) );
+				pr.resolve_unchecked( std::forward<V>( v ) );
 			}
 
 			template<typename V>
 			final_awaitable yield_value( V&& v ) requires ( basic_result<T, S>::has_status )
 			{
-				promise.reject_unchecked( std::forward<V>( v ) );
+				pr.reject_unchecked( std::forward<V>( v ) );
 				return {};
 			}
 		};
@@ -831,30 +857,31 @@ namespace xstd
 		//
 		struct promise_type
 		{
-			promise<void, S> promise = make_promise<void, S>();
+			promise_base<void, S> pr{ std::in_place_t{}, this, impl::owner_flag + impl::viewer_flag };
 
 			struct final_awaitable
 			{
 				bool await_ready() noexcept { return false; }
 				void await_suspend( coroutine_handle<promise_type> hnd ) noexcept 
-				{ 
-					hnd.promise().promise.signal();
-					hnd.destroy();
+				{
+					auto& pr = hnd.promise().pr;
+					pr.signal();
+					pr.dec_ref( true );
 				}
 				void await_resume() const noexcept { unreachable(); }
 			};
 
-			future<void, S> get_return_object() { return promise; }
+			future<void, S> get_return_object() { return { std::in_place_t{}, &pr }; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			final_awaitable final_suspend() noexcept { return {}; }
 			void unhandled_exception() {}
 			
-			void return_void() { promise.resolve_unchecked(); }
+			void return_void() { pr.resolve_unchecked(); }
 
 			template<typename V>
 			final_awaitable yield_value( V&& v ) requires ( result_type::has_status )
 			{
-				promise.reject_unchecked( std::forward<V>( v ) );
+				pr.reject_unchecked( std::forward<V>( v ) );
 				return {};
 			}
 		};
