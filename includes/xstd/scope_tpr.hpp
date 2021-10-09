@@ -71,7 +71,7 @@ namespace xstd
 			fassert( !locked );
 			locked = true;
 
-			uint8_t prev_tp = get_task_priority();
+			prev_tp = get_task_priority();
 			dassert( prev_tp <= mtx_tp );
 
 			if constexpr ( Same<Mutex, spinlock> )
