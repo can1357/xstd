@@ -80,9 +80,9 @@ namespace xstd
 			template<Duration D>  time_awaitable( const D& delay ) : delay( std::chrono::duration_cast<duration>( delay ) ) {}
 			template<Timestamp T> time_awaitable( const T& timestamp ) : time_awaitable( timestamp - xstd::time::now() ) {}
 
-			bool await_ready() { return false; }
-			void await_suspend( coroutine_handle<> h ) { chore( h, delay ); }
-			void await_resume() {}
+			inline bool await_ready() { return false; }
+			inline void await_suspend( coroutine_handle<> h ) { chore( h, delay ); }
+			inline void await_resume() {}
 		};
 
 		struct event_awaitable
@@ -94,9 +94,9 @@ namespace xstd
 			event_awaitable( const event_base& evt ) : event_awaitable( evt.handle() ) {}
 			event_awaitable( const event_primitive& evt ) : event_awaitable( evt.handle() ) {}
 
-			bool await_ready() { return !evt; }
-			void await_suspend( coroutine_handle<> h ) { chore( h, evt ); }
-			void await_resume() {}
+			inline bool await_ready() { return !evt; }
+			inline void await_suspend( coroutine_handle<> h ) { chore( h, evt ); }
+			inline void await_resume() {}
 		};
 
 		struct event_awaitable_timed
@@ -109,9 +109,9 @@ namespace xstd
 			template<Duration D> event_awaitable_timed( const event_base& evt, const D& timeout ) : event_awaitable_timed( evt.handle(), timeout ) {}
 			template<Duration D> event_awaitable_timed( const event_primitive& evt, const D& timeout ) : event_awaitable_timed( evt.handle(), timeout ) {}
 
-			bool await_ready() { return !evt; }
-			void await_suspend( coroutine_handle<> h ) { chore( h, evt, timeout ); }
-			void await_resume() {}
+			inline bool await_ready() { return !evt; }
+			inline void await_suspend( coroutine_handle<> h ) { chore( h, evt, timeout ); }
+			inline void await_resume() {}
 		};
 
 		template<typename T, typename S>
@@ -145,11 +145,11 @@ namespace xstd
 
 			// If no waitblock registered, we already have our result.
 			//
-			bool await_ready() { return !wb; }
+			inline bool await_ready() { return !wb; }
 
 			// Register the time constrained wait.
 			//
-			void await_suspend( coroutine_handle<> h ) { chore( h, wb->event.handle(), timeout ); }
+			inline void await_suspend( coroutine_handle<> h ) { chore( h, wb->event.handle(), timeout ); }
 
 			// Check the status on resume and deregister.
 			//
@@ -176,9 +176,9 @@ namespace xstd
 	//
 	struct yield
 	{
-		bool await_ready() { return false; }
-		void await_suspend( coroutine_handle<> h ) { chore( h ); }
-		void await_resume() {}
+		inline bool await_ready() { return false; }
+		inline void await_suspend( coroutine_handle<> h ) { chore( h ); }
+		inline void await_resume() {}
 	};
 
 	// Declare yield types and their deduction guides.

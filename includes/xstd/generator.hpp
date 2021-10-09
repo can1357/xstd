@@ -16,15 +16,15 @@ namespace xstd
 
 			struct yield_awaitable
 			{
-				bool await_ready() noexcept { return false; }
-				coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				inline bool await_ready() noexcept { return false; }
+				inline coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
 						return c;
 					else
 						return noop_coroutine();
 				}
-				void await_resume() noexcept {}
+				inline void await_resume() noexcept {}
 			};
 			template<typename V>
 			yield_awaitable yield_value( V&& value )
@@ -71,13 +71,13 @@ namespace xstd
 
 		// Make awaitable for symetric generators.
 		//
-		bool await_ready() { return finished(); }
-		coroutine_handle<> await_suspend( coroutine_handle<> h )
+		inline bool await_ready() { return finished(); }
+		inline coroutine_handle<> await_suspend( coroutine_handle<> h )
 		{ 
 			handle.promise().continuation = h;
 			return handle.get();
 		}
-		std::optional<T> await_resume() 
+		inline std::optional<T> await_resume()
 		{
 			if ( finished() )
 				return std::nullopt;

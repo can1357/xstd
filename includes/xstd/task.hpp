@@ -35,15 +35,15 @@ namespace xstd
 
 			struct final_awaitable
 			{
-				bool await_ready() noexcept { return false; }
-				coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				inline bool await_ready() noexcept { return false; }
+				inline coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
 						return c;
 					else
 						return noop_coroutine();
 				}
-				void await_resume() const noexcept { unreachable(); }
+				inline void await_resume() const noexcept { unreachable(); }
 			};
 
 			task<T, S> get_return_object() { return *this; }
@@ -136,15 +136,15 @@ namespace xstd
 			
 			struct final_awaitable
 			{
-				bool await_ready() noexcept { return false; }
-				coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				inline bool await_ready() noexcept { return false; }
+				inline coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
 						return c;
 					else
 						return noop_coroutine();
 				}
-				void await_resume() const noexcept { unreachable(); }
+				inline void await_resume() const noexcept { unreachable(); }
 			};
 
 			task<void, S> get_return_object() { return *this; }
@@ -210,22 +210,22 @@ namespace xstd
 	// Make task references co awaitable.
 	//
 	template<typename T, typename S>
-	auto operator co_await( const task<T, S>& ref )
+	inline auto operator co_await( const task<T, S>& ref )
 	{
 		struct awaitable
 		{
 			const xstd::task<T, S>& ref;
 
-			bool await_ready()
+			inline bool await_ready()
 			{
 				return ref.finished();
 			}
-			coroutine_handle<> await_suspend( coroutine_handle<> hnd )
+			inline coroutine_handle<> await_suspend( coroutine_handle<> hnd )
 			{
 				dassert_s( std::exchange( ref.handle.promise().continuation, hnd ) == nullptr );
 				return ref.handle;
 			}
-			const auto& await_resume() const
+			inline const auto& await_resume() const
 			{
 				if constexpr ( !basic_result<T, S>::has_status )
 					return ref.result();
@@ -236,22 +236,22 @@ namespace xstd
 		return awaitable{ ref };
 	}
 	template<typename T, typename S>
-	auto operator co_await( task<T, S>&& ref )
+	inline auto operator co_await( task<T, S>&& ref )
 	{
 		struct awaitable
 		{
 			xstd::task<T, S> ref;
 
-			bool await_ready()
+			inline bool await_ready()
 			{
 				return ref.finished();
 			}
-			coroutine_handle<> await_suspend( coroutine_handle<> hnd )
+			inline coroutine_handle<> await_suspend( coroutine_handle<> hnd )
 			{
 				dassert_s( std::exchange( ref.handle.promise().continuation, hnd ) == nullptr );
 				return ref.handle;
 			}
-			const auto& await_resume() const
+			inline const auto& await_resume() const
 			{
 				if constexpr ( !basic_result<T, S>::has_status )
 					return ref.result().value();

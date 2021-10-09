@@ -826,14 +826,14 @@ namespace xstd
 
 			struct final_awaitable
 			{
-				bool await_ready() noexcept { return false; }
-				void await_suspend( coroutine_handle<promise_type> hnd ) noexcept 
+				inline bool await_ready() noexcept { return false; }
+				inline void await_suspend( coroutine_handle<promise_type> hnd ) noexcept
 				{ 
 					auto& pr = hnd.promise().pr;
 					pr.signal();
 					pr.dec_ref( true );
 				}
-				void await_resume() const noexcept { unreachable(); }
+				inline void await_resume() const noexcept { unreachable(); }
 			};
 
 			future<T, S> get_return_object() { return { std::in_place_t{}, &pr }; }
@@ -881,14 +881,14 @@ namespace xstd
 
 			struct final_awaitable
 			{
-				bool await_ready() noexcept { return false; }
-				void await_suspend( coroutine_handle<promise_type> hnd ) noexcept 
+				inline bool await_ready() noexcept { return false; }
+				inline void await_suspend( coroutine_handle<promise_type> hnd ) noexcept
 				{
 					auto& pr = hnd.promise().pr;
 					pr.signal();
 					pr.dec_ref( true );
 				}
-				void await_resume() const noexcept { unreachable(); }
+				inline void await_resume() const noexcept { unreachable(); }
 			};
 
 			future<void, S> get_return_object() { return { std::in_place_t{}, &pr }; }
@@ -914,7 +914,7 @@ namespace xstd
 	// Make promise references co awaitable.
 	//
 	template<typename P> requires std::is_base_of_v<make_awaitable_tag_t, P>
-	auto operator co_await( const P& ref )
+	inline auto operator co_await( const P& ref )
 	{
 		using R = typename P::result_type;
 
@@ -923,14 +923,14 @@ namespace xstd
 			const P& promise;
 			mutable coroutine_handle<> awaiting_as = nullptr;
 
-			bool await_ready()
+			inline bool await_ready()
 			{
 				if ( !promise.finished() )
 					return false;
 				promise.unrace();
 				return true;
 			}
-			bool await_suspend( coroutine_handle<> hnd )
+			inline bool await_suspend( coroutine_handle<> hnd )
 			{
 				if ( promise.listen( hnd ) )
 				{
@@ -939,7 +939,7 @@ namespace xstd
 				}
 				return false;
 			}
-			decltype( auto ) await_resume() const
+			inline decltype( auto ) await_resume() const
 			{
 				awaiting_as = nullptr;
 				if constexpr ( R::has_status )
@@ -947,7 +947,7 @@ namespace xstd
 				else if constexpr( R::has_value )
 					return promise.result().value();
 			}
-			~awaitable()
+			inline ~awaitable()
 			{
 				if ( awaiting_as )
 					promise.unlisten( awaiting_as );
@@ -956,7 +956,7 @@ namespace xstd
 		return awaitable{ ref };
 	}
 	template<typename P> requires std::is_base_of_v<make_awaitable_tag_t, P>
-	auto operator co_await( P&& ref )
+	inline auto operator co_await( P&& ref )
 	{
 		using R = typename P::result_type;
 
@@ -965,14 +965,14 @@ namespace xstd
 			P promise;
 			mutable coroutine_handle<> awaiting_as = nullptr;
 
-			bool await_ready()
+			inline bool await_ready()
 			{
 				if ( !promise.finished() )
 					return false;
 				promise.unrace();
 				return true;
 			}
-			bool await_suspend( coroutine_handle<> hnd )
+			inline bool await_suspend( coroutine_handle<> hnd )
 			{
 				if ( promise.listen( hnd ) )
 				{
@@ -981,7 +981,7 @@ namespace xstd
 				}
 				return false;
 			}
-			auto await_resume() const
+			inline auto await_resume() const
 			{
 				awaiting_as = nullptr;
 				if constexpr ( R::has_status )
@@ -989,7 +989,7 @@ namespace xstd
 				else if constexpr ( R::has_value )
 					return promise.result().value();
 			}
-			~awaitable()
+			inline ~awaitable()
 			{
 				if ( awaiting_as )
 					promise.unlisten( awaiting_as );
@@ -998,7 +998,7 @@ namespace xstd
 		return awaitable{ std::move( ref ) };
 	}
 	template<typename T, typename S>
-	auto operator co_await( unique_future<T, S> ref )
+	inline auto operator co_await( unique_future<T, S> ref )
 	{
 		using R = basic_result<T, S>;
 
@@ -1007,14 +1007,14 @@ namespace xstd
 			promise_ref<T, S, false> promise;
 			mutable coroutine_handle<> awaiting_as = nullptr;
 
-			bool await_ready()
+			inline bool await_ready()
 			{
 				if ( !promise.finished() )
 					return false;
 				promise.unrace();
 				return true;
 			}
-			bool await_suspend( coroutine_handle<> hnd )
+			inline bool await_suspend( coroutine_handle<> hnd )
 			{
 				if ( promise.listen( hnd ) )
 				{
@@ -1023,7 +1023,7 @@ namespace xstd
 				}
 				return false;
 			}
-			auto await_resume() const
+			inline auto await_resume() const
 			{
 				awaiting_as = nullptr;
 
@@ -1032,7 +1032,7 @@ namespace xstd
 				else if constexpr ( R::has_value )
 					return std::move( make_mutable( promise.result() ) ).value();
 			}
-			~awaitable()
+			inline ~awaitable()
 			{
 				if ( awaiting_as )
 					promise.unlisten( awaiting_as );

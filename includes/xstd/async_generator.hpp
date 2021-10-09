@@ -21,8 +21,8 @@ namespace xstd
 			struct yield_awaitable
 			{
 				bool dropped;
-				bool await_ready() { return false; }
-				void await_suspend( coroutine_handle<promise_type> handle ) noexcept 
+				inline bool await_ready() { return false; }
+				inline void await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{ 
 					if ( dropped )
 					{
@@ -36,20 +36,20 @@ namespace xstd
 						recepient();
 					}
 				}
-				void await_resume() {}
+				inline void await_resume() {}
 			};
 
 			struct final_awaitable
 			{
 				bool dropped;
-				bool await_ready() noexcept { return false; }
-				bool await_suspend( coroutine_handle<promise_type> handle ) noexcept
+				inline bool await_ready() noexcept { return false; }
+				inline bool await_suspend( coroutine_handle<promise_type> handle ) noexcept
 				{
 					if ( !dropped )
 						coroutine_handle<>::from_address( handle.promise().recepient.exchange( nullptr ) )( );
 					return false;
 				}
-				void await_resume() const noexcept {}
+				inline void await_resume() const noexcept {}
 			};
 
 			yield_awaitable yield_value( T value )
@@ -110,16 +110,16 @@ namespace xstd
 			promise_type* promise;
 			std::optional<T> result = std::nullopt;
 
-			bool await_ready() { return promise == nullptr; }
-			void await_suspend( coroutine_handle<> h )
+			inline bool await_ready() { return promise == nullptr; }
+			inline void await_suspend( coroutine_handle<> h )
 			{
 				promise->store = &result;
 				promise->recepient.store( h.address(), std::memory_order::relaxed );
 				promise->receive_event.notify();
 			}
-			std::optional<T>&& await_resume() { return std::move( result ); }
+			inline std::optional<T>&& await_resume() { return std::move( result ); }
 		};
-		proxy_awaitable operator co_await() const { return { handle ? &handle.promise() : nullptr }; }
+		inline proxy_awaitable operator co_await() const { return { handle ? &handle.promise() : nullptr }; }
 
 		// Drops the producer and signals it to stop producing.
 		//
