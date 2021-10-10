@@ -827,7 +827,9 @@ namespace xstd
 			struct final_awaitable
 			{
 				inline bool await_ready() noexcept { return false; }
-				inline void await_suspend( coroutine_handle<promise_type> hnd ) noexcept
+
+				template<typename P = promise_type>
+				inline void await_suspend( coroutine_handle<P> hnd ) noexcept
 				{ 
 					auto& pr = hnd.promise().pr;
 					pr.signal();
@@ -882,7 +884,9 @@ namespace xstd
 			struct final_awaitable
 			{
 				inline bool await_ready() noexcept { return false; }
-				inline void await_suspend( coroutine_handle<promise_type> hnd ) noexcept
+
+				template<typename P = promise_type>
+				inline void await_suspend( coroutine_handle<P> hnd ) noexcept
 				{
 					auto& pr = hnd.promise().pr;
 					pr.signal();

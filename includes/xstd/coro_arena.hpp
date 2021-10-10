@@ -73,9 +73,9 @@ namespace xstd::coro
 	{
 		struct promise_type : coroutine_traits<T>::promise_type
 		{
-			inline constexpr void* operator new( size_t n ) noexcept { return nullptr; }
+			inline constexpr void* operator new( [[maybe_unused]] size_t n ) noexcept { return nullptr; }
 			inline constexpr void* operator new( size_t n, arena<>& arena ) noexcept { return arena.allocate( n ); }
-			inline constexpr void operator delete( void* p ) noexcept {}
+			inline constexpr void operator delete( [[maybe_unused]] void* p ) noexcept {}
 		};
 
 		// Constructor for get_return_object.
@@ -90,9 +90,9 @@ namespace xstd::coro
 	{
 		struct promise_type : coroutine_traits<T>::promise_type
 		{
-			inline void* operator new( size_t n ) noexcept { return nullptr; }
+			inline void* operator new( [[maybe_unused]] size_t n ) noexcept { return nullptr; }
 			inline constexpr void* operator new( size_t n, arena<>& arena ) noexcept { return arena.allocate( n ); }
-			inline constexpr void operator delete( void* p ) noexcept {}
+			inline constexpr void operator delete( [[maybe_unused]] void* p ) noexcept {}
 			static constexpr try_in_place get_return_object_on_allocation_failure() { return std::nullopt; }
 		};
 

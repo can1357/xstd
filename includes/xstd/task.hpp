@@ -36,7 +36,9 @@ namespace xstd
 			struct final_awaitable
 			{
 				inline bool await_ready() noexcept { return false; }
-				inline coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
+
+				template<typename P = promise_type>
+				inline coroutine_handle<> await_suspend( coroutine_handle<P> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
 						return c;
@@ -137,7 +139,9 @@ namespace xstd
 			struct final_awaitable
 			{
 				inline bool await_ready() noexcept { return false; }
-				inline coroutine_handle<> await_suspend( coroutine_handle<promise_type> handle ) noexcept
+
+				template<typename P = promise_type>
+				inline coroutine_handle<> await_suspend( coroutine_handle<P> handle ) noexcept
 				{
 					if ( auto c = std::exchange( handle.promise().continuation, nullptr ) )
 						return c;

@@ -73,9 +73,9 @@ namespace std
 		inline bool done() const noexcept { return xstd::builtin::done( handle ); }
 		inline void operator()() const { resume(); }
 		
-		inline constexpr bool operator==( coroutine_handle<> other ) { return address() == other.address(); }
-		inline constexpr bool operator!=( coroutine_handle<> other ) { return address() != other.address(); }
-		inline constexpr bool operator<( coroutine_handle<> other ) { return address() < other.address(); }
+		inline constexpr bool operator==( coroutine_handle<> other ) const { return address() == other.address(); }
+		inline constexpr bool operator!=( coroutine_handle<> other ) const { return address() != other.address(); }
+		inline constexpr bool operator<( coroutine_handle<> other ) const { return address() < other.address(); }
 
 		inline static coroutine_handle<> from_address( void* addr ) noexcept { coroutine_handle<> tmp{}; tmp.handle = addr; return tmp; }
 	};

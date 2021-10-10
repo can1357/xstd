@@ -22,7 +22,9 @@ namespace xstd
 			{
 				bool dropped;
 				inline bool await_ready() { return false; }
-				inline void await_suspend( coroutine_handle<promise_type> handle ) noexcept
+
+				template<typename P = promise_type>
+				inline void await_suspend( coroutine_handle<P> handle ) noexcept
 				{ 
 					if ( dropped )
 					{
@@ -43,7 +45,9 @@ namespace xstd
 			{
 				bool dropped;
 				inline bool await_ready() noexcept { return false; }
-				inline bool await_suspend( coroutine_handle<promise_type> handle ) noexcept
+
+				template<typename P = promise_type>
+				inline bool await_suspend( coroutine_handle<P> handle ) noexcept
 				{
 					if ( !dropped )
 						coroutine_handle<>::from_address( handle.promise().recepient.exchange( nullptr ) )( );
