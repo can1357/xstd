@@ -195,6 +195,7 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 //
 #if GNU_COMPILER
 	#define PURE_FN      __attribute__((pure))
+	#define CONST_FN     __attribute__((const))
 	#define FLATTEN      __attribute__((flatten))
 	#define COLD         __attribute__((cold, noinline, disable_tail_calls))
 	#define FORCE_INLINE __attribute__((always_inline))
@@ -203,6 +204,7 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 #else
 	#pragma warning( disable: 4141 )
 	#define PURE_FN
+	#define CONST_FN
 	#define FLATTEN
 	#define COLD         __declspec(noinline)     
 	#define FORCE_INLINE __forceinline

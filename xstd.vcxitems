@@ -39,6 +39,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\color.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fetch_once.hpp" />
