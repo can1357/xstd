@@ -120,7 +120,7 @@ namespace xstd
 			//
 			if ( required_length == 1 )
 			{
-				data[ length++ ] = value;
+				data[ length++ ] = ( uint8_t ) value;
 				return true;
 			}
 

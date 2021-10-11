@@ -4,10 +4,10 @@
 #include <cstring>
 #include <cstdlib>
 #include <string>
-#include <mutex>
 #include <thread>
 #include <functional>
 #include <cstdarg>
+#include <mutex>
 #include "formatting.hpp"
 #include "time.hpp"
 #include "intrinsics.hpp"
@@ -27,7 +27,7 @@
 //
 
 #ifndef XSTD_CON_THREAD_LOCAL
-	#define XSTD_CON_THREAD_LOCAL 1
+	#define XSTD_CON_THREAD_LOCAL 0
 #endif
 #ifndef XSTD_CON_ENFORCE_MODE_WINDOWS
 	#define XSTD_CON_ENFORCE_MODE_WINDOWS 1

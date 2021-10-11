@@ -35,7 +35,7 @@ namespace xstd
 	template<Integral Dst, Integral Src>
 	__forceinline static constexpr bool narrow_viable( Src o, int bits /*for bitfields.*/ )
 	{
-		bits = std::min( bits, sizeof( Dst ) * 8 );
+		bits = std::min<int>( bits, sizeof( Dst ) * 8 );
 
 		// Validate sign.
 		//

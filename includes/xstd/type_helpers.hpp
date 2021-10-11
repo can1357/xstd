@@ -1374,10 +1374,10 @@ namespace views =  ranges::views;
 //
 namespace xstd::literals
 {
-	constexpr inline size_t operator ""_kb( size_t n ) { return n * 1024ull; }
-	constexpr inline size_t operator ""_mb( size_t n ) { return n * 1024ull * 1024ull; }
-	constexpr inline size_t operator ""_gb( size_t n ) { return n * 1024ull * 1024ull * 1024ull; }
-	constexpr inline size_t operator ""_tb( size_t n ) { return n * 1024ull * 1024ull * 1024ull * 1024ull; }
+	constexpr inline size_t operator ""_kb( unsigned long long n ) { return ( size_t ) ( n * 1024ull ); }
+	constexpr inline size_t operator ""_mb( unsigned long long n ) { return ( size_t ) ( n * 1024ull * 1024ull ); }
+	constexpr inline size_t operator ""_gb( unsigned long long n ) { return ( size_t ) ( n * 1024ull * 1024ull * 1024ull ); }
+	constexpr inline size_t operator ""_tb( unsigned long long n ) { return ( size_t ) ( n * 1024ull * 1024ull * 1024ull * 1024ull ); }
 };
 using namespace std::literals;
 using namespace xstd::literals;

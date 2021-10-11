@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <atomic>
+#include <array>
 
 #ifndef __has_builtin
 	#define __has_builtin(...) 0
@@ -485,7 +486,7 @@ FORCE_INLINE static constexpr uint64_t rotlq( uint64_t value, int count ) noexce
 #endif
 	count %= 64;
 	if ( !count ) return value;
-	return ( value << count ) | ( value >> ( 64 - count ) );
+	return uint64_t( value << count ) | uint64_t( value >> ( 64 - count ) );
 }
 FORCE_INLINE static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
 {
@@ -495,7 +496,7 @@ FORCE_INLINE static constexpr uint64_t rotrq( uint64_t value, int count ) noexce
 #endif
 	count %= 64;
 	if ( !count ) return value;
-	return ( value >> count ) | ( value << ( 64 - count ) );
+	return uint64_t( value >> count ) | uint64_t( value << ( 64 - count ) );
 }
 FORCE_INLINE static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
 {
@@ -505,7 +506,7 @@ FORCE_INLINE static constexpr uint32_t rotld( uint32_t value, int count ) noexce
 #endif
 	count %= 32;
 	if ( !count ) return value;
-	return ( value << count ) | ( value >> ( 32 - count ) );
+	return uint32_t( value << count ) | uint32_t( value >> ( 32 - count ) );
 }
 FORCE_INLINE static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
 {
@@ -515,7 +516,7 @@ FORCE_INLINE static constexpr uint32_t rotrd( uint32_t value, int count ) noexce
 #endif
 	count %= 32;
 	if ( !count ) return value;
-	return ( value >> count ) | ( value << ( 32 - count ) );
+	return uint32_t( value >> count ) | uint32_t( value << ( 32 - count ) );
 }
 FORCE_INLINE static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
 {
@@ -525,7 +526,7 @@ FORCE_INLINE static constexpr uint16_t rotlw( uint16_t value, int count ) noexce
 #endif
 	count %= 16;
 	if ( !count ) return value;
-	return ( value << count ) | ( value >> ( 16 - count ) );
+	return uint16_t( value << count ) | uint16_t( value >> ( 16 - count ) );
 }
 FORCE_INLINE static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
 {
@@ -535,7 +536,7 @@ FORCE_INLINE static constexpr uint16_t rotrw( uint16_t value, int count ) noexce
 #endif
 	count %= 16;
 	if ( !count ) return value;
-	return ( value >> count ) | ( value << ( 16 - count ) );
+	return uint16_t( value >> count ) | uint16_t( value << ( 16 - count ) );
 }
 FORCE_INLINE static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
 {
@@ -545,7 +546,7 @@ FORCE_INLINE static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
 #endif
 	count %= 8;
 	if ( !count ) return value;
-	return ( value << count ) | ( value >> ( 8 - count ) );
+	return uint8_t( value << count ) | uint8_t( value >> ( 8 - count ) );
 }
 FORCE_INLINE static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
 {
@@ -555,7 +556,7 @@ FORCE_INLINE static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
 #endif
 	count %= 8;
 	if ( !count ) return value;
-	return ( value >> count ) | ( value << ( 8 - count ) );
+	return uint8_t( value >> count ) | uint8_t( value << ( 8 - count ) );
 }
 template<typename T> requires ( std::is_integral_v<T> || std::is_enum_v<T> )
 FORCE_INLINE static constexpr T rotl( T value, int count ) noexcept
@@ -594,7 +595,7 @@ FORCE_INLINE static constexpr uint16_t bswapw( uint16_t value ) noexcept
 	if ( !std::is_constant_evaluated() )
 		return __builtin_bswap16( value );
 #endif
-	return ( ( value & 0xFF ) << 8 ) | ( ( value & 0xFF00 ) >> 8 );
+	return uint16_t( ( value & 0xFF ) << 8 ) | uint16_t( ( value & 0xFF00 ) >> 8 );
 }
 FORCE_INLINE static constexpr uint32_t bswapd( uint32_t value ) noexcept
 {

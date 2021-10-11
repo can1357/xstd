@@ -172,7 +172,7 @@ namespace xstd::file
 		//
 		auto fview = std::make_shared<native_view<T>>();
 		fview->origin = path;
-		fview->fd = open( path.string().c_str(), 0, /*O_RDONLY*/ );
+		fview->fd = open( path.string().c_str(), 0 /*O_RDONLY*/ );
 		fview->length = tcount;
 		if ( fview->fd == -1 )
 			return { io_state::bad_file };

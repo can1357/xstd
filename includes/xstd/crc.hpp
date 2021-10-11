@@ -36,7 +36,7 @@ namespace xstd::impl
 			uint64_t _crc = crc;
 			asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "r" ( value ) );
 			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
-			return _crc;
+			return ( uint32_t ) _crc;
 		}
 		else
 		{
@@ -66,7 +66,7 @@ namespace xstd::impl
 			uint64_t _crc = crc;
 			asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( *( uint64_t* ) ptr ) );
 			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
-			crc = _crc;
+			crc = ( uint32_t ) _crc;
 #endif
 			ptr += sizeof( uint64_t );
 		}, length );
