@@ -527,8 +527,9 @@ namespace xstd
 		}
 		void destroy()
 		{
-			if ( coro ) coro.destroy();
-			else        delete this;
+			void* base = coro ? coro.address() : this;
+			std::destroy_at( this );
+			operator delete( base );
 		}
 		FORCE_INLINE void inc_ref( bool owner )
 		{
@@ -822,7 +823,21 @@ namespace xstd
 		//
 		struct promise_type
 		{
-			promise_base<T, S> pr{ std::in_place_t{}, this, impl::owner_flag + impl::viewer_flag };
+			union
+			{
+				promise_base<T, S> pr;
+				uint8_t dummy = 0;
+			};
+			promise_type() : pr( std::in_place_t{}, this, impl::owner_flag + impl::viewer_flag ) {}
+			
+			// Do not destroy the promise on destruction.
+			//
+			~promise_type() {}
+
+			// No delete, promise_base will do that.
+			//
+			void* operator new( size_t n ) { return ::operator new( n ); }
+			void operator delete( void* ptr ) {}
 
 			struct final_awaitable
 			{
@@ -833,6 +848,7 @@ namespace xstd
 				{ 
 					auto& pr = hnd.promise().pr;
 					pr.signal();
+					hnd.destroy(); // Will not destroy the promise or delete it.
 					pr.dec_ref( true );
 				}
 				inline void await_resume() const noexcept { unreachable(); }
@@ -879,7 +895,21 @@ namespace xstd
 		//
 		struct promise_type
 		{
-			promise_base<void, S> pr{ std::in_place_t{}, this, impl::owner_flag + impl::viewer_flag };
+			union
+			{
+				promise_base<void, S> pr;
+				uint8_t dummy = 0;
+			};
+			promise_type() : pr( std::in_place_t{}, this, impl::owner_flag + impl::viewer_flag ) {}
+
+			// Do not destroy the promise on destruction.
+			//
+			~promise_type() {}
+
+			// No delete, promise_base will do that.
+			//
+			void* operator new( size_t n ) { return ::operator new( n ); }
+			void operator delete( void* ptr ) {}
 
 			struct final_awaitable
 			{
@@ -890,6 +920,7 @@ namespace xstd
 				{
 					auto& pr = hnd.promise().pr;
 					pr.signal();
+					hnd.destroy(); // Will not destroy the promise or delete it.
 					pr.dec_ref( true );
 				}
 				inline void await_resume() const noexcept { unreachable(); }
