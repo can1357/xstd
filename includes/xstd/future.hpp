@@ -837,7 +837,7 @@ namespace xstd
 			// No delete, promise_base will do that.
 			//
 			void* operator new( size_t n ) { return ::operator new( n ); }
-			void operator delete( void* ptr ) {}
+			void operator delete( void* ) {}
 
 			struct final_awaitable
 			{
@@ -909,7 +909,7 @@ namespace xstd
 			// No delete, promise_base will do that.
 			//
 			void* operator new( size_t n ) { return ::operator new( n ); }
-			void operator delete( void* ptr ) {}
+			void operator delete( void* ) {}
 
 			struct final_awaitable
 			{
