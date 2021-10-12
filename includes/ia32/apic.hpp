@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <xstd/bitwise.hpp>
 #include "../ia32.hpp"
 #include "memory.hpp"
 
@@ -61,122 +62,131 @@ namespace ia32::apic
 	//
 	inline volatile uint32_t* apic_base = nullptr;
 
-	// Read/write register.
+	// APIC controller.
 	//
-	inline uint32_t read_register( size_t i )
+	struct controller
 	{
-		if ( apic_base )
-			return apic_base[ i / 4 ];
-		else
-			return read_msr<uint32_t>( x2apic_msr + i / 0x10 );
-	}
-	inline void write_register( size_t i, uint32_t v )
-	{
-		if ( apic_base )
-			apic_base[ i / 4 ] = v;
-		else
-			write_msr( x2apic_msr + i / 0x10, v );
-	}
+		volatile uint32_t* const base_address = apic_base;
 
-	// Basic properties.
-	//
-	inline uint32_t read_timer_counter()
-	{
-		return read_register( lvt_curr_count_register );
-	}
-	inline bool is_x2apic()
-	{
-		return apic_base == nullptr;
-	}
+		// Check for the state.
+		//
+		inline bool is_x2apic() const noexcept { return base_address == nullptr; }
 
-	// Signals the EOI.
-	//
-	inline void end_of_interrupt()
-	{
-		write_register( end_of_int_register, 0 );
-	}
-
-	// Checks if the given ISR index is in service.
-	//
-	inline bool in_service( uint8_t idx )
-	{
-		return ( read_register( in_service_register + ( 0x10 * ( idx / 32 ) ) ) >> ( idx % 32 ) ) & 1;
-	}
-
-	// Waits for a command to be finished.
-	//
-	inline void wait_for_delivery()
-	{
-		if ( apic_base )
+		// Read/write register.
+		//
+		template<typename T = uint32_t> requires ( sizeof( T ) == 4 )
+		inline T read_register( size_t i ) const noexcept
 		{
-			volatile command& icr = ( volatile command& ) apic_base[ cmd_register / 4 ];
-			while ( icr.is_pending )
-				yield_cpu();
-		}
-		else
-		{
-			/*no-op on x2apic*/
-		}
-	}
-
-	// Sends a command.
-	//
-	inline void send_command( command cmd, uint32_t dst = 0 )
-	{
-		if ( apic_base )
-		{
-			// Disable interrupts since it is not atomic.
-			//
-			scope_irql<NO_INTERRUPTS> _g{};
-
-			// Wait for the pending flag to clear.
-			//
-			volatile command& icr = ( volatile command& ) apic_base[ cmd_register / 4 ];
-			while ( icr.is_pending )
-				yield_cpu();
-
-			// If shorthand is not used, write the destination.
-			//
-			if ( cmd.sh_group == shorthand::none )
-				apic_base[ ( cmd_register + 0x10 ) / 4 ] = dst;
-
-			// Write the command.
-			//
-			*( volatile uint32_t* ) &icr = *( uint32_t* ) &cmd;
-		}
-		else
-		{
-			// If self IPI, used the new self IPI MSR.
-			//
-			if ( cmd.sh_group == shorthand::self )
-				write_msr( x2apic_msr + self_ipi_register / 0x10, cmd.vector );
+			uint32_t value;
+			if ( is_x2apic() )
+				value = read_msr<uint32_t>( x2apic_msr + i / 0x10 );
 			else
-				write_msr( x2apic_msr + cmd_register / 0x10, ( *( uint32_t* ) &cmd ) | ( uint64_t( dst ) << 32 ) );
+				value = base_address[ i / 4 ];
+			return xstd::bit_cast< T >( value );
 		}
-	}
+		template<typename T = uint32_t> requires ( sizeof( T ) == 4 )
+		inline void write_register( size_t i, T _value ) const noexcept
+		{
+			uint32_t value = xstd::bit_cast< uint32_t >( _value );
+			if ( is_x2apic() )
+				write_msr( x2apic_msr + i / 0x10, value );
+			else
+				base_address[ i / 4 ] = value;
+		}
 
-	// Simple interfaces to request interrupts.
-	//
-	inline void request_interrupt( uint8_t vector, shorthand group )
-	{
-		command cmd = {};
-		cmd.vector = vector;
-		cmd.sh_group = group;
-		send_command( cmd );
-	}
-	inline void request_interrupt( uint8_t vector, uint32_t identifier )
-	{
-		command cmd = {};
-		cmd.vector = vector;
-		send_command( cmd, identifier );
-	}
-	inline void request_nmi( shorthand group )
-	{
-		command cmd = {};
-		cmd.mode = delivery_mode::nmi;
-		cmd.sh_group = group;
-		send_command( cmd );
-	}
+		// Basic properties.
+		//
+		inline uint32_t read_timer_counter() const noexcept
+		{
+			return read_register( lvt_curr_count_register );
+		}
+
+		// Signals the EOI.
+		//
+		inline void end_of_interrupt() const noexcept
+		{
+			write_register( end_of_int_register, 0 );
+		}
+
+		// Checks if the given ISR index is in service.
+		//
+		inline bool in_service( uint8_t idx ) const noexcept
+		{
+			return ( read_register( in_service_register + ( 0x10 * ( idx / 32 ) ) ) >> ( idx % 32 ) ) & 1;
+		}
+
+		// Waits for a command to be finished.
+		//
+		inline void wait_for_delivery() const noexcept
+		{
+			if ( !is_x2apic() )
+			{
+				while ( read_register<command>( cmd_register ).is_pending )
+					yield_cpu();
+			}
+			else
+			{
+				/*no-op on x2apic*/
+			}
+		}
+
+		// Sends a command.
+		//
+		inline void send_command( command cmd, uint32_t dst = 0 ) const noexcept
+		{
+			if ( !is_x2apic() )
+			{
+				// Disable interrupts since it is not atomic.
+				//
+				scope_irql<HIGH_LEVEL> _g{};
+
+				// Wait for the pending flag to clear.
+				//
+				wait_for_delivery();
+
+				// If shorthand is not used, write the destination.
+				//
+				if ( cmd.sh_group == shorthand::none )
+					write_register( cmd_register + 0x10, dst );
+
+				// Write the command.
+				//
+				write_register( cmd_register, cmd );
+			}
+			else
+			{
+				// If self IPI, used the new self IPI MSR.
+				//
+				if ( cmd.sh_group == shorthand::self )
+					write_msr( x2apic_msr + self_ipi_register / 0x10, cmd.vector );
+				else
+					write_msr( x2apic_msr + cmd_register / 0x10, ( *( uint32_t* ) &cmd ) | ( uint64_t( dst ) << 32 ) );
+			}
+		}
+
+		// Simple interfaces to request interrupts.
+		//
+		inline void request_interrupt( uint8_t vector, shorthand group ) const noexcept
+		{
+			command cmd = {};
+			cmd.vector = vector;
+			cmd.sh_group = group;
+			send_command( cmd );
+		}
+		inline void request_interrupt( uint8_t vector, uint32_t identifier ) const noexcept
+		{
+			command cmd = {};
+			cmd.vector = vector;
+			send_command( cmd, identifier );
+		}
+		inline void request_nmi( shorthand group ) const noexcept
+		{
+			command cmd = {};
+			cmd.mode = delivery_mode::nmi;
+			cmd.sh_group = group;
+			send_command( cmd );
+		}
+	};
 
 	// Initialization of the APIC base.
 	//
