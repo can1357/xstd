@@ -385,7 +385,7 @@ namespace xstd
 
 		// Signals the event, runs all continuation entries.
 		//
-		void signal()
+		[[nodiscard]] coroutine_handle<> signal()
 		{
 			uint8_t prev_tp;
 			{
@@ -401,12 +401,12 @@ namespace xstd
 
 			// If there are any continuation entries:
 			//
+			coroutine_handle<> cnt = noop_coroutine();
 			if ( !continuation.empty() )
 			{
 				// If task priority is raised, schedule every instance via ::chore, otherwise 
 				// schedule every instance but the first via ::chore and continue from the first one.
 				//
-				coroutine_handle<> cnt = nullptr;
 				if ( !prev_tp )  cnt = continuation[ 0 ];
 				else             xstd::chore( continuation[ 0 ] );
 
@@ -414,8 +414,8 @@ namespace xstd
 					xstd::chore( continuation[ n ] );
 
 				continuation.clear();
-				if ( cnt ) cnt();
 			}
+			return cnt;
 		}
 
 		// Resolution of the promise value.
@@ -444,26 +444,26 @@ namespace xstd
 			if ( state.bit_set( impl::state_finished_bit ) )
 				return false; 
 			reject_unchecked( std::forward<Args>( args )... ); 
-			signal(); 
-			return true; 
+			signal()();
+			return true;
 		}
 		template<typename... Args> 
 		bool resolve( Args&&... args )
 		{
 			if ( state.bit_set( impl::state_finished_bit ) )
 				return false; 
-			resolve_unchecked( std::forward<Args>( args )... ); 
-			signal(); 
-			return true; 
+			resolve_unchecked( std::forward<Args>( args )... );
+			signal()();
+			return true;
 		}
 		template<typename... Args> 
 		bool emplace( Args&&... args ) 
 		{
 			if ( state.bit_set( impl::state_finished_bit ) )
 				return false; 
-			emplace_unchecked( std::forward<Args>( args )... ); 
-			signal(); 
-			return true; 
+			emplace_unchecked( std::forward<Args>( args )... );
+			signal()();
+			return true;
 		}
 
 		// Exposes information on the promise state.
@@ -518,7 +518,7 @@ namespace xstd
 				xstd::error( XSTD_ESTR( "Promise broken." ) );
 			else
 				reject_unchecked();
-			signal();
+			signal()();
 		}
 		void break_for_deref() 
 		{
@@ -725,7 +725,7 @@ namespace xstd
 		{
 			ptr->emplace_unchecked( std::forward<Tx>( value )... );
 		}
-		inline void signal() const requires Owner 
+		[[nodiscard]] inline coroutine_handle<> signal() const requires Owner 
 		{ 
 			return ptr->signal(); 
 		}
@@ -803,6 +803,24 @@ namespace xstd
 		return pr;
 	}
 
+	namespace impl
+	{
+		struct promise_finalizing_awaitable
+		{
+			inline bool await_ready() noexcept { return false; }
+			template<typename P>
+			inline coroutine_handle<> await_suspend( coroutine_handle<P> hnd ) noexcept
+			{
+				auto& pr = hnd.promise().pr;
+				auto c = pr.signal();
+				hnd.destroy(); // Will not destroy the promise or delete it.
+				pr.dec_ref( true );
+				return c;
+			}
+			inline void await_resume() const noexcept { unreachable(); }
+		};
+	};
+
 	// Observer for the promise type.
 	//
 	template<typename T = void, typename S = xstd::exception>
@@ -839,24 +857,9 @@ namespace xstd
 			void* operator new( size_t n ) { return ::operator new( n ); }
 			void operator delete( void* ) {}
 
-			struct final_awaitable
-			{
-				inline bool await_ready() noexcept { return false; }
-
-				template<typename P = promise_type>
-				inline void await_suspend( coroutine_handle<P> hnd ) noexcept
-				{ 
-					auto& pr = hnd.promise().pr;
-					pr.signal();
-					hnd.destroy(); // Will not destroy the promise or delete it.
-					pr.dec_ref( true );
-				}
-				inline void await_resume() const noexcept { unreachable(); }
-			};
-
 			future<T, S> get_return_object() { return { std::in_place_t{}, &pr }; }
 			suspend_never initial_suspend() noexcept { return {}; }
-			final_awaitable final_suspend() noexcept { return {}; }
+			impl::promise_finalizing_awaitable final_suspend() noexcept { return {}; }
 			void unhandled_exception() {}
 			
 			template<typename V> 
@@ -866,7 +869,7 @@ namespace xstd
 			}
 
 			template<typename V>
-			final_awaitable yield_value( V&& v ) requires ( basic_result<T, S>::has_status )
+			impl::promise_finalizing_awaitable yield_value( V&& v ) requires ( basic_result<T, S>::has_status )
 			{
 				pr.reject_unchecked( std::forward<V>( v ) );
 				return {};
@@ -911,30 +914,15 @@ namespace xstd
 			void* operator new( size_t n ) { return ::operator new( n ); }
 			void operator delete( void* ) {}
 
-			struct final_awaitable
-			{
-				inline bool await_ready() noexcept { return false; }
-
-				template<typename P = promise_type>
-				inline void await_suspend( coroutine_handle<P> hnd ) noexcept
-				{
-					auto& pr = hnd.promise().pr;
-					pr.signal();
-					hnd.destroy(); // Will not destroy the promise or delete it.
-					pr.dec_ref( true );
-				}
-				inline void await_resume() const noexcept { unreachable(); }
-			};
-
 			future<void, S> get_return_object() { return { std::in_place_t{}, &pr }; }
 			suspend_never initial_suspend() noexcept { return {}; }
-			final_awaitable final_suspend() noexcept { return {}; }
+			impl::promise_finalizing_awaitable final_suspend() noexcept { return {}; }
 			void unhandled_exception() {}
 			
 			void return_void() { pr.resolve_unchecked(); }
 
 			template<typename V>
-			final_awaitable yield_value( V&& v ) requires ( result_type::has_status )
+			impl::promise_finalizing_awaitable yield_value( V&& v ) requires ( result_type::has_status )
 			{
 				pr.reject_unchecked( std::forward<V>( v ) );
 				return {};
