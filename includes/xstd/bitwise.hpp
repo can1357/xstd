@@ -252,7 +252,9 @@ namespace xstd
 		}
 		else if constexpr( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() )
+			// If shift is constant and can be encoded as imm32/imm8, OR will be faster.
+			//
+			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -286,7 +288,7 @@ namespace xstd
 #endif
 			}
 
-			bool is_set = value & ( U(1) << n );
+			bool is_set = U( value ) & ( U( 1 ) << n );
 			value |= ( U(1) << n );
 			return is_set;
 		}
@@ -341,7 +343,9 @@ namespace xstd
 		}
 		else if constexpr( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() )
+			// If shift is constant and can be encoded as imm32/imm8, AND will be faster.
+			//
+			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -375,7 +379,7 @@ namespace xstd
 #endif
 			}
 
-			bool is_set = value & ( U(1) << n );
+			bool is_set = U( value ) & ( U(1) << n );
 			value &= ~( U(1) << n );
 			return is_set;
 		}
@@ -426,7 +430,9 @@ namespace xstd
 		}
 		else if constexpr ( xstd::Integral<T> )
 		{
-			if ( !std::is_constant_evaluated() )
+			// If shift is constant and can be encoded as imm32/imm8, XOR will be faster.
+			//
+			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -460,7 +466,7 @@ namespace xstd
 #endif
 			}
 
-			bool is_set = value & ( U(1) << n );
+			bool is_set = U( value ) & ( U(1) << n );
 			value ^= ( U(1) << n );
 			return is_set;
 		}
@@ -477,19 +483,12 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
 		{
-			// If shift is constant and can be encoded as imm32/imm16/imm8, TEST will be faster.
+			// If shift is constant and can be encoded as imm32/imm8, TEST will be faster.
 			//
 			if ( __is_consteval( n ) && n <= 31 )
 			{
 				U flag = 1ul << n;
-				if constexpr ( sizeof( T ) == 8 )
-					return ( *( volatile uint64_t* ) &value ) & flag;
-				else if constexpr ( sizeof( T ) == 4 )
-					return ( *( volatile uint32_t* ) &value ) & flag;
-				else if constexpr ( sizeof( T ) == 2 )
-					return ( *( volatile uint16_t* ) &value ) & flag;
-				else if constexpr ( sizeof( T ) == 1 )
-					return ( *( volatile uint8_t* ) &value ) & flag;
+				return ( *( volatile U* ) &value ) & flag;
 			}
 
 #if AMD64_TARGET
@@ -522,12 +521,47 @@ namespace xstd
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) &value;
-			return ref & ( U(1) << n );
+			return ( *( volatile U* ) &value ) & ( U(1) << n );
 		}
 		else if constexpr ( xstd::Integral<T> )
 		{
-			return value & ( U(1) << n );
+			// If shift is constant and can be encoded as imm32/imm8, TEST will be faster.
+			//
+			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
+			{
+#if AMD64_TARGET
+				if constexpr ( sizeof( T ) == 8 )
+				{
+#if GNU_COMPILER
+					int out;
+					asm volatile( "btq %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
+					return out;
+#elif HAS_MS_EXTENSIONS
+					return _bittest64( ( long long* ) &value, n );
+#endif
+				}
+				else if constexpr ( sizeof( T ) == 4 )
+				{
+#if GNU_COMPILER
+					int out;
+					asm volatile( "btl %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
+					return out;
+#elif HAS_MS_EXTENSIONS
+					return _bittest( ( long* ) &value, n );
+#endif
+				}
+				else if constexpr ( sizeof( T ) == 2 )
+				{
+#if GNU_COMPILER
+					int out;
+					asm volatile( "btw %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
+					return out;
+#endif
+				}
+#endif
+			}
+
+			return U( value ) & ( U( 1 ) << n );
 		}
 		else
 		{
