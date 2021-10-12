@@ -12,7 +12,7 @@ namespace xstd
 	template<uint8_t TP>
 	struct scope_tpr
 	{
-		uint8_t prev = 0;
+		task_priority_t prev = 0;
 		bool locked = false;
 
 		// No copy.
@@ -21,9 +21,9 @@ namespace xstd
 		scope_tpr& operator=( const scope_tpr& ) = delete;
 
 		FORCE_INLINE scope_tpr( std::adopt_lock_t ) : prev( TP ), locked( true ) {}
-		FORCE_INLINE scope_tpr( std::defer_lock_t, uint8_t _prev ) { lock( _prev ); }
-		FORCE_INLINE scope_tpr( uint8_t _prev = get_task_priority() ) { lock( _prev ); }
-		FORCE_INLINE void lock( uint8_t _prev = get_task_priority() )
+		FORCE_INLINE scope_tpr( std::defer_lock_t, task_priority_t _prev ) { lock( _prev ); }
+		FORCE_INLINE scope_tpr( task_priority_t _prev = get_task_priority() ) { lock( _prev ); }
+		FORCE_INLINE void lock( task_priority_t _prev = get_task_priority() )
 		{
 			fassert( !locked );
 			locked = true;
@@ -52,8 +52,8 @@ namespace xstd
 	struct task_lock
 	{
 		Mutex& ref;
-		uint8_t prev_tp = 0;
-		const uint8_t mtx_tp;
+		task_priority_t prev_tp = 0;
+		const task_priority_t mtx_tp;
 		bool locked = false;
 
 		// No copy.
@@ -61,10 +61,10 @@ namespace xstd
 		task_lock( const task_lock& ) = delete;
 		task_lock& operator=( const task_lock& ) = delete;
 
-		FORCE_INLINE task_lock( Mutex& ref, uint8_t mtx_tp ) : ref( ref ), mtx_tp( mtx_tp ) { lock(); }
-		FORCE_INLINE task_lock( std::defer_lock_t, Mutex& ref, uint8_t mtx_tp ) : ref( ref ), mtx_tp( mtx_tp ) { lock(); }
-		FORCE_INLINE task_lock( std::adopt_lock_t, Mutex& ref, uint8_t mtx_tp ) : ref( ref ), prev_tp( mtx_tp ), mtx_tp( mtx_tp ), locked( true ) {}
-		FORCE_INLINE task_lock( std::adopt_lock_t, Mutex& ref, uint8_t mtx_tp, uint8_t prev_tp ) : ref( ref ), prev_tp( prev_tp ), mtx_tp( mtx_tp ), locked( true ) {}
+		FORCE_INLINE task_lock( Mutex& ref, task_priority_t mtx_tp ) : ref( ref ), mtx_tp( mtx_tp ) { lock(); }
+		FORCE_INLINE task_lock( std::defer_lock_t, Mutex& ref, task_priority_t mtx_tp ) : ref( ref ), mtx_tp( mtx_tp ) { lock(); }
+		FORCE_INLINE task_lock( std::adopt_lock_t, Mutex& ref, task_priority_t mtx_tp ) : ref( ref ), prev_tp( mtx_tp ), mtx_tp( mtx_tp ), locked( true ) {}
+		FORCE_INLINE task_lock( std::adopt_lock_t, Mutex& ref, task_priority_t mtx_tp, task_priority_t prev_tp ) : ref( ref ), prev_tp( prev_tp ), mtx_tp( mtx_tp ), locked( true ) {}
 
 		FORCE_INLINE void lock()
 		{

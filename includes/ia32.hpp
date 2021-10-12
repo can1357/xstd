@@ -21757,7 +21757,7 @@ namespace ia32
 // This namespace provides IA32 intrinsics that Clang decided not to.
 //
 
-using irql_t = uint16_t;
+using irql_t = uint64_t;
 #define PASSIVE_LEVEL 0                 // Passive release level
 #define LOW_LEVEL 0                     // Lowest interrupt level
 #define APC_LEVEL 1                     // APC interrupt level
@@ -22529,7 +22529,7 @@ namespace ia32
 	//
 	_LINKAGE irql_t get_irql()
 	{
-		auto irql = ( uint8_t ) read_cr8();
+		auto irql = ( irql_t ) read_cr8();
 		assume( irql <= 0xF );
 		return irql;
 	}
