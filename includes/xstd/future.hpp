@@ -662,7 +662,7 @@ namespace xstd
 		// Reference observer.
 		//
 		inline constexpr explicit operator bool() const { return ptr != nullptr; }
-		inline constexpr promise_ref* address() const { return ptr; }
+		inline constexpr promise_base<T, S>* address() const { return ptr; }
 		inline constexpr size_t promise_count() const
 		{
 			return impl::count_owners( ptr->refs.load() );
