@@ -487,7 +487,7 @@ namespace xstd
 			//
 			if ( __is_consteval( n ) && n <= 31 )
 			{
-				U flag = 1ul << n;
+				U flag = U( 1 ) << n;
 				return ( *( volatile U* ) &value ) & flag;
 			}
 
