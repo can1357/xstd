@@ -40,42 +40,8 @@ namespace xstd::file
 	};
 #endif
 
-	// Entire file mapped to memory.
-	//
 	template<Trivial T = uint8_t>
 	struct view
-	{
-		// Interface.
-		//
-		virtual size_t size() const = 0;
-		virtual const T* data() const = 0;
-		virtual const std::filesystem::path& path() const { return make_default<std::filesystem::path>(); }
-
-		// No copy or move.
-		//
-		view() = default;
-		view( view&& ) = delete;
-		view( const view& ) = delete;
-
-		// Allow array-like use.
-		//
-		size_t length() const { return size(); }
-		bool empty() const { return !size(); }
-		auto begin() const { return data(); }
-		auto end() const { return data() + size(); }
-		auto rbegin() const { return std::reverse_iterator{ end() }; }
-		auto rend() const { return std::reverse_iterator{ begin() }; }
-		const T& operator[]( size_t n ) const { return data()[ n ]; }
-
-		// Virtual destructor.
-		//
-		virtual ~view() = default;
-	};
-	template<Trivial T = uint8_t>
-	using shared_view = std::shared_ptr<view<T>>;
-
-	template<Trivial T = uint8_t>
-	struct native_view : view<T>
 	{
 		// Region details.
 		//
@@ -88,11 +54,37 @@ namespace xstd::file
 #else
 		int fd = -1;
 #endif
-		size_t size() const override { return length; }
-		const T* data() const override { return address; }
-		const std::filesystem::path& path() const override { return origin; }
 
-		~native_view()
+		// Default constructed.
+		//
+		view() = default;
+
+		// No copy, default move.
+		//
+		view( view&& ) noexcept = default;
+		view& operator=( view&& ) noexcept = default;
+		view( const view& ) = delete;
+		view& operator=( const view& ) = delete;
+
+		// Observers.
+		//
+		const T* begin() const { return address; }
+		const T* end() const { return address + length; }
+		const T* data() const { return address; }
+		size_t size() const { return length; }
+		bool empty() const { return !size(); }
+		auto rbegin() const { return std::reverse_iterator{ end() }; }
+		auto rend() const { return std::reverse_iterator{ begin() }; }
+		const T& operator[]( size_t n ) const { return data()[ n ]; }
+		const std::filesystem::path& path() const { return origin; }
+
+		// Conversion to bool.
+		//
+		explicit operator bool() const { return address != nullptr; }
+
+		// Close the handle on unmap.
+		//
+		~view()
 		{
 #if WINDOWS_TARGET
 			if ( address && !UnmapViewOfFile( ( void* ) address ) )
@@ -110,80 +102,76 @@ namespace xstd::file
 	};
 
 	template<Trivial T = uint8_t>
-	static inline io_result<shared_view<T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
+	static inline io_result<view<T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
 	{
 		// Get file size and validate it.
 		//
 		std::error_code ec;
 		size_t file_length = std::filesystem::file_size( path, ec );
-		if ( ec )
-			return { io_state::bad_file };
-		if ( file_length % sizeof( T ) )
-			return { io_state::invalid_alignment };
+		if ( ec ) return { io_state::bad_file };
+		if ( file_length % sizeof( T ) ) return { io_state::invalid_alignment };
+		
 		size_t moffset = offset * sizeof( T );
 		size_t mlength = count * sizeof( T );
 		if ( file_length < ( moffset + mlength ) )
 			return { io_state::reading_beyond_end };
+		
 		if ( !mlength )
 			mlength = file_length - moffset;
 		size_t tcount = mlength / sizeof( T );
 
-#if WINDOWS_TARGET
-		// Create the file view and open a handle to the file.
+		// Create the view.
 		//
-		auto fview = std::make_shared<native_view<T>>();
-		fview->origin = path;
-		fview->file_handle = CreateFileW(
+		io_result<view<T>> result;
+		auto& fview = result.emplace();
+
+#if WINDOWS_TARGET
+		// Open a handle to the file.
+		//
+		fview.origin = path;
+		fview.file_handle = CreateFileW(
 			path.c_str(),
 			0x80000000, //GENERIC_READ,
 			0x7, //FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 			nullptr,
 			0x3, //OPEN_EXISTING,
-			0x10000000, //FILE_FLAG_RANDOM_ACCESS,
-			nullptr
-		);
-		fview->length = tcount;
-		if ( fview->file_handle == impl::invalid_handle_value )
-			return { io_state::bad_file };
-
-		// Map the file.
-		//
-		fview->mapping_handle = CreateFileMappingFromApp(
-			fview->file_handle,
-			nullptr,
-			0x2, //PAGE_READONLY,
 			0,
 			nullptr
 		);
-		if ( !fview->mapping_handle )
-			return { io_state::bad_file };
-		fview->address = ( T* ) MapViewOfFileFromApp(
-			fview->mapping_handle,
-			0x4, //SECTION_MAP_READ,
-			moffset,
-			mlength
-		);
-		if ( !fview->address )
-			return { io_state::bad_file };
-		else
-			return { std::dynamic_pointer_cast<view<T>>( std::move( fview ) ) };
+		fview.length = tcount;
+		if ( fview.file_handle != impl::invalid_handle_value )
+		{
+			// Map the file.
+			//
+			fview.mapping_handle = CreateFileMappingFromApp(
+				fview.file_handle,
+				nullptr,
+				0x2, //PAGE_READONLY,
+				0,
+				nullptr
+			);
+			fview.address = ( T* ) MapViewOfFileFromApp(
+				fview.mapping_handle,
+				0x4, //SECTION_MAP_READ,
+				moffset,
+				mlength
+			);
+		}
 #else
-		// Create the file view and open a handle to the file.
+		// Open a handle to the file.
 		//
-		auto fview = std::make_shared<native_view<T>>();
-		fview->origin = path;
-		fview->fd = open( path.string().c_str(), 0 /*O_RDONLY*/ );
-		fview->length = tcount;
-		if ( fview->fd == -1 )
-			return { io_state::bad_file };
-
-		// Map the file.
-		//
-		fview->address = ( const T* ) mmap( nullptr, mlength, 1 /*PROT_READ*/, 1 /*MAP_SHARED*/, fview->fd, ( int ) moffset );
-		if ( !fview->address )
-			return { io_state::bad_file };
-		else
-			return { std::dynamic_pointer_cast< view<T> >( std::move( fview ) ) };
+		fview.origin = path;
+		fview.fd = open( path.string().c_str(), 0 /*O_RDONLY*/ );
+		fview.length = tcount;
+		if ( fview.fd != -1 )
+		{
+			// Map the file.
+			//
+			fview.address = ( const T* ) mmap( nullptr, mlength, 1 /*PROT_READ*/, 1 /*MAP_SHARED*/, fview.fd, ( int ) moffset );
+		}
 #endif
+		if ( !fview.address )
+			result.raise( io_state::bad_file );
+		return result;
 	}
 };
