@@ -59,12 +59,24 @@ namespace xstd::file
 		//
 		view() = default;
 
-		// No copy, default move.
+		// No copy, move via swap.
 		//
-		view( view&& ) noexcept = default;
-		view& operator=( view&& ) noexcept = default;
 		view( const view& ) = delete;
 		view& operator=( const view& ) = delete;
+		view( view&& o ) noexcept { swap( o ); }
+		view& operator=( view&& o ) noexcept { swap( o ); return *this; }
+		void swap( view& o )
+		{
+			std::swap( origin, o.origin );
+			std::swap( address, o.address );
+			std::swap( length, o.length );
+#if WINDOWS_TARGET
+			std::swap( file_handle, o.file_handle );
+			std::swap( mapping_handle, o.mapping_handle );
+#else
+			std::swap( fd, o.fd );
+#endif
+		}
 
 		// Observers.
 		//
@@ -87,16 +99,19 @@ namespace xstd::file
 		~view()
 		{
 #if WINDOWS_TARGET
-			if ( address && !UnmapViewOfFile( ( void* ) address ) )
+			if ( file_handle == impl::invalid_handle_value )
+				return;
+			if ( address && !UnmapViewOfFile( ( void* ) address ) ) [[unlikely]]
 				error( XSTD_ESTR( "UnmapViewOfFile failed." ) );
-			if ( mapping_handle != impl::invalid_handle_value )
+			if ( mapping_handle != impl::invalid_handle_value ) [[unlikely]]
 				CloseHandle( mapping_handle );
-			if ( file_handle != impl::invalid_handle_value )
-				CloseHandle( file_handle );
+			CloseHandle( file_handle );
 #else
-			close( fd );
-			if ( address && munmap( ( void* ) address, length * sizeof( T ) ) == -1 )
+			if ( fd == -1 )
+				return;
+			if ( address && munmap( ( void* ) address, length * sizeof( T ) ) == -1 ) [[unlikely]]
 				error( XSTD_ESTR( "munmap failed." ) );
+			close( fd );
 #endif
 		}
 	};
