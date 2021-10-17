@@ -355,7 +355,7 @@ namespace xstd
 					asm volatile( "btrq %2, %1" : "=@ccc" ( out ), "+r" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandreset64( ( volatile long long* ) &value, n );
+					return _bittestandreset64( ( long long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 4 )
@@ -365,7 +365,7 @@ namespace xstd
 					asm volatile( "btrl %2, %1" : "=@ccc" ( out ), "+r" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
 					return out;
 #elif HAS_MS_EXTENSIONS
-					return _bittestandreset( ( volatile long* ) &value, n );
+					return _bittestandreset( ( long* ) &value, n );
 #endif
 				}
 				else if constexpr ( sizeof( T ) == 2 )
