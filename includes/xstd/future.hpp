@@ -817,7 +817,7 @@ namespace xstd
 				pr.dec_ref( true );
 				return c;
 			}
-			inline void await_resume() const noexcept { unreachable(); }
+			inline void await_resume() const noexcept {}
 		};
 	};
 

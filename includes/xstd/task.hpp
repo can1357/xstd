@@ -45,7 +45,7 @@ namespace xstd
 					else
 						return noop_coroutine();
 				}
-				inline void await_resume() const noexcept { unreachable(); }
+				inline void await_resume() const noexcept {}
 			};
 
 			task<T, S> get_return_object() { return *this; }
@@ -128,8 +128,8 @@ namespace xstd
 			};
 			bool done = false;
 
-			promise_type() {}
-			~promise_type()
+			inline promise_type() {}
+			inline ~promise_type()
 			{
 				dassert( !continuation ); // Should not leak continuation!
 				if ( done )
@@ -148,21 +148,21 @@ namespace xstd
 					else
 						return noop_coroutine();
 				}
-				inline void await_resume() const noexcept { unreachable(); }
+				inline void await_resume() const noexcept {}
 			};
 
-			task<void, S> get_return_object() { return *this; }
-			suspend_always initial_suspend() noexcept { return {}; }
-			final_awaitable final_suspend() noexcept { return {}; }
-			void unhandled_exception() {}
+			inline task<void, S> get_return_object() { return *this; }
+			inline suspend_always initial_suspend() noexcept { return {}; }
+			inline final_awaitable final_suspend() noexcept { return {}; }
+			inline void unhandled_exception() {}
 			
-			void return_void() 
+			inline void return_void() 
 			{
 				std::construct_at( &value, in_place_success_t{}, std::monostate{} );
 				done = true;
 			}
 			template<typename V> 
-			final_awaitable yield_value( V&& v )
+			inline final_awaitable yield_value( V&& v )
 			{
 				std::construct_at( &value, in_place_failure_t{}, std::forward<V>( v ) );
 				done = true;
