@@ -232,7 +232,7 @@ namespace xstd
 
 		// Event and the continuation list.
 		//
-		mutable impl::wait_block*               events = nullptr;
+		mutable impl::wait_block* volatile      events = nullptr;
 		mutable impl::continuation_vector       continuation = {};
 
 		// Result.

@@ -21975,7 +21975,6 @@ namespace ia32
 	{
 		asm volatile( "wrfsbase %0" :: "r" ( value ) : );
 	}
-
 	_LINKAGE void swapgs()
 	{
 		asm volatile( "swapgs" ::: "memory" );
