@@ -14,7 +14,7 @@ namespace xstd
 	// Alignment helper.
 	//
 	template<typename T>
-	__forceinline static constexpr T align_up( T value, size_t alignment )
+	FORCE_INLINE CONST_FN static constexpr T align_up( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_align_up)
 		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
@@ -40,7 +40,7 @@ namespace xstd
 #endif
 	}
 	template<typename T>
-	__forceinline static constexpr T align_down( T value, size_t alignment )
+	FORCE_INLINE CONST_FN static constexpr T align_down( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_align_down)
 		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
@@ -64,7 +64,7 @@ namespace xstd
 #endif
 	}
 	template<typename T>
-	__forceinline static constexpr bool is_aligned( T value, size_t alignment )
+	FORCE_INLINE CONST_FN static constexpr bool is_aligned( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_is_aligned)
 		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
@@ -83,13 +83,13 @@ namespace xstd
 	// Extracts the sign bit from the given value.
 	//
 	template<Integral T>
-	__forceinline static constexpr bool sgn( T type ) { return bool( type >> ( ( sizeof( T ) * 8 ) - 1 ) ); }
+	FORCE_INLINE CONST_FN static constexpr bool sgn( T type ) { return bool( type >> ( ( sizeof( T ) * 8 ) - 1 ) ); }
 
 	// Micro-optimized implementation to trick MSVC into actually optimizing it, like Clang :).
 	//
 	namespace impl
 	{
-		__forceinline static constexpr bitcnt_t rshiftcnt( bitcnt_t n )
+		FORCE_INLINE CONST_FN static constexpr bitcnt_t rshiftcnt( bitcnt_t n )
 		{
 			// If MSVC x86-64:
 			//
@@ -116,7 +116,7 @@ namespace xstd
 	// Implement platform-indepdenent bitwise operations.
 	//
 	template<Integral T = uint64_t>
-	__forceinline static constexpr bitcnt_t popcnt( T x )
+	FORCE_INLINE CONST_FN static constexpr bitcnt_t popcnt( T x )
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
@@ -141,7 +141,7 @@ namespace xstd
 	}
 
 	template<Integral T = uint64_t>
-	__forceinline static constexpr bitcnt_t msb( T x )
+	FORCE_INLINE CONST_FN static constexpr bitcnt_t msb( T x )
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
@@ -175,7 +175,7 @@ namespace xstd
 	}
 
 	template<Integral T = uint64_t>
-	__forceinline static constexpr bitcnt_t lsb( T x )
+	FORCE_INLINE CONST_FN static constexpr bitcnt_t lsb( T x )
 	{
 		// Optimized using intrinsics if not const evaluated.
 		//
@@ -209,7 +209,7 @@ namespace xstd
 	}
 
 	template<typename T>
-	__forceinline static constexpr bool bit_set( T& value, bitcnt_t n )
+	FORCE_INLINE static constexpr bool bit_set( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -300,7 +300,7 @@ namespace xstd
 	}
 
 	template<typename T>
-	__forceinline static constexpr bool bit_reset( T& value, bitcnt_t n )
+	FORCE_INLINE static constexpr bool bit_reset( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -391,7 +391,7 @@ namespace xstd
 	}
 
 	template<typename T>
-	__forceinline static constexpr bool bit_complement( T& value, bitcnt_t n )
+	FORCE_INLINE static constexpr bool bit_complement( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -478,7 +478,7 @@ namespace xstd
 	}
 
 	template<typename T>
-	__forceinline static constexpr bool bit_test( const T& value, bitcnt_t n )
+	FORCE_INLINE PURE_FN static constexpr bool bit_test( const T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
@@ -568,8 +568,9 @@ namespace xstd
 			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
 		}
 	}
+
 	template<Integral I>
-	__forceinline static constexpr I bit_reverse( I value )
+	FORCE_INLINE CONST_FN static constexpr I bit_reverse( I value )
 	{
 #if GNU_COMPILER
 		switch ( sizeof( I ) )
@@ -651,7 +652,7 @@ namespace xstd
 
 	// Generate a mask for the given variable size and offset.
 	//
-	__forceinline static constexpr uint64_t fill_bits( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
+	FORCE_INLINE CONST_FN static constexpr uint64_t fill_bits( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
 	{
 		// If bit offset is negative, substract from bit count 
 		// and zero it out.
@@ -680,7 +681,7 @@ namespace xstd
 	// - We accept an [uint64_t] as the sign "bit" instead of a for 
 	//   the sake of a further trick we use to avoid branches.
 	//
-	__forceinline static constexpr uint64_t fill_sign( uint64_t sign, bitcnt_t bit_offset = 0 )
+	FORCE_INLINE CONST_FN static constexpr uint64_t fill_sign( uint64_t sign, bitcnt_t bit_offset = 0 )
 	{
 		// The XOR operation with 0b1 flips the sign bit, after which when we subtract
 		// one to create 0xFF... for (1) and 0x00... for (0).
@@ -691,7 +692,7 @@ namespace xstd
 	// Extends the given integral type into uint64_t or int64_t.
 	//
 	template<Integral T>
-	__forceinline static constexpr auto imm_extend( T imm )
+	FORCE_INLINE CONST_FN static constexpr auto imm_extend( T imm )
 	{
 		if constexpr ( std::is_signed_v<T> ) return ( int64_t ) imm;
 		else                                 return ( uint64_t ) imm;
@@ -699,7 +700,7 @@ namespace xstd
 
 	// Zero extends the given integer.
 	//
-	__forceinline static constexpr uint64_t zero_extend( uint64_t value, bitcnt_t bcnt_src )
+	FORCE_INLINE CONST_FN static constexpr uint64_t zero_extend( uint64_t value, bitcnt_t bcnt_src )
 	{
 		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
 		//
@@ -720,7 +721,7 @@ namespace xstd
 	// Sign extends the given integer.
 	//
 	template<xstd::Integral I>
-	__forceinline static constexpr int64_t sign_extend( I _value, bitcnt_t bcnt_src )
+	FORCE_INLINE CONST_FN static constexpr int64_t sign_extend( I _value, bitcnt_t bcnt_src )
 	{
 		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
 		//
@@ -765,7 +766,7 @@ namespace xstd
 	// Couples two unsigned numbers together or breaks them apart.
 	//
 	template<Integral T>
-	FORCE_INLINE static constexpr auto piecewise( T hi, T lo )
+	FORCE_INLINE CONST_FN static constexpr auto piecewise( T hi, T lo )
 	{
 		using R = typename trivial_converter<sizeof( T ) * 2>::integral_unsigned;
 		R result = R( lo );
@@ -774,7 +775,7 @@ namespace xstd
 	}
 
 	template<Integral T>
-	FORCE_INLINE static constexpr auto breakdown( T value )
+	FORCE_INLINE CONST_FN static constexpr auto breakdown( T value )
 	{
 		using R = typename trivial_converter<sizeof( T ) / 2>::integral_unsigned;
 		R hi = R( convert_uint_t<T>( value ) >> ( sizeof( T ) * 8 / 2 ) );

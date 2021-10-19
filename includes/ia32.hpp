@@ -22178,7 +22178,7 @@ namespace ia32
 		return ( ( T* ) it ) - !zero_flag;
 	}
 	template<typename T = uint8_t>
-	_LINKAGE xstd::any_ptr match( xstd::any_ptr a, xstd::any_ptr b, size_t count )
+	_LINKAGE xstd::any_ptr string_match( xstd::any_ptr a, xstd::any_ptr b, size_t count )
 	{
 		uint8_t zero_flag;
 		if constexpr ( sizeof( T ) == 1 )
@@ -22194,7 +22194,7 @@ namespace ia32
 		return ( ( T* ) a ) - !zero_flag;
 	}
 	template<typename T = uint8_t>
-	_LINKAGE xstd::any_ptr mismatch( xstd::any_ptr a, xstd::any_ptr b, size_t count )
+	_LINKAGE xstd::any_ptr string_mismatch( xstd::any_ptr a, xstd::any_ptr b, size_t count )
 	{
 		uint8_t zero_flag;
 		if constexpr ( sizeof( T ) == 1 )
@@ -22532,18 +22532,18 @@ namespace ia32
 		assume( irql <= 0xF );
 		return irql;
 	}
-	_LINKAGE irql_t get_effective_irql( rflags flags = read_flags(), irql_t irql = get_irql() )
+	_LINKAGE CONST_FN irql_t get_effective_irql( rflags flags = read_flags(), irql_t irql = get_irql() )
 	{
 		irql |= flags.interrupt_enable_flag ? 0 : NO_INTERRUPTS;
 		return irql;
 	}
 	_LINKAGE void set_irql( irql_t new_irql )
 	{
-		write_cr8( new_irql );
+		write_cr8( ( uint64_t ) new_irql );
 	}
 	_LINKAGE void set_effective_irql( irql_t new_irql )
 	{
-		write_cr8( new_irql & ~NO_INTERRUPTS );
+		set_irql( new_irql & ~NO_INTERRUPTS );
 		if ( new_irql & NO_INTERRUPTS )
 			disable();
 		else
@@ -22551,7 +22551,7 @@ namespace ia32
 	}
 	_LINKAGE void set_effective_irql( rflags* flags, irql_t new_irql )
 	{
-		write_cr8( new_irql & ~NO_INTERRUPTS );
+		set_irql( new_irql & ~NO_INTERRUPTS );
 		flags->interrupt_enable_flag = !( new_irql & NO_INTERRUPTS );
 	}
 	_LINKAGE void lower_irql( irql_t new_irql )
@@ -22561,7 +22561,6 @@ namespace ia32
 	_LINKAGE irql_t raise_irql( irql_t new_irql )
 	{
 		irql_t irql = get_irql();
-		assume( irql <= 0xF );
 		dassert( irql <= new_irql );
 		set_irql( new_irql );
 		return irql;
@@ -22569,7 +22568,6 @@ namespace ia32
 	_LINKAGE irql_t max_irql( irql_t new_irql )
 	{
 		irql_t irql = get_irql();
-		assume( irql <= 0xF );
 		if ( irql <= new_irql )
 			set_irql( new_irql );
 		return irql;
@@ -22697,20 +22695,20 @@ namespace ia32
 		sidd_unit_mask =            1<<6,
 	};
 	typedef char v16qi __attribute__((__vector_size__(16)));
-	template<uint8_t mode> _LINKAGE int cmpstr( v16qi a, v16qi b )  { return __builtin_ia32_pcmpistri128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstra( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistria128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstrc( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistric128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstro( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistrio128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstrs( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistris128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstrz( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistriz128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE v16qi cmpstrm( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistrm128( a, b, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstr( v16qi a, int la, v16qi b, int lb )  { return __builtin_ia32_pcmpestri128( a, la, b, lb, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstra( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestria128( a, la, b, lb, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstrc( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestric128( a, la, b, lb, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstro( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrio128( a, la, b, lb, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstrs( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestris128( a, la, b, lb, mode ); }
-	template<uint8_t mode> _LINKAGE int cmpstrz( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestriz128( a, la, b, lb, mode ); }
-	template<uint8_t mode> _LINKAGE v16qi cmpstrm( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrm128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstr( v16qi a, v16qi b )  { return __builtin_ia32_pcmpistri128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstra( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistria128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrc( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistric128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstro( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistrio128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrs( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistris128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrz( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistriz128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN v16qi cmpstrm( v16qi a, v16qi b ) { return __builtin_ia32_pcmpistrm128( a, b, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstr( v16qi a, int la, v16qi b, int lb )  { return __builtin_ia32_pcmpestri128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstra( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestria128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrc( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestric128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstro( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrio128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrs( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestris128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrz( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestriz128( a, la, b, lb, mode ); }
+	template<uint8_t mode> _LINKAGE PURE_FN v16qi cmpstrm( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrm128( a, la, b, lb, mode ); }
 
 	// Misc.
 	//
@@ -22778,7 +22776,7 @@ namespace ia32
 	// Hardware accelerated crypto.
 	//
 	template<xstd::Integral T>
-	_LINKAGE uint32_t crc32ci( const T& value, uint32_t crc = ~0 )
+	_LINKAGE PURE_FN uint32_t crc32ci( const T& value, uint32_t crc = ~0 )
 	{
 		if constexpr ( sizeof( T ) == 8 )
 		{
@@ -22799,7 +22797,7 @@ namespace ia32
 		}
 		unreachable();
 	}
-	_LINKAGE uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )
+	_LINKAGE PURE_FN uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )
 	{
 		xstd::any_ptr ptr = _ptr;
 		bool const_length = __is_consteval( length );
@@ -22835,11 +22833,11 @@ namespace ia32
 		return crc;
 	}
 	template<xstd::Integral T>
-	_LINKAGE uint32_t crc32c( const T& value, uint32_t crc = 0 )
+	_LINKAGE PURE_FN uint32_t crc32c( const T& value, uint32_t crc = 0 )
 	{
 		return ~crc32ci<T>( value, ~crc );
 	}
-	_LINKAGE uint32_t crc32c( const volatile void* ptr, size_t length, uint32_t crc = 0 )
+	_LINKAGE PURE_FN uint32_t crc32c( const volatile void* ptr, size_t length, uint32_t crc = 0 )
 	{
 		return ~crc32ci( ptr, length, ~crc );
 	}
@@ -22847,7 +22845,7 @@ namespace ia32
 	// Non-temporal memory helpers.
 	//
 	template<typename Vec>
-	_LINKAGE Vec load_non_temporal( const Vec* p )
+	_LINKAGE PURE_FN Vec load_non_temporal( const Vec* p )
 	{
 		Vec r;
 #if __AVX__

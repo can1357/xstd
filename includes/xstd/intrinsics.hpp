@@ -392,6 +392,7 @@ FORCE_INLINE static task_priority_t get_task_priority()
 	// Assuming not relevant.
 	value = 0;
 #endif
+	assume( value <= 0xF );
 	return value;
 }
 
