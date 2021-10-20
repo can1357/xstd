@@ -94,7 +94,7 @@ namespace xstd
 	// second call does fetch anything.
 	//
 	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T& ref )
+	FORCE_INLINE PURE_FN inline std::remove_cv_t<T> fetch_once( T& ref )
 	{
 		uint64_t tmp;
 		asm volatile(
