@@ -20,8 +20,8 @@ namespace xstd
 #if !defined(__clang__) || !AMD64_TARGET || XSTD_NO_RWX
 	// Fetches the value from the given consteval reference.
 	//
-	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE inline std::remove_cv_t<T> fetch_once( T& ref )
+	template<TriviallyCopyable T>
+	FORCE_INLINE CONST_FN inline std::remove_cv_t<T> fetch_once( T& ref )
 	{
 		return ref;
 	}
@@ -91,13 +91,13 @@ namespace xstd
 	};
 
 	// Fetches the value from the given consteval reference and self-rewrites to make sure 
-	// second call does fetch anything.
+	// second call does not issue a memory read.
 	//
-	template<TriviallyCopyable T> requires ( sizeof( T ) <= 8 )
-	FORCE_INLINE PURE_FN inline std::remove_cv_t<T> fetch_once( T& ref )
+	template<TriviallyCopyable T> requires ( sizeof( T ) == 8 )
+	FORCE_INLINE CONST_FN inline std::remove_cv_t<T> fetch_once( T& ref )
 	{
 		uint64_t tmp;
-		asm volatile(
+		asm(
 			".byte 0x2E;"        // 0x0: cs
 			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
 			"call   %c2;"        // 0xb: call   rel32

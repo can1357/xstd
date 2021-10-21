@@ -594,16 +594,16 @@ FORCE_INLINE static constexpr T rotr( T value, int count ) noexcept
 //
 FORCE_INLINE CONST_FN static constexpr uint64_t shrd( uint64_t x, uint64_t y, int count )
 {
-#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
+#if GNU_COMPILER
 	if ( !std::is_constant_evaluated() )
 	{
-		if ( __is_consteval( count ) )
-			asm( "shrdq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
-		else
-			asm( "shrdq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
-		return x;
+		uint128_t tmp = x;
+		tmp |= uint128_t( y ) << 64;
+		tmp >>= count;
+		return ( uint64_t ) tmp;
 	}
 #endif
+
 	count %= 64;
 	if ( !count ) return x;
 	x >>= count;
@@ -612,56 +612,19 @@ FORCE_INLINE CONST_FN static constexpr uint64_t shrd( uint64_t x, uint64_t y, in
 }
 FORCE_INLINE CONST_FN static constexpr uint64_t shld( uint64_t x, uint64_t y, int count )
 {
-#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
+#if GNU_COMPILER
 	if ( !std::is_constant_evaluated() )
 	{
-		if ( __is_consteval( count ) )
-			asm( "shldq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
-		else
-			asm( "shldq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
-		return x;
+		uint128_t tmp = y;
+		tmp |= uint128_t( x ) << 64;
+		tmp <<= count;
+		return ( uint64_t ) ( tmp >> 64 );
 	}
 #endif
 	count %= 64;
 	if ( !count ) return x;
 	x <<= count;
 	y >>= ( 64 - count );
-	return x | y;
-}
-FORCE_INLINE CONST_FN static constexpr uint32_t shrd( uint32_t x, uint32_t y, int count )
-{
-#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
-	if ( !std::is_constant_evaluated() )
-	{
-		if ( __is_consteval( count ) )
-			asm( "shrdl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
-		else
-			asm( "shrdl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
-		return x;
-	}
-#endif
-	count %= 32;
-	if ( !count ) return x;
-	x >>= count;
-	y <<= ( 32 - count );
-	return x | y;
-}
-FORCE_INLINE CONST_FN static constexpr uint32_t shld( uint32_t x, uint32_t y, int count )
-{
-#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
-	if ( !std::is_constant_evaluated() )
-	{
-		if ( __is_consteval( count ) )
-			asm( "shldl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
-		else
-			asm( "shldl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
-		return x;
-	}
-#endif
-	count %= 32;
-	if ( !count ) return x;
-	x <<= count;
-	y >>= ( 32 - count );
 	return x | y;
 }
 
