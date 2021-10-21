@@ -446,13 +446,13 @@ FORCE_INLINE static task_priority_t get_task_priority()
 			*_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
 			return int64_t( _Product );
 		}
-		FORCE_INLINE static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
+		FORCE_INLINE CONST_FN static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
 		{
 			int64_t HighProduct;
 			mul128( _Multiplier, _Multiplicand, &HighProduct );
 			return HighProduct;
 		}
-		FORCE_INLINE static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
+		FORCE_INLINE CONST_FN static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
 		{
 			uint64_t HighProduct;
 			umul128( _Multiplier, _Multiplicand, &HighProduct );
@@ -480,7 +480,7 @@ FORCE_INLINE static task_priority_t get_task_priority()
 
 // Declare rotation.
 //
-FORCE_INLINE static constexpr uint64_t rotlq( uint64_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint64_t rotlq( uint64_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft64)
 	if ( !std::is_constant_evaluated() )
@@ -490,7 +490,7 @@ FORCE_INLINE static constexpr uint64_t rotlq( uint64_t value, int count ) noexce
 	if ( !count ) return value;
 	return uint64_t( value << count ) | uint64_t( value >> ( 64 - count ) );
 }
-FORCE_INLINE static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint64_t rotrq( uint64_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright64)
 	if ( !std::is_constant_evaluated() )
@@ -500,7 +500,7 @@ FORCE_INLINE static constexpr uint64_t rotrq( uint64_t value, int count ) noexce
 	if ( !count ) return value;
 	return uint64_t( value >> count ) | uint64_t( value << ( 64 - count ) );
 }
-FORCE_INLINE static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint32_t rotld( uint32_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft32)
 	if ( !std::is_constant_evaluated() )
@@ -510,7 +510,7 @@ FORCE_INLINE static constexpr uint32_t rotld( uint32_t value, int count ) noexce
 	if ( !count ) return value;
 	return uint32_t( value << count ) | uint32_t( value >> ( 32 - count ) );
 }
-FORCE_INLINE static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint32_t rotrd( uint32_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright32)
 	if ( !std::is_constant_evaluated() )
@@ -520,7 +520,7 @@ FORCE_INLINE static constexpr uint32_t rotrd( uint32_t value, int count ) noexce
 	if ( !count ) return value;
 	return uint32_t( value >> count ) | uint32_t( value << ( 32 - count ) );
 }
-FORCE_INLINE static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint16_t rotlw( uint16_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft16)
 	if ( !std::is_constant_evaluated() )
@@ -530,7 +530,7 @@ FORCE_INLINE static constexpr uint16_t rotlw( uint16_t value, int count ) noexce
 	if ( !count ) return value;
 	return uint16_t( value << count ) | uint16_t( value >> ( 16 - count ) );
 }
-FORCE_INLINE static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint16_t rotrw( uint16_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright16)
 	if ( !std::is_constant_evaluated() )
@@ -540,7 +540,7 @@ FORCE_INLINE static constexpr uint16_t rotrw( uint16_t value, int count ) noexce
 	if ( !count ) return value;
 	return uint16_t( value >> count ) | uint16_t( value << ( 16 - count ) );
 }
-FORCE_INLINE static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateleft8)
 	if ( !std::is_constant_evaluated() )
@@ -550,7 +550,7 @@ FORCE_INLINE static constexpr uint8_t rotlb( uint8_t value, int count ) noexcept
 	if ( !count ) return value;
 	return uint8_t( value << count ) | uint8_t( value >> ( 8 - count ) );
 }
-FORCE_INLINE static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
+FORCE_INLINE CONST_FN static constexpr uint8_t rotrb( uint8_t value, int count ) noexcept
 {
 #if __has_builtin(__builtin_rotateright8)
 	if ( !std::is_constant_evaluated() )
@@ -588,6 +588,83 @@ FORCE_INLINE static constexpr T rotr( T value, int count ) noexcept
 	else
 		unreachable();
 }
+
+
+// Double precision shift.
+//
+FORCE_INLINE CONST_FN static constexpr uint64_t shrd( uint64_t x, uint64_t y, int count )
+{
+#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
+	if ( !std::is_constant_evaluated() )
+	{
+		if ( __is_consteval( count ) )
+			asm( "shrdq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
+		else
+			asm( "shrdq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
+		return x;
+	}
+#endif
+	count %= 64;
+	if ( !count ) return x;
+	x >>= count;
+	y <<= ( 64 - count );
+	return x | y;
+}
+FORCE_INLINE CONST_FN static constexpr uint64_t shld( uint64_t x, uint64_t y, int count )
+{
+#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
+	if ( !std::is_constant_evaluated() )
+	{
+		if ( __is_consteval( count ) )
+			asm( "shldq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
+		else
+			asm( "shldq %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
+		return x;
+	}
+#endif
+	count %= 64;
+	if ( !count ) return x;
+	x <<= count;
+	y >>= ( 64 - count );
+	return x | y;
+}
+FORCE_INLINE CONST_FN static constexpr uint32_t shrd( uint32_t x, uint32_t y, int count )
+{
+#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
+	if ( !std::is_constant_evaluated() )
+	{
+		if ( __is_consteval( count ) )
+			asm( "shrdl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
+		else
+			asm( "shrdl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
+		return x;
+	}
+#endif
+	count %= 32;
+	if ( !count ) return x;
+	x >>= count;
+	y <<= ( 32 - count );
+	return x | y;
+}
+FORCE_INLINE CONST_FN static constexpr uint32_t shld( uint32_t x, uint32_t y, int count )
+{
+#if AMD64_TARGET && GNU_COMPILER && !defined(__INTELLISENSE__)
+	if ( !std::is_constant_evaluated() )
+	{
+		if ( __is_consteval( count ) )
+			asm( "shldl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "i" ( count ) : "flags" );
+		else
+			asm( "shldl %2, %1, %0" : "+r" ( x ) : "r" ( y ), "c" ( ( uint8_t ) count ) : "flags" );
+		return x;
+	}
+#endif
+	count %= 32;
+	if ( !count ) return x;
+	x <<= count;
+	y >>= ( 32 - count );
+	return x | y;
+}
+
 
 // Declare bswap.
 //
