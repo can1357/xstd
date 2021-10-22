@@ -32,47 +32,33 @@ namespace xstd
 		[[gnu::naked, gnu::noinline]] inline void fetch_once_helper()
 		{
 			asm volatile(
-				// Create the stack frame.
-				"pushfq;"
-				"pushq    %%rsi;"
-				"pushq    %%rdi;"
-				"sub      $0x20,       %%rsp;"
-				"movups   %%xmm0,      0x10(%%rsp);"
-
-				// Backtrack and reference the callsite into RSI.
-				// 
-				"subq     $10,         0x38(%%rsp);"
-				"movq     0x38(%%rsp), %%rsi;"
-
-				// Read the callsite into XMM0, store it on stack.
+				// Load the callsite into RAX and pad the stack 16 bytes.
 				//
-				"movups   (%%rsi),     %%xmm0;"
-				"movups   %%xmm0,      (%%rsp);"
+				"popq     %%rax;"
+				"pushq    %%rax;"
+				"pushq    %%rax;"
 
-				// If unexpected, simply retry.
+				// Create the desired callsite on stack.
 				//
-				"cmpb     $0x2E,       (%%rsp);"
-				"jne      1f;"
+				"pushq    (%%rax);"
+				"pushq    %0;"
+				"pushw    $0xb848;"
 
-				// Read the value and create the desired callsite on stack.
+				// Temporarily load into XMM0 and store back to callsite.
 				//
-				"movq     %0,          %%rdi;"
-				"movw     $0xb848,     (%%rsp);"
-				"movq     %%rdi,       2(%%rsp);"
+				"movups   %%xmm0,       0x12(%%rsp);"
+				"movups   (%%rsp),      %%xmm0;"
+				"movups   %%xmm0,       -10(%%rax);"
+				"movups   0x12(%%rsp),  %%xmm0;"
 
-				// Reload into XMM0 and store back to callsite.
+				// Push the return address, read the result into RAX.
 				//
-				"movups   (%%rsp),     %%xmm0;"
-				"movups   %%xmm0,      (%%rsi);"
+				"pushq    %%rax;"
+				"movq     10(%%rsp),    %%rax;"
 
-				// Destroy the stack frame and try again.
-				"1:"
-				"movups   0x10(%%rsp), %%xmm0;"
-				"add      $0x20,       %%rsp;"
-				"popq     %%rdi;"
-				"popq     %%rsi;"
-				"popfq;"
-				"ret;"
+				// Destroy the stack frame and return.
+				//
+				"ret      $0x22;"
 			:: "m" ( *Value ) );
 		}
 	};
