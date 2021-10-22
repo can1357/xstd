@@ -22415,19 +22415,13 @@ namespace ia32
 	_LINKAGE xstd::any_ptr get_sp()
 	{
 		uint64_t out;
-		asm volatile( R"(
-			0:
-			movq %%rsp, %0
-		)": "=r" ( out ) );
+		asm( "movq %%rsp, %0": "=r" ( out ) );
 		return out;
 	}
 	_LINKAGE xstd::any_ptr get_ip()
 	{
 		uint64_t out;
-		asm volatile( R"(
-			0:
-			leaq (%%rip), %0
-		)": "=r" ( out ) );
+		asm volatile( "0: leaq (%%rip), %0" : "=r" ( out ) );
 		return out;
 	}
 

@@ -175,10 +175,32 @@ namespace xstd
 		template<Integral T>
 		static constexpr T uniform_eval( uint64_t value, T min, T max )
 		{
-			if ( uint64_t range = ( uint64_t( max - min ) + 1 ) )
-				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
+			using U = std::make_unsigned_t<T>;
+			
+			if ( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() )
+			{
+				value &= std::numeric_limits<U>::max();
+
+				if constexpr ( Signed<T> )
+					return ( T ) ( int64_t( value ) + min );
+				else
+					return ( T ) value;
+			}
+
+			if constexpr ( Signed<T> )
+			{
+				if ( min < 0 && max < 0 )
+					return -( T ) uniform_eval<U>( value, ( U ) -min, ( U ) -max );
+				else if ( min < 0 )
+					return T( uniform_eval<U>( value, 0, ( U ) max + ( U ) -min ) ) - min;
+				else
+					return ( T ) uniform_eval<U>( value, ( U ) min, ( U ) max );
+			}
 			else
-				return ( T ) ( convert_uint_t<T> ) value;
+			{
+				uint64_t range = ( uint64_t( max - min ) + 1 );
+				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
+			}
 		}
 #undef __xstd_rng
 	};
