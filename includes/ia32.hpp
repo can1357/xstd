@@ -22776,23 +22776,23 @@ namespace ia32
 	// Hardware accelerated crypto.
 	//
 	template<xstd::Integral T>
-	_LINKAGE PURE_FN uint32_t crc32ci( const T& value, uint32_t crc = ~0 )
+	_LINKAGE CONST_FN uint32_t crc32ci( T value, uint32_t crc = ~0 )
 	{
 		if constexpr ( sizeof( T ) == 8 )
 		{
 			uint64_t _crc = crc;
-			asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "r" ( value ) );
+			asm( "crc32q %1, %0" : "+r" ( _crc ) : "r" ( value ) );
 			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
-			return _crc;
+			return ( uint32_t ) _crc;
 		}
 		else
 		{
 			if constexpr ( sizeof( T ) == 4 )
-				asm volatile( "crc32l %1, %0" : "+r" ( crc ) : "r" ( value ) );
+				asm( "crc32l %1, %0" : "+r" ( crc ) : "r" ( value ) );
 			else if constexpr ( sizeof( T ) == 2 )
-				asm volatile( "crc32w %1, %0" : "+r" ( crc ) : "r" ( value ) );
+				asm( "crc32w %1, %0" : "+r" ( crc ) : "r" ( value ) );
 			else
-				asm volatile( "crc32b %1, %0" : "+r" ( crc ) : "r" ( value ) );
+				asm( "crc32b %1, %0" : "+r" ( crc ) : "r" ( value ) );
 			return crc;
 		}
 		unreachable();
@@ -22800,36 +22800,31 @@ namespace ia32
 	_LINKAGE PURE_FN uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )
 	{
 		xstd::any_ptr ptr = _ptr;
-		bool const_length = __is_consteval( length );
 
-		// CRC in 128-byte units using Qword CRCs until we're done.
+		// If constant length and smaller than 32 bytes, unroll all qword units via register reference.
 		//
-		length = xstd::unroll_scaled_n<8, 128>( [ & ]
+		if ( __is_consteval( length ) && length <= 32 )
+		{
+			while ( length >= 8 )
+				crc = crc32ci( *( uint64_t* ) ptr, crc ), ptr += 8, length -= 8;
+		}
+
+		// CRC in 64-byte units using qword CRCs until we're done.
+		//
+		length = xstd::unroll_scaled_n<8, 64>( [ & ]
 		{
 			uint64_t _crc = crc;
-			asm volatile( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( *( uint64_t* ) ptr ) );
+			asm( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( *( uint64_t* ) ptr ) );
 			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
-			crc = _crc;
-
-			ptr += sizeof( uint64_t );
+			crc = ( uint32_t ) _crc;
+			ptr += 8;
 		}, length );
 
-		// Handle the leftover part.
+		// Handle the leftovers.
 		//
-		if ( const_length )
-		{
-			if ( length & 4 )
-				crc = crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
-			if ( length & 2 )
-				crc = crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
-			if ( length & 1 )
-				crc = crc32ci( *( uint8_t* ) ptr, crc );
-		}
-		else
-		{
-			while( length )
-				crc = crc32ci( *( uint8_t* ) ptr, crc ), ptr++, length--;
-		}
+		if ( length & 4 ) crc = crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
+		if ( length & 2 ) crc = crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
+		if ( length & 1 ) crc = crc32ci( *( uint8_t* ) ptr, crc ), ptr += 1;
 		return crc;
 	}
 	template<xstd::Integral T>
