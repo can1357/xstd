@@ -190,58 +190,14 @@ namespace ia32::apic
 
 	// Initialization of the APIC base.
 	//
-	enum class detection_state : int8_t
+	inline bool initialized = false;
+	inline bool init()
 	{
-		in_progress = -2,
-		pending =     -1,
-		complete =     0,
-		failed =      +1,
-	};
-	inline std::atomic<detection_state> init_state = detection_state::pending;
-
-	inline bool is_init()
-	{
-		return init_state.load( std::memory_order::relaxed ) >= detection_state::complete;
-	}
-	inline bool detect_lapic()
-	{
-		detection_state state = init_state.load( std::memory_order::relaxed );
-		while ( true )
-		{
-			switch ( state )
-			{
-				case detection_state::complete: return true;
-				case detection_state::failed:   return false;
-				case detection_state::in_progress:
-				{
-					do
-					{
-						ia32::pause();
-						state = init_state.load( std::memory_order::relaxed );
-					}
-					while ( state == detection_state::in_progress );
-					return state == detection_state::complete;
-				}
-				case detection_state::pending:
-				{
-					if ( !init_state.compare_exchange_strong( state, detection_state::in_progress ) )
-						continue;
-					else
-						break;
-				}
-				default: unreachable();
-			}
-			break;
-		}
-
 		// Fail if APIC is not enabled.
 		//
 		auto apic_info = read_msr<apic_base_register>( IA32_APIC_BASE );
 		if ( !apic_info.apic_global_enable )
-		{
-			init_state.store( detection_state::failed );
 			return false;
-		}
 
 		// If not in x2apic mode, map the memory and assign the APIC base.
 		//
@@ -251,7 +207,7 @@ namespace ia32::apic
 			base = mem::map_physical<volatile uint32_t>( apic_info.apic_base << 12, 0x1000 );
 			apic_base = base.get();
 		}
-		init_state.store( detection_state::complete );
+		initialized = true;
 		return true;
 	}
 };
