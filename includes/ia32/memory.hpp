@@ -134,7 +134,7 @@ namespace ia32::mem
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth )
 	{
-		xstd::any_ptr ptr = xstd::fetch_once( pxe_base_div_8 );
+		xstd::any_ptr ptr = xstd::fetch_once<&pxe_base_div_8>();
 		if ( __is_consteval( depth ) && depth == pxe_level )
 			return ( pt_entry_64* ) ( ptr << 3 );
 
@@ -146,7 +146,7 @@ namespace ia32::mem
 	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth )
 	{
-		uint64_t base = xstd::fetch_once( pxe_base_div_8 );
+		uint64_t base = xstd::fetch_once<&pxe_base_div_8>();
 		auto important_bits = ( page_table_depth - depth ) * 9;
 
 		uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
@@ -162,7 +162,7 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe( xstd::any_ptr ptr ) { return get_pte( ptr, pxe_level ); }
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index ) 
 	{
-		uint64_t base = xstd::fetch_once( pxe_base_div_8 );
+		uint64_t base = xstd::fetch_once<&pxe_base_div_8>();
 		return ( pt_entry_64* ) rotlq( shrd( base, index, 9 ), 12 );
 	}
 

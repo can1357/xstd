@@ -20,94 +20,76 @@ namespace xstd
 #if !defined(__clang__) || !AMD64_TARGET || XSTD_NO_RWX
 	// Fetches the value from the given consteval reference.
 	//
-	template<TriviallyCopyable T>
-	FORCE_INLINE CONST_FN inline std::remove_cv_t<T> fetch_once( T& ref )
+	template<auto* Value> requires ( sizeof( *Value ) == 8 && TriviallyCopyable<std::decay_t<decltype( *Value )>> )
+	FORCE_INLINE CONST_FN inline auto fetch_once()
 	{
-		return ref;
+		return *Value;
 	}
 #else
 	namespace impl
 	{
-		[[gnu::naked]] NO_INLINE inline uint64_t fetch_once_helper()
+		template<auto* Value>
+		[[gnu::naked, gnu::noinline]] inline void fetch_once_helper()
 		{
-			__asm 
-			{
+			asm volatile(
 				// Create the stack frame.
-				//
-				pushfq
-				push      rax
-				push      r10
-				sub       rsp,                      0x30
-				vmovups   ymmword ptr [rsp+0x10],   ymm0
+				"pushfq;"
+				"pushq    %%rsi;"
+				"pushq    %%rdi;"
+				"sub      $0x20,       %%rsp;"
+				"movups   %%xmm0,      0x10(%%rsp);"
 
-				// Read the return pointer into r10, rollback the callsite.
-				//
-				mov       r10,                      [rsp+0x30+0x18]
-				lea       r10,                      [r10-0x10]
-				mov       [rsp+0x30+0x18],          r10
+				// Backtrack and reference the callsite into RSI.
+				// 
+				"subq     $10,         0x38(%%rsp);"
+				"movq     0x38(%%rsp), %%rsi;"
 
-				// Read the callsite into stack, if already patched return to retry execution with the new patch.
+				// Read the callsite into XMM0, store it on stack.
 				//
-				clflush   [r10]
-				mfence
-				vmovdqu   xmm0,                     [r10]
-				lfence
-				vmovups   [rsp],                    xmm0
-				test      byte ptr [rsp],           0x20 // REX (0x48/0x49) instead of CS (0x2E)
-				jz        retry
+				"movups   (%%rsi),     %%xmm0;"
+				"movups   %%xmm0,      (%%rsp);"
 
-				// Read the value using the pointer extracted from movabs into rax.
+				// If unexpected, simply retry.
 				//
-				mov       rax,                      [rsp+3]
-				mov       rax,                      [rax]
+				"cmpb     $0x2E,       (%%rsp);"
+				"jne      1f;"
 
-				// Shift the CS override out.
+				// Read the value and create the desired callsite on stack.
 				//
-				shr       qword ptr [rsp],          8
+				"movq     %0,          %%rdi;"
+				"movw     $0xb848,     (%%rsp);"
+				"movq     %%rdi,       2(%%rsp);"
 
-				// Create the patch on stack and load it into xmm0.
+				// Reload into XMM0 and store back to callsite.
 				//
-				mov       qword ptr [rsp+2],        rax        // - Write the imm64
-				mov       dword ptr [rsp+2+8],      0x441F0F66 // - Pad with a 6 byte nop | nop word ptr [rax+rax*1+0x0]
-				mov       word ptr [rsp+2+8+4],     0x0000     //
-				vmovups   xmm0,                     xmmword ptr [rsp]
-				
-				// Apply the patch.
-				//
-				vmovups   xmmword ptr [r10],        xmm0
-				sfence
+				"movups   (%%rsp),     %%xmm0;"
+				"movups   %%xmm0,      (%%rsi);"
 
-			retry:
-				// Destroy the stack frame and return.
-				//
-				vmovups   ymm0,                     ymmword ptr [rsp+0x10]
-				add       rsp,                      0x30
-				pop       r10
-				pop       rax
-				popfq
-				ret
-			}
+				// Destroy the stack frame and try again.
+				"1:"
+				"movups   0x10(%%rsp), %%xmm0;"
+				"add      $0x20,       %%rsp;"
+				"popq     %%rdi;"
+				"popq     %%rsi;"
+				"popfq;"
+				"ret;"
+			:: "m" ( *Value ) );
 		}
 	};
 
 	// Fetches the value from the given consteval reference and self-rewrites to make sure 
 	// second call does not issue a memory read.
 	//
-	template<TriviallyCopyable T> requires ( sizeof( T ) == 8 )
-	FORCE_INLINE CONST_FN inline std::remove_cv_t<T> fetch_once( T& ref )
+	template<auto* Value> requires ( sizeof( *Value ) == 8 && TriviallyCopyable<std::decay_t<decltype( *Value )>> )
+	FORCE_INLINE CONST_FN inline auto fetch_once()
 	{
 		uint64_t tmp;
 		asm(
-			".byte 0x2E;"        // 0x0: cs
-			"movabs %1,     %0;" // 0x1: movabs r64, 0x?????
-			"call   %c2;"        // 0xb: call   rel32
-#if DEBUG_BUILD
-			: "=a" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
-#else
-			: "=r" ( tmp ) : "i" ( &ref ), "i" ( impl::fetch_once_helper ) :
-#endif
+			".byte 0x2E, 0x2E, 0x2E, 0x2E, 0x2E;" // 0x0: cs * 5
+			"call   %c1;"                         // 0x5: call   rel32
+			: "=a" ( tmp ) : "i" ( &impl::fetch_once_helper<Value> ) :
 		);
-		return *( std::remove_cv_t<T>* ) &tmp;
+		return *( decltype( Value ) ) &tmp;
 	}
 #endif
 };
