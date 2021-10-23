@@ -22770,16 +22770,30 @@ namespace ia32
 	// Hardware accelerated crypto.
 	//
 	template<xstd::Integral T>
-	_LINKAGE CONST_FN uint32_t crc32ci( T value, uint32_t crc = ~0 )
+	_LINKAGE PURE_FN uint32_t crc32ci( const T& value, uint32_t crc = ~0 )
 	{
-		if constexpr ( sizeof( T ) == 8 )
-			asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
-		else if constexpr ( sizeof( T ) == 4 )
-			asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-		else if constexpr ( sizeof( T ) == 2 )
-			asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		if ( __is_local_memory( &value ) )
+		{
+			if constexpr ( sizeof( T ) == 8 )
+				asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
+			else if constexpr ( sizeof( T ) == 4 )
+				asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+			else if constexpr ( sizeof( T ) == 2 )
+				asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+			else
+				asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		}
 		else
-			asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		{
+			if constexpr ( sizeof( T ) == 8 )
+				asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( value ) );
+			else if constexpr ( sizeof( T ) == 4 )
+				asm( "crc32l %1, %0"  : "+r" ( crc ) : "m" ( value ) );
+			else if constexpr ( sizeof( T ) == 2 )
+				asm( "crc32w %1, %0"  : "+r" ( crc ) : "m" ( value ) );
+			else
+				asm( "crc32b %1, %0"  : "+r" ( crc ) : "m" ( value ) );
+		}
 		return crc;
 	}
 	_LINKAGE PURE_FN uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )

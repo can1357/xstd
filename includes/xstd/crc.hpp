@@ -19,7 +19,7 @@ namespace xstd::impl
 {
 #if XSTD_HW_CRC32C
 	template<xstd::Integral T>
-	FORCE_INLINE CONST_FN static uint32_t hw_crc32ci( T value, uint32_t crc )
+	FORCE_INLINE PURE_FN static uint32_t hw_crc32ci( const T& value, uint32_t crc )
 	{
 #if MS_COMPILER
 		if constexpr ( sizeof( T ) == 8 )
@@ -31,14 +31,28 @@ namespace xstd::impl
 		else
 			return _mm_crc32_u8( crc, value );
 #else
-		if constexpr ( sizeof( T ) == 8 )
-			asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
-		else if constexpr ( sizeof( T ) == 4 )
-			asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-		else if constexpr ( sizeof( T ) == 2 )
-			asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		if ( __is_local_memory( &value ) )
+		{
+			if constexpr ( sizeof( T ) == 8 )
+				asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
+			else if constexpr ( sizeof( T ) == 4 )
+				asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+			else if constexpr ( sizeof( T ) == 2 )
+				asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+			else
+				asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		}
 		else
-			asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		{
+			if constexpr ( sizeof( T ) == 8 )
+				asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( value ) );
+			else if constexpr ( sizeof( T ) == 4 )
+				asm( "crc32l %1, %0"  : "+r" ( crc ) : "m" ( value ) );
+			else if constexpr ( sizeof( T ) == 2 )
+				asm( "crc32w %1, %0"  : "+r" ( crc ) : "m" ( value ) );
+			else
+				asm( "crc32b %1, %0"  : "+r" ( crc ) : "m" ( value ) );
+		}
 		return crc;
 #endif
 	}
