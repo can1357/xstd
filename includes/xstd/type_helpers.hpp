@@ -1073,14 +1073,15 @@ namespace xstd
 		{
 			return visit_index<size_t( Last ) - size_t( First ) + 1>( size_t( key ) - size_t( First ), [ & ] <size_t N> ( const_tag<N> )
 			{
+				using Tag = const_tag<K( N + size_t( First ) )>;
 				if constexpr ( std::is_void_v<R> )
 				{
-					f( const_tag<K( N + size_t( First ) )>{} );
+					f( Tag{} );
 					return true;
 				}
 				else
 				{
-					return std::optional{ f( const_tag<First>{} ) };
+					return std::optional{ f( Tag{} ) };
 				}
 			} );
 		}
