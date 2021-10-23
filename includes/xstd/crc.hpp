@@ -28,28 +28,19 @@ namespace xstd::impl
 			return _mm_crc32_u32( crc, value );
 		else if constexpr ( sizeof( T ) == 2 )
 			return _mm_crc32_u16( crc, value );
-		else if constexpr ( sizeof( T ) == 1 )
+		else
 			return _mm_crc32_u8( crc, value );
 #else
 		if constexpr ( sizeof( T ) == 8 )
-		{
-			uint64_t _crc = crc;
-			asm( "crc32q %1, %0" : "+r" ( _crc ) : "r" ( value ) );
-			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
-			return ( uint32_t ) _crc;
-		}
+			asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
+		else if constexpr ( sizeof( T ) == 4 )
+			asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		else if constexpr ( sizeof( T ) == 2 )
+			asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
 		else
-		{
-			if constexpr ( sizeof( T ) == 4 )
-				asm( "crc32l %1, %0" : "+r" ( crc ) : "r" ( value ) );
-			else if constexpr ( sizeof( T ) == 2 )
-				asm( "crc32w %1, %0" : "+r" ( crc ) : "r" ( value ) );
-			else
-				asm( "crc32b %1, %0" : "+r" ( crc ) : "r" ( value ) );
-			return crc;
-		}
+			asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
+		return crc;
 #endif
-		unreachable();
 	}
 
 	FORCE_INLINE PURE_FN static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc )
@@ -69,10 +60,7 @@ namespace xstd::impl
 #if MS_COMPILER
 			crc = hw_crc32ci( *( uint64_t* ) ptr, crc );
 #else
-			uint64_t _crc = crc;
-			asm( "crc32q %1, %0" : "+r" ( _crc ) : "m" ( *( uint64_t* ) ptr ) );
-			assume( _crc <= UINT32_MAX ); // Important, otherwise it'll emit "mov eax, eax".
-			crc = ( uint32_t ) _crc;
+			asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( *( uint64_t* ) ptr ) );
 #endif
 			ptr += 8;
 		}, length );
