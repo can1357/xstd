@@ -45,7 +45,7 @@ namespace xstd
 		// Declare conversion to string.
 		//
 		template<typename Rep, typename Period>
-		static std::string to_string( std::chrono::duration<Rep, Period> duration )
+		static size_t to_string( char* buffer, size_t length, std::chrono::duration<Rep, Period> duration )
 		{
 			bool sign = false;
 			if ( duration < std::chrono::duration < Rep, Period>{ 0 } )
@@ -77,9 +77,15 @@ namespace xstd
 
 			// Convert float to string.
 			//
+			return snprintf( buffer, length, sign ? "-%.2lf%s" : "%.2lf%s", fduration / durations[ n ], abbreviations[ n ] );
+		}
+		template<typename Rep, typename Period>
+		static std::string to_string( std::chrono::duration<Rep, Period> duration )
+		{
 			char buffer[ 32 ];
-			snprintf( buffer, 32, "%s%.2lf%s", sign ? "-" : "", fduration / durations[ n ], abbreviations[ n ] );
-			return buffer;
+			size_t length = to_string( buffer, std::size( buffer ), duration );
+			length = std::min<size_t>( length, std::size( buffer ) );
+			return std::string{ &buffer[ 0 ], &buffer[ length ] };
 		}
 
 		// Monotic counter returning a unique value every call.

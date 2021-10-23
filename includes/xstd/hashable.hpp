@@ -127,12 +127,17 @@ namespace xstd
 
 	// Vararg hasher wrapper that should be used to create hashes from N values.
 	//
+	namespace impl
+	{
+		template<typename H, typename T>
+		concept HasherDefinesExtension = requires( H& out, const T & value ) { basic_hasher<H, T>::extend( out, value ); };
+	};
 	template<typename H, typename... Tx>
 	__forceinline static constexpr void extend_hash( H& out, const Tx&... values )
 	{
 		visit_tuple( [ & ] <typename T> ( const T& el )
 		{
-			if constexpr ( requires { basic_hasher<H, T>::extend( out, el ); } )
+			if constexpr ( impl::HasherDefinesExtension<H, T> )
 				basic_hasher<H, T>::extend( out, el );
 			else
 				combine_hash( out, basic_hasher<H, T>{}( el ) );
