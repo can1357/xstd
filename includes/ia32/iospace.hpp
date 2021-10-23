@@ -190,7 +190,7 @@ namespace ia32
 
 		// Hashing.
 		//
-		inline xstd::hash_t hash() const { return xstd::make_hash( *( uint32_t* ) this ); }
+		template<typename H> inline void hash( H& out ) const { out.add_bytes( *( uint32_t* ) this ); }
 
 		// String conversion.
 		//

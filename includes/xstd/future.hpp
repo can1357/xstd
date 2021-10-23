@@ -730,6 +730,14 @@ namespace xstd
 			return ptr->signal(); 
 		}
 
+		// Hashing.
+		//
+		template<typename H>
+		void hash( H& out ) const noexcept
+		{
+			out.add_bytes( address() );
+		}
+
 		// Comparison.
 		//
 		template<typename V> requires Promise<V, T, S> inline constexpr bool operator==( const V& other ) const noexcept { return ptr == other.ptr; }
@@ -1069,33 +1077,6 @@ namespace xstd
 	template<typename T, typename S> future( promise<T, S> )->future<T, S>;
 	template<typename T, typename S> future( unique_future<T, S>&& )->future<T, S>;
 	template<typename T, typename S> unique_future( promise<T, S> )->unique_future<T, S>;
-
-	// Make promise types hashable.
-	//
-	template<typename H, typename T, typename S>
-	struct basic_hasher<H, future<T, S>>
-	{
-		__forceinline constexpr hash_t operator()( const future<T, S>& value ) const noexcept
-		{
-			return make_hash<H>( value.address() );
-		}
-	};
-	template<typename H, typename T, typename S>
-	struct basic_hasher<H, unique_future<T, S>>
-	{
-		__forceinline constexpr hash_t operator()( const unique_future<T, S>& value ) const noexcept
-		{
-			return make_hash<H>( value.address() );
-		}
-	};
-	template<typename H, typename T, typename S>
-	struct basic_hasher<H, promise<T, S>>
-	{
-		__forceinline constexpr hash_t operator()( const promise<T, S>& value ) const noexcept
-		{
-			return make_hash<H>( value.address() );
-		}
-	};
 };
 
 // Override coroutine traits to allow unique_future.

@@ -716,22 +716,10 @@ namespace xstd
 	
 	    // Serialization, deserialization, string conversion and hashing.
 	    //
-	    hash_t hash() const 
-	    { 
-			 return make_hash( value ); 
-	    }
-	    std::string to_string() const
-	    {
-			 return fmt::as_string( value );
-	    }
-	    void serialize( serialization& ctx ) const
-	    {
-			 ctx.write_idx( value );
-	    }
-	    static index_t deserialize( serialization& ctx )
-	    {
-			 return ctx.read_idx();
-	    }
+		 template<typename H> constexpr void hash( H& out ) const { out.add_bytes( value ); }
+	    std::string to_string() const { return fmt::as_string( value ); }
+	    void serialize( serialization& ctx ) const { ctx.write_idx( value ); }
+	    static index_t deserialize( serialization& ctx ) { return ctx.read_idx(); }
 	};
 };
 

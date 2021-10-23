@@ -174,14 +174,8 @@ namespace xstd::encode
 
 		// Serialization, deserialization, string conversion and hashing.
 		//
-		hash_t hash() const 
-		{ 
-			return make_hash( value ); 
-		}
-		std::string to_string() const
-		{
-			return fmt::as_string( value );
-		}
+		template<typename H> constexpr void hash( H& out ) const { out.add_bytes( value ); }
+		std::string to_string() const { return fmt::as_string( value ); }
 		void serialize( serialization& ctx ) const
 		{
 			leb128<underlying_type>( ctx.output_stream, ( underlying_type ) value );
