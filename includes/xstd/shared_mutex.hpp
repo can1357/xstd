@@ -39,7 +39,7 @@ namespace xstd
 		}
 		FORCE_INLINE bool try_lock_shared()
 		{
-			int32_t expected = share_count.load();
+			int32_t expected = share_count.load( std::memory_order::relaxed );
 
 			__hint_unroll_n( 2 )
 			while ( true )
@@ -63,7 +63,7 @@ namespace xstd
 				// On transaction failure, yield the cpu and load the share count again.
 				//
 				yield_cpu();
-				expected = share_count.load();
+				expected = share_count.load( std::memory_order::relaxed );
 			}
 
 			// Start the counter at one, indicate success.
@@ -73,7 +73,7 @@ namespace xstd
 		}
 		FORCE_INLINE void lock_shared()
 		{
-			int32_t expected = share_count.load();
+			int32_t expected = share_count.load( std::memory_order::relaxed );
 
 			__hint_unroll_n( 2 )
 			while ( true )
@@ -100,7 +100,7 @@ namespace xstd
 				// On transaction failure, yield the cpu and load the share count again.
 				//
 				yield_cpu();
-				expected = share_count.load();
+				expected = share_count.load( std::memory_order::relaxed );
 			}
 
 			// Start the counter at one.
@@ -135,7 +135,7 @@ namespace xstd
 		}
 		FORCE_INLINE void upgrade()
 		{
-			int32_t expected = share_count.load();
+			int32_t expected = share_count.load( std::memory_order::relaxed );
 			dassert( expected >= 1 );
 			while ( true )
 			{

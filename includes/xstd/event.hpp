@@ -128,27 +128,24 @@ namespace xstd
 				uint16_t expected = flag.load( std::memory_order::relaxed );
 				while ( true )
 				{
-					// Spin while in-between states.
-					//
-					if ( expected & 2 )
-					{
-						yield_cpu();
-						expected = flag.load( std::memory_order::relaxed );
-						continue;
-					}
-
-					// Fail if already notified.
-					//
-					if ( expected & 1 )
-						return false;
-
 					// If we exchange succesfully, notify and indicate success.
 					//
-					if ( flag.compare_exchange_strong( expected, 1, std::memory_order::seq_cst ) )
+					if ( !expected && flag.compare_exchange_strong( expected, 1, std::memory_order::seq_cst ) ) [[likely]]
 					{
 						primitive.notify();
 						return true;
 					}
+
+					// Fail if already notified.
+					//
+					if ( expected == 1 )
+						return false;
+
+					// Spin while in-between states (2 / 3).
+					//
+					yield_cpu();
+					expected = flag.load( std::memory_order::relaxed );
+					continue;
 				}
 			}
 		}
