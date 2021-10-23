@@ -19,63 +19,29 @@ namespace xstd::impl
 {
 #if XSTD_HW_CRC32C
 	template<xstd::Integral T>
-	FORCE_INLINE PURE_FN static uint32_t hw_crc32ci( const T& value, uint32_t crc )
+	FORCE_INLINE CONST_FN static uint32_t hw_crc32ci( T value, uint32_t crc )
 	{
+		using U = std::make_unsigned_t<T>;
 #if MS_COMPILER
-		if constexpr ( sizeof( T ) == 8 )
-			return ( uint32_t ) _mm_crc32_u64( crc, value );
-		else if constexpr ( sizeof( T ) == 4 )
-			return _mm_crc32_u32( crc, value );
-		else if constexpr ( sizeof( T ) == 2 )
-			return _mm_crc32_u16( crc, value );
-		else
-			return _mm_crc32_u8( crc, value );
+		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) _mm_crc32_u64( crc, ( U ) value );
+		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) _mm_crc32_u32( crc, ( U ) value );
+		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) _mm_crc32_u16( crc, ( U ) value );
+		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) _mm_crc32_u8( crc, ( U ) value );
 #else
-		if ( __is_local_memory( &value ) )
-		{
-			if constexpr ( sizeof( T ) == 8 )
-				asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
-			else if constexpr ( sizeof( T ) == 4 )
-				asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-			else if constexpr ( sizeof( T ) == 2 )
-				asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-			else
-				asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-		}
-		else
-		{
-			if constexpr ( sizeof( T ) == 8 )
-				asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( value ) );
-			else if constexpr ( sizeof( T ) == 4 )
-				asm( "crc32l %1, %0"  : "+r" ( crc ) : "m" ( value ) );
-			else if constexpr ( sizeof( T ) == 2 )
-				asm( "crc32w %1, %0"  : "+r" ( crc ) : "m" ( value ) );
-			else
-				asm( "crc32b %1, %0"  : "+r" ( crc ) : "m" ( value ) );
-		}
-		return crc;
+		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) __builtin_ia32_crc32di( crc, ( U ) value );
+		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) __builtin_ia32_crc32si( crc, ( U ) value );
+		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) __builtin_ia32_crc32hi( crc, ( U ) value );
+		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) __builtin_ia32_crc32qi( crc, ( U ) value );
 #endif
+		else                                   static_assert( sizeof( T ) == 0, "Invalid integral size." );
 	}
-
 	FORCE_INLINE PURE_FN static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc )
 	{
-		// If constant length and smaller than 32 bytes, unroll all qword units via register reference.
-		//
-		if ( __is_consteval( length ) && length <= 32 )
-		{
-			while ( length >= 8 )
-				crc = hw_crc32ci( *( uint64_t* ) ptr, crc ), ptr += 8, length -= 8;
-		}
-
 		// CRC in 64-byte units using qword CRCs until we're done.
 		//
 		length = xstd::unroll_scaled_n<8, 64>( [ & ]
 		{
-#if MS_COMPILER
 			crc = hw_crc32ci( *( uint64_t* ) ptr, crc );
-#else
-			asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( *( uint64_t* ) ptr ) );
-#endif
 			ptr += 8;
 		}, length );
 
@@ -83,10 +49,12 @@ namespace xstd::impl
 		//
 		if ( length & 4 ) crc = hw_crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
 		if ( length & 2 ) crc = hw_crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
-		if ( length & 1 ) crc = hw_crc32ci( *( uint8_t* ) ptr, crc ),  ptr += 1;
+		if ( length & 1 ) crc = hw_crc32ci( *( uint8_t* ) ptr, crc ), ptr += 1;
 		return crc;
 	}
 #else
+	template<xstd::Integral T>
+	static uint32_t hw_crc32ci( T value, uint32_t crc );
 	static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc );
 #endif
 };
@@ -100,6 +68,7 @@ namespace xstd
 	{
 		template<U new_seed> struct rebind { using type = crc<U, I, rpoly, new_seed>; };
 
+		static constexpr bool enable_hwcrc = sizeof( U ) == 4 && uint32_t( rpoly ) == 0x82F63B78 && XSTD_HW_CRC32C;
 		static constexpr auto lookup_table = [ ] ()
 		{
 			std::array<U, 256> table = {};
@@ -142,7 +111,7 @@ namespace xstd
 		{
 			// If non-constexpr evaluation of CRC32C under a host with support, use hardware primitive.
 			//
-			if constexpr ( sizeof( U ) == 4 && uint32_t( rpoly ) == 0x82F63B78 && XSTD_HW_CRC32C )
+			if constexpr ( enable_hwcrc )
 			{
 				if ( !std::is_constant_evaluated() )
 				{
@@ -174,6 +143,14 @@ namespace xstd
 			}
 			else
 			{
+				// If non-constexpr evaluation of CRC32C under a host with support, use hardware primitive.
+				//
+				if constexpr ( Integral<T> && enable_hwcrc )
+				{
+					value = ~impl::hw_crc32ci( data, ~value );
+					return;
+				}
+
 				add_bytes( ( const uint8_t* ) &data, sizeof( T ) );
 			}
 		}

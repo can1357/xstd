@@ -294,14 +294,6 @@ MUST_MATCH( DEBUG_BUILD );
 	#define __is_consteval(...) false
 #endif
 
-// Define __is_local_memory(x)
-//
-#if __has_builtin(__builtin_object_size)
-	#define __is_local_memory(...) (int64_t(__builtin_object_size(__VA_ARGS__, 1)) > 0)
-#else
-	#define __is_local_memory(...) false
-#endif
-
 // Define assume() / unreachable() / debugbreak() / fastfail(x).
 //
 #if MS_COMPILER

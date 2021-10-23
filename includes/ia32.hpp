@@ -5,6 +5,7 @@
 #include <xstd/intrinsics.hpp>
 #include <xstd/type_helpers.hpp>
 #include <xstd/assert.hpp>
+#include <xstd/crc.hpp>
 
 namespace ia32 {
 
@@ -22770,61 +22771,21 @@ namespace ia32
 	// Hardware accelerated crypto.
 	//
 	template<xstd::Integral T>
-	_LINKAGE PURE_FN uint32_t crc32ci( const T& value, uint32_t crc = ~0 )
+	_LINKAGE CONST_FN constexpr uint32_t crc32ci( T value, uint32_t crc = ~0 )
 	{
-		if ( __is_local_memory( &value ) )
-		{
-			if constexpr ( sizeof( T ) == 8 )
-				asm( "crc32q %1, %q0" : "+r" ( crc ) : "r" ( value ) );
-			else if constexpr ( sizeof( T ) == 4 )
-				asm( "crc32l %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-			else if constexpr ( sizeof( T ) == 2 )
-				asm( "crc32w %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-			else
-				asm( "crc32b %1, %0"  : "+r" ( crc ) : "r" ( value ) );
-		}
-		else
-		{
-			if constexpr ( sizeof( T ) == 8 )
-				asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( value ) );
-			else if constexpr ( sizeof( T ) == 4 )
-				asm( "crc32l %1, %0"  : "+r" ( crc ) : "m" ( value ) );
-			else if constexpr ( sizeof( T ) == 2 )
-				asm( "crc32w %1, %0"  : "+r" ( crc ) : "m" ( value ) );
-			else
-				asm( "crc32b %1, %0"  : "+r" ( crc ) : "m" ( value ) );
-		}
-		return crc;
+		if ( !std::is_constant_evaluated() )
+			return xstd::impl::hw_crc32ci( value, crc );
+
+		xstd::crc32c h{ ~crc };
+		h.add_bytes( value );
+		return ~h.digest();
 	}
 	_LINKAGE PURE_FN uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )
 	{
-		xstd::any_ptr ptr = _ptr;
-
-		// If constant length and smaller than 32 bytes, unroll all qword units via register reference.
-		//
-		if ( __is_consteval( length ) && length <= 32 )
-		{
-			while ( length >= 8 )
-				crc = crc32ci( *( uint64_t* ) ptr, crc ), ptr += 8, length -= 8;
-		}
-
-		// CRC in 64-byte units using qword CRCs until we're done.
-		//
-		length = xstd::unroll_scaled_n<8, 64>( [ & ]
-		{
-			asm( "crc32q %1, %q0" : "+r" ( crc ) : "m" ( *( uint64_t* ) ptr ) );
-			ptr += 8;
-		}, length );
-
-		// Handle the leftovers.
-		//
-		if ( length & 4 ) crc = crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
-		if ( length & 2 ) crc = crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
-		if ( length & 1 ) crc = crc32ci( *( uint8_t* ) ptr, crc ), ptr += 1;
-		return crc;
+		return xstd::impl::hw_crc32ci( ( const uint8_t* ) _ptr, length, crc );
 	}
 	template<xstd::Integral T>
-	_LINKAGE PURE_FN uint32_t crc32c( const T& value, uint32_t crc = 0 )
+	_LINKAGE PURE_FN constexpr uint32_t crc32c( const T& value, uint32_t crc = 0 )
 	{
 		return ~crc32ci<T>( value, ~crc );
 	}
