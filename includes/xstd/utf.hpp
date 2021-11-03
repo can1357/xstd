@@ -48,7 +48,7 @@ namespace xstd
 
 			// Handle single character case.
 			//
-			if ( n == 1 )
+			if ( n == 1 ) [[likely]]
 			{
 				*out++ = T( cp );
 				return;
@@ -70,7 +70,7 @@ namespace xstd
 			//
 			char c = in.front();
 			in.remove_prefix( 1 );
-			if ( !( c & 0x80 ) )
+			if ( !( c & 0x80 ) ) [[likely]]
 				return c;
 
 			// Determine the length.
@@ -119,7 +119,7 @@ namespace xstd
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
-			if ( cp <= 0xFFFF )
+			if ( cp <= 0xFFFF ) [[likely]]
 			{
 				*out++ = ( T ) cp;
 			}
@@ -138,7 +138,7 @@ namespace xstd
 			//
 			uint16_t c = ( uint16_t ) in.front();
 			in.remove_prefix( 1 );
-			if ( ( c >> 10 ) != 0x36 )
+			if ( ( c >> 10 ) != 0x36 ) [[likely]]
 				return c;
 
 			// Read the high pair.

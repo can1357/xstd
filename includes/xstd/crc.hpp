@@ -21,17 +21,16 @@ namespace xstd::impl
 	template<xstd::Integral T>
 	FORCE_INLINE CONST_FN static uint32_t hw_crc32ci( T value, uint32_t crc )
 	{
-		using U = std::make_unsigned_t<T>;
 #if MS_COMPILER
-		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) _mm_crc32_u64( crc, ( U ) value );
-		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) _mm_crc32_u32( crc, ( U ) value );
-		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) _mm_crc32_u16( crc, ( U ) value );
-		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) _mm_crc32_u8( crc, ( U ) value );
+		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) _mm_crc32_u64( crc, ( uint64_t ) value );
+		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) _mm_crc32_u32( crc, ( uint32_t ) value );
+		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) _mm_crc32_u16( crc, ( uint16_t ) value );
+		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) _mm_crc32_u8( crc, ( uint8_t ) value );
 #else
-		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) __builtin_ia32_crc32di( crc, ( U ) value );
-		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) __builtin_ia32_crc32si( crc, ( U ) value );
-		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) __builtin_ia32_crc32hi( crc, ( U ) value );
-		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) __builtin_ia32_crc32qi( crc, ( U ) value );
+		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) __builtin_ia32_crc32di( crc, ( uint64_t ) value );
+		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) __builtin_ia32_crc32si( crc, ( uint32_t ) value );
+		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) __builtin_ia32_crc32hi( crc, ( uint16_t ) value );
+		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) __builtin_ia32_crc32qi( crc, ( uint8_t ) value );
 #endif
 		else                                   static_assert( sizeof( T ) == 0, "Invalid integral size." );
 	}
