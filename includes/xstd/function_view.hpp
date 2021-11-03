@@ -36,7 +36,7 @@ namespace xstd
 			{
 				// Stateless lambda?
 				//
-				if constexpr ( Traits::is_stateless )
+				if constexpr ( Empty<Fn> )
 				{
 					fn = [ ] ( void*, Args... args ) -> Ret
 					{

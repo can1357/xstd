@@ -30,7 +30,7 @@ namespace xstd
 
 		// Appends the given array of bytes into the hash value.
 		//
-		__forceinline constexpr void add_bytes( const uint8_t* data, size_t n )
+		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
 			uint64_t tmp = value;
 			while( n-- )
@@ -44,7 +44,7 @@ namespace xstd
 		// Appends the given trivial value as bytes into the hash value.
 		//
 		template<typename T>
-		__forceinline constexpr void add_bytes( const T& data ) noexcept
+		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
 		{
 			if ( std::is_constant_evaluated() )
 			{

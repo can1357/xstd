@@ -107,7 +107,7 @@ namespace xstd
 
 		// Appends the given array of bytes into the hash value.
 		//
-		__forceinline constexpr void add_bytes( const uint8_t* data, size_t n )
+		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
 			// If non-constexpr evaluation of CRC32C under a host with support, use hardware primitive.
 			//
@@ -131,7 +131,7 @@ namespace xstd
 		// Appends the given trivial value as bytes into the hash value.
 		//
 		template<typename T>
-		__forceinline constexpr void add_bytes( const T& data ) noexcept
+		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
 		{
 			if ( std::is_constant_evaluated() )
 			{

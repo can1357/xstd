@@ -399,15 +399,21 @@ namespace xstd
 	// Function traits.
 	//
 	template<typename F>
-	struct function_traits;
+	struct function_traits
+	{
+		static constexpr bool is_valid = false;
+		static constexpr bool is_vararg = false;
+		static constexpr bool is_lambda = false;
+	};
 
 	// Function pointers:
 	//
 	template<typename R, typename... Tx>
 	struct function_traits<R(*)(Tx...)>
 	{
-		static constexpr bool is_lambda = false;
+		static constexpr bool is_valid = true;
 		static constexpr bool is_vararg = false;
+		static constexpr bool is_lambda = false;
 
 		using return_type = R;
 		using arguments =   std::tuple<Tx...>;
@@ -425,8 +431,9 @@ namespace xstd
 	template<typename C, typename R, typename... Tx>
 	struct function_traits<R(C::*)(Tx...)>
 	{
-		static constexpr bool is_lambda = false;
+		static constexpr bool is_valid = true;
 		static constexpr bool is_vararg = false;
+		static constexpr bool is_lambda = false;
 
 		using return_type = R;
 		using arguments =   std::tuple<Tx...>;
@@ -441,8 +448,9 @@ namespace xstd
 	template<typename C, typename R, typename... Tx>
 	struct function_traits<R(C::*)(Tx...) const>
 	{
-		static constexpr bool is_lambda = false;
+		static constexpr bool is_valid = true;
 		static constexpr bool is_vararg = false;
+		static constexpr bool is_lambda = false;
 
 		using return_type = R;
 		using arguments =   std::tuple<Tx...>;
@@ -461,12 +469,10 @@ namespace xstd
 	template<CallableObject F> struct function_traits<F> : function_traits<decltype( &F::operator() )> 
 	{ 
 		static constexpr bool is_lambda = true;
-		static constexpr bool is_stateless = TriviallyDefaultConstructable<F> && TriviallyDestructable<F> && sizeof( F ) == sizeof( std::monostate );
 	};
-	template<typename F>
-	concept Function = requires{ typename function_traits<F>::arguments; };
-	template<typename F>
-	concept Lambda = Function<F> && function_traits<F>::is_lambda;
+	template<typename F> concept Function =        function_traits<F>::is_valid;
+	template<typename F> concept Lambda =          function_traits<F>::is_lambda;
+	template<typename F> concept StatelessLambda = Empty<F> && Lambda<F>;
 
 	// Callable traits.
 	//
@@ -602,14 +608,14 @@ namespace xstd
 		struct static_allocator { inline static const T value = { params... }; };
 	};
 	template<typename T, auto... params>
-	__forceinline static constexpr const T& make_static() noexcept { return impl::static_allocator<T, params...>::value; }
+	FORCE_INLINE inline constexpr const T& make_static() noexcept { return impl::static_allocator<T, params...>::value; }
 
 	// Default constructs the type and returns a reference to the static allocator. 
 	// This useful for many cases, like:
 	//  1) Function with return value of (const T&) that returns an external reference or if not applicable, a default value.
 	//  2) Using non-constexpr types in constexpr structures by deferring the construction.
 	//
-	template<typename T> __forceinline static constexpr const T& make_default() noexcept { return make_static<T>(); }
+	template<typename T> FORCE_INLINE inline constexpr const T& make_default() noexcept { return make_static<T>(); }
 
 	// Special type that decays to a constant reference to the default constructed value of the type.
 	//
@@ -647,52 +653,52 @@ namespace xstd
 	// Converts from a non-const qualified ref/ptr to a const-qualified ref/ptr.
 	//
 	template<typename T> using make_const_t = typename impl::make_const<impl::decay_ptr<T>>::type;
-	template<typename T> __forceinline static constexpr make_const_t<T> make_const( T&& x ) noexcept { return ( make_const_t<T> ) x; }
+	template<typename T> FORCE_INLINE inline constexpr make_const_t<T> make_const( T&& x ) noexcept { return ( make_const_t<T> ) x; }
 
 	// Converts from a const qualified ref/ptr to a non-const-qualified ref/ptr.
 	// - Make sure the use is documented, this is very hacky behaviour!
 	//
 	template<typename T> using make_mutable_t = typename impl::make_mutable<impl::decay_ptr<T>>::type;
-	template<typename T> __forceinline static constexpr make_mutable_t<T> make_mutable( T&& x ) noexcept { return ( make_mutable_t<T> ) x; }
+	template<typename T> FORCE_INLINE inline constexpr make_mutable_t<T> make_mutable( T&& x ) noexcept { return ( make_mutable_t<T> ) x; }
 
 	// Converts from any ref/ptr to a const/mutable one based on the condition given.
 	//
 	template<bool C, typename T> using make_const_if_t = std::conditional_t<C, make_const_t<T>, T>;
 	template<bool C, typename T> using make_mutable_if_t = std::conditional_t<C, make_mutable_t<T>, T>;
-	template<bool C, typename T> __forceinline static constexpr make_const_if_t<C, T> make_const_if( T&& value ) noexcept { return ( make_const_if_t<C, T> ) value; }
-	template<bool C, typename T> __forceinline static constexpr make_mutable_if_t<C, T> make_mutable_if( T&& value ) noexcept { return ( make_mutable_if_t<C, T> ) value; }
+	template<bool C, typename T> FORCE_INLINE inline constexpr make_const_if_t<C, T> make_const_if( T&& value ) noexcept { return ( make_const_if_t<C, T> ) value; }
+	template<bool C, typename T> FORCE_INLINE inline constexpr make_mutable_if_t<C, T> make_mutable_if( T&& value ) noexcept { return ( make_mutable_if_t<C, T> ) value; }
 
 	// Carries constant qualifiers of first type into second.
 	//
 	template<typename B, typename T> using carry_const_t = std::conditional_t<is_const_underlying_v<B>, make_const_t<T>, make_mutable_t<T>>;
-	template<typename B, typename T> __forceinline static constexpr carry_const_t<B, T> carry_const( [[maybe_unused]] B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
+	template<typename B, typename T> FORCE_INLINE inline constexpr carry_const_t<B, T> carry_const( [[maybe_unused]] B&& base, T&& value ) noexcept { return ( carry_const_t<B, T> ) value; }
 	
 	// Creates an std::atomic version of the given pointer to value.
 	//
-	template<typename T> __forceinline static auto& make_atomic( T& value )
+	template<typename T> FORCE_INLINE inline auto& make_atomic( T& value )
 	{
 		if constexpr ( std::is_const_v<T> )
 			return *( const std::atomic<std::remove_cv_t<T>>* ) &value;
 		else
 			return *( std::atomic<std::remove_volatile_t<T>>* ) &value;
 	}
-	template<typename T> __forceinline static auto* make_atomic_ptr( T* value )
+	template<typename T> FORCE_INLINE inline auto* make_atomic_ptr( T* value )
 	{
 		if constexpr ( std::is_const_v<T> )
 			return ( const std::atomic<std::remove_cv_t<T>>* ) value;
 		else
 			return ( std::atomic<std::remove_volatile_t<T>>* ) value;
 	}
-	template<typename T> __forceinline static volatile T& make_volatile( T& value ) { return value; }
-	template<typename T> __forceinline static volatile T* make_volatile_ptr( T* value ) { return value; }
+	template<typename T> FORCE_INLINE inline volatile T& make_volatile( T& value ) { return value; }
+	template<typename T> FORCE_INLINE inline volatile T* make_volatile_ptr( T* value ) { return value; }
 	
 	// Creates a copy of the given value.
 	//
-	template<typename T> __forceinline static constexpr T make_copy( const T& x ) { return x; }
+	template<typename T> FORCE_INLINE inline constexpr T make_copy( const T& x ) { return x; }
 	
 	// Makes a null pointer to type.
 	//
-	template<typename T> __forceinline static constexpr T* make_null() noexcept { return ( T* ) nullptr; }
+	template<typename T> FORCE_INLINE inline constexpr T* make_null() noexcept { return ( T* ) nullptr; }
 
 	// Extracts types from a parameter pack.
 	//
@@ -723,7 +729,7 @@ namespace xstd
 	// Bitcasting.
 	//
 	template<TriviallyCopyable To, TriviallyCopyable From> requires( sizeof( To ) == sizeof( From ) )
-	__forceinline static constexpr To bit_cast( const From& src ) noexcept
+	FORCE_INLINE inline constexpr To bit_cast( const From& src ) noexcept
 	{
 		if ( !std::is_constant_evaluated() )
 			return *( const To* ) &src;
@@ -739,17 +745,17 @@ namespace xstd
 	concept Bitcastable = requires( T x ) { bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
 
 	template<typename T> requires ( !Reference<T> && !Const<T> )
-	__forceinline static auto& as_bytes( T& src ) noexcept
+	FORCE_INLINE inline auto& as_bytes( T& src ) noexcept
 	{
 		return ( std::array<uint8_t, sizeof( T )>& ) src;
 	}
 	template<typename T> requires ( !Reference<T> && !Const<T> )
-	__forceinline static auto& as_bytes( const T& src ) noexcept
+	FORCE_INLINE inline auto& as_bytes( const T& src ) noexcept
 	{
 		return ( const std::array<uint8_t, sizeof( T )>& ) src;
 	}
 	template<typename T>
-	__forceinline static void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
+	FORCE_INLINE inline void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
 	{
 		if constexpr ( sizeof( T ) <= 128 )
 		{
@@ -764,7 +770,7 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	__forceinline static void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
+	FORCE_INLINE inline void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
 	{
 		if constexpr ( sizeof( T ) <= 128 )
 		{
@@ -780,7 +786,7 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	__forceinline static bool trivial_equals( const T& a, const T& b ) noexcept
+	FORCE_INLINE inline bool trivial_equals( const T& a, const T& b ) noexcept
 	{
 		if constexpr ( sizeof( T ) <= 128 )
 		{
@@ -827,9 +833,9 @@ namespace xstd
 	// Returns the offset/size of given member reference.
 	//
 	template<typename V, typename C> 
-	__forceinline static int64_t make_offset( member_reference_t<C, V> ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
+	FORCE_INLINE inline int64_t make_offset( member_reference_t<C, V> ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
 	template<typename V, typename C>
-	__forceinline static constexpr size_t member_size( member_reference_t<C, V> ) noexcept { return sizeof( V ); }
+	FORCE_INLINE inline constexpr size_t member_size( member_reference_t<C, V> ) noexcept { return sizeof( V ); }
 
 	// Simple void pointer implementation with arithmetic and free casts, comes useful
 	// when you can't infer the type of an argument pointer or if you want to const initialize
@@ -882,7 +888,7 @@ namespace xstd
 	// Gets the type at the given offset.
 	//
 	template<typename T = void>
-	__forceinline static auto ptr_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
+	FORCE_INLINE inline auto ptr_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
 		if constexpr( std::is_void_v<T> )
 			return any_ptr( base + off );
@@ -890,19 +896,19 @@ namespace xstd
 			return carry_const( base, ( T* ) ( base + off ) ); 
 	}
 	template<typename T>
-	__forceinline static auto& ref_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
+	FORCE_INLINE inline auto& ref_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
 		return *ptr_at<T>(base, off); 
 	}
 
 	// Byte distance between two pointers.
 	//
-	__forceinline static constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
+	FORCE_INLINE inline constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
 
 	// Wrapper around assume aligned builtin.
 	//
     template<size_t N, typename T> requires ( Pointer<T> || Same<T, any_ptr> )
-	__forceinline static constexpr T assume_aligned( T ptr )
+	FORCE_INLINE inline constexpr T assume_aligned( T ptr )
     {
 #if __has_builtin(__builtin_assume_aligned)
         if ( !std::is_constant_evaluated() )
@@ -916,7 +922,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename Ti, template<typename...> typename Tr, typename T, Ti... I>
-		FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
+		FLATTEN FORCE_INLINE inline constexpr auto make_tuple_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
 		{
 			if constexpr ( std::is_void_v<decltype( f( const_tag<( Ti ) 0>{} ) ) > )
 			{
@@ -948,7 +954,7 @@ namespace xstd
 			}
 		}
 		template<typename Ti, typename T, Ti... I>
-		FLATTEN __forceinline static constexpr auto make_constant_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
+		FLATTEN FORCE_INLINE inline constexpr auto make_constant_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
 		{
 			using R = decltype( f( const_tag<( Ti ) 0>{} ) );
 
@@ -982,7 +988,7 @@ namespace xstd
 		}
 	};
 	template<auto N, template<typename...> typename Tr = std::tuple, typename T>
-	FLATTEN __forceinline static constexpr auto make_tuple_series( T&& f )
+	FLATTEN FORCE_INLINE inline constexpr auto make_tuple_series( T&& f )
 	{
 		if constexpr ( N != 0 )
 			return impl::make_tuple_series<decltype( N ), Tr>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
@@ -990,7 +996,7 @@ namespace xstd
 			return Tr<>{};
 	}
 	template<auto N, typename T>
-	FLATTEN __forceinline static constexpr auto make_constant_series( T&& f )
+	FLATTEN FORCE_INLINE inline constexpr auto make_constant_series( T&& f )
 	{
 		return impl::make_constant_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
 	}
@@ -1032,9 +1038,9 @@ namespace xstd
 		}											       \
 		unreachable();							       \
 
-		template<size_t Lim, typename F> __forceinline static constexpr decltype( auto ) numeric_visit_8( size_t n, F&& fn ) { switch ( n ) { __visit_8( 0, __visitor ); default: unreachable(); } }
-		template<size_t Lim, typename F> __forceinline static constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: unreachable(); } }
-		template<size_t Lim, typename F> __forceinline static constexpr decltype( auto ) numeric_visit_512( size_t n, F&& fn ) { switch ( n ) { __visit_512( 0, __visitor ); default: unreachable(); } }
+		template<size_t Lim, typename F> FORCE_INLINE inline constexpr decltype( auto ) numeric_visit_8( size_t n, F&& fn ) { switch ( n ) { __visit_8( 0, __visitor ); default: unreachable(); } }
+		template<size_t Lim, typename F> FORCE_INLINE inline constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: unreachable(); } }
+		template<size_t Lim, typename F> FORCE_INLINE inline constexpr decltype( auto ) numeric_visit_512( size_t n, F&& fn ) { switch ( n ) { __visit_512( 0, __visitor ); default: unreachable(); } }
 #undef __visitor
 #undef __visit_512
 #undef __visit_64
@@ -1044,7 +1050,7 @@ namespace xstd
 	// Strict numeric visit.
 	//
 	template<size_t Count, typename F>
-	__forceinline static constexpr decltype( auto ) visit_index( size_t n, F&& fn )
+	FORCE_INLINE inline constexpr decltype( auto ) visit_index( size_t n, F&& fn )
 	{
 		if constexpr ( Count <= 8 )
 			return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
@@ -1067,7 +1073,7 @@ namespace xstd
 	// Implement helper for visit on numeric range.
 	//
 	template<auto First, auto Last, typename T, typename K = decltype( First ), typename R = decltype( std::declval<T>()( const_tag<K(First)>{} ) )>
-	FLATTEN __forceinline static constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<Void<R>, bool, std::optional<R>>
+	FLATTEN FORCE_INLINE inline constexpr auto visit_range( K key, T&& f ) -> std::conditional_t<Void<R>, bool, std::optional<R>>
 	{
 		if ( First <= key && key <= Last )
 		{
@@ -1097,7 +1103,7 @@ namespace xstd
 	// Implement helper for visiting/transforming every element of a tuple-like.
 	//
 	template<typename T, typename F>
-	FLATTEN __forceinline static constexpr decltype(auto) visit_tuple( F&& f, T&& tuple )
+	FLATTEN FORCE_INLINE inline constexpr decltype(auto) visit_tuple( F&& f, T&& tuple )
 	{
 		return make_tuple_series<std::tuple_size_v<std::decay_t<T>>>( [ & ] <auto I> ( const_tag<I> ) -> decltype( auto )
 		{

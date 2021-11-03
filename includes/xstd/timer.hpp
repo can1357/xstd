@@ -49,7 +49,7 @@ namespace xstd
 				//
 				schedule( false );
 			}
-			__forceinline void schedule( bool first_time )
+			FORCE_INLINE inline void schedule( bool first_time )
 			{
 				if ( first_time )
 					xstd::chore( [ & ] { execute(); } );

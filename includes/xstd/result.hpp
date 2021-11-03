@@ -20,12 +20,12 @@ namespace xstd
 		struct TRIVIAL_ABI optional_monostate
 		{
 			inline static std::monostate _value = {};
-			template<typename... Tx> __forceinline constexpr optional_monostate( Tx&&... ) noexcept {};
-			template<typename T> __forceinline constexpr optional_monostate& operator=( T&& ) noexcept { return *this; };
-			__forceinline constexpr std::monostate& emplace() { return _value; }
-			__forceinline constexpr std::monostate& emplace( std::monostate ) { return _value; }
-			__forceinline constexpr std::monostate& value() const noexcept { return _value; }
-			__forceinline constexpr operator std::optional<std::monostate>() const noexcept { return std::optional{ std::monostate{} }; }
+			template<typename... Tx> FORCE_INLINE constexpr optional_monostate( Tx&&... ) noexcept {};
+			template<typename T> FORCE_INLINE constexpr optional_monostate& operator=( T&& ) noexcept { return *this; };
+			FORCE_INLINE constexpr std::monostate& emplace() { return _value; }
+			FORCE_INLINE constexpr std::monostate& emplace( std::monostate ) { return _value; }
+			FORCE_INLINE constexpr std::monostate& value() const noexcept { return _value; }
+			FORCE_INLINE constexpr operator std::optional<std::monostate>() const noexcept { return std::optional{ std::monostate{} }; }
 		};
 	};
 

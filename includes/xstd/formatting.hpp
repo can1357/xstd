@@ -417,7 +417,7 @@ namespace xstd::fmt
 		else return type_tag<T>{};
 	}
 	template<typename T, typename... Tx>
-	__forceinline static auto as_string( const T& f, const Tx&... r )
+	FORCE_INLINE inline auto as_string( const T& f, const Tx&... r )
 	{
 		return as_string( f ) + ", " + as_string( r... );
 	}
@@ -425,7 +425,7 @@ namespace xstd::fmt
 	// Used to allow use of any type in combination with "%(l)s".
 	//
 	template<typename B, typename T>
-	__forceinline static auto fix_parameter( B& buffer, T&& x )
+	FORCE_INLINE inline auto fix_parameter( B& buffer, T&& x )
 	{
 		using base_type = std::decay_t<T>;
 		
@@ -473,7 +473,7 @@ namespace xstd::fmt
 	// Returns a formatted string.
 	//
 	template<typename C, typename F, typename... Tx>
-	__forceinline static std::basic_string<C> vstr( F&& provider, const C* fmt_str, Tx&&... ps )
+	FORCE_INLINE inline std::basic_string<C> vstr( F&& provider, const C* fmt_str, Tx&&... ps )
 	{
 		if constexpr ( sizeof...( Tx ) > 0 )
 		{
@@ -495,12 +495,12 @@ namespace xstd::fmt
 		}
 	}
 	template<typename... Tx>
-	__forceinline static std::string str( const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE inline std::string str( const char* fmt_str, Tx&&... ps )
 	{ 
 		return vstr<char>( [ ] <typename... T> ( char* o, size_t n, const char* f, T... args ) { return snprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
 	}
 	template<typename... Tx>
-	__forceinline static std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps )
+	FORCE_INLINE inline std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps )
 	{ 
 		return vstr<wchar_t>( [] <typename... T> ( wchar_t* o, size_t n, const wchar_t* f, T... args ) { return swprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
 	}

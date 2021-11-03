@@ -53,7 +53,7 @@ namespace xstd
 	// Hash combination helper.
 	//
 	template<typename H1, typename H2>
-	__forceinline static constexpr void combine_hash( H1& out, const H2& in )
+	FORCE_INLINE inline constexpr void combine_hash( H1& out, const H2& in )
 	{
 		// If custom combinable:
 		//
@@ -70,7 +70,7 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher
 	{
-		__forceinline constexpr static void extend( H& out, const T& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const T& value ) noexcept
 		{
 			// If tiable, redirect.
 			//
@@ -117,7 +117,7 @@ namespace xstd
 				static_assert( sizeof( T ) == -1, "Type is not hashable." );
 			}
 		}
-		__forceinline constexpr H operator()( const T& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const T& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -133,7 +133,7 @@ namespace xstd
 		concept HasherDefinesExtension = requires( H& out, const T & value ) { basic_hasher<H, T>::extend( out, value ); };
 	};
 	template<typename H, typename... Tx>
-	__forceinline static constexpr void extend_hash( H& out, const Tx&... values )
+	FORCE_INLINE inline constexpr void extend_hash( H& out, const Tx&... values )
 	{
 		visit_tuple( [ & ] <typename T> ( const T& el )
 		{
@@ -144,7 +144,7 @@ namespace xstd
 		}, std::tie( values... ) );
 	}
 	template<typename H, typename... Tx>
-	__forceinline static constexpr H make_hash( const Tx&... values )
+	FORCE_INLINE inline constexpr H make_hash( const Tx&... values )
 	{
 		if constexpr ( sizeof...( Tx ) == 1 )
 		{
@@ -159,7 +159,7 @@ namespace xstd
 		}
 	}
 	template<typename... Tx>
-	__forceinline static constexpr hash_t make_hash( const Tx&... el )
+	FORCE_INLINE inline constexpr hash_t make_hash( const Tx&... el )
 	{
 		return make_hash<hash_t, Tx...>( el... );
 	}
@@ -169,14 +169,14 @@ namespace xstd
 	template<typename H, typename T> requires ( CustomHashable<T> || CustomHashExtendable<T, H> )
 	struct basic_hasher<H, T>
 	{
-		__forceinline constexpr static void extend( H& out, const T& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const T& value ) noexcept
 		{
 			if constexpr ( CustomHashExtendable<T, H> )
 				value.hash( out );
 			else
 				combine_hash( out, value.hash() );
 		}
-		__forceinline constexpr H operator()( const T& obj ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const T& obj ) const noexcept
 		{
 			if constexpr ( CustomHashableAs<T, H> )
 				return H{ obj.hash() };
@@ -192,14 +192,14 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, std::reference_wrapper<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const std::reference_wrapper<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const std::reference_wrapper<T>& value ) noexcept
 		{
 			if ( value )
 				extend_hash<H>( out, value.get() );
 			else
 				out.template add_bytes<int8_t>( 0 );
 		}
-		__forceinline constexpr H operator()( const std::reference_wrapper<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const std::reference_wrapper<T>& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -212,14 +212,14 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, std::optional<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const std::optional<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const std::optional<T>& value ) noexcept
 		{
 			if ( value )
 				extend_hash<H>( out, *value );
 			else
 				out.template add_bytes<int8_t>( 0 );
 		}
-		__forceinline constexpr H operator()( const std::optional<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const std::optional<T>& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -232,7 +232,7 @@ namespace xstd
 	template<typename H, typename... T>
 	struct basic_hasher<H, std::variant<T...>>
 	{
-		__forceinline constexpr static void extend( H& out, const std::variant<T...>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const std::variant<T...>& value ) noexcept
 		{
 			size_t idx = value.index();
 			if ( idx == std::variant_npos )
@@ -247,7 +247,7 @@ namespace xstd
 			
 			std::visit( [ & ] ( const auto& arg ) { extend_hash<H>( out, arg ); }, value );
 		}
-		__forceinline constexpr H operator()( const std::variant<T...>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const std::variant<T...>& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -260,11 +260,11 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, shared<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const shared<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const shared<T>& value ) noexcept
 		{
 			extend_hash<H>( out, value.get() );
 		}
-		__forceinline constexpr H operator()( const shared<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const shared<T>& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -274,11 +274,11 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, weak<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const weak<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const weak<T>& value ) noexcept
 		{
 			extend_hash<H>( out, value.get() );
 		}
-		__forceinline constexpr H operator()( const weak<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const weak<T>& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -288,11 +288,11 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, ref<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const ref<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const ref<T>& value ) noexcept
 		{
 			extend_hash<H>( out, value.get() );
 		}
-		__forceinline constexpr H operator()( const ref<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const ref<T>& value ) const noexcept
 		{
 			H out = {};
 			extend( out, value );
@@ -305,11 +305,11 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, std::shared_ptr<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const std::shared_ptr<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const std::shared_ptr<T>& value ) noexcept
 		{
 			extend_hash<H>( out, value.get() );
 		}
-		__forceinline constexpr H operator()( const std::shared_ptr<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const std::shared_ptr<T>& value ) const noexcept
 		{
 			H hasher = {};
 			extend( hasher, value );
@@ -319,11 +319,11 @@ namespace xstd
 	template<typename H, typename T>
 	struct basic_hasher<H, std::weak_ptr<T>>
 	{
-		__forceinline constexpr static void extend( H& out, const std::weak_ptr<T>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const std::weak_ptr<T>& value ) noexcept
 		{
 			extend_hash<H>( out, value.get() );
 		}
-		__forceinline constexpr H operator()( const std::weak_ptr<T>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const std::weak_ptr<T>& value ) const noexcept
 		{
 			H hasher = {};
 			extend( hasher, value );
@@ -333,11 +333,11 @@ namespace xstd
 	template<typename H, typename T, typename Dx>
 	struct basic_hasher<H, std::unique_ptr<T, Dx>>
 	{
-		__forceinline constexpr static void extend( H& out, const std::unique_ptr<T, Dx>& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const std::unique_ptr<T, Dx>& value ) noexcept
 		{
 			extend_hash<H>( out, value.get() );
 		}
-		__forceinline constexpr H operator()( const std::unique_ptr<T, Dx>& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const std::unique_ptr<T, Dx>& value ) const noexcept
 		{
 			H hasher = {};
 			extend( hasher, value );
@@ -352,7 +352,7 @@ namespace xstd
 	{
 		using U = iterable_val_t<T>;
 
-		__forceinline constexpr static void extend( H& out, const T& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const T& value ) noexcept
 		{
 			// If C array with char/wchar element, we'll skip last one despite the lameness.
 			//
@@ -374,7 +374,7 @@ namespace xstd
 				}
 			}
 		}
-		__forceinline constexpr H operator()( const T& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const T& value ) const noexcept
 		{
 			H hasher = {};
 			extend( hasher, value );
@@ -388,11 +388,11 @@ namespace xstd
 															  Same<T, const char> || Same<T, const char8_t> || Same<T, const wchar_t> || Same<T, const char16_t> )
 	struct basic_hasher<H, T*>
 	{
-		__forceinline constexpr static void extend( H& out, T value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, T value ) noexcept
 		{
 			extend_hash<H>( out, std::basic_string_view<T>{ value } );
 		}
-		__forceinline constexpr H operator()( T value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( T value ) const noexcept
 		{
 			H hasher = {};
 			extend( hasher, value );
@@ -405,11 +405,11 @@ namespace xstd
 	template<typename H, Tuple T>
 	struct basic_hasher<H, T>
 	{
-		__forceinline constexpr static void extend( H& out, const T& value ) noexcept
+		FORCE_INLINE constexpr static void extend( H& out, const T& value ) noexcept
 		{
 			std::apply( [ & ] ( const auto&... elements ) { return extend_hash<H>( out, elements... ); }, value );
 		}
-		__forceinline constexpr H operator()( const T& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const T& value ) const noexcept
 		{
 			return std::apply( [ & ] ( const auto&... elements ) { return make_hash<H>( elements... ); }, value );
 		}
@@ -420,8 +420,8 @@ namespace xstd
 	template<typename H>
 	struct basic_hasher<H, std::monostate>
 	{
-		__forceinline constexpr static void extend( H&, std::monostate ) noexcept {}
-		__forceinline constexpr H operator()( std::monostate ) const noexcept { return H{}; }
+		FORCE_INLINE constexpr static void extend( H&, std::monostate ) noexcept {}
+		FORCE_INLINE inline constexpr H operator()( std::monostate ) const noexcept { return H{}; }
 	};
 
 	// Overload default instance.
@@ -430,12 +430,12 @@ namespace xstd
 	struct basic_hasher<H, void>
 	{
 		template<typename T>
-		__forceinline constexpr static void extend( H& hasher, const T& obj ) noexcept
+		FORCE_INLINE constexpr static void extend( H& hasher, const T& obj ) noexcept
 		{
 			extend_hash<H, T>( hasher, obj );
 		}
 		template<typename T>
-		__forceinline constexpr H operator()( const T& obj ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const T& obj ) const noexcept
 		{
 			return make_hash<H>( obj );
 		}
@@ -460,7 +460,7 @@ namespace std
 	template<typename T> requires ( xstd::CustomHashable<T> || xstd::CustomHashExtendable<T, xstd::hash_t> )
 	struct hash<T>
 	{
-		__forceinline constexpr size_t operator()( const T& value ) const noexcept
+		FORCE_INLINE inline constexpr size_t operator()( const T& value ) const noexcept
 		{
 			return xstd::make_hash( value ).as64();
 		}

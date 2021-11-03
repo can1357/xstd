@@ -25,7 +25,7 @@ namespace xstd
 			{
 				// Stateless:
 				//
-				if constexpr ( DefaultConstructable<F> && sizeof( F ) == sizeof( std::monostate ) )
+				if constexpr ( Empty<F> )
 				{
 					F{}();
 				}
@@ -53,7 +53,7 @@ namespace xstd
 				// Stateless:
 				//
 				void* ctx;
-				if constexpr ( DefaultConstructable<F> && sizeof( F ) == sizeof( std::monostate ) )
+				if constexpr ( Empty<F> )
 				{
 					ctx = nullptr;
 				}

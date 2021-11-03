@@ -168,7 +168,6 @@ namespace xstd
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
 		inline __xstd_rng global_rng{ XSTD_RANDOM_FIXED_SEED };
 #endif
-		__forceinline auto& get_runtime_rng() { return global_rng; }
 
 		// Constexpr uniform integer distribution.
 		//
@@ -210,7 +209,7 @@ namespace xstd
 	//
 	FORCE_INLINE static void seed_rng( size_t n )
 	{
-		impl::get_runtime_rng().seed( n ); 
+		impl::global_rng.seed( n );
 	}
 
 	// Generates a secure random number.
@@ -244,7 +243,7 @@ namespace xstd
 	template<Integral T = uint64_t>
 	FORCE_INLINE static T make_random()
 	{
-		uint64_t result = impl::get_runtime_rng()();
+		uint64_t result = impl::global_rng();
 		return ( T& ) result;
 	}
 	template<Integral T = uint64_t>
@@ -253,12 +252,12 @@ namespace xstd
 		if ( const_condition( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() ) )
 			return make_random<T>();
 		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
-		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
+		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::global_rng );
 	}
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		return std::uniform_real_distribution<T>{ min, max }( impl::get_runtime_rng() );
+		return std::uniform_real_distribution<T>{ min, max }( impl::global_rng );
 	}
 	template<Integral T = uint64_t>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )

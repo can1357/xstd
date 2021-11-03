@@ -35,7 +35,7 @@ namespace xstd
 	// Aborts if the given condition is not met.
 	//
 	template<typename... Tx>
-	__forceinline static constexpr void assert_that( bool condition, const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE inline constexpr void assert_that( bool condition, const char* fmt_str, Tx&&... ps )
 	{
 		if ( !condition ) [[unlikely]]
 		{
@@ -43,7 +43,7 @@ namespace xstd
 			else                                error( fmt_str, std::forward<Tx>( ps )... );
 		}
 	}
-	__forceinline static constexpr void assert_that( bool condition )
+	FORCE_INLINE inline constexpr void assert_that( bool condition )
 	{
 		if ( !condition ) [[unlikely]]
 		{
@@ -56,7 +56,7 @@ namespace xstd
 	// cannot be converted to const char* during constexpr evaluation.
 	//
 	template<typename F>
-	__forceinline static constexpr void xassert_helper( bool condition, F&& getter )
+	FORCE_INLINE inline constexpr void xassert_helper( bool condition, F&& getter )
 	{
 		if ( std::is_constant_evaluated() ) assert_that( condition );
 		else                                assert_that( condition, getter() );
@@ -65,7 +65,7 @@ namespace xstd
 	// A helper to throw formatted error messages.
 	//
 	template<typename... params>
-	__forceinline static void throw_fmt [[noreturn]] ( const char* fmt_str, params&&... ps )
+	FORCE_INLINE inline void throw_fmt [[noreturn]] ( const char* fmt_str, params&&... ps )
 	{
 		// Format error message.
 		//
