@@ -286,13 +286,24 @@ MUST_MATCH( DEBUG_BUILD );
 	#endif
 #endif
 
-// Define __is_consteval(x)
+// Declare xstd::is_consteval(x) and xstd::const_condition(x).
 //
+namespace xstd
+{
+	template<typename T>
+	FORCE_INLINE static constexpr bool is_consteval( T value ) noexcept
+	{
 #if __has_builtin(__builtin_constant_p)
-	#define __is_consteval(...) __builtin_constant_p(__VA_ARGS__)
+		return __builtin_constant_p( value );
 #else
-	#define __is_consteval(...) false
+		return false;
 #endif
+	}
+	FORCE_INLINE static constexpr bool const_condition( bool value ) noexcept
+	{
+		return is_consteval( value ) && value;
+	}
+};
 
 // Define assume() / unreachable() / debugbreak() / fastfail(x).
 //

@@ -135,7 +135,7 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth )
 	{
 		xstd::any_ptr ptr = xstd::fetch_once<&pxe_base_div_8>();
-		if ( __is_consteval( depth ) && depth == pxe_level )
+		if ( xstd::const_condition( depth == pxe_level ) )
 			return ( pt_entry_64* ) ( ptr << 3 );
 
 		auto shift = 12 + ( pxe_level - depth ) * 9;

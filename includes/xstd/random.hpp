@@ -227,8 +227,7 @@ namespace xstd
 	template<Integral T = uint64_t>
 	FORCE_INLINE static T make_srandom( T min, T max = std::numeric_limits<T>::max() )
 	{
-		if ( __is_consteval( min ) && min == std::numeric_limits<T>::min() &&
-			  __is_consteval( max ) && max == std::numeric_limits<T>::max() )
+		if ( const_condition( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() ) )
 			return make_srandom<T>();
 
 		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
@@ -251,10 +250,8 @@ namespace xstd
 	template<Integral T = uint64_t>
 	FORCE_INLINE static T make_random( T min, T max = std::numeric_limits<T>::max() )
 	{
-		if ( __is_consteval( min ) && min == std::numeric_limits<T>::min() &&
-			  __is_consteval( max ) && max == std::numeric_limits<T>::max() )
+		if ( const_condition( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() ) )
 			return make_random<T>();
-
 		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::get_runtime_rng() );
 	}

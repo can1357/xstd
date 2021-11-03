@@ -254,7 +254,7 @@ namespace xstd
 		{
 			// If shift is constant and can be encoded as imm32/imm8, OR will be faster.
 			//
-			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
+			if ( !std::is_constant_evaluated() && ( !is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -345,7 +345,7 @@ namespace xstd
 		{
 			// If shift is constant and can be encoded as imm32/imm8, AND will be faster.
 			//
-			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
+			if ( !std::is_constant_evaluated() && ( !is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -432,7 +432,7 @@ namespace xstd
 		{
 			// If shift is constant and can be encoded as imm32/imm8, XOR will be faster.
 			//
-			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
+			if ( !std::is_constant_evaluated() && ( !is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
@@ -485,7 +485,7 @@ namespace xstd
 		{
 			// If shift is constant and can be encoded as imm32/imm8, TEST will be faster.
 			//
-			if ( __is_consteval( n ) && n <= 31 )
+			if ( is_consteval( n ) && n <= 31 )
 			{
 				U flag = U( 1 ) << n;
 				return ( *( volatile U* ) &value ) & flag;
@@ -527,7 +527,7 @@ namespace xstd
 		{
 			// If shift is constant and can be encoded as imm32/imm8, TEST will be faster.
 			//
-			if ( !std::is_constant_evaluated() && ( !__is_consteval( n ) || n >= 32 ) )
+			if ( !std::is_constant_evaluated() && ( !is_consteval( n ) || n >= 32 ) )
 			{
 #if AMD64_TARGET
 				if constexpr ( sizeof( T ) == 8 )
