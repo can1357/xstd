@@ -22897,7 +22897,7 @@ namespace ia32
 
 	// Checks if the CPU vendor is Intel.
 	//
-	_LINKAGE bool is_intel() { return static_cpuid<0, 0, cpuid_eax_00>::result.ecx_value_ntel == bswap( 'ntel' ); };
+	_LINKAGE CONST_FN bool is_intel() { return static_cpuid<0, 0, cpuid_eax_00>::result.ecx_value_ntel == bswap( 'ntel' ); };
 
 	// TSC/MSR/PMC based profiling in the style of xstd::profile.
 	//
