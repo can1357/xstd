@@ -192,7 +192,7 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 #endif
 inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 
-// Declare function attributes.
+// Declare common attributes.
 //
 #if GNU_COMPILER
 	#define PURE_FN      __attribute__((pure))
@@ -202,28 +202,25 @@ inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
 	#define FORCE_INLINE __attribute__((always_inline))
 	#define NO_INLINE    __attribute__((noinline))
 	#define NO_DEBUG     __attribute__((nodebug))
-#else
+	#define TRIVIAL_ABI  __attribute__((trivial_abi))
+#elif MS_COMPILER
 	#pragma warning( disable: 4141 )
 	#define PURE_FN
 	#define CONST_FN
 	#define FLATTEN
 	#define COLD         __declspec(noinline)     
-	#define FORCE_INLINE __forceinline
+	#define FORCE_INLINE [[msvc::forceinline]]
 	#define NO_INLINE    __declspec(noinline)
 	#define NO_DEBUG
-#endif
-
-#if GNU_COMPILER
-	#define LAMBDA_INLINE __attribute__((always_inline))
-#elif MS_COMPILER
-	#define LAMBDA_INLINE [[msvc::forceinline]]
+	#define TRIVIAL_ABI
 #else
-	#define LAMBDA_INLINE
-#endif
-
-#if GNU_COMPILER
-	#define TRIVIAL_ABI    __attribute__((trivial_abi))
-#else
+	#define PURE_FN
+	#define CONST_FN
+	#define FLATTEN
+	#define COLD 
+	#define FORCE_INLINE
+	#define NO_INLINE
+	#define NO_DEBUG
 	#define TRIVIAL_ABI
 #endif
 
