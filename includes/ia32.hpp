@@ -22817,32 +22817,6 @@ namespace ia32
 #endif
 	}
 
-	// Unaligned memory helpers.
-	//
-	template<typename Vec>
-	_LINKAGE Vec load_unaligned( const Vec* p )
-	{
-		struct wrapper
-		{
-			Vec value;
-		} __attribute__((packed, may_alias));
-		return ( ( wrapper* ) p )->value;
-	}
-	template<typename Vec> 
-	_LINKAGE Vec load_unaligned( const void* p ) { return load_unaligned<Vec>( ( const Vec* ) p ); }
-	
-	template<typename Vec>
-	_LINKAGE void store_unaligned( const Vec* p, Vec r )
-	{
-		struct wrapper
-		{
-			Vec value;
-		} __attribute__((packed, may_alias));
-		( ( wrapper* ) p )->value = r;
-	}
-	template<typename Vec>
-	_LINKAGE void store_unaligned( const void* p, Vec r ) { return store_unaligned<Vec>( ( const Vec* ) p, r ); }
-	
 	// RAII wrapper for IRQL.
 	//
 	template<irql_t new_irql>

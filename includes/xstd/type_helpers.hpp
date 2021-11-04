@@ -1370,6 +1370,50 @@ namespace xstd
 	};
 	template<typename T>
 	using allocator_delete = typename impl::allocator_delete<T>::type;
+
+	// Misaligned memory helpers.
+	//
+	template<typename T>
+	FORCE_INLINE inline constexpr T load_misaligned( const T* p )
+	{
+		if ( std::is_constant_evaluated() )
+		{
+			return *p;
+		}
+		else
+		{
+#if GNU_COMPILER
+			struct wrapper { T value; } __attribute__( ( packed ) );
+			return ( ( const wrapper* ) p )->value;
+#else
+			using wrapper = std::array<char, sizeof( T )>;
+			return bit_cast< T >( *( const wrapper* ) p );
+#endif
+		}
+	}
+	template<typename T>
+	FORCE_INLINE inline T load_misaligned( const void* p ) { return load_misaligned<T>( ( const T* ) p ); }
+
+	template<typename T>
+	FORCE_INLINE inline constexpr void store_misaligned( T* p, T r )
+	{
+		if ( std::is_constant_evaluated() )
+		{
+			*p = r;
+		}
+		else
+		{
+#if GNU_COMPILER
+			struct wrapper { T value; } __attribute__( ( packed ) );
+			( ( wrapper* ) p )->value = r;
+#else
+			using wrapper = std::array<char, sizeof( T )>;
+			*( wrapper* ) p = bit_cast< wrapper >( r );
+#endif
+		}
+	}
+	template<typename T>
+	FORCE_INLINE inline void store_misaligned( const void* p, T r ) { return store_misaligned<T>( ( T* ) p, r ); }
 };
 
 // Expose literals.
