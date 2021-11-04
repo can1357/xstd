@@ -271,6 +271,7 @@ namespace xstd
 				if ( C front = view.front(); front <= 0x7F ) [[likely]]
 				{
 					*out++ = front;
+					view.remove_prefix( 1 );
 					continue;
 				}
 				codepoint_cvt<C>::encode( codepoint_cvt<D>::decode( view ), out );
