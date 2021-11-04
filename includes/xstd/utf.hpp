@@ -7,6 +7,32 @@ namespace xstd
 {
 	namespace impl
 	{
+		template<typename In, typename Out>
+		FORCE_INLINE constexpr void overlapping_move_qword( In src, size_t n, Out dst )
+		{
+			if ( std::is_constant_evaluated() )
+			{
+				std::copy_n( src, n, dst );
+			}
+			else
+			{
+				if ( n <= 4 ) [[likely]]
+				{
+					// [2-4]
+					*( uint16_t* ) dst = *( uint16_t* ) src;
+					*( uint16_t* ) ( dst + n - 2 ) = *( uint16_t* ) ( src + n - 2 );
+				}
+				else
+				{
+					// [5-7]
+					*( uint32_t* ) dst = *( uint32_t* ) src;
+					*( uint32_t* ) ( dst + n - 4 ) = *( uint32_t* ) ( src + n - 4 );
+				}
+			}
+		}
+
+		// Character types.
+		//
 		template<typename T> concept Char8 = Same<T, char> || Same<T, char8_t>;
 		template<typename T> concept Char16 = Same<T, wchar_t> || Same<T, char16_t>;
 	};
@@ -25,7 +51,8 @@ namespace xstd
 		{
 			// Can be encoded with a single character if MSB unset.
 			//
-			if ( cp <= 0x7F ) return 1;
+			if ( cp <= 0x7F ) [[likely]]
+				return 1;
 
 			// Since the initial character encodes the length using 1*N 
 			// and a leading zero, and the extension count is always 6,
@@ -36,64 +63,88 @@ namespace xstd
 			//    4 bits  6 bits  6 bits
 			// 1110xxxx 10xxxxxx 10xxxxxx
 			//
-			size_t n = 2;
-			cp >>= 5 + 6;
-			while ( cp )
-				cp >>= 5, n++;
-			return n;
+			return 1 + ( msb( cp ) - 6 + 5 ) / 5;
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
-			size_t n = length( cp );
-
 			// Handle single character case.
 			//
-			if ( n == 1 ) [[likely]]
+			if ( cp <= 0x7F ) [[likely]]
 			{
 				*out++ = T( cp );
 				return;
 			}
+			T* p = out;
 
-			// Write the initial byte.
+			// Fill a qword-sized array with the extension header.
 			//
-			bitcnt_t i = 8 - ( n + 1 );
-			*out++ = T( fill_bits( n, i + 1 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( i ) ) );
+			std::array<uint8_t, 8> tmp = {};
+			tmp.fill( 0x80 );
 
-			// Write the extended bytes.
+			// While the codepoint overflows the remaining bits from the,
+			// header length write 6 bit extensions.
 			//
-			while ( --n )
-				*out++ = T( ( 0b10 << 6 ) | ( ( cp >> ( 6 * ( n - 1 ) ) ) & fill_bits( 6 ) ) );
+			auto* it = &tmp.back();
+			uint8_t max = 1 << 6;
+			while ( cp >= max )
+			{
+				*it-- |= ( cp & fill_bits( 6 ) );
+				cp >>= 6;
+				max >>= 1;
+			}
+
+			// Write the length header.
+			//
+			auto n = &tmp[ tmp.size() ] - it;
+			*it = ( cp | ( 0xFF << ( 8 - n ) ) );
+
+			// Write the data using overlapping moves.
+			//
+			impl::overlapping_move_qword( it, n, p );
+			
+			// Increment the iterator.
+			//
+			out = p + n;
 		}
 		inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
 		{
 			// Handle single character case.
 			//
-			char c = in.front();
+			const T& front = in.front();
 			in.remove_prefix( 1 );
-			if ( !( c & 0x80 ) ) [[likely]]
-				return c;
+			if ( !( front & 0x80 ) ) [[likely]]
+				return front;
 
-			// Determine the length.
+			// Validate the length.
 			//
-			bitcnt_t n = 7 - msb( ( uint8_t ) ~c );
-			if ( in.size() < uint32_t( n - 1 ) )
+			int n = 7 - msb( ( uint8_t ) ~front );
+			if ( n >= 8 || in.size() < uint32_t( n - 1 ) ) [[unlikely]]
 				return 0;
+			in.remove_prefix( n - 1 );
 
-			// Read the initial byte.
+			// Read the data using overlapping moves.
 			//
-			bitcnt_t i = 8 - ( n + 1 );
-			uint32_t cp = uint8_t( c ) & uint8_t( fill_bits( i ) );
+			std::array<uint8_t, 8> tmp = {};
+			tmp.fill( 0x80 );
+			impl::overlapping_move_qword( &front, n, tmp.data() );
 
-			// Read the extended bytes.
+			// Read the value, extract the validation bits and remove them.
 			//
-			while ( --n )
+			uint64_t raw_value = std::bit_cast< uint64_t >( tmp );
+			uint64_t mask = 0x8080808080808080 | fill_bits( n, 8 - n );
+			if ( ( raw_value & mask ) != mask ) [[unlikely]]
+				return 0;
+			raw_value -= mask;
+
+			// Read each individual byte.
+			//
+			uint32_t cp = 0;
+			#pragma clang loop unroll(disable)
+			while ( --n >= 0 )
 			{
-				uint8_t c = ( uint8_t ) in.front();
-				if ( ( c >> 6 ) != 0b10 )
-					return 0;
 				cp <<= 6;
-				cp |= c & fill_bits( 6 );
-				in.remove_prefix( 1 );
+				cp |= ( uint8_t ) raw_value;
+				raw_value >>= 8;
 			}
 			return cp;
 		}
@@ -119,18 +170,20 @@ namespace xstd
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
+			T* p = out;
 			if ( cp <= 0xFFFF ) [[likely]]
 			{
-				*out++ = ( T ) cp;
+				*p++ = ( T ) cp;
 			}
 			else
 			{
 				cp -= 0x10000;
 				uint32_t lo = 0xD800 + ( ( cp >> 10 ) & fill_bits( 10 ) );
 				uint32_t hi = 0xDC00 + ( cp & fill_bits( 10 ) );
-				*out++ = ( T ) lo;
-				*out++ = ( T ) hi;
+				*p++ = ( T ) lo;
+				*p++ = ( T ) hi;
 			}
+			out = p;
 		}
 		inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
 		{
@@ -214,7 +267,14 @@ namespace xstd
 			result.resize( view.size() * codepoint_cvt<C>::max_out );
 			C* out = result.data();
 			while ( !view.empty() )
+			{
+				if ( C front = view.front(); front <= 0x7F ) [[likely]]
+				{
+					*out++ = front;
+					continue;
+				}
 				codepoint_cvt<C>::encode( codepoint_cvt<D>::decode( view ), out );
+			}
 			result.resize( out - result.data() );
 			return result;
 		}

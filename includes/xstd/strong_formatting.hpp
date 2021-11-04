@@ -17,7 +17,6 @@ namespace xstd::fmt
 	{
 		static constexpr size_t _N = N ? N : sizeof( T ) * 8;
 
-
 		T value = 0;
 		constexpr binary() {}
 		constexpr binary( T value ) : value( value ) {}
