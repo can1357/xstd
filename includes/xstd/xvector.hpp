@@ -1,5 +1,6 @@
 #pragma once
 #include "intrinsics.hpp"
+#include <algorithm>
 #include <bit>
 
 // [Configuration]
@@ -39,9 +40,12 @@ namespace xstd
 {
 	// Declare the vector types.
 	//
-#if XSTD_VECTOR_EXT
+#if XSTD_VECTOR_EXT && __clang__
 	template<typename T, size_t N>
-	using xvec = T  __attribute__((ext_vector_type( N )));
+	using xvec = T  __attribute__( ( ext_vector_type( N ) ) );
+#elif XSTD_VECTOR_EXT
+	template <typename T, size_t N>
+	using xvec [[gnu::vector_size(sizeof(T[N]))]] = T;
 #else
 	template<typename T, size_t N>
 	struct xvec
