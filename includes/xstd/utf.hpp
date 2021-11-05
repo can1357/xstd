@@ -2,6 +2,7 @@
 #include <cstddef>
 #include "bitwise.hpp"
 #include "type_helpers.hpp"
+#include "xvector.hpp"
 
 namespace xstd
 {
@@ -263,12 +264,21 @@ namespace xstd
 			C* out = result.data();
 			while ( !view.empty() )
 			{
-				if ( C front = view.front(); front <= 0x7F ) [[likely]]
+				// Consume ASCII as SIMD.
+				//
+				using V = max_vec_t<convert_uint_t<C>>;
+				if ( view.size() >= V::Length )
 				{
-					*out++ = front;
-					view.remove_prefix( 1 );
-					continue;
+					auto value = load_misaligned<V>( view.data() );
+					if ( ( value > 0x80 ).is_zero() )
+					{
+						store_misaligned( out, vec::cast<D>( value ) );
+						out += V::Length;
+						view.remove_prefix( V::Length );
+						continue;
+					}
 				}
+
 				codepoint_cvt<C>::encode( codepoint_cvt<D>::decode( view ), out );
 			}
 			result.resize( out - result.data() );
