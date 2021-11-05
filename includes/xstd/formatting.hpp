@@ -350,6 +350,14 @@ namespace xstd::fmt
 			return value.what();
 		}
 	};
+	template<typename T, size_t N>
+	struct string_formatter<xvec<T, N>>
+	{
+		FORCE_INLINE inline std::string operator()( xvec<T, N> value ) const
+		{
+			return as_string( vec::to_arr( value ) );
+		}
+	};
 
 	// Converts any given object to a string.
 	//

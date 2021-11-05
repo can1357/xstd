@@ -9,7 +9,11 @@
 // XSTD_SIMD_WIDTH: Defines the default SIMD length for xstd::max_vec_t.
 //
 #ifndef XSTD_VECTOR_EXT
-	#define XSTD_VECTOR_EXT __has_builtin(__builtin_convertvector)
+	#ifndef __INTELLISENSE__
+		#define XSTD_VECTOR_EXT __has_builtin(__builtin_convertvector)
+	#else
+		#define XSTD_VECTOR_EXT 0
+	#endif
 #endif
 #ifndef XSTD_SIMD_WIDTH
 	#if AMD64_TARGET
@@ -51,7 +55,7 @@ namespace xstd
 	template<typename T, size_t N>
 	struct xvec
 	{
-		T data[ N ];
+		T data[ N ] = { T() };
 
 		// Indexing.
 		//
@@ -187,36 +191,21 @@ namespace xstd
 
 	// Shuffle traits.
 	//
-	template<typename V1, typename V2, size_t... Ix>
+	template<typename V, int... Ix>
 	struct shuffle_traits;
-	template<typename E, size_t N1, size_t N2, size_t... Ix> requires ( sizeof...( Ix ) != 0 )
-	struct shuffle_traits<xvec<E, N1>, xvec<E, N2>, Ix...>
+	template<typename T, size_t N, int... Ix> requires ( sizeof...( Ix ) != 0 )
+	struct shuffle_traits<xvec<T, N>, Ix...>
 	{
-		using result_type = xvec<E, sizeof...( Ix )>;
-		static constexpr bool viable = ( ( Ix < ( N1 + N2 ) ) && ... );
+		using result_type = xvec<T, sizeof...( Ix )>;
+		static constexpr bool viable = ( ( Ix < ( N * 2 ) ) && ... );
 	};
-	template<typename V1, typename V2, size_t... Ix> struct shuffle_traits<V1&, V2&, Ix...>           : shuffle_traits<V1, V2, Ix...> {};
-	template<typename V1, typename V2, size_t... Ix> struct shuffle_traits<const V1, const V2, Ix...> : shuffle_traits<V1, V2, Ix...> {};
+	template<typename V, int... Ix> struct shuffle_traits<V&, Ix...>      : shuffle_traits<V, Ix...> {};
+	template<typename V, int... Ix> struct shuffle_traits<const V, Ix...> : shuffle_traits<V, Ix...> {};
 
-	template<typename V1, typename V2, size_t... Ix> 
-	using shuffle_result_t = typename shuffle_traits<V1, V2, Ix...>::result_type;
-	template<typename V1, typename V2, size_t... Ix> 
-	concept ShuffleViable = requires{ typename shuffle_traits<V1, V2, Ix...>::result_type; };
-
-	// Vector reference type.
-	// - If there is compiler support, pass by register.
-	//
-#if XSTD_VECTOR_EXT
-	template<typename T, size_t N>
-	using xvec_ref =  xvec<T, N>;
-	template<typename T, size_t N>
-	using xvec_cref = xvec<T, N>;
-#else
-	template<typename T, size_t N>
-	using xvec_ref =  xvec<T, N>&;
-	template<typename T, size_t N>
-	using xvec_cref = const xvec<T, N>&;
-#endif
+	template<typename V, int... Ix>
+	using shuffle_result_t = typename shuffle_traits<V, Ix...>::result_type;
+	template<typename V, int... Ix>
+	concept ShuffleViable = requires{ typename shuffle_traits<V, Ix...>::result_type; };
 
 	// Vector operations.
 	//
@@ -288,10 +277,11 @@ namespace xstd
 		// Vector cast.
 		//
 		template<typename To, typename From, size_t N> requires std::is_convertible_v<From, To>
-		FORCE_INLINE constexpr xvec<To, N> cast( xvec_cref<From, N> x ) noexcept
+		FORCE_INLINE constexpr xvec<To, N> cast( xvec<From, N> x ) noexcept
 		{
 #if __has_vector_builtin(__builtin_convertvector)
-			return __builtin_convertvector( x, xvec<To, N> );
+			if ( !std::is_constant_evaluated() )
+				return __builtin_convertvector( x, xvec<To, N> );
 #else
 			xvec<To, N> result = {};
 			for ( size_t i = 0; i != N; i++ )
@@ -302,66 +292,133 @@ namespace xstd
 
 		// Vector shuffling.
 		//
-		template<size_t... Ix> requires ( sizeof...( Ix ) != 0 )
+		template<int... Ix> requires ( sizeof...( Ix ) != 0 )
 		struct shuffle_t
 		{
-#if !__has_vector_builtin(__builtin_shufflevector)
-			static constexpr size_t index_list[] = { Ix... };
-			template<size_t I, typename O, typename V1, typename V2>
-			FORCE_INLINE static constexpr void emplace( O& out, const V1& a, const V2& b ) noexcept
+			template<size_t I, typename O, typename V, int Current, int... Rest>
+			FORCE_INLINE static constexpr void emplace( O& out, const V& a, const V& b, std::integer_sequence<int, Current, Rest...> ) noexcept
 			{
-				if constexpr ( I < sizeof...( Ix ) )
+				if constexpr ( Current >= 0 )
 				{
-					size_t Iv = index_list[ I ];
-					if ( Iv < vector_size_v<V1> )
-						out[ I ] = a[ Iv ];
+					if constexpr ( Current < vector_size_v<V> )
+						out[ I ] = a[ Current ];
 					else
-						out[ I ] = b[ Iv - vector_size_v<V1> ];
-					emplace<I + 1, O, V1, V2>( out, a, b );
+						out[ I ] = b[ Current - vector_size_v<V> ];
 				}
+				else
+				{
+					if ( std::is_constant_evaluated() )
+						out[ I ] = 0;
+				}
+
+				if constexpr ( sizeof...( Rest ) != 0 )
+					emplace<I + 1, O, V, Rest...>( out, a, b, std::integer_sequence<int, Rest...>{} );
 			}
 
-			template<typename V1, typename V2>
-			FORCE_INLINE static constexpr shuffle_result_t<V1, V2, Ix...> apply( const V1& v1, const V2& v2 ) noexcept
+			template<typename V>
+			FORCE_INLINE static constexpr shuffle_result_t<V, Ix...> apply( V v1, V v2 ) noexcept
 			{
-				shuffle_result_t<V1, V2, Ix...> result = {};
-				emplace<0>( result, v1, v2 );
+				using R = shuffle_result_t<V, Ix...>;
+				
+				R result = {};
+				emplace<0>( result, v1, v2, std::integer_sequence<int, Ix...>{} );
 				return result;
 			}
-#else
-			template<typename V1, typename V2>
-			FORCE_INLINE static constexpr shuffle_result_t<V1, V2, Ix...> apply( V1 v1, V2 v2 ) noexcept
+
+			template<typename V> requires ShuffleViable<V, Ix...>
+			FORCE_INLINE constexpr shuffle_result_t<V, Ix...> operator()( V v1, V v2 ) const noexcept
 			{
-				return __builtin_shufflevector( v1, v2, Ix... );
-			}
+#if __has_vector_builtin(__builtin_shufflevector)
+				if ( !std::is_constant_evaluated() )
+					return __builtin_shufflevector( v1, v2, Ix... );
 #endif
-			template<typename V1, typename V2> requires ShuffleViable<V1, V2, Ix...>
-			FORCE_INLINE constexpr shuffle_result_t<V1, V2, Ix...> operator()( V1&& v1, V2&& v2 ) const noexcept
-			{
-				return shuffle_t::apply( std::forward<V1>( v1 ), std::forward<V2>( v2 ) );
+				return shuffle_t::apply( v1, v2 );
+
 			}
 		};
-		template<size_t... Ix>
+		template<int... Ix>
 		static constexpr shuffle_t<Ix...> shuffle{};
 
-		template<typename V1, typename V2, size_t... Ix> requires ShuffleViable<V1, V2, Ix...>
-		FORCE_INLINE constexpr shuffle_result_t<V1, V2, Ix...> shuffle_seq( V1&& v1, V2&& v2, std::index_sequence<Ix...> ) noexcept
+		template<typename V, typename Ti, auto... Ix> requires ShuffleViable<V, int( Ix )...>
+		FORCE_INLINE constexpr shuffle_result_t<V, int(Ix)...> shuffle_seq( V v1, V v2, std::integer_sequence<Ti, Ix...> ) noexcept
 		{
-			return shuffle_t<Ix...>::apply( v1, v2 );
+			return shuffle<int( Ix )...>( v1, v2 );
+		}
+
+		// Vector extension/shrinking.
+		//
+		namespace impl
+		{
+			template<size_t I, size_t N1, size_t N2, int... Ix>
+			FORCE_INLINE constexpr auto make_resize_sequence()
+			{
+				// If we reached the end, return it:
+				if constexpr ( I == N2 )
+					return std::integer_sequence<int, Ix...>{};
+				// If we're at the current vector:
+				else if constexpr( I < N1 )
+					return make_resize_sequence<I + 1, N1, N2, Ix..., int( I )>();
+				// If we're at the undefined vector:
+				else
+					return make_resize_sequence<I + 1, N1, N2, Ix..., int( -1 )>();
+			}
+		};
+		template<size_t N1, size_t N2>
+		constexpr auto make_resize_sequence() { return impl::make_resize_sequence<0, N1, N2>(); }
+
+		template<size_t N2, typename T, size_t N1>
+		FORCE_INLINE constexpr xvec<T, N2> resize( xvec<T, N1> vec ) noexcept
+		{
+			if constexpr ( N2 == N1 )
+				return vec;
+			else
+				return shuffle_seq( vec, vec, make_resize_sequence<N1, N2>() );
 		}
 
 		// Vector combination.
 		//
-		template<typename T, size_t N1, size_t N2>
-		FORCE_INLINE constexpr xvec<T, N1 + N2> combine( xvec_cref<T, N1> a, xvec_cref<T, N2> b ) noexcept
+		namespace impl
 		{
-			return shuffle_seq( a, b, std::make_index_sequence<N1 + N2>{} );
+			template<size_t I, size_t N1, size_t N2, int... Ix>
+			FORCE_INLINE constexpr auto make_combination_sequence()
+			{
+				// Extended max index.
+				constexpr size_t NE = N1 >= N2 ? N1 : N2;
+
+				// If we reached the end, return it:
+				if constexpr ( I == ( N1 + N2 ) )
+					return std::integer_sequence<int, Ix...>{};
+				// If we're at the first vector:
+				else if constexpr ( I < N1 )
+					return make_combination_sequence<I + 1, N1, N2, Ix..., int( I )>();
+				// If we're at the second vector:
+				else
+					return make_combination_sequence<I + 1, N1, N2, Ix..., int( NE + (I - N1) )>();
+			}
+		};
+		template<size_t N1, size_t N2>
+		constexpr auto make_combination_sequence() { return impl::make_combination_sequence<0, N1, N2>(); }
+
+		template<typename T, size_t N1, size_t N2>
+		FORCE_INLINE constexpr xvec<T, N1 + N2> combine( xvec<T, N1> a, xvec<T, N2> b ) noexcept
+		{
+			constexpr size_t NE = N1 >= N2 ? N1 : N2;
+			return shuffle_seq( resize<NE>( a ), resize<NE>( b ), make_combination_sequence<N1, N2>() );
+		}
+
+
+		template<typename T, size_t N>
+		FORCE_INLINE constexpr xvec<T, N + 1> push( xvec<T, N> a, T value ) noexcept
+		{
+			auto result = resize<N + 1>( a );
+			result[ N ] = value;
+			return result;
 		}
 
 		// Vector bytes.
 		//
 		template<typename T, size_t N>
-		FORCE_INLINE constexpr bvec<sizeof( T[ N ] )> as_bytes( xvec_cref<T, N> x ) noexcept
+		FORCE_INLINE constexpr bvec<sizeof( T[ N ] )> as_bytes( xvec<T, N> x ) noexcept
 		{
 			return ( bvec<sizeof( T[ N ] )> ) x;
 		}
@@ -369,7 +426,7 @@ namespace xstd
 		// Vector test.
 		//
 		template<typename T, size_t N>
-		FORCE_INLINE constexpr bool testz( xvec_cref<T, N> x ) noexcept
+		FORCE_INLINE constexpr bool testz( xvec<T, N> x ) noexcept
 		{
 			auto bytes = as_bytes( x );
 
@@ -394,10 +451,11 @@ namespace xstd
 		// Element-wise operations.
 		//
 		template<typename T, size_t N>
-		FORCE_INLINE constexpr xvec<T, N> (max)( xvec<T, N> x, xvec_cref<T, N> y ) noexcept
+		FORCE_INLINE constexpr xvec<T, N> (max)( xvec<T, N> x, xvec<T, N> y ) noexcept
 		{
 #if __has_vector_builtin(__builtin_elementwise_max)
-			return __builtin_elementwise_max( x, y );
+			if ( !std::is_constant_evaluated() )
+				return __builtin_elementwise_max( x, y );
 #else
 			for ( size_t i = 0; i != N; i++ )
 				x[ i ] = std::max<T>( x[ i ], y[ i ] );
@@ -405,10 +463,11 @@ namespace xstd
 #endif
 		}
 		template<typename T, size_t N>
-		FORCE_INLINE constexpr xvec<T, N> (min)( xvec<T, N> x, xvec_cref<T, N> y ) noexcept
+		FORCE_INLINE constexpr xvec<T, N> (min)( xvec<T, N> x, xvec<T, N> y ) noexcept
 		{
 #if __has_vector_builtin(__builtin_elementwise_min)
-			return __builtin_elementwise_min( x, y );
+			if ( !std::is_constant_evaluated() )
+				return __builtin_elementwise_min( x, y );
 #else
 			for ( size_t i = 0; i != N; i++ )
 				x[ i ] = std::min<T>( x[ i ], y[ i ] );
