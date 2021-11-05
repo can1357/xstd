@@ -209,7 +209,7 @@ namespace xstd::fmt
 	template<typename T>
 	inline auto as_string( T&& x );
 	template<typename T>
-	concept StringConvertible = NonVoid<decltype(as_string( std::declval<T>() ))>;
+	concept StringConvertible = NonVoid<decltype( as_string( std::declval<T>() ) )>;
 
 	// Implement converters for STL wrappers.
 	//
@@ -241,7 +241,7 @@ namespace xstd::fmt
 	{
 		FORCE_INLINE inline std::string operator()( const std::pair<T1, T2>& value ) const
 		{
-			return as_string( value.first ) + ", " as_string( value.second );
+			return as_string( value.first ) + ", " + as_string( value.second );
 		}
 	};
 	template<StringConvertible... Tx>
