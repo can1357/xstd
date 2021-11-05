@@ -506,11 +506,10 @@ namespace xstd
 #if __has_vector_builtin(__builtin_elementwise_max)
 			if ( !std::is_constant_evaluated() )
 				return xvec<T, N>( std::in_place_t{}, __builtin_elementwise_max( x, y ) );
-#else
+#endif
 			for ( size_t i = 0; i != N; i++ )
 				x[ i ] = std::max<T>( x[ i ], y[ i ] );
 			return x;
-#endif
 		}
 		template<typename T, size_t N>
 		FORCE_INLINE constexpr xvec<T, N> (min)( xvec<T, N> x, xvec<T, N> y ) noexcept
@@ -518,11 +517,10 @@ namespace xstd
 #if __has_vector_builtin(__builtin_elementwise_min)
 			if ( !std::is_constant_evaluated() )
 				return xvec<T, N>( std::in_place_t{}, __builtin_elementwise_min( x, y ) );
-#else
+#endif
 			for ( size_t i = 0; i != N; i++ )
 				x[ i ] = std::min<T>( x[ i ], y[ i ] );
 			return x;
-#endif
 		}
 	};
 };
