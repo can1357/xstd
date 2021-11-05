@@ -11,7 +11,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename T>
-		static constexpr float cxpr_ceil( float f )
+		inline constexpr float cxpr_ceil( float f )
 		{
 			if ( T( f ) < f )
 				return T( f ) + 1;
@@ -19,7 +19,7 @@ namespace xstd
 				return T( f );
 		}
 		template<typename T>
-		static constexpr float cxpr_floor( float f )
+		inline constexpr float cxpr_floor( float f )
 		{
 			return T( f );
 		}
@@ -29,7 +29,7 @@ namespace xstd
 	// - n = [0, 1]
 	//
 	template<typename T, typename I1, typename I2>
-	static constexpr T percentile( const I1& begin, const I2& end, double n )
+	inline constexpr T percentile( const I1& begin, const I2& end, double n )
 	{
 		// Determine the length of the range, if empty return default, if single element return as is.
 		//
@@ -63,13 +63,13 @@ namespace xstd
 		return T( el_f + x * y );
 	}
 	template<typename I1, typename I2>
-	static constexpr auto percentile( const I1& begin, const I2& end, double n ) { return percentile<double, I1, I2>( begin, end, n ); }
+	inline constexpr auto percentile( const I1& begin, const I2& end, double n ) { return percentile<double, I1, I2>( begin, end, n ); }
 
 	// computes the percentile of a value given a sorted range.
 	// - r = [0, 1]
 	//
 	template<typename It1, typename It2, typename T>
-	static constexpr double percentile_of( const It1& begin, const It2& end, T&& element )
+	inline constexpr double percentile_of( const It1& begin, const It2& end, T&& element )
 	{
 		auto [lit, git] = std::equal_range( begin, end, element );
 		size_t gn = std::distance( git, end );
@@ -84,7 +84,7 @@ namespace xstd
 	// Computes the precision-strenghtened mean value given a sorted range.
 	//
 	template<typename T, typename I1, typename I2>
-	static constexpr T mean( const I1& begin, const I2& end )
+	inline constexpr T mean( const I1& begin, const I2& end )
 	{
 		// If empty, return default, if single element return as is.
 		//
@@ -101,12 +101,12 @@ namespace xstd
 		return T( min_val + accumulator / count );
 	}
 	template<typename I1, typename I2>
-	static constexpr auto mean( const I1& begin, const I2& end ) { return mean<double, I1, I2>( begin, end ); }
+	inline constexpr auto mean( const I1& begin, const I2& end ) { return mean<double, I1, I2>( begin, end ); }
 
 	// Computes the mode value given the sorted range.
 	//
 	template<typename I1, typename I2>
-	static constexpr auto mode( const I1& begin, const I2& end ) -> std::decay_t<decltype( *std::declval<I1>() )>
+	inline constexpr auto mode( const I1& begin, const I2& end ) -> std::decay_t<decltype( *std::declval<I1>() )>
 	{
 		// If empty, return default, if single element return as is.
 		//
@@ -140,7 +140,7 @@ namespace xstd
 	// Calculates the precision-strenghtened variance of a sorted range.
 	//
 	template<typename I1, typename I2>
-	static constexpr double variance( const I1& begin, const I2& end )
+	inline constexpr double variance( const I1& begin, const I2& end )
 	{
 		// If empty/single element, return 0.
 		//
@@ -170,17 +170,17 @@ namespace xstd
 	// Calculates the standard deviation using the variance algorithm above.
 	//
 	template<typename I1, typename I2>
-	static double stdev( const I1& begin, const I2& end ) { return sqrt( variance( begin, end ) ); }
+	inline double stdev( const I1& begin, const I2& end ) { return sqrt( variance( begin, end ) ); }
 
 	// Calculates the coefficient of variation using the variance algorithm above.
 	//
 	template<typename I1, typename I2>
-	static double covar( const I1& begin, const I2& end ) { return stdev( begin, end ) / mean( begin, end ); }
+	inline double covar( const I1& begin, const I2& end ) { return stdev( begin, end ) / mean( begin, end ); }
 
 	// Creates a sorted clone of the range in the form of a vector.
 	//
 	template<typename I1, typename I2, typename... Tx>
-	static auto sorted_clone( const I1& begin, const I2& end, Tx&&... srt )
+	inline auto sorted_clone( const I1& begin, const I2& end, Tx&&... srt )
 	{
 		std::vector vec( begin, end );
 		std::sort( vec.begin(), vec.end(), std::forward<Tx>( srt )... );
@@ -189,23 +189,23 @@ namespace xstd
 
 	// Write container wrappers for all functions above.
 	//
-	template<Iterable C> static constexpr auto percentile( C&& c, double n ) { return percentile( std::begin( c ), std::end( c ), n ); }
-	template<typename T, Iterable C> static constexpr auto percentile( C&& c, double n ) { return percentile<T>( std::begin( c ), std::end( c ), n ); }
-	template<Iterable C> static constexpr auto mean( C&& c ) { return mean( std::begin( c ), std::end( c ) ); }
-	template<typename T, Iterable C> static constexpr auto mean( C&& c ) { return mean<T>( std::begin( c ), std::end( c ) ); }
-	template<Iterable C> static constexpr auto mode( C&& c ) { return mode( std::begin( c ), std::end( c ) ); }
-	template<Iterable C> static constexpr auto variance( C&& c ) { return variance( std::begin( c ), std::end( c ) ); }
-	template<Iterable C> static auto stdev( C&& c ) { return stdev( std::begin( c ), std::end( c ) ); }
-	template<Iterable C> static auto covar( C&& c ) { return covar( std::begin( c ), std::end( c ) ); }
-	template<Iterable C, typename T> static constexpr auto percentile_of( C&& c, T&& value ) { return percentile_of( std::begin( c ), std::end( c ), std::forward<T>( value ) ); }
+	template<Iterable C> inline constexpr auto percentile( C&& c, double n ) { return percentile( std::begin( c ), std::end( c ), n ); }
+	template<typename T, Iterable C> inline constexpr auto percentile( C&& c, double n ) { return percentile<T>( std::begin( c ), std::end( c ), n ); }
+	template<Iterable C> inline constexpr auto mean( C&& c ) { return mean( std::begin( c ), std::end( c ) ); }
+	template<typename T, Iterable C> inline constexpr auto mean( C&& c ) { return mean<T>( std::begin( c ), std::end( c ) ); }
+	template<Iterable C> inline constexpr auto mode( C&& c ) { return mode( std::begin( c ), std::end( c ) ); }
+	template<Iterable C> inline constexpr auto variance( C&& c ) { return variance( std::begin( c ), std::end( c ) ); }
+	template<Iterable C> inline auto stdev( C&& c ) { return stdev( std::begin( c ), std::end( c ) ); }
+	template<Iterable C> inline auto covar( C&& c ) { return covar( std::begin( c ), std::end( c ) ); }
+	template<Iterable C, typename T> inline constexpr auto percentile_of( C&& c, T&& value ) { return percentile_of( std::begin( c ), std::end( c ), std::forward<T>( value ) ); }
 
 	template<Iterable C> requires ( !std::is_array_v<std::remove_cvref_t<C>> && !is_std_array_v<std::remove_cvref_t<C>> )
-	static auto sorted_clone( C&& c ) 
+	inline auto sorted_clone( C&& c ) 
 	{ 
 		return sorted_clone( std::begin( c ), std::end( c ) ); 
 	}
 	template<typename T, size_t N>
-	static auto sorted_clone( T( &arr )[ N ] )
+	inline auto sorted_clone( T( &arr )[ N ] )
 	{
 		std::array<T, N> clone;
 		std::copy( arr, arr + N, clone.begin() );
@@ -213,7 +213,7 @@ namespace xstd
 		return clone;
 	}
 	template<typename T, size_t N>
-	static auto sorted_clone( const std::array<T, N>& arr )
+	inline auto sorted_clone( const std::array<T, N>& arr )
 	{
 		std::array<T, N> clone = arr;
 		std::sort( clone.begin(), clone.end() );

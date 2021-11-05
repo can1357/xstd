@@ -181,7 +181,7 @@ namespace xstd
 	// Old style functors.
 	//
 	template<typename It1, typename It2, typename Fn>
-	static constexpr auto make_range( It1&& begin, It2&& end, Fn&& f )
+	inline constexpr auto make_range( It1&& begin, It2&& end, Fn&& f )
 	{
 		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
 
@@ -192,18 +192,18 @@ namespace xstd
 		);
 	}
 	template<typename It1, typename It2>
-	static constexpr auto make_range( It1&& begin, It2&& end )
+	inline constexpr auto make_range( It1&& begin, It2&& end )
 	{
 		using It = std::conditional_t<Convertible<It1, It2>, It2, It1>;
 		return range<It, void>( std::forward<It1>( begin ), std::forward<It2>( end ) );
 	}
 	template<Iterable C>
-	static constexpr auto make_range( C& container )
+	inline constexpr auto make_range( C& container )
 	{
 		return make_range( std::begin( container ), std::end( container ) );
 	}
 	template<Iterable C, typename Fn>
-	static constexpr auto map( C& container, Fn&& f )
+	inline constexpr auto map( C& container, Fn&& f )
 	{
 		return range<iterator_t<C>, Fn>(
 			std::begin( container ),
@@ -212,7 +212,7 @@ namespace xstd
 		);
 	}
 	template<Iterable C, typename B, typename F>
-	static constexpr auto map( C& container, member_reference_t<B, F> ref )
+	inline constexpr auto map( C& container, member_reference_t<B, F> ref )
 	{
 		auto fn = [ ref = std::move( ref ) ] <typename T> ( T && v ) -> decltype( auto )
 		{
@@ -231,7 +231,7 @@ namespace xstd
 	// Returns a reversed container.
 	//
 	template<Iterable C>
-	static constexpr auto backwards( C&& container )
+	inline constexpr auto backwards( C&& container )
 	{
 		return range<std::reverse_iterator<iterator_t<C>>, void>{
 			std::reverse_iterator( std::end( container ) ),
@@ -239,7 +239,7 @@ namespace xstd
 		};
 	}
 	template<typename It1, typename It2>
-	static constexpr auto backwards( It1&& first, It2&& last )
+	inline constexpr auto backwards( It1&& first, It2&& last )
 	{
 		using It = std::reverse_iterator<std::conditional_t<Convertible<It1, It2>, It2, It1>>;
 		return range<It, void>( It( std::forward<It2>( last ) ), It( std::forward<It1>( first ) ) );

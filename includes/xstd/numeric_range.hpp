@@ -208,5 +208,7 @@ namespace xstd
 	// Simple range creation wrapper.
 	//
 	static constexpr numeric_range<> iindices = { 0ull, SIZE_MAX };
-	template<typename T> static numeric_range<T> iota( T x, T offset = T{} ) { return { offset, offset + x }; }
+	
+	template<typename T> 
+	inline constexpr numeric_range<T> iota( T x, T offset = T{} ) { return { offset, offset + x }; }
 };

@@ -133,11 +133,18 @@ namespace xstd::fmt
 	template<bool LeadingZeroes, Integral I>
 	inline std::string print_ix( I value )
 	{
-		using U = std::make_unsigned_t<I>;
-		std::string_view pfx = "-0x";
-		if ( Signed<I> && value < 0 ) value = -value;
-		else                          pfx.remove_prefix( 1 );
-		return print_ux<LeadingZeroes, U>( ( U ) value, pfx );
+		if constexpr ( Unsigned<I> )
+		{
+			return print_ux<LeadingZeroes, I>( value, "0x" );
+		}
+		else
+		{
+			using U = std::make_unsigned_t<I>;
+			std::string_view pfx = "-0x";
+			if ( Signed<I> && value < 0 ) value = -value;
+			else                          pfx.remove_prefix( 1 );
+			return print_ux<LeadingZeroes, U>( ( U ) value, pfx );
+		}
 	}
 
 	// Prints a pointer.

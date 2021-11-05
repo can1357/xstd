@@ -352,27 +352,27 @@ namespace xstd
 namespace std
 {
 	template<typename F, typename T, typename S>
-	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>& res )
+	inline constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>& res )
 	{
 		if ( res.success() ) return fn( res.value() );
 		else                 return fn( res.status );
 	}
 	template<typename F, typename T, typename S>
-	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>&& res )
+	inline constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>&& res )
 	{
 		if ( res.success() ) return fn( std::move( res.value() ) );
 		else                 return fn( std::move( res.status ) );
 	}
 
 	template<typename F, typename T, typename S>
-	static constexpr decltype( auto ) visit( F&& fn, const xstd::basic_result<T, S>& res )
+	inline constexpr decltype( auto ) visit( F&& fn, const xstd::basic_result<T, S>& res )
 	{
 		if ( res.success() ) return fn( res.value() );
 		else                 return fn( res.status );
 	}
 
 	template<typename F, typename T, typename S, typename... Ox>
-	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>& res, Ox&&... rest )
+	inline constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>& res, Ox&&... rest )
 	{
 		return visit( [ & ] <typename... Tx> ( Tx&&... vx ) -> decltype( auto )
 		{
@@ -382,7 +382,7 @@ namespace std
 	}
 
 	template<typename F, typename T, typename S, typename... Ox>
-	static constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>&& res, Ox&&... rest )
+	inline constexpr decltype( auto ) visit( F&& fn, xstd::basic_result<T, S>&& res, Ox&&... rest )
 	{
 		return visit( [ & ] <typename... Tx> ( Tx&&... vx ) -> decltype( auto )
 		{
@@ -392,7 +392,7 @@ namespace std
 	}
 
 	template<typename F, typename T, typename S, typename... Ox>
-	static constexpr decltype( auto ) visit( F&& fn, const xstd::basic_result<T, S>& res, Ox&&... rest )
+	inline constexpr decltype( auto ) visit( F&& fn, const xstd::basic_result<T, S>& res, Ox&&... rest )
 	{
 		return visit( [ & ] <typename... Tx> ( Tx&&... vx ) -> decltype( auto )
 		{

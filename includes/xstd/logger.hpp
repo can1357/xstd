@@ -89,8 +89,8 @@ namespace xstd
 {
 	// Padding customization for logger.
 	//
-	static constexpr char log_padding_c = '|';
-	static constexpr int log_padding_step = 2;
+	inline constexpr char log_padding_c = '|';
+	inline constexpr int log_padding_step = 2;
 
 	// Describes the state of the logging engine.
 	//
@@ -202,7 +202,7 @@ namespace xstd
 	//
 	namespace impl
 	{
-		static constexpr const char* translate_color( [[maybe_unused]] console_color color )
+		inline constexpr const char* translate_color( [[maybe_unused]] console_color color )
 		{
 #if !XSTD_CON_NO_COLORS
 			switch ( color )
@@ -222,8 +222,7 @@ namespace xstd
 #endif
 		}
 
-		FORCE_INLINE static int handle_scope( [[maybe_unused]] FILE* dst, 
-											  [[maybe_unused]] const char* cstr )
+		FORCE_INLINE inline int handle_scope( [[maybe_unused]] FILE* dst, [[maybe_unused]] const char* cstr )
 		{
 			// If we should pad this output:
 			//
@@ -263,7 +262,7 @@ namespace xstd
 		}
 
 		template<bool has_args>
-		static int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
+		inline int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
 		{
 			// If it's a message:
 			//
@@ -315,23 +314,23 @@ namespace xstd
 	// Generic logger.
 	//
 	template<typename... Tx>
-	FORCE_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE inline int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
 	{
 		fmt::impl::format_buffer_for<std::decay_t<Tx>...> buf = {};
 		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter( buf, std::forward<Tx>( ps ) )... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	FORCE_INLINE static int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
+	FORCE_INLINE inline int flog( FILE* dst, const char* fmt_str, Tx&&... ps )
 	{
 		return flog( dst, color, fmt_str, std::forward<Tx>( ps )... );
 	}
 	template<typename... Tx>
-	NO_INLINE static int log( console_color color, const char* fmt_str, Tx&&... ps )
+	NO_INLINE inline int log( console_color color, const char* fmt_str, Tx&&... ps )
 	{
 		return flog( XSTD_CON_MSG_DST, color, fmt_str, std::forward<Tx>( ps ) ... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	NO_INLINE static int log( const char* fmt_str, Tx&&... ps )
+	NO_INLINE inline int log( const char* fmt_str, Tx&&... ps )
 	{
 		return flog( XSTD_CON_MSG_DST, color, fmt_str, std::forward<Tx>( ps )... );
 	}
@@ -339,32 +338,32 @@ namespace xstd
 	// Logs the object given as is instead of using any other formatting specifier.
 	//
 	template<console_color color = CON_DEF, typename... Tx>
-	FORCE_INLINE static int finspect( FILE* dst, Tx&&... objects )
+	FORCE_INLINE inline int finspect( FILE* dst, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
 		return flog( dst, color, result.c_str() );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
-	NO_INLINE static int inspect( Tx&&... objects )
+	NO_INLINE inline int inspect( Tx&&... objects )
 	{
 		return finspect<color>( XSTD_CON_MSG_DST, std::forward<Tx>( objects )... );
 	}
 #else
-	template<typename... Tx> FORCE_INLINE static int flog( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE static int flog( Tx&&... ps ) { return 0; }
-	template<typename... Tx> FORCE_INLINE static int log( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE static int log( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int flog( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int flog( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int log( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int log( Tx&&... ps ) { return 0; }
 
-	template<typename... Tx> FORCE_INLINE static int finspect( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE static int finspect( Tx&&... ps ) { return 0; }
-	template<typename... Tx> FORCE_INLINE static int inspect( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE static int inspect( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int finspect( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int finspect( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int inspect( Tx&&... ps ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int inspect( Tx&&... ps ) { return 0; }
 #endif
 
 	// Prints a warning message.
 	//
 	template<typename... Tx>
-	COLD NO_INLINE static void warning( const char* fmt_str, Tx&&... ps )
+	COLD NO_INLINE inline void warning( const char* fmt_str, Tx&&... ps )
 	{
 #if !XSTD_CON_NO_WARNINGS
 		// Forward to f-log with a prefix and a color.
@@ -379,7 +378,7 @@ namespace xstd
 	// Prints an error message and breaks the execution.
 	//
 	template<typename... Tx>
-	COLD NO_INLINE static void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
+	COLD NO_INLINE inline void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
 	{
 		// If there is an active hook, call into it, else add formatting and print.
 		//

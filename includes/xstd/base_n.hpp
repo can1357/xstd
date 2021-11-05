@@ -11,7 +11,7 @@ namespace xstd::encode
         // Helper to create dictionaries.
         //
         template<size_t N>
-        static constexpr std::array<int, 0x100> reverse_dictionary( const char( &v )[ N ] )
+        inline constexpr std::array<int, 0x100> reverse_dictionary( const char( &v )[ N ] )
         {
             std::array<int, 0x100> res = { -1 };
             for ( size_t n = 0; n != N; n++ )
@@ -19,7 +19,7 @@ namespace xstd::encode
             return res;
         }
         template<size_t N>
-        static constexpr std::array<int, 0x100> forward_dictionary( const char( &v )[ N ] )
+        inline constexpr std::array<int, 0x100> forward_dictionary( const char( &v )[ N ] )
         {
             std::array<int, 0x100> res = { -1 };
             for ( size_t n = 0; n != N; n++ )
@@ -83,7 +83,7 @@ namespace xstd::encode
     namespace impl
     {
         template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
-        static std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const Dc& dictionary )
+        inline std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const Dc& dictionary )
         {
             if ( ( str.length() % dictionary.group_size_out() ) != 0 )
                 return {};
@@ -133,7 +133,7 @@ namespace xstd::encode
         }
     };
     template<String S, bool bit_rev = true, typename Dc = dictionary<64>>
-    static std::vector<uint8_t> rbase_n( S&& str, const Dc& dictionary )
+    inline std::vector<uint8_t> rbase_n( S&& str, const Dc& dictionary )
     {
         return impl::rbase_n( string_view_t<S>{ str }, dictionary );
     }
@@ -141,7 +141,7 @@ namespace xstd::encode
     // Encodes data using a dictionary.
     //
     template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
-    static std::basic_string<C> base_n( const void* data, size_t length, const Dc& dictionary )
+    inline std::basic_string<C> base_n( const void* data, size_t length, const Dc& dictionary )
     {
         // Calculate the group count and reserve the output.
         //
@@ -197,14 +197,14 @@ namespace xstd::encode
     }
 
     template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>, ContiguousIterable T = const std::initializer_list<uint8_t>&>
-    static std::basic_string<C> base_n( T&& c, const Dc& dictionary )
+    inline std::basic_string<C> base_n( T&& c, const Dc& dictionary )
     {
         return base_n<C, bit_rev, Dc>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), dictionary );
     }
 
     // Dictionary defined for base64.
     //
-    static constexpr dictionary base64_dictionary = {
+    inline constexpr dictionary base64_dictionary = {
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz"
         "0123456789"

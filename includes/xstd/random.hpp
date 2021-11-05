@@ -21,11 +21,11 @@ namespace xstd
 {
 	// Linear congruential generator.
 	//
-	static constexpr uint64_t lce_64( uint64_t& value )
+	inline constexpr uint64_t lce_64( uint64_t& value )
 	{
 		return ( value = 6364136223846793005 * value + 1442695040888963407 );
 	}
-	[[nodiscard]] static constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
+	[[nodiscard]] inline constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
 	{
 		while ( true )
 		{
@@ -37,14 +37,14 @@ namespace xstd
 
 	// Permuted congruential generator.
 	//
-	static constexpr uint32_t pce_32( uint64_t& value )
+	inline constexpr uint32_t pce_32( uint64_t& value )
 	{
 		uint64_t x = std::exchange( value, value * 6364136223846793005 + 1 );
 		uint8_t shift = uint8_t( x >> 59 );
 		x ^= x >> 18;
 		return rotl( uint32_t( x >> 27 ), shift );
 	}
-	[[nodiscard]] static constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 1 )
+	[[nodiscard]] inline constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( true )
 		{
@@ -53,11 +53,11 @@ namespace xstd
 				return result;
 		}
 	}
-	static constexpr uint64_t pce_64( uint64_t& value )
+	inline constexpr uint64_t pce_64( uint64_t& value )
 	{
 		return piecewise( pce_32( value ), pce_32( value ) );
 	}
-	[[nodiscard]] static constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
+	[[nodiscard]] inline constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( true )
 		{
