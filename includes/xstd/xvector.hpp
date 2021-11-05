@@ -148,39 +148,6 @@ namespace xstd
 #undef __DECLARE_COMPARISON
 	};
 #endif
-	
-	// Vector construction.
-	// - V[N] = { values..., 0 }
-	template<size_t N, typename T>
-	FORCE_INLINE constexpr xvec<T, N> make_vec_n()
-	{
-		return xvec<T, N>{};
-	}
-	template<size_t N, typename T, typename... Tx> requires ( ( std::is_convertible_v<Tx, T> && ... ) && ( ( sizeof...( Tx ) + 1 ) <= N ) )
-	FORCE_INLINE constexpr xvec<T, N> make_vec_n( T v, Tx... vx )
-	{
-		return xvec<T, N>{ v, T( vx )... };
-	}
-	// - V[] = { values... }
-	template<typename T, typename... Tx> requires ( std::is_convertible_v<Tx, T> && ... )
-	FORCE_INLINE constexpr xvec<T, sizeof...( Tx ) + 1> make_vec( T v, Tx... vx )
-	{
-		return xvec<T, sizeof...( Tx ) + 1>{ v, T( vx )... };
-	}
-	// - V[N] = { v, v, v... }
-	template<size_t N, typename T>
-	FORCE_INLINE constexpr xvec<T, N> fill_vec( T v )
-	{
-#if XSTD_VECTOR_EXT
-		// Clang syntax.
-		return xvec<T, N>( v );
-#else
-		xvec<T, N> result = {};
-		for ( size_t i = 0; i != N; i++ )
-			result[ i ] = v;
-		return result;
-#endif
-	}
 
 	// Byte vector.
 	//
@@ -255,6 +222,39 @@ namespace xstd
 	//
 	namespace vec
 	{
+		// Vector construction.
+		// - V[N] = { values..., 0... }
+		template<size_t N, typename T>
+		FORCE_INLINE constexpr xvec<T, N> make()
+		{
+			return xvec<T, N>{};
+		}
+		template<size_t N, typename T, typename... Tx> requires ( ( Convertible<Tx, T> && ... ) && ( ( sizeof...( Tx ) + 1 ) <= N ) )
+		FORCE_INLINE constexpr xvec<T, N> make( T v, Tx... vx )
+		{
+			return xvec<T, N>{ v, T( vx )... };
+		}
+		// - V[] = { values... }
+		template<typename T, typename... Tx> requires ( Convertible<Tx, T> && ... )
+		FORCE_INLINE constexpr xvec<T, sizeof...( Tx ) + 1> make( T v, Tx... vx )
+		{
+			return xvec<T, sizeof...( Tx ) + 1>{ v, T( vx )... };
+		}
+		// - V[N] = { v, v, v... }
+		template<size_t N, typename T>
+		FORCE_INLINE constexpr xvec<T, N> fill( T v )
+		{
+#if XSTD_VECTOR_EXT
+			// Clang syntax.
+			return xvec<T, N>( v );
+#else
+			xvec<T, N> result = {};
+			for ( size_t i = 0; i != N; i++ )
+				result[ i ] = v;
+			return result;
+#endif
+		}
+
 		// Vector from array.
 		//
 		template<typename T, size_t N>

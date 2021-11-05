@@ -8,7 +8,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename In, typename Out>
-		FORCE_INLINE constexpr void overlapping_move_qword( In src, size_t n, Out dst )
+		FORCE_INLINE constexpr void overlapping_move_utf8( In src, size_t n, Out dst )
 		{
 			if ( std::is_constant_evaluated() )
 			{
@@ -30,11 +30,6 @@ namespace xstd
 				}
 			}
 		}
-
-		// Character types.
-		//
-		template<typename T> concept Char8 = Same<T, char> || Same<T, char8_t>;
-		template<typename T> concept Char16 = Same<T, wchar_t> || Same<T, char16_t>;
 	};
 
 	template<typename C>
@@ -42,7 +37,7 @@ namespace xstd
 
 	// UTF-8.
 	//
-	template<impl::Char8 T>
+	template<Char8 T>
 	struct codepoint_cvt<T>
 	{
 		static constexpr size_t max_out = 7;
@@ -100,7 +95,7 @@ namespace xstd
 
 			// Write the data using overlapping moves.
 			//
-			impl::overlapping_move_qword( it, n, p );
+			impl::overlapping_move_utf8( it, n, p );
 			
 			// Increment the iterator.
 			//
@@ -126,7 +121,7 @@ namespace xstd
 			//
 			std::array<uint8_t, 8> tmp = {};
 			tmp.fill( 0x80 );
-			impl::overlapping_move_qword( &front, n, tmp.data() );
+			impl::overlapping_move_utf8( &front, n, tmp.data() );
 
 			// Read the value, extract the validation bits and remove them.
 			//
@@ -148,18 +143,18 @@ namespace xstd
 			}
 			return cp;
 		}
-		inline static constexpr uint32_t decode( const T*& in )
+		inline static constexpr uint32_t decode( const T*& in, size_t limit = max_out )
 		{
-			std::basic_string_view<T> tmp{ in, in + max_out };
+			std::basic_string_view<T> tmp{ in, in + limit };
 			uint32_t cp = decode( tmp );
-			in = tmp.data();
+			in += ( limit - tmp.size() );
 			return cp;
 		}
 	};
 
 	// UTF-16.
 	//
-	template<impl::Char16 T>
+	template<Char16 T>
 	struct codepoint_cvt<T>
 	{
 		static constexpr size_t max_out = 2;
@@ -207,41 +202,41 @@ namespace xstd
 			uint32_t hi = c2 - 0xDC00;
 			return 0x10000 + ( hi | ( lo << 10 ) );
 		}
-		inline static constexpr uint32_t decode( const T*& in )
+		inline static constexpr uint32_t decode( const T*& in, size_t limit = max_out )
 		{
-			std::basic_string_view<T> tmp{ in, in + max_out };
+			std::basic_string_view<T> tmp{ in, in + limit };
 			uint32_t cp = decode( tmp );
-			in = tmp.data();
+			in += ( limit - tmp.size() );
 			return cp;
 		}
 	};
 
 	// UTF-32.
 	//
-	template<>
-	struct codepoint_cvt<char32_t>
+	template<Char32 T>
+	struct codepoint_cvt<T>
 	{
 		static constexpr size_t max_out = 1;
 
-		inline static constexpr size_t length( [[maybe_unused]] uint32_t cp )
+		inline static constexpr size_t length( uint32_t )
 		{
 			return 1;
 		}
-		inline static constexpr void encode( uint32_t cp, char32_t*& out )
+		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
-			*out++ = cp;
+			*out++ = ( T ) cp;
 		}
-		inline static constexpr uint32_t decode( std::u32string_view& in )
+		inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
 		{
 			uint32_t c = ( uint32_t ) in.front();
 			in.remove_prefix( 1 );
 			return c;
 		}
-		inline static constexpr uint32_t decode( const char32_t*& in )
+		inline static constexpr uint32_t decode( const T*& in, size_t limit = max_out )
 		{
-			std::basic_string_view<char32_t> tmp{ in, in + max_out };
+			std::basic_string_view<T> tmp{ in, in + limit };
 			uint32_t cp = decode( tmp );
-			in = tmp.data();
+			in += ( limit - tmp.size() );
 			return cp;
 		}
 	};

@@ -546,21 +546,20 @@ namespace xstd
 	template<typename T>
 	concept RandomAccessible = DefaultRandomAccessible<T> || CustomRandomAccessible<T>;
 
+	
+	// Character traits.
+	//
+	template<typename T> concept Char =   Same<T, char> || Same<T, wchar_t> || Same<T, char8_t> || Same<T, char16_t> || Same<T, char32_t>;
+	template<typename T> concept Char8 =  Char<T> && sizeof( T ) == 1;
+	template<typename T> concept Char16 = Char<T> && sizeof( T ) == 2;
+	template<typename T> concept Char32 = Char<T> && sizeof( T ) == 4;
+	
 	// String traits.
 	//
-	template<typename T>
-	concept CppStringView = is_specialization_v<std::basic_string_view, std::decay_t<T>>;
-	template<typename T>
-	concept CppString = is_specialization_v<std::basic_string, std::decay_t<T>>;
-	template<typename T>
-	concept CString = std::is_pointer_v<std::decay_t<T>> && ( 
-		  std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, char> ||
-        std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, wchar_t> ||
-        std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, char8_t> ||
-        std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, char16_t> ||
-        std::is_same_v<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, char32_t> );
-	template<typename T>
-	concept String = CppString<T> || CString<T> || CppStringView<T>;
+	template<typename T> concept CppString =     is_specialization_v<std::basic_string, std::decay_t<T>>;
+	template<typename T> concept CppStringView = is_specialization_v<std::basic_string_view, std::decay_t<T>>;
+	template<typename T> concept CString =       Pointer<std::decay_t<T>> && Char<std::decay_t<std::remove_pointer_t<std::decay_t<T>>>>;
+	template<typename T> concept String =        CppString<T> || CString<T> || CppStringView<T>;
 
 	template<String T>
 	using string_unit_t = typename std::remove_cvref_t<decltype( std::declval<T>()[ 0 ] )>;

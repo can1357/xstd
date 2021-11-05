@@ -210,13 +210,22 @@ namespace xstd::fmt
 	inline auto as_string( T&& x );
 	template<typename T>
 	concept StringConvertible = NonVoid<decltype( as_string( std::declval<T>() ) )>;
+	
+	template<StringConvertible... Tx> requires ( sizeof...( Tx ) != 1 )
+	FORCE_INLINE inline std::string as_string( Tx&&... args )
+	{
+		if constexpr ( sizeof...( Tx ) == 0 )
+			return "{}";
+		else
+			return "{" + ( ( as_string<Tx>(std::forward<Tx>(args)) + ", " ) + ... ) + "}";
+	}
 
 	// Implement converters for STL wrappers.
 	//
 	template<>
 	struct string_formatter<std::monostate>
 	{
-		FORCE_INLINE inline std::string operator()( std::monostate ) const { return "{}"; }
+		FORCE_INLINE inline std::string operator()( std::monostate ) const { return as_string(); }
 	};
 	template<StringConvertible... Tx>
 	struct string_formatter<std::variant<Tx...>>
@@ -241,7 +250,7 @@ namespace xstd::fmt
 	{
 		FORCE_INLINE inline std::string operator()( const std::pair<T1, T2>& value ) const
 		{
-			return as_string( value.first ) + ", " + as_string( value.second );
+			return as_string( value.first, value.second );
 		}
 	};
 	template<StringConvertible... Tx>
@@ -249,22 +258,7 @@ namespace xstd::fmt
 	{
 		FORCE_INLINE inline std::string operator()( const std::tuple<Tx...>& value ) const
 		{
-			if constexpr ( sizeof...( Tx ) == 0 )
-			{
-				return as_string( std::monostate{} );
-			}
-			else
-			{
-				std::string res = std::apply( [ ] ( auto&&... args )
-				{
-					return ( ( as_string( args ) + ", " ) + ... );
-				}, tuple );
-
-				std::copy( res.begin(), res.end() - 1, res.begin() + 1 );
-				res.front() = '{';
-				res.back() = '}';
-				return res;
-			}
+			return std::apply( [ ] ( const auto&... args ) { return as_string( args... ); }, value );
 		}
 	};
 	template<StringConvertible T>
@@ -329,7 +323,7 @@ namespace xstd::fmt
 	{
 		FORCE_INLINE inline std::string operator()( D value ) const
 		{
-			return time::to_string( x );
+			return time::to_string( value );
 		}
 	};
 	template<>
@@ -466,7 +460,7 @@ namespace xstd::fmt
 			{
 				std::string items = {};
 				for ( auto&& entry : std::forward<T>( x ) )
-					items += as_string( std::forward<decltype(entry)>( entry ) ) += ", ";
+					items += as_string( std::forward<decltype(entry)>( entry ) ) + ", ";
 				if ( !items.empty() ) items.resize( items.size() - 2 );
 				return '{' + items + '}';
 			}
@@ -485,14 +479,6 @@ namespace xstd::fmt
 		{
 			return; // void
 		}
-	}
-	template<typename T, typename... Tx>
-	FORCE_INLINE inline auto as_string( T&& f, Tx&&... r )
-	{
-		std::string result = as_string( std::forward<T>( f ) );
-		result += ", ";
-		result += as_string( std::forward<Tx>( r )... );
-		return result;
 	}
 
 	// Used to allow use of any type in combination with "%(l)s".
