@@ -42,12 +42,15 @@ namespace xstd
 {
 	// Declare the vector types.
 	//
-#if XSTD_VECTOR_EXT
+#if XSTD_VECTOR_EXT && defined(__clang__)
+	template<typename T, size_t N>
+	using native_vector = T  __attribute__((ext_vector_type(N)));
+#elif XSTD_VECTOR_EXT
 	template <typename T, size_t N>
 	using native_vector [[gnu::vector_size(sizeof(T[N]))]] = T;
 #else
 	template <typename T, size_t N>
-	using native_vector = std::array<T, std::bit_ceil( N )>;
+	using native_vector = std::array<T, std::bit_ceil(N)>;
 #endif
 
 	// Sequence helpers.
@@ -91,6 +94,9 @@ namespace xstd
 	template<Arithmetic T, size_t N>
 	union alignas( native_vector<T, N> ) xvec
 	{
+		static constexpr size_t Length = N;
+		static constexpr size_t ByteLength = sizeof( T ) * N;
+
 		// Storage.
 		//
 		std::array<T, N> _data = {};
@@ -115,7 +121,7 @@ namespace xstd
 				_nat = native_vector<T, N>{ T( values )... };
 			else
 			{
-				T arr[] = { values... };
+				T arr[] = { T( values )... };
 				for ( size_t i = 0; i != sizeof...( values ); i++ )
 					_data[ i ] = arr[ i ];
 			}
@@ -125,16 +131,15 @@ namespace xstd
 		FORCE_INLINE constexpr xvec( Tx... values ) noexcept : _data{ T(values)... } {}
 #endif
 
-		// Vector fill.
+		// Construction by broadcast.
 		//
-		FORCE_INLINE void fill( T value ) noexcept
+		FORCE_INLINE constexpr static xvec broadcast( T value ) noexcept
 		{
-#if XSTD_VECTOR_EXT
+#if XSTD_VECTOR_EXT && defined(__clang__)
 			if ( !std::is_constant_evaluated() )
-				return ( void ) ( _nat = native_vector<T, N>( value ) );
+				return xvec( std::in_place_t{}, native_vector<T, N>( value ) );
 #endif
-			for ( size_t i = 0; i != N; i++ )
-				_data[ i ] = value;
+			return xvec{} + value;
 		}
 
 		// Indexing.
@@ -279,14 +284,20 @@ namespace xstd
 
 		// Cast to same-size vector.
 		//
-		template<typename Ty, size_t N2> requires ( !Same<T, Ty> && sizeof( Ty[ N2 ] ) == sizeof( T[ N ] ) )
-		FORCE_INLINE constexpr operator xvec<Ty, N2>() const noexcept
+		template<typename Ty>
+		[[nodiscard]] FORCE_INLINE constexpr xvec<Ty, ByteLength / sizeof( Ty )> reinterpret() const noexcept
 		{
+			if constexpr ( Same<Ty, T> )
+				return *this;
+			constexpr size_t N2 = ByteLength / sizeof( Ty );
 			if constexpr ( XSTD_VECTOR_EXT )
 				if ( !std::is_constant_evaluated() )
 					return xvec<Ty, N2>( std::in_place_t{}, ( native_vector<Ty, N2> ) _nat );
-			return std::bit_cast<xvec<Ty, N2>>( *this );
+			return std::bit_cast< xvec<Ty, N2> >( *this );
 		}
+		template<typename Ty, size_t N2> requires ( N2 == ( ByteLength / sizeof( T ) ) )
+		FORCE_INLINE constexpr operator xvec<Ty, N2>() const noexcept { return reinterpret<Ty>(); }
+		FORCE_INLINE constexpr xvec<char, ByteLength> bytes() const noexcept { return reinterpret<char>(); }
 
 		// Cast to same-length vector.
 		//
@@ -380,13 +391,6 @@ namespace xstd
 			return result;
 		}
 
-		// Vector bytes.
-		//
-		FORCE_INLINE constexpr xvec<char, sizeof(T[N])> bytes() const noexcept
-		{
-			return ( xvec<char, sizeof( T[ N ] )> ) *this;
-		}
-
 		// Vector zero comparison.
 		//
 		FORCE_INLINE constexpr bool is_zero() const noexcept
@@ -408,6 +412,73 @@ namespace xstd
 			for ( size_t i = 0; i != N; i++ )
 				result &= b._data[ i ] == 0;
 			return result;
+		}
+
+		// Creates a mask made up of the most significant bit of each byte.
+		//
+		FORCE_INLINE constexpr auto bmask() const noexcept requires ( ByteLength <= 64 )
+		{
+			auto byte_vec = bytes();
+
+			// Handle 1, 16 and 32 bytes.
+			//
+			if constexpr ( ByteLength == 1 )
+			{
+				return uint8_t( byte_vec.at( 0 ) ) >> 7;
+			}
+			else if constexpr ( ByteLength == 16 || ByteLength == 32 )
+			{
+				using R = std::conditional_t<( ByteLength == 16 ), uint16_t, uint32_t>;
+
+				if ( !std::is_constant_evaluated() )
+				{
+#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
+					if constexpr ( ByteLength == 16 )
+						return ( uint16_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
+#endif
+#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb256 )
+					if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) __builtin_ia32_pmovmskb256( byte_vec._nat );
+#endif
+				}
+
+				R result = 0;
+				for ( size_t i = 0; i != ByteLength; i++ )
+					result |= R( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
+				return result;
+			}
+			// Fix odd sizes.
+			//
+			else if constexpr ( ByteLength < 16 )
+				return byte_vec.template resize<16>().bmask();
+			else if constexpr ( ByteLength < 32 )
+				return byte_vec.template resize<32>().bmask();
+			// Split up calculation for > u32.
+			//
+			else
+			{
+				auto low =  byte_vec.template slice<0, 32>();
+				auto high = byte_vec.template slice<32, 32>();
+
+				uint64_t result = low.bmask();
+				result |= uint64_t( high.bmask() ) << 32;
+				return result;
+			}
+		}
+
+		// Creates a mask made up of the most significant bit of each element(!).
+		//
+		FORCE_INLINE constexpr auto mask() const noexcept requires( Length <= 64 && Arithmetic<T> )
+		{
+			if constexpr ( sizeof( T ) == 1 )
+			{
+				return bmask();
+			}
+			else
+			{
+				auto rotated = ( *this ) >> ( ( sizeof( T ) - 1 ) * 8 );
+				return ( rotated.template cast<char>() ).bmask();
+			}
 		}
 
 		// Vector equal comparison.
@@ -474,9 +545,29 @@ namespace xstd
 		template<typename T, size_t N> 
 		FORCE_INLINE constexpr bvec<sizeof( T[ N ] )> bytes( xvec<T, N> x ) noexcept { return x.bytes(); }
 
+		// Vector broadcast.
+		//
+		template<Arithmetic T, size_t N>
+		FORCE_INLINE constexpr xvec<T, N> broadcast( T value ) { return xvec<T, N>::broadcast( value ); }
+		template<Arithmetic T, size_t N> inline constexpr xvec<T, N> zero =    broadcast<T, N>( T(0) );
+		template<Arithmetic T, size_t N> inline constexpr xvec<T, N> inverse = broadcast<T, N>( ~T() );
+
+		// Vector from varargs.
+		//
+		template<size_t N, Arithmetic T, Arithmetic... Tx> requires ( ( sizeof...( Tx ) + 1 ) <= N )
+		FORCE_INLINE constexpr xvec<T, N> from_n( T value, Tx... rest )
+		{
+			return xvec<T, N>( value, rest... );
+		}
+		template<Arithmetic T, Arithmetic... Tx>
+		FORCE_INLINE constexpr xvec<T, ( sizeof...( Tx ) + 1 )> from( T value, Tx... rest )
+		{
+			return xvec<T, ( sizeof...( Tx ) + 1 )>( value, rest... );
+		}
+
 		// Vector from array.
 		//
-		template<typename T, size_t N>
+		template<Arithmetic T, size_t N>
 		FORCE_INLINE constexpr xvec<T, N> from( std::array<T, N> arr )
 		{
 			if constexpr ( sizeof( xvec<T, N> ) == sizeof( std::array<T, N> ) )
@@ -489,7 +580,7 @@ namespace xstd
 
 		// Vector from constant span.
 		//
-		template<typename T, size_t N> requires ( N != std::dynamic_extent )
+		template<Arithmetic T, size_t N> requires ( N != std::dynamic_extent )
 		FORCE_INLINE constexpr xvec<T, N> from( std::span<T, N> span )
 		{
 			xvec<T, N> vec = {};
