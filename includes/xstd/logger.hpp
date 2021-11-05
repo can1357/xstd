@@ -317,7 +317,7 @@ namespace xstd
 	template<typename... Tx>
 	FORCE_INLINE static int flog( FILE* dst, console_color color, const char* fmt_str, Tx&&... ps )
 	{
-		fmt::impl::format_buffer_for<Tx...> buf = {};
+		fmt::impl::format_buffer_for<std::decay_t<Tx>...> buf = {};
 		return impl::log_w<sizeof...( Tx ) != 0>( dst, color, fmt_str, fmt::fix_parameter( buf, std::forward<Tx>( ps ) )... );
 	}
 	template<console_color color = CON_DEF, typename... Tx>
@@ -338,7 +338,7 @@ namespace xstd
 
 	// Logs the object given as is instead of using any other formatting specifier.
 	//
-	template<console_color color = CON_DEF, typename... Tx> requires ( sizeof...( Tx ) != 0 )
+	template<console_color color = CON_DEF, typename... Tx>
 	FORCE_INLINE static int finspect( FILE* dst, Tx&&... objects )
 	{
 		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';

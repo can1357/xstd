@@ -2,6 +2,7 @@
 #include <numeric>
 #include <string>
 #include <string_view>
+#include "xvector.hpp"
 #include "type_helpers.hpp"
 
 // Implements a simple hex dump.
@@ -16,41 +17,48 @@ namespace xstd::fmt
 		bool uppercase = true;
 	};
 
-	// Dictionaries.
-	//
-	inline constexpr char upper_dict[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
-	inline constexpr char lower_dict[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-
 	// Prints a singular hexadecimal digit to the buffer given.
 	//
 	template<typename C>
 	inline static constexpr void print_hex_digit( C* out, uint8_t value, bool uppercase = false )
 	{
-		const auto dict = uppercase ? &upper_dict[ 0 ] : &lower_dict[ 0 ];
-		out[ 0 ] = dict[ value >> 4 ];
-		out[ 1 ] = dict[ value & 0xF ];
+		auto print = [ base = ( uppercase ? 'A' : 'a' ) ](uint8_t digit)
+		{
+			return digit >= 9 ? ( base + digit - 10 ) : digit + '0';
+		};
+		out[ 0 ] = print( value >> 4 );
+		out[ 1 ] = print( value & 0xF );
 	}
 
 	// Optimized hexdump for constant size input with no configuration.
 	//
-	template<typename T, typename C = char>
+	template<bool Uppercase, typename T>
+	FORCE_INLINE inline constexpr xvec<char, 2 * sizeof( T )> print_hex( const T& data )
+	{
+		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
+		constexpr size_t N = sizeof( T );
+
+		auto x = vec::cast<uint16_t, uint8_t, N>( vec::from_arr( as_bytes( data ) ) );
+		x |= ( x << 12 );
+		x >>= 4;
+		x &= 0x0F0F;
+
+		auto chars = ( xvec<char, N * 2> ) x;
+		chars += '0';
+		chars += ( chars > '9' ) & K;
+		return chars;
+	}
+	template<typename T>
+	inline static constexpr std::array<char, 2 * sizeof( T )> cexpr_hex_dump( const T& value )
+	{
+		return vec::to_arr( print_hex<true>( value ) );
+	}
+	template<typename T>
 	inline static std::string const_hex_dump( const T& value )
 	{
-		std::basic_string<C> out( sizeof( T ) * 2, '\x0' );
-		C* p = out.data();
-		auto* i = ( const uint8_t* ) &value;
-		for ( size_t n = 0; n != sizeof( T ); n++ )
-			print_hex_digit( p + n * 2, i[ n ] );
+		std::string out( sizeof( T ) * 2, '\x0' );
+		store_misaligned( out.data(), cexpr_hex_dump( value ) );
 		return out;
-	}
-	template<typename T, typename C = char>
-	inline static constexpr std::array<C, 2*sizeof(T)> cexpr_hex_dump( const T& value )
-	{
-		std::array<C, sizeof( T ) * 2> result = {};
-		auto bytes = bit_cast<std::array<uint8_t, sizeof(T)>>( value );
-		for ( size_t n = 0; n != sizeof( T ); n++ )
-			print_hex_digit( &result[ n * 2 ], bytes[ n ] );
-		return result;
 	}
 
 	// Returns the hexdump of the given range according to the configuration.

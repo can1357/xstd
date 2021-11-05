@@ -2,6 +2,7 @@
 #include "intrinsics.hpp"
 #include <algorithm>
 #include <bit>
+#include <array>
 
 // [Configuration]
 // XSTD_VECTOR_EXT: Enables compiler support for vector extensions, by default detects clang support.
@@ -254,6 +255,31 @@ namespace xstd
 	//
 	namespace vec
 	{
+		// Vector from array.
+		//
+		template<typename T, size_t N>
+		FORCE_INLINE constexpr xvec<T, N> from_arr( std::array<T, N> arr )
+		{
+			if constexpr ( sizeof( xvec<T, N> ) == sizeof( std::array<T, N> ) )
+				return std::bit_cast< xvec<T, N> >( arr );
+		
+			xvec<T, N> vec = {};
+			for ( size_t i = 0; i != N; i++ )
+				vec[ i ] = arr[ i ];
+			return vec;
+		}
+		template<typename T, size_t N>
+		FORCE_INLINE constexpr std::array<T, N> to_arr( xvec<T, N> vec )
+		{
+			if constexpr ( sizeof( xvec<T, N> ) == sizeof( std::array<T, N> ) )
+				return std::bit_cast< std::array<T, N> >( vec );
+		
+			std::array<T, N> arr = {};
+			for ( size_t i = 0; i != N; i++ )
+				arr[ i ] = vec[ i ];
+			return arr;
+		}
+
 		// std::size equivalent for vector types.
 		//
 		template<typename T, size_t N>
