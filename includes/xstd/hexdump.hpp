@@ -20,9 +20,9 @@ namespace xstd::fmt
 	// Prints a singular hexadecimal digit to the buffer given.
 	//
 	template<typename C>
-	inline static constexpr void print_hex_digit( C* out, uint8_t value, bool uppercase = false )
+	FORCE_INLINE inline constexpr void print_hex_digit( C* out, uint8_t value, bool uppercase = false )
 	{
-		auto print = [ base = ( uppercase ? 'A' : 'a' ) ](uint8_t digit)
+		auto print = [ base = ( uppercase ? 'A' : 'a' ) ] (uint8_t digit) FORCE_INLINE
 		{
 			return digit >= 9 ? ( base + digit - 10 ) : digit + '0';
 		};
@@ -33,38 +33,37 @@ namespace xstd::fmt
 	// Optimized hexdump for constant size input with no configuration.
 	//
 	template<bool Uppercase, typename T>
-	FORCE_INLINE inline constexpr xvec<char, 2 * sizeof( T )> print_hex( const T& data )
+	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data )
 	{
 		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
-		constexpr size_t N = sizeof( T );
 
-		auto x = vec::cast<uint16_t, uint8_t, N>( vec::from_arr( as_bytes( data ) ) );
+		auto x = vec::cast<uint16_t>( vec::from( as_bytes( data ) ) );
 		x |= ( x << 12 );
 		x >>= 4;
 		x &= 0x0F0F;
 
-		auto chars = ( xvec<char, N * 2> ) x;
+		auto chars = vec::bytes( x );
 		chars += '0';
 		chars += ( chars > '9' ) & K;
-		return chars;
+		return chars.to_array();
 	}
 	template<typename T>
-	inline static constexpr std::array<char, 2 * sizeof( T )> cexpr_hex_dump( const T& value )
+	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> as_hex_array( const T& value )
 	{
-		return vec::to_arr( print_hex<true>( value ) );
+		return print_hex<true>( value );
 	}
 	template<typename T>
-	inline static std::string const_hex_dump( const T& value )
+	FORCE_INLINE inline std::string as_hex_string( const T& value )
 	{
 		std::string out( sizeof( T ) * 2, '\x0' );
-		store_misaligned( out.data(), cexpr_hex_dump( value ) );
+		store_misaligned( out.data(), print_hex<true>( value ) );
 		return out;
 	}
 
 	// Returns the hexdump of the given range according to the configuration.
 	//
 	template<Iterable C> requires ( sizeof( iterable_val_t<C> ) == 1 )
-	inline static std::string hex_dump( C&& container, hex_dump_config cfg = {} )
+	inline std::string hex_dump( C&& container, hex_dump_config cfg = {} )
 	{
 		// Calculate container limits and normalize row length.
 		//
@@ -127,7 +126,7 @@ namespace xstd::fmt
 		}
 		return result;
 	}
-	inline static std::string hex_dump( xstd::any_ptr p, size_t n, hex_dump_config cfg = {} )
+	inline std::string hex_dump( xstd::any_ptr p, size_t n, hex_dump_config cfg = {} )
 	{
 		return hex_dump( std::string_view{ ( const char* ) p, n }, cfg );
 	}

@@ -112,7 +112,7 @@ namespace xstd::fmt
 
 		// Dump to a char array.
 		//
-		auto chars = cexpr_hex_dump( bswap( x ) );
+		auto chars = as_hex_array( bswap( x ) );
 
 		// If leading zeroes requested, simply store the vector.
 		//
@@ -355,7 +355,7 @@ namespace xstd::fmt
 	{
 		FORCE_INLINE inline std::string operator()( xvec<T, N> value ) const
 		{
-			return as_string( vec::to_arr( value ) );
+			return as_string( value.to_array() );
 		}
 	};
 
@@ -450,7 +450,7 @@ namespace xstd::fmt
 		else if constexpr ( Pointer<base_type> )
 		{
 			using E = typename std::pointer_traits<base_type>::element_type;
-			if constexpr ( !Pointer<E> && StringConvertible<E> )
+			if constexpr ( !Pointer<std::decay_t<E>> && StringConvertible<E> )
 			{
 				if ( x ) return as_string( *x );
 				else     return std::string{ "nullptr" };

@@ -205,7 +205,7 @@ namespace xstd
 
 		// Conversion to human-readable format.
 		//
-		std::string to_string() const { return fmt::const_hex_dump( digest() ); }
+		std::string to_string() const { return fmt::as_hex_string( digest() ); }
 
 		// Basic comparison operators.
 		//
