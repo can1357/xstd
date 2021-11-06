@@ -53,6 +53,16 @@ namespace xstd
 	using native_vector = std::array<T, std::bit_ceil(N)>;
 #endif
 
+	// Comparison result helper.
+	//
+	namespace impl
+	{
+		template<typename T> struct comparison_unit;
+		template<typename T> requires ( sizeof( T ) == 1 ) struct comparison_unit<T> { using type = char; };
+		template<typename T> requires ( sizeof( T ) == 2 ) struct comparison_unit<T> { using type = int16_t; };
+		template<typename T> requires ( sizeof( T ) == 4 ) struct comparison_unit<T> { using type = int32_t; };
+		template<typename T> requires ( sizeof( T ) == 8 ) struct comparison_unit<T> { using type = int64_t; };
+	};
 	// Sequence helpers.
 	//
 	namespace impl
@@ -232,26 +242,28 @@ namespace xstd
 			for ( size_t i = 0; i != N; i++ )														\
 				_data[ i ] Opa other;																	\
 			return *this;																					\
-		}																										
+		}
+
+		using cmp_t = xvec<typename impl::comparison_unit<T>::type, N>;
 #define __DECLARE_COMPARISON(Op, Req)												      		\
-		FORCE_INLINE constexpr xvec operator Op( const xvec& other ) const Req	      \
+		FORCE_INLINE constexpr cmp_t operator Op( const xvec& other ) const Req	      \
 		{																										\
 			if constexpr ( XSTD_VECTOR_EXT )															\
 				if ( !std::is_constant_evaluated() )												\
-					return xvec( std::in_place_t{}, _nat Op other._nat );						\
-			xvec result = {};																				\
+					return cmp_t( std::in_place_t{}, _nat Op other._nat );					\
+			cmp_t result = {};																			\
 			for ( size_t i = 0; i != N; i++ )														\
-				result._data[ i ] = ( _data[ i ] Op other[ i ] ) ? T( -1 ) : T( 0 );		\
+				result._data[ i ] = ( _data[ i ] Op other[ i ] ) ? -1 : 0;			      \
 			return result;																					\
 		}																										\
-		FORCE_INLINE constexpr xvec operator Op( T other ) const Req					   \
+		FORCE_INLINE constexpr cmp_t operator Op( T other ) const Req					   \
 		{																										\
 			if constexpr ( XSTD_VECTOR_EXT )															\
 				if ( !std::is_constant_evaluated() )												\
-					return xvec( std::in_place_t{}, _nat Op other );							\
-			xvec result = {};																				\
+					return cmp_t( std::in_place_t{}, _nat Op other );							\
+			cmp_t result = {};																			\
 			for ( size_t i = 0; i != N; i++ )														\
-				result._data[ i ] = ( _data[ i ] Op other ) ? T( -1 ) : T( 0 );			\
+				result._data[ i ] = ( _data[ i ] Op other ) ? -1 : 0;			            \
 			return result;																					\
 		}																										
 

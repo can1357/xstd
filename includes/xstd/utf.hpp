@@ -266,11 +266,12 @@ namespace xstd
 			{
 				// Consume ASCII as SIMD.
 				//
-				using V = max_vec_t<convert_uint_t<C>>;
+				using U = convert_uint_t<C>;
+				using V = max_vec_t<U>;
 				if ( view.size() >= V::Length )
 				{
 					auto value = load_misaligned<V>( view.data() );
-					if ( ( value > 0x80 ).is_zero() )
+					if ( ( value > U( 0x80 ) ).is_zero() )
 					{
 						store_misaligned( out, vec::cast<D>( value ) );
 						out += V::Length;
