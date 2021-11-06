@@ -59,7 +59,7 @@ namespace xstd
 		}
 		FORCE_INLINE bool try_lock_shared()
 		{
-			uint16_t value = counter.load();
+			uint16_t value = counter.load( std::memory_order::relaxed );
 			while ( value < ( UINT16_MAX - 1 ) )
 			{
 				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
@@ -100,7 +100,7 @@ namespace xstd
 				// Yield the CPU until the exclusive lock is gone.
 				//
 				uint16_t value;
-				while ( ( value = counter.load() ) >= ( UINT16_MAX - 1 ) ) [[unlikely]]
+				while ( ( value = counter.load( std::memory_order::relaxed ) ) >= ( UINT16_MAX - 1 ) ) [[unlikely]]
 					yield_cpu();
 
 				// Try incrementing share count.
@@ -145,7 +145,7 @@ namespace xstd
 		FORCE_INLINE bool try_lock()
 		{
 			uint32_t cid = get_cid();
-			uint64_t expected = value.load();
+			uint64_t expected = value.load( std::memory_order::relaxed );
 			while ( true )
 			{
 				auto [owner, depth] = split( expected );
@@ -165,7 +165,7 @@ namespace xstd
 		FORCE_INLINE void lock()
 		{
 			uint32_t cid = get_cid();
-			uint64_t expected = value.load();
+			uint64_t expected = value.load( std::memory_order::relaxed );
 			auto [owner, depth] = split( expected );
 			if ( owner == cid && depth )
 			{
@@ -186,14 +186,14 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			auto [owner, depth] = split( value.load() );
+			auto [owner, depth] = split( value.load( std::memory_order::relaxed ) );
 			dassert( depth && owner == get_cid() );
 			--depth;
 			value.store( combine( depth ? owner : 0, depth ), std::memory_order::release );
 		}
 		FORCE_INLINE bool locked() const
 		{
-			return value.load() != 0;
+			return value.load( std::memory_order::relaxed ) != 0;
 		}
 	};
 	namespace impl { inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); }; };

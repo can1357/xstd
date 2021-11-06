@@ -88,12 +88,12 @@ namespace xstd
 
 			// Load the intial number of bytes produced.
 			//
-			size_t lp = producer_tail.load();
+			size_t lp = producer_tail.load( std::memory_order::relaxed );
 			while ( true )
 			{
 				// Load the last consumed byte, calculate the free spaces left.
 				//
-				size_t lc = consumer_head.load();
+				size_t lc = consumer_head.load( std::memory_order::relaxed );
 				size_t free = ( lc - lp ) % N;
 
 				// If there is enough space, return the position.
@@ -128,8 +128,8 @@ namespace xstd
 		//
 		std::pair<size_t, size_t> peek()
 		{
-			size_t lp = producer_tail.load();
-			size_t lc = consumer_head.load();
+			size_t lp = producer_tail.load( std::memory_order::relaxed );
+			size_t lc = consumer_head.load( std::memory_order::relaxed );
 			size_t length = ( lp - lc - 1 ) % N;
 			return { lc + 1, length };
 		}

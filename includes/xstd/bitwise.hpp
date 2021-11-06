@@ -246,7 +246,7 @@ namespace xstd
 			}
 #endif
 			auto& ref = *( std::atomic<U>* ) &value;
-			U value = ref.load();
+			U value = ref.load( std::memory_order::relaxed );
 			while ( !ref.compare_exchange_strong( value, value | ( U(1) << n ) ) );
 			return value & ( U(1) << n );
 		}
@@ -337,7 +337,7 @@ namespace xstd
 			}
 #endif
 			auto& ref = *( std::atomic<U>* ) &value;
-			U value = ref.load();
+			U value = ref.load( std::memory_order::relaxed );
 			while ( !ref.compare_exchange_strong( value, value & ~( U(1) << n ) ) );
 			return value & ( U(1) << n );
 		}
@@ -424,7 +424,7 @@ namespace xstd
 			}
 #endif
 			auto& ref = *( std::atomic<U>* ) &value;
-			U value = ref.load();
+			U value = ref.load( std::memory_order::relaxed );
 			while ( !ref.compare_exchange_strong( value, value ^ ( U(1) << n ) ) );
 			return value & ( U(1) << n );
 		}

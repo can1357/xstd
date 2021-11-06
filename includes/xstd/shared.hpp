@@ -40,12 +40,12 @@ namespace xstd
 			//
 			inline void inc_ref()
 			{
-				dassert( strong_ref_count.load() > 0 );
+				dassert( strong_ref_count.load( std::memory_order::relaxed ) > 0 );
 				++strong_ref_count;
 			}
 			inline void dec_ref()
 			{
-				dassert( strong_ref_count.load() > 0 );
+				dassert( strong_ref_count.load( std::memory_order::relaxed ) > 0 );
 				if ( !--strong_ref_count )
 				{
 					value.reset();
@@ -55,12 +55,12 @@ namespace xstd
 			}
 			inline void inc_weak_ref()
 			{
-				dassert( strong_ref_count.load() > 0 || weak_ref_count.load() > 0 );
+				dassert( strong_ref_count.load( std::memory_order::relaxed ) > 0 || weak_ref_count.load( std::memory_order::relaxed ) > 0 );
 				++weak_ref_count;
 			}
 			inline void dec_weak_ref()
 			{
-				dassert( weak_ref_count.load() > 0 );
+				dassert( weak_ref_count.load( std::memory_order::relaxed ) > 0 );
 				if ( !--weak_ref_count && !strong_ref_count )
 					delete this;
 			}
@@ -141,11 +141,11 @@ namespace xstd
 
 		// Simple observers.
 		//
-		inline size_t use_count() const { return entry ? entry->strong_ref_count.load() : 0; }
+		inline size_t use_count() const { return entry ? entry->strong_ref_count.load( std::memory_order::relaxed ) : 0; }
 		inline size_t ref_count() const
 		{
 			if ( !entry ) return 0;
-			uint64_t combined_count = ( ( std::atomic<uint64_t>* ) &entry->strong_ref_count )->load();
+			uint64_t combined_count = ( ( std::atomic<uint64_t>* ) &entry->strong_ref_count )->load( std::memory_order::relaxed );
 			return uint32_t( combined_count >> 32 ) + uint32_t( combined_count );
 		}
 		inline constexpr bool alive() const { return entry; }
@@ -288,21 +288,21 @@ namespace xstd
 
 		// Simple observers.
 		//
-		inline size_t use_count() const { return entry ? entry->strong_ref_count.load() : 0; }
+		inline size_t use_count() const { return entry ? entry->strong_ref_count.load( std::memory_order::relaxed ) : 0; }
 		inline size_t ref_count() const
 		{
 			if ( !entry ) return 0;
-			uint64_t combined_count = ( ( std::atomic<uint64_t>* ) &entry->strong_ref_count )->load();
+			uint64_t combined_count = ( ( std::atomic<uint64_t>* ) &entry->strong_ref_count )->load( std::memory_order::relaxed );
 			return uint32_t( combined_count >> 32 ) + uint32_t( combined_count );
 		}
-		inline constexpr bool alive() const { return entry && entry->strong_ref_count.load() != 0; }
+		inline constexpr bool alive() const { return entry && entry->strong_ref_count.load( std::memory_order::relaxed ) != 0; }
 		inline constexpr explicit operator bool() const { return alive(); }
 
 		// Upgrading to shared reference.
 		//
 		inline shared<T> lock() const
 		{
-			if ( entry && entry->strong_ref_count.load() != 0 )
+			if ( entry && entry->strong_ref_count.load( std::memory_order::relaxed ) != 0 )
 			{
 				entry->inc_ref();
 				return shared<T>{ entry };

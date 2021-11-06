@@ -20,8 +20,8 @@ namespace xstd
 
 		// Allow copy construction and assignment.
 		//
-		relaxed_atomic( const relaxed_atomic& o ) : base_type( o.load() ) {}
-		relaxed_atomic& operator=( const relaxed_atomic& o ) { base_type::operator=( o.load() ); return *this; }
+		relaxed_atomic( const relaxed_atomic& o ) : base_type( o.load( std::memory_order::relaxed ) ) {}
+		relaxed_atomic& operator=( const relaxed_atomic& o ) { base_type::operator=( o.load( std::memory_order::relaxed ) ); return *this; }
 	};
 	template<typename T>
 	struct relaxed_mutex : T

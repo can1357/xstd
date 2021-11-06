@@ -57,7 +57,7 @@ namespace xstd
 			std::unique_lock _g2{ other.lock };
 			std::swap( space, other.space );
 			std::swap( limit, other.limit );
-			other.counter = counter.exchange( other.counter.load() );
+			other.counter = counter.exchange( other.counter.load( std::memory_order::relaxed ) );
 		}
 
 		// Observers.
@@ -138,7 +138,7 @@ namespace xstd
 
 			// Allocate a slot.
 			//
-			size_t n = counter.load();
+			size_t n = counter.load( std::memory_order::relaxed );
 			while ( true )
 			{
 				if ( ( n + c ) > limit )

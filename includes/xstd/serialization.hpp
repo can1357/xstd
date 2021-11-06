@@ -310,7 +310,7 @@ namespace xstd
 	{
 		static void apply( serialization& ctx, const T& value )
 		{
-			return serialize( ctx, value.load() );
+			return serialize( ctx, value.load( std::memory_order::relaxed ) );
 		}
 		static T reflect( serialization& ctx )
 		{

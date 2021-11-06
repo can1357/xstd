@@ -85,7 +85,7 @@ namespace xstd
 				std::destroy_at( std::exchange( ptr, nullptr ) );
 			return n;
 		}
-		size_t ref_count() const { return ptr->ref_count.load(); }
+		size_t ref_count() const { return ptr->ref_count.load( std::memory_order::relaxed ); }
 
 		// Dec-ref on destroy.
 		//
