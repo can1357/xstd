@@ -403,32 +403,36 @@ namespace xstd
 			return result;
 		}
 
-		// Vector zero comparison.
+		// Vector test as byte.
 		//
-		FORCE_INLINE constexpr bool is_zero() const noexcept
+		FORCE_INLINE constexpr bool testz( const xvec& other ) const noexcept
 		{
 			if ( !std::is_constant_evaluated() )
 			{
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz128 )
 				if constexpr ( sizeof( _nat ) == 16 )
-					return ( bool ) __builtin_ia32_ptestz128( ( native_vector<char, 16> ) _nat, ( native_vector<char, 16> ) _nat );
+					return ( bool ) __builtin_ia32_ptestz128( ( native_vector<char, 16> ) _nat, ( native_vector<char, 16> ) other._nat );
 #endif
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz256 )
 				if constexpr ( sizeof( _nat ) == 32 )
-					return ( bool ) __builtin_ia32_ptestz256( ( native_vector<char, 32> ) _nat, ( native_vector<char, 32> ) _nat );
+					return ( bool ) __builtin_ia32_ptestz256( ( native_vector<char, 32> ) _nat, ( native_vector<char, 32> ) other._nat );
 #endif
 			}
 
-			auto b = bytes();
+			auto bm = bytes() & other.bytes();
 			bool result = true;
-			for ( size_t i = 0; i != N; i++ )
-				result &= b._data[ i ] == 0;
+			for ( size_t i = 0; i != ByteLength; i++ )
+				result &= bm._data[ i ] == 0;
 			return result;
 		}
 
+		// Vector zero comparison.
+		//
+		FORCE_INLINE constexpr bool is_zero() const noexcept { return testz( *this ); }
+
 		// Creates a mask made up of the most significant bit of each byte.
 		//
-		FORCE_INLINE constexpr auto bmask() const noexcept requires ( ByteLength <= 64 )
+		FORCE_INLINE constexpr uint32_t bmask() const noexcept requires ( ByteLength <= 32 )
 		{
 			auto byte_vec = bytes();
 
@@ -436,17 +440,15 @@ namespace xstd
 			//
 			if constexpr ( ByteLength == 1 )
 			{
-				return uint8_t( byte_vec.at( 0 ) ) >> 7;
+				return uint32_t( uint8_t( byte_vec.at( 0 ) ) >> 7 );
 			}
 			else if constexpr ( ByteLength == 16 || ByteLength == 32 )
 			{
-				using R = std::conditional_t<( ByteLength == 16 ), uint16_t, uint32_t>;
-
 				if ( !std::is_constant_evaluated() )
 				{
 #if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
 					if constexpr ( ByteLength == 16 )
-						return ( uint16_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
+						return ( uint32_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
 #endif
 #if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb256 )
 					if constexpr ( ByteLength == 32 )
@@ -454,28 +456,28 @@ namespace xstd
 #endif
 				}
 
-				R result = 0;
+				uint32_t result = 0;
 				for ( size_t i = 0; i != ByteLength; i++ )
-					result |= R( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
+					result |= ( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
 				return result;
 			}
 			// Fix odd sizes.
 			//
 			else if constexpr ( ByteLength < 16 )
-				return byte_vec.template resize<16>().bmask();
-			else if constexpr ( ByteLength < 32 )
-				return byte_vec.template resize<32>().bmask();
-			// Split up calculation for > u32.
-			//
+				return ( uint32_t ) byte_vec.template resize<16>().bmask();
 			else
-			{
-				auto low =  byte_vec.template slice<0, 32>();
-				auto high = byte_vec.template slice<32, 32>();
+				return ( uint32_t ) byte_vec.template resize<32>().bmask();
+		}
+		// - Split up calculation for > u32.
+		FORCE_INLINE constexpr uint16_t bmask() const noexcept requires ( 32 < ByteLength && ByteLength <= 64 )
+		{
+			auto byte_vec = bytes();
+			auto low =  byte_vec.template slice<0, 32>();
+			auto high = byte_vec.template slice<32, 32>();
 
-				uint64_t result = low.bmask();
-				result |= uint64_t( high.bmask() ) << 32;
-				return result;
-			}
+			uint64_t result = low.bmask();
+			result |= uint64_t( high.bmask() ) << 32;
+			return result;
 		}
 
 		// Creates a mask made up of the most significant bit of each element(!).

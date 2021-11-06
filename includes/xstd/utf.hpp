@@ -257,26 +257,34 @@ namespace xstd
 		std::basic_string<To> result = {};
 		result.resize( view.size() * codepoint_cvt<To>::max_out );
 		To* out = result.data();
+
 		while ( !view.empty() )
 		{
 			// Consume ASCII as SIMD.
 			//
 			constexpr size_t Lanes = XSTD_SIMD_WIDTH / std::max<size_t>( sizeof( From ), sizeof( To ) );
-			
-			using U = convert_uint_t<From>;
-			using V = xvec<U, Lanes>;
+			using V = xvec<convert_uint_t<From>, Lanes>;
 			if ( view.size() >= V::Length ) [[likely]]
 			{
+				// Convert assuming ASCII.
+				//
 				auto value = load_misaligned<V>( view.data() );
-				if ( ( value > U( 0x80 ) ).is_zero() ) [[likely]]
+				auto result = vec::cast<To>( value );
+				store_misaligned( out, result );
+
+				// If it did contain only ASCII, continue iterators.
+				//
+				bool was_ascii = ( sizeof( To ) > sizeof( From ) )
+					? ( ( result >> 7 ).is_zero() )
+					: ( ( value >> 7 ).is_zero() );
+				if ( was_ascii ) [[likely]]
 				{
-					store_misaligned( out, vec::cast<To>( value ) );
 					out += V::Length;
 					view.remove_prefix( V::Length );
 					continue;
 				}
 			}
-
+			
 			codepoint_cvt<To>::encode( codepoint_cvt<From>::decode( view ), out );
 		}
 		result.resize( out - result.data() );
