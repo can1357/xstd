@@ -593,11 +593,11 @@ namespace xstd
 	concept Duration = is_specialization_v<std::chrono::duration, T>;
 	template<typename T>
 	concept Timestamp = is_specialization_v<std::chrono::time_point, T>;
-    
+	 
 	// XSTD traits, Tiable types have a mutable functor called tie which returns a list of members tied.
-    // => std::tuple<&...> T::tie()
-    //
-    template<typename T> concept Tiable = requires( T& x ) { x.tie(); };
+	// => std::tuple<&...> T::tie()
+	//
+	template<typename T> concept Tiable = requires( T& x ) { x.tie(); };
 
 	// Constructs a static constant given the type and parameters, returns a reference to it.
 	//
@@ -906,15 +906,15 @@ namespace xstd
 
 	// Wrapper around assume aligned builtin.
 	//
-    template<size_t N, typename T> requires ( Pointer<T> || Same<T, any_ptr> )
+	template<size_t N, typename T> requires ( Pointer<T> || Same<T, any_ptr> )
 	FORCE_INLINE inline constexpr T assume_aligned( T ptr )
-    {
+	{
 #if __has_builtin(__builtin_assume_aligned)
-        if ( !std::is_constant_evaluated() )
+		if ( !std::is_constant_evaluated() )
 			return T( __builtin_assume_aligned( ( const void* ) ptr, N ) );
 #endif
-        return ptr;
-    }
+		return ptr;
+	}
 
 	// Implement helpers for basic series creation.
 	//
@@ -1373,46 +1373,28 @@ namespace xstd
 	// Misaligned memory helpers.
 	//
 	template<typename T>
-	FORCE_INLINE inline constexpr T load_misaligned( const T* p )
+	FORCE_INLINE inline T load_misaligned( const void* p )
 	{
-		if ( std::is_constant_evaluated() )
-		{
-			return *p;
-		}
-		else
-		{
 #if GNU_COMPILER
-			struct wrapper { T value; } __attribute__( ( packed ) );
-			return ( ( const wrapper* ) p )->value;
+		struct wrapper { T value; } __attribute__((packed));
+		return ( ( const wrapper* ) p )->value;
 #else
-			using wrapper = std::array<char, sizeof( T )>;
-			return bit_cast< T >( *( const wrapper* ) p );
+		using wrapper = std::array<char, sizeof( T )>;
+		return bit_cast< T >( *( const wrapper* ) p );
 #endif
-		}
 	}
-	template<typename T>
-	FORCE_INLINE inline T load_misaligned( const void* p ) { return load_misaligned<T>( ( const T* ) p ); }
 
 	template<typename T>
-	FORCE_INLINE inline constexpr void store_misaligned( T* p, T r )
+	FORCE_INLINE inline void store_misaligned( void* p, T r )
 	{
-		if ( std::is_constant_evaluated() )
-		{
-			*p = r;
-		}
-		else
-		{
 #if GNU_COMPILER
-			struct wrapper { T value; } __attribute__( ( packed ) );
-			( ( wrapper* ) p )->value = r;
+		struct wrapper { T value; } __attribute__((packed));
+		( ( wrapper* ) p )->value = r;
 #else
-			using wrapper = std::array<char, sizeof( T )>;
-			*( wrapper* ) p = bit_cast< wrapper >( r );
+		using wrapper = std::array<char, sizeof( T )>;
+		*( wrapper* ) p = bit_cast< wrapper >( r );
 #endif
-		}
 	}
-	template<typename T>
-	FORCE_INLINE inline void store_misaligned( const void* p, T r ) { return store_misaligned<T>( ( T* ) p, r ); }
 };
 
 // Expose literals.

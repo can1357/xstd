@@ -44,10 +44,10 @@ namespace xstd
 	//
 #if XSTD_VECTOR_EXT && defined(__clang__)
 	template<typename T, size_t N>
-	using native_vector = T  __attribute__((ext_vector_type(N)));
+	using native_vector = T  __attribute__((ext_vector_type(N), __aligned__(1)));
 #elif XSTD_VECTOR_EXT
 	template <typename T, size_t N>
-	using native_vector [[gnu::vector_size(sizeof(T[N]))]] = T;
+	using native_vector [[gnu::aligned(1), gnu::vector_size(sizeof(T[N]))]] = T;
 #else
 	template <typename T, size_t N>
 	using native_vector = std::array<T, std::bit_ceil(N)>;
@@ -102,7 +102,7 @@ namespace xstd
 	template<size_t N1, size_t Offset, size_t Count> constexpr auto make_slice_sequence() { return impl::make_slice_sequence<Offset, N1, (Offset+Count)>(); }
 
 	template<Arithmetic T, size_t N>
-	union alignas( native_vector<T, N> ) xvec
+	union xvec
 	{
 		static constexpr size_t Length = N;
 		static constexpr size_t ByteLength = sizeof( T ) * N;

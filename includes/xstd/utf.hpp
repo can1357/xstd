@@ -244,47 +244,43 @@ namespace xstd
 
 	// Generic conversion.
 	//
-	template<typename C, String S>
-	inline static std::basic_string<C> utf_convert( S&& in )
+	template<typename To, String S>
+	inline static std::basic_string<To> utf_convert( S&& in )
 	{
-		using D = string_unit_t<S>;
+		using From = string_unit_t<S>;
+		if constexpr ( Same<From, To> )
+			return std::basic_string<To>{ std::forward<S>( in ) };
 
-		if constexpr ( Same<C, D> )
+		// Reserve the limit size.
+		//
+		string_view_t<S> view = { in };
+		std::basic_string<To> result = {};
+		result.resize( view.size() * codepoint_cvt<To>::max_out );
+		To* out = result.data();
+		while ( !view.empty() )
 		{
-			return std::basic_string<C>{ std::forward<S>( in ) };
-		}
-		else
-		{
-			string_view_t<S> view = { in };
-
-			// Reserve an estimate size.
+			// Consume ASCII as SIMD.
 			//
-			std::basic_string<C> result = {};
-			result.resize( view.size() * codepoint_cvt<C>::max_out );
-			C* out = result.data();
-			while ( !view.empty() )
+			constexpr size_t Lanes = XSTD_SIMD_WIDTH / std::max<size_t>( sizeof( From ), sizeof( To ) );
+			
+			using U = convert_uint_t<From>;
+			using V = xvec<U, Lanes>;
+			if ( view.size() >= V::Length ) [[likely]]
 			{
-				// Consume ASCII as SIMD.
-				//
-				using U = convert_uint_t<C>;
-				using V = max_vec_t<U>;
-				if ( view.size() >= V::Length )
+				auto value = load_misaligned<V>( view.data() );
+				if ( ( value > U( 0x80 ) ).is_zero() ) [[likely]]
 				{
-					auto value = load_misaligned<V>( view.data() );
-					if ( ( value > U( 0x80 ) ).is_zero() )
-					{
-						store_misaligned( out, vec::cast<D>( value ) );
-						out += V::Length;
-						view.remove_prefix( V::Length );
-						continue;
-					}
+					store_misaligned( out, vec::cast<To>( value ) );
+					out += V::Length;
+					view.remove_prefix( V::Length );
+					continue;
 				}
-
-				codepoint_cvt<C>::encode( codepoint_cvt<D>::decode( view ), out );
 			}
-			result.resize( out - result.data() );
-			return result;
+
+			codepoint_cvt<To>::encode( codepoint_cvt<From>::decode( view ), out );
 		}
+		result.resize( out - result.data() );
+		return result;
 	}
 
 	// UTF aware string-length calculation.
@@ -292,11 +288,12 @@ namespace xstd
 	template<String S>
 	inline static constexpr size_t utf_length( S&& in )
 	{
-		using D = string_unit_t<S>;
+		using C = string_unit_t<S>;
+		
 		string_view_t<S> view = { in };
 		size_t n = 0;
 		while ( !view.empty() )
-			codepoint_cvt<D>::decode( view ), n++;
+			codepoint_cvt<C>::decode( view ), n++;
 		return n;
 	}
 }
