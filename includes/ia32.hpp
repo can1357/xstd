@@ -21570,6 +21570,16 @@ typedef union
 #define EFER_LMSLE                      (1ull << 13) /* Long Mode Segment Limit Enable */
 #define EFER_FFXSR                      (1ull << 14) /* Fast FXSAVE/FXRSTOR */
 #define EFER_TCE                        (1ull << 15) /* Translation Cache Extension */
+// LBR selection
+#define IA32_LBR_SELECT 0x1C8
+// TSX control
+#define IA32_TSX_CTRL          0x122
+#define TSX_CTRL_DISABLE_RTM   (1<<0)
+#define TSX_CTRL_RTM_HLE_CLEAR (1<<1)
+#define IA32_TSX_FORCE_ABORT   0x10f
+#define TSX_FA_FORCE_ABORT_RTM (1<<0)
+#define TSX_FA_TSX_CPUID_CLEAR (1<<1)
+#define TSX_FA_SDV_ENABLE_RTM  (1<<2)
 
 // Fixed versions of some structures and some missing ones.
 //
