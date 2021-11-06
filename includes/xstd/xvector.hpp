@@ -407,6 +407,12 @@ namespace xstd
 		//
 		FORCE_INLINE constexpr bool testz( const xvec& other ) const noexcept
 		{
+			if constexpr ( sizeof( _data ) == 1 || sizeof( _data ) == 2 || sizeof( _data ) == 4 || sizeof( _data ) == 8 )
+			{
+				using U = convert_uint_t<decltype( _data )>;
+				return !( bit_cast<U>( _data ) & bit_cast<U>( other._data ) );
+			}
+
 			if ( !std::is_constant_evaluated() )
 			{
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz128 )
