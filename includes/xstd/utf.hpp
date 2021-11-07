@@ -56,6 +56,33 @@ namespace xstd
 			auto write = [ & ] <auto I> ( const_tag<I> ) FORCE_INLINE
 			{
 				auto p = out;
+				
+#if GNU_COMPILER && AMD64_TARGET
+				if ( !std::is_constant_evaluated() )
+				{
+					uint32_t tmp = bit_pdep<uint32_t>( cp, 0b00000111'00111111'00111111'00111111 );
+					tmp |= 0x80808080 | fill_bits( I, 8 - I + 8 * ( I - 1 ) );
+
+					// BSWAP here since we do not depend on the result.
+					//
+					if constexpr ( I == 4 )
+					{
+						*( uint32_t* ) &out[ 0 ] = bswapd( tmp );
+					}
+					else if constexpr ( I == 3 )
+					{
+						out[ 0 ] = uint8_t( tmp >> 16 );
+						*( uint16_t* ) &out[ 1 ] = bswapw( tmp );
+					}
+					else
+					{
+						*( uint16_t* ) &out[ 0 ] = bswapw( tmp );
+					}
+
+					out += I;
+					return;
+				}
+#endif
 				for ( size_t i = 0; i != I; i++ )
 				{
 					uint8_t flag = i ? 0x80 : fill_bits( I, 8 - I );
@@ -63,6 +90,7 @@ namespace xstd
 					value &= fill_bits( i ? 6 : 7 - I );
 					p[ i ] = ( T ) uint8_t( flag | value );
 				}
+
 				out += I;
 			};
 
@@ -89,7 +117,38 @@ namespace xstd
 					in.remove_prefix( in.size() );
 					return 0;
 				}
-
+				
+#if GNU_COMPILER && AMD64_TARGET
+				if ( !std::is_constant_evaluated() )
+				{
+					// Do not use BSWAP here to avoid dependency on it via PEXT.
+					//
+					uint32_t pext_mask, tmp;
+					if constexpr ( I == 4 )
+					{
+						pext_mask = 0b00000111'00111111'00111111'00111111;
+						tmp =  uint32_t( ( uint8_t ) front )   << 24;
+						tmp |= uint32_t( ( uint8_t ) in[ 1 ] ) << 16;
+						tmp |= uint32_t( ( uint8_t ) in[ 2 ] ) << 8;
+						tmp |= uint32_t( ( uint8_t ) in[ 3 ] ) << 0;
+					}
+					else if constexpr ( I == 3 )
+					{
+						pext_mask = 0b00000000'00001111'00111111'00111111;
+						tmp =  uint32_t( ( uint8_t ) front )   << 16;
+						tmp |= uint32_t( ( uint8_t ) in[ 1 ] ) << 8;
+						tmp |= uint32_t( ( uint8_t ) in[ 2 ] ) << 0;
+					}
+					else
+					{
+						pext_mask = 0b00000000'00000000'00011111'00111111;
+						tmp =  uint32_t( ( uint8_t ) front )   << 8;
+						tmp |= uint32_t( ( uint8_t ) in[ 1 ] ) << 0;
+					}
+					in.remove_prefix( I );
+					return bit_pext( tmp, pext_mask );
+				}
+#endif
 				uint32_t cp = ( front & fill_bits( 7 - I ) ) << ( 6 * ( I - 1 ) );
 				for ( size_t i = 1; i != I; i++ )
 					cp |= uint32_t( in[ i ] & fill_bits( 6 ) ) << ( 6 * ( I - 1 - i ) );

@@ -139,7 +139,6 @@ namespace xstd
 			count += ( bitcnt_t ) ( x & 1 );
 		return count;
 	}
-
 	template<Integral T = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr bitcnt_t msb( T x )
 	{
@@ -173,7 +172,6 @@ namespace xstd
 				return i;
 		return -1;
 	}
-
 	template<Integral T = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr bitcnt_t lsb( T x )
 	{
@@ -207,7 +205,6 @@ namespace xstd
 				return i;
 		return -1;
 	}
-
 	template<typename T>
 	FORCE_INLINE static constexpr bool bit_set( T& value, bitcnt_t n )
 	{
@@ -298,7 +295,6 @@ namespace xstd
 			unreachable();
 		}
 	}
-
 	template<typename T>
 	FORCE_INLINE static constexpr bool bit_reset( T& value, bitcnt_t n )
 	{
@@ -389,7 +385,6 @@ namespace xstd
 			unreachable();
 		}
 	}
-
 	template<typename T>
 	FORCE_INLINE static constexpr bool bit_complement( T& value, bitcnt_t n )
 	{
@@ -476,7 +471,6 @@ namespace xstd
 			unreachable();
 		}
 	}
-
 	template<typename T>
 	FORCE_INLINE PURE_FN static constexpr bool bit_test( const T& value, bitcnt_t n )
 	{
@@ -568,7 +562,6 @@ namespace xstd
 			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
 		}
 	}
-
 	template<Integral I>
 	FORCE_INLINE CONST_FN static constexpr I bit_reverse( I value )
 	{
@@ -598,6 +591,56 @@ namespace xstd
 			return ( I ) u;
 		}
 #endif
+	}
+
+	// Parallel extraction/deposit.
+	//
+	template<Unsigned I>
+	FORCE_INLINE CONST_FN static constexpr I bit_pext( I value, I mask )
+	{
+#if GNU_COMPILER && AMD64_TARGET
+		if ( !std::is_constant_evaluated() )
+		{
+			if constexpr ( sizeof( I ) <= 4 )
+				return ( I ) __builtin_ia32_pext_si( value, mask );
+			else
+				return ( I ) __builtin_ia32_pext_di( value, mask );
+		}
+#endif
+
+		I result = 0;
+		for ( bitcnt_t m = ( sizeof( I ) * 8 - 1 ); m >= 0; m-- )
+		{
+			if ( mask & ( I( 1u ) << m ) )
+			{
+				result <<= 1;
+				result |= ( value >> m ) & 1;
+			}
+		}
+		return result;
+	}
+	template<Unsigned I>
+	FORCE_INLINE CONST_FN static constexpr I bit_pdep( I value, I mask )
+	{
+#if GNU_COMPILER && AMD64_TARGET
+		if ( !std::is_constant_evaluated() )
+		{
+			if constexpr ( sizeof( I ) <= 4 )
+				return ( I ) __builtin_ia32_pdep_si( value, mask );
+			else
+				return ( I ) __builtin_ia32_pdep_di( value, mask );
+		}
+#endif
+		I result = 0;
+		for ( bitcnt_t m = ( sizeof( I ) * 8 - 1 ); m >= 0; m-- )
+		{
+			if ( mask & ( I( 1u ) << m ) )
+			{
+				result <<= 1;
+				result |= ( value >> m ) & 1;
+			}
+		}
+		return result;
 	}
 
 	// Used to find a bit with a specific value in a linear memory region.
