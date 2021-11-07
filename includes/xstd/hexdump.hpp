@@ -24,7 +24,7 @@ namespace xstd::fmt
 	{
 		auto print = [ base = ( uppercase ? 'A' : 'a' ) ] (uint8_t digit) FORCE_INLINE
 		{
-			return digit >= 9 ? ( base + digit - 10 ) : digit + '0';
+			return digit >= 10 ? ( base + digit - 10 ) : digit + '0';
 		};
 		out[ 0 ] = print( value >> 4 );
 		out[ 1 ] = print( value & 0xF );

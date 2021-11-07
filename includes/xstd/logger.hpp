@@ -261,8 +261,8 @@ namespace xstd
 			return out_cnt;
 		}
 
-		template<bool has_args>
-		inline int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
+		template<bool HasArgs>
+		FORCE_INLINE inline int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
 		{
 			// If it's a message:
 			//
@@ -284,7 +284,7 @@ namespace xstd
 
 			// If string literal with no parameters, use puts instead.
 			//
-			if constexpr ( has_args )
+			if constexpr ( HasArgs )
 			{
 				va_list args;
 				va_start( args, fmt_str );

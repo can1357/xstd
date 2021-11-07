@@ -6,33 +6,6 @@
 
 namespace xstd
 {
-	namespace impl
-	{
-		template<typename In, typename Out>
-		FORCE_INLINE constexpr void overlapping_move_utf8( In src, size_t n, Out dst )
-		{
-			if ( std::is_constant_evaluated() )
-			{
-				std::copy_n( src, n, dst );
-			}
-			else
-			{
-				if ( n <= 4 ) [[likely]]
-				{
-					// [2-4]
-					*( uint16_t* ) dst = *( uint16_t* ) src;
-					*( uint16_t* ) ( dst + n - 2 ) = *( uint16_t* ) ( src + n - 2 );
-				}
-				else
-				{
-					// [5-7]
-					*( uint32_t* ) dst = *( uint32_t* ) src;
-					*( uint32_t* ) ( dst + n - 4 ) = *( uint32_t* ) ( src + n - 4 );
-				}
-			}
-		}
-	};
-
 	template<typename C>
 	struct codepoint_cvt;
 
@@ -41,25 +14,34 @@ namespace xstd
 	template<Char8 T>
 	struct codepoint_cvt<T>
 	{
-		static constexpr size_t max_out = 7;
+		//    7 bits
+		// 0xxxxxxx
+		//    5 bits  6 bits
+		// 110xxxxx 10xxxxxx
+		//    4 bits  6 bits  6 bits
+		// 1110xxxx 10xxxxxx 10xxxxxx
+		//    3 bits  6 bits  6 bits  6 bits
+		// 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+		//
+		static constexpr size_t max_out = 4;
 
-		inline static constexpr size_t length( uint32_t cp )
+		inline static constexpr uint8_t rlength( T _front )
 		{
-			// Can be encoded with a single character if MSB unset.
-			//
-			if ( cp <= 0x7F ) [[likely]]
-				return 1;
-
-			// Since the initial character encodes the length using 1*N 
-			// and a leading zero, and the extension count is always 6,
-			// characters are appended in increments of 5.
-			//
-			//    5 bits  6 bits
-			// 110xxxxx 10xxxxxx
-			//    4 bits  6 bits  6 bits
-			// 1110xxxx 10xxxxxx 10xxxxxx
-			//
-			return 1 + ( msb( cp ) - 6 + 5 ) / 5;
+			uint8_t front = uint8_t( _front );
+			uint8_t result = ( front >> 7 ) + 1;
+			result += front >= 0b11100000;
+			result += front >= 0b11110000;
+			assume( result != 0 && result < max_out );
+			return result;
+		}
+		inline static constexpr uint8_t length( uint32_t cp )
+		{
+			uint8_t result = 1;
+			result += bool( cp >> 7 );
+			result += bool( cp >> ( 5 + 6 ) );
+			result += bool( cp >> ( 4 + 6 + 6 ) );
+			assume( result != 0 && result < max_out );
+			return result;
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
@@ -70,79 +52,53 @@ namespace xstd
 				*out++ = T( cp );
 				return;
 			}
-			T* p = out;
 
-			// Fill a qword-sized array with the extension header.
-			//
-			std::array<uint8_t, 8> tmp = {};
-			tmp.fill( 0x80 );
-
-			// While the codepoint overflows the remaining bits from the,
-			// header length write 6 bit extensions.
-			//
-			auto* it = &tmp.back();
-			uint8_t max = 1 << 6;
-			while ( cp >= max )
+			auto write = [ & ] <auto I> ( const_tag<I> ) FORCE_INLINE
 			{
-				*it-- |= ( cp & fill_bits( 6 ) );
-				cp >>= 6;
-				max >>= 1;
-			}
+				auto p = out;
+				for ( size_t i = 0; i != I; i++ )
+				{
+					uint8_t flag = i ? 0x80 : fill_bits( I, 8 - I );
+					uint32_t value = cp >> 6 * ( I - i - 1 );
+					value &= fill_bits( i ? 6 : 7 - I );
+					p[ i ] = ( T ) uint8_t( flag | value );
+				}
+				out += I;
+			};
 
-			// Write the length header.
-			//
-			auto n = &tmp[ tmp.size() ] - it;
-			*it = ( cp | ( 0xFF << ( 8 - n ) ) );
-
-			// Write the data using overlapping moves.
-			//
-			impl::overlapping_move_utf8( it, n, p );
-			
-			// Increment the iterator.
-			//
-			out = p + n;
+			if ( ( cp >> 6 ) <= fill_bits( 5 ) ) [[likely]]
+				write( const_tag<2ull>{} );
+			else if ( ( cp >> 12 ) <= fill_bits( 4 ) ) [[likely]]
+				write( const_tag<3ull>{} );
+			else
+				write( const_tag<4ull>{} );
 		}
 		inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
 		{
-			// Handle single character case.
-			//
-			const T& front = in.front();
-			in.remove_prefix( 1 );
-			if ( !( front & 0x80 ) ) [[likely]]
-				return front;
-
-			// Validate the length.
-			//
-			int n = 7 - msb( ( uint8_t ) ~front );
-			if ( n >= 8 || in.size() < uint32_t( n - 1 ) ) [[unlikely]]
-				return 0;
-			in.remove_prefix( n - 1 );
-
-			// Read the data using overlapping moves.
-			//
-			std::array<uint8_t, 8> tmp = {};
-			tmp.fill( 0x80 );
-			impl::overlapping_move_utf8( &front, n, tmp.data() );
-
-			// Read the value, extract the validation bits and remove them.
-			//
-			uint64_t raw_value = std::bit_cast< uint64_t >( tmp );
-			uint64_t mask = 0x8080808080808080 | fill_bits( n, 8 - n );
-			if ( ( raw_value & mask ) != mask ) [[unlikely]]
-				return 0;
-			raw_value -= mask;
-
-			// Read each individual byte.
-			//
-			uint32_t cp = 0;
-			#pragma clang loop unroll(disable)
-			while ( --n >= 0 )
+			T front = in[ 0 ];
+			if ( int8_t( front ) >= 0 ) [[likely]]
 			{
-				cp <<= 6;
-				cp |= ( uint8_t ) raw_value;
-				raw_value >>= 8;
+				 in.remove_prefix( 1 );
+				 return front;
 			}
-			return cp;
+
+			auto read = [ & ] <auto I> ( const_tag<I> ) FORCE_INLINE -> uint32_t
+			{
+				if ( in.size() < I ) [[unlikely]]
+					return 0;
+
+				uint32_t cp = ( front & fill_bits( 7 - I ) ) << ( 6 * ( I - 1 ) );
+				for ( size_t i = 1; i != I; i++ )
+					cp |= uint32_t( in[ i ] & fill_bits( 6 ) ) << ( 6 * ( I - 1 - i ) );
+				in.remove_prefix( I );
+				return cp;
+			};
+
+			if ( uint8_t( front ) < 0b11100000 ) [[likely]]
+				return read( const_tag<2ull>{} );
+			if ( uint8_t( front ) < 0b11110000 ) [[likely]]
+				return read( const_tag<3ull>{} );
+			return read( const_tag<4ull>{} );
 		}
 		inline static constexpr uint32_t decode( const T*& in, size_t limit = max_out )
 		{
@@ -160,48 +116,68 @@ namespace xstd
 	{
 		static constexpr size_t max_out = 2;
 
-		inline static constexpr size_t length( uint32_t cp )
+		inline static constexpr uint8_t rlength( T front )
 		{
-			return cp <= 0xFFFF ? 1 : 2;
+			uint8_t result = 1 + ( ( uint16_t( front ) >> 10 ) == 0x36 );
+			assume( result != 0 && result < max_out );
+			return result;
+		}
+		inline static constexpr uint8_t length( uint32_t cp )
+		{
+			// Assuming valid codepoint outside the surrogates.
+			uint8_t result = 1 + bool( cp >> 16 );
+			assume( result != 0 && result < max_out );
+			return result;
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
 			T* p = out;
-			if ( cp <= 0xFFFF ) [[likely]]
-			{
-				*p++ = ( T ) cp;
-			}
-			else
-			{
-				cp -= 0x10000;
-				uint32_t lo = 0xD800 + ( ( cp >> 10 ) & fill_bits( 10 ) );
-				uint32_t hi = 0xDC00 + ( cp & fill_bits( 10 ) );
-				*p++ = ( T ) lo;
-				*p++ = ( T ) hi;
-			}
-			out = p;
+
+			// Save the old CP, determine length.
+			//
+			const uint16_t word_cp = uint16_t( cp );
+			const bool has_high = cp != word_cp;
+			out += has_high + 1;
+
+			// Adjust the codepoint, encode as extended.
+			//
+			cp -= 0x10000;
+			uint16_t lo = 0xD800 | uint16_t( cp >> 10 );
+			uint16_t hi = 0xDC00 | uint16_t( cp );
+
+			// Swap the beginning with 1-byte version if not extended.
+			//
+			if ( !has_high )
+				lo = word_cp;
+
+			// Write the data and return the size.
+			//
+			p[ has_high ] = T( hi );
+			p[ 0 ] = T( lo );
 		}
 		inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
 		{
-			// Handle single character case.
+			// Read the low pair, rotate.
 			//
-			uint16_t c = ( uint16_t ) in.front();
-			in.remove_prefix( 1 );
-			if ( ( c >> 10 ) != 0x36 ) [[likely]]
-				return c;
+			uint16_t lo = in[ 0 ];
+			uint16_t lo_flg = lo & fill_bits( 6, 10 );
 
 			// Read the high pair.
 			//
-			if ( in.empty() )
-				return 0;
-			uint16_t c2 = ( uint16_t ) in.front();
-			in.remove_prefix( 1 );
-			if ( ( c2 >> 10 ) != 0x37 )
-				return 0;
+			const bool has_high = lo_flg == 0xD800 && in.size() != 1;
+			uint16_t hi = in[ has_high ];
 
-			uint32_t lo = c - 0xD800;
-			uint32_t hi = c2 - 0xDC00;
-			return 0x10000 + ( hi | ( lo << 10 ) );
+			// Adjust the codepoint accordingly.
+			//
+			uint32_t cp = hi - 0xDC00 + 0x10000 - ( 0xD800 << 10 );
+			cp += lo << 10;
+			if ( !has_high )
+				cp = hi;
+
+			// Adjust the string view and return.
+			//
+			in.remove_prefix( has_high + 1 );
+			return cp;
 		}
 		inline static constexpr uint32_t decode( const T*& in, size_t limit = max_out )
 		{
@@ -219,10 +195,8 @@ namespace xstd
 	{
 		static constexpr size_t max_out = 1;
 
-		inline static constexpr size_t length( uint32_t )
-		{
-			return 1;
-		}
+		inline static constexpr uint8_t rlength( T ) { return 1; }
+		inline static constexpr uint8_t length( uint32_t ) { return 1; }
 		inline static constexpr void encode( uint32_t cp, T*& out )
 		{
 			*out++ = ( T ) cp;
@@ -244,64 +218,158 @@ namespace xstd
 
 	// Generic conversion.
 	//
-	template<typename To, String S>
-	inline static std::basic_string<To> utf_convert( S&& in )
+	template<typename To, typename From, bool NoOutputConstraints = false>
+	inline constexpr size_t utf_convert( std::basic_string_view<From> view, std::span<To> output )
 	{
-		using From = string_unit_t<S>;
-		if constexpr ( Same<From, To> )
-			return std::basic_string<To>{ std::forward<S>( in ) };
-
-		// Reserve the limit size.
+		// SIMD traits.
 		//
-		string_view_t<S> view = { in };
-		std::basic_string<To> result = {};
-		result.resize( view.size() * codepoint_cvt<To>::max_out );
-		To* out = result.data();
+		constexpr size_t SIMDLanes = XSTD_SIMD_WIDTH / std::max<size_t>( sizeof( From ), sizeof( To ) );
+		using Vector =    xvec<convert_uint_t<From>, SIMDLanes>;
+		using VectorCmp = typename Vector::cmp_t;
 
+		// Ranges.
+		//
+		To* out = output.data();
+		To* const limit = out + output.size();
+
+		// Until the view is consumed completely:
+		//
 		while ( !view.empty() )
 		{
-			// Consume ASCII as SIMD.
-			//
-			constexpr size_t Lanes = XSTD_SIMD_WIDTH / std::max<size_t>( sizeof( From ), sizeof( To ) );
-			using V = xvec<convert_uint_t<From>, Lanes>;
-			if ( view.size() >= V::Length ) [[likely]]
+			size_t out_limit = NoOutputConstraints ? std::string::npos : size_t( limit - out );
+			if ( !std::is_constant_evaluated() )
 			{
-				// Convert assuming ASCII.
+				// Consume ASCII as SIMD.
 				//
-				auto value = load_misaligned<V>( view.data() );
-				auto result = vec::cast<To>( value );
-				store_misaligned( out, result );
-
-				// If it did contain only ASCII, continue iterators.
-				//
-				bool was_ascii = ( sizeof( To ) > sizeof( From ) )
-					? ( ( result >> 7 ).is_zero() )
-					: ( ( value >> 7 ).is_zero() );
-				if ( was_ascii ) [[likely]]
+				size_t inout_limit = NoOutputConstraints ? view.size() : std::min<size_t>( view.size(), out_limit );
+				size_t vector_iterator = 0;
+				while ( inout_limit >= ( vector_iterator + Vector::Length ) ) [[likely]]
 				{
-					out += V::Length;
-					view.remove_prefix( V::Length );
-					continue;
+					// Convert assuming ASCII and store the result.
+					//
+					auto value = load_misaligned<Vector>( view.data() + vector_iterator );
+					auto result = vec::cast<To>( value );
+					store_misaligned( out + vector_iterator, result );
+				
+					// If it only contained ASCII, increment and continue.
+					//
+					auto cc = VectorCmp( value & From( ~0x7Fu ) );
+					if ( cc.is_zero() ) [[likely]]
+					{
+						vector_iterator += Vector::Length;
+						continue;
+					}
+
+					// Otherwise, determine the position of the non-ASCII character,
+					// increment upto it and continue onto slow decoding.
+					//
+					vector_iterator += lsb( sizeof( From ) == 1 ? value.bmask() : ( cc != 0 ).mask() );
+					break;
 				}
+
+				out += vector_iterator;
+				out_limit -= vector_iterator;
+				view.remove_prefix( vector_iterator );
+				if ( view.empty() ) break;
 			}
-			
-			codepoint_cvt<To>::encode( codepoint_cvt<From>::decode( view ), out );
+
+			// Decode a single unit.
+			//
+			uint32_t cp = codepoint_cvt<From>::decode( view );
+
+			// Do a range check, if overflowing break out.
+			//
+			if ( !NoOutputConstraints && out_limit < codepoint_cvt<To>::max_out ) [[unlikely]]
+			{
+				if ( out_limit < codepoint_cvt<To>::length( cp ) )
+					break;
+			}
+
+			// Otherwise encode and continue.
+			//
+			codepoint_cvt<To>::encode( cp, out );
 		}
-		result.resize( out - result.data() );
-		return result;
+		return out - output.data();
 	}
 
 	// UTF aware string-length calculation.
 	//
 	template<String S>
-	inline static constexpr size_t utf_length( S&& in )
+	inline constexpr size_t utf_length( S&& in )
 	{
 		using C = string_unit_t<S>;
-		
 		string_view_t<S> view = { in };
+
+		// SIMD traits.
+		//
+		constexpr size_t SIMDLanes = XSTD_SIMD_WIDTH / sizeof( C );
+		using Vector =    xvec<convert_uint_t<C>, SIMDLanes>;
+		using VectorCmp = typename Vector::cmp_t;
+
 		size_t n = 0;
 		while ( !view.empty() )
-			codepoint_cvt<C>::decode( view ), n++;
+		{
+			if ( !std::is_constant_evaluated() )
+			{
+				// Consume ASCII as SIMD.
+				//
+				size_t vector_iterator = 0;
+				while ( view.size() >= ( vector_iterator + Vector::Length ) )
+				{
+					// Load the value and check for non-ASCII.
+					//
+					auto value = load_misaligned<Vector>( view.data() + vector_iterator );
+					auto cc = VectorCmp( value & C( ~0x7Fu ) );
+				
+					// If was all ASCII, increment by vector length.
+					//
+					if ( cc.is_zero() ) [[unlikely]]
+					{
+						vector_iterator += Vector::Length;
+						continue;
+					}
+					
+					// Otherwise, determine the position of the non-ASCII character,
+					// increment upto it and continue onto slow decoding.
+					//
+					vector_iterator += lsb( sizeof( C ) == 1 ? value.bmask() : ( cc != 0 ).mask() );
+					break;
+				}
+
+				n += vector_iterator;
+				view.remove_prefix( vector_iterator );
+				if ( view.empty() ) break;
+			}
+			
+			codepoint_cvt<C>::decode( view );
+			n++;
+		}
 		return n;
+	}
+
+	// Simple conversion wrapper.
+	//
+	template<typename To, String S>
+	inline std::basic_string<To> utf_convert( S&& in )
+	{
+		// If same unit, forward.
+		//
+		using From = string_unit_t<S>;
+		if constexpr ( Same<From, To> )
+			return std::basic_string<To>{ std::forward<S>( in ) };
+
+		// Construct a view and compute the maximum length.
+		//
+		std::basic_string_view<From> view{ in };
+		size_t max_out = codepoint_cvt<To>::max_out * view.size();
+
+		// Reserve the maximum length and invoke the ranged helper.
+		//
+		std::basic_string<To> result( max_out, '\0' );
+		size_t length = utf_convert<To, From, true>( view, result );
+		size_t clength = result.size();
+		assume( length < clength );
+		result.resize( length );
+		return result;
 	}
 }
