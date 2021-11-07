@@ -85,7 +85,10 @@ namespace xstd
 			auto read = [ & ] <auto I> ( const_tag<I> ) FORCE_INLINE -> uint32_t
 			{
 				if ( in.size() < I ) [[unlikely]]
+				{
+					in.remove_prefix( in.size() );
 					return 0;
+				}
 
 				uint32_t cp = ( front & fill_bits( 7 - I ) ) << ( 6 * ( I - 1 ) );
 				for ( size_t i = 1; i != I; i++ )
