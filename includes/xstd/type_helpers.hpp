@@ -1370,6 +1370,27 @@ namespace xstd
 	template<typename T>
 	using allocator_delete = typename impl::allocator_delete<T>::type;
 
+	// Nontemporal memory helpers.
+	//
+	template<typename T>
+	FORCE_INLINE inline constexpr T load_nontemporal( const T* p )
+	{
+#if GNU_COMPILER
+		if ( !std::is_constant_evaluated() )
+			return __builtin_nontemporal_load( p );
+#endif
+		return *p;
+	}
+	template<typename T>
+	FORCE_INLINE inline constexpr void store_nontemporal( T* p, T value )
+	{
+#if GNU_COMPILER
+		if ( !std::is_constant_evaluated() )
+			return ( void ) __builtin_nontemporal_store( value, p );
+#endif
+		*p = value;
+	}
+
 	// Misaligned memory helpers.
 	//
 	template<typename T>

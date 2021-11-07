@@ -1,5 +1,5 @@
 #pragma once
-#include "intrinsics.hpp"
+#include "type_helpers.hpp"
 #include <algorithm>
 #include <bit>
 #include <array>
@@ -106,6 +106,7 @@ namespace xstd
 	{
 		static constexpr size_t Length = N;
 		static constexpr size_t ByteLength = sizeof( T ) * N;
+		using native_type = native_vector<T, N>;
 
 		// Storage.
 		//
@@ -652,6 +653,19 @@ namespace xstd
 			for ( size_t i = 0; i != N; i++ )
 				x[ i ] = std::min<T>( x[ i ], y[ i ] );
 			return x;
+		}
+
+		// Load/Store non-temporal wrappers.
+		//
+		template<typename T>
+		FORCE_INLINE inline T load_nontemporal( const void* p )
+		{
+			return T( std::in_place_t{}, xstd::load_nontemporal( ( const typename T::native_type* ) p ) );
+		}
+		template<typename T>
+		FORCE_INLINE inline void store_nontemporal( void* p, T value )
+		{
+			xstd::store_nontemporal( ( typename T::native_type* ) p, value._nat );
 		}
 	};
 };

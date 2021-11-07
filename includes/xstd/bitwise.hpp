@@ -633,8 +633,8 @@ namespace xstd
 
 	// Used to enumerate each set bit in the integer.
 	//
-	template<typename T>
-	static constexpr void bit_enum( uint64_t mask, T&& fn, bool reverse = false )
+	template<typename V, typename T>
+	static constexpr void bit_enum( V mask, T&& fn, bool reverse = false )
 	{
 		while ( true )
 		{
