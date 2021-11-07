@@ -31,7 +31,7 @@ namespace xstd
 			uint8_t result = ( front >> 7 ) + 1;
 			result += front >= 0b11100000;
 			result += front >= 0b11110000;
-			assume( result != 0 && result < max_out );
+			assume( result != 0 && result <= max_out );
 			return result;
 		}
 		inline static constexpr uint8_t length( uint32_t cp )
@@ -40,7 +40,7 @@ namespace xstd
 			result += bool( cp >> 7 );
 			result += bool( cp >> ( 5 + 6 ) );
 			result += bool( cp >> ( 4 + 6 + 6 ) );
-			assume( result != 0 && result < max_out );
+			assume( result != 0 && result <= max_out );
 			return result;
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
@@ -122,14 +122,14 @@ namespace xstd
 		inline static constexpr uint8_t rlength( T front )
 		{
 			uint8_t result = 1 + ( ( uint16_t( front ) >> 10 ) == 0x36 );
-			assume( result != 0 && result < max_out );
+			assume( result != 0 && result <= max_out );
 			return result;
 		}
 		inline static constexpr uint8_t length( uint32_t cp )
 		{
 			// Assuming valid codepoint outside the surrogates.
 			uint8_t result = 1 + bool( cp >> 16 );
-			assume( result != 0 && result < max_out );
+			assume( result != 0 && result <= max_out );
 			return result;
 		}
 		inline static constexpr void encode( uint32_t cp, T*& out )
