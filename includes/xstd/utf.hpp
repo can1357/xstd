@@ -292,18 +292,20 @@ namespace xstd
 		return out - output.data();
 	}
 
-	// UTF aware string-length calculation.
+	// UTF aware (converted) string-length calculation.
 	//
-	template<String S>
+	template<typename To, String S>
 	inline constexpr size_t utf_length( S&& in )
 	{
-		using C = string_unit_t<S>;
+		using From = string_unit_t<S>;
 		string_view_t<S> view = { in };
+		if constexpr ( sizeof( To ) == sizeof( From ) )
+			return view.size();
 
 		// SIMD traits.
 		//
-		constexpr size_t SIMDLanes = XSTD_SIMD_WIDTH / sizeof( C );
-		using Vector =    xvec<convert_uint_t<C>, SIMDLanes>;
+		constexpr size_t SIMDLanes = XSTD_SIMD_WIDTH / sizeof( From );
+		using Vector =    xvec<convert_uint_t<From>, SIMDLanes>;
 		using VectorCmp = typename Vector::cmp_t;
 
 		size_t n = 0;
@@ -319,7 +321,7 @@ namespace xstd
 					// Load the value and check for non-ASCII.
 					//
 					auto value = load_misaligned<Vector>( view.data() + vector_iterator );
-					auto cc = VectorCmp( value & C( ~0x7Fu ) );
+					auto cc = VectorCmp( value & From( ~0x7Fu ) );
 				
 					// If was all ASCII, increment by vector length.
 					//
@@ -332,7 +334,7 @@ namespace xstd
 					// Otherwise, determine the position of the non-ASCII character,
 					// increment upto it and continue onto slow decoding.
 					//
-					vector_iterator += lsb( sizeof( C ) == 1 ? value.bmask() : ( cc != 0 ).mask() );
+					vector_iterator += lsb( sizeof( From ) == 1 ? value.bmask() : ( cc != 0 ).mask() );
 					break;
 				}
 
@@ -341,8 +343,8 @@ namespace xstd
 				if ( view.empty() ) break;
 			}
 			
-			codepoint_cvt<C>::decode( view );
-			n++;
+			uint32_t cp = codepoint_cvt<From>::decode( view );
+			n += codepoint_cvt<To>::length( cp );
 		}
 		return n;
 	}
