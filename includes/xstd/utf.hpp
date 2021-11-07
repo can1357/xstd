@@ -222,7 +222,7 @@ namespace xstd
 
 	namespace impl
 	{
-		static constexpr size_t MaxSIMDWidth = XSTD_SIMD_WIDTH * 2;
+		static constexpr size_t MaxSIMDWidth = XSTD_SIMD_WIDTH;
 		static constexpr size_t MinSIMDWidth = 8;
 
 		template<typename Char, typename F, size_t SIMDWidth = MaxSIMDWidth>
