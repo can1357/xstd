@@ -219,17 +219,80 @@ namespace xstd
 		}
 	};
 
+
+	namespace impl
+	{
+		static constexpr size_t MaxSIMDWidth = XSTD_SIMD_WIDTH * 2;
+		static constexpr size_t MinSIMDWidth = 8;
+
+		template<typename Char, typename F, size_t SIMDWidth = MaxSIMDWidth>
+		FORCE_INLINE inline size_t utf_ascii_enum( const Char* data, size_t limit, F&& enumerator, size_t iterator = 0 )
+		{
+			// SIMD traits.
+			//
+			using U =         convert_uint_t<Char>;
+			using Vector =    xvec<U, SIMDWidth / sizeof(Char)>;
+
+			// Create the mask.
+			//
+			constexpr auto mask_bytes = Vector::broadcast( ~Char( 0x7F ) ).bytes();
+
+			// If we can load a vector:
+			//
+			if ( limit >= ( iterator + Vector::Length ) ) [[likely]]
+			{
+				while ( true )
+				{
+					// Load the value and check for non-ASCII, invoke the functor.
+					//
+					auto value = load_misaligned<Vector>( data + iterator );
+					auto cc = value.bytes() & mask_bytes;
+					enumerator( value, iterator );
+
+					// If it was not all ASCII, determine the position and return early.
+					//
+					if ( !cc.is_zero() ) [[unlikely]]
+					{
+						return iterator + ( lsb( ( cc != 0 ).bmask() ) / sizeof( Char ) );
+					}
+
+					// Increment by vector length.
+					//
+					iterator += Vector::Length;
+
+					// If we're overflowing.
+					//
+					if ( ( iterator + Vector::Length ) > limit ) [[unlikely]]
+					{
+						// If we reached the end, return.
+						//
+						if ( iterator == limit ) [[unlikely]]
+							return iterator;
+
+						// Adjust the pointer to overlap the last vector (if next vector size) or break.
+						//
+						if constexpr ( SIMDWidth <= ( MaxSIMDWidth / 2 ) )
+							iterator = limit - Vector::Length;
+						else
+							break;
+					}
+				}
+			}
+
+			// Continue onto a smaller size.
+			//
+			if constexpr ( SIMDWidth > MinSIMDWidth )
+				return utf_ascii_enum<Char, F, SIMDWidth / 2>( data, limit, std::forward<F>( enumerator ), iterator );
+			else
+				return iterator;
+		}
+	};
+
 	// Generic conversion.
 	//
 	template<typename To, typename From, bool NoOutputConstraints = false>
 	inline constexpr size_t utf_convert( std::basic_string_view<From> view, std::span<To> output )
 	{
-		// SIMD traits.
-		//
-		constexpr size_t SIMDLanes = XSTD_SIMD_WIDTH / std::max<size_t>( sizeof( From ), sizeof( To ) );
-		using Vector =    xvec<convert_uint_t<From>, SIMDLanes>;
-		using VectorCmp = typename Vector::cmp_t;
-
 		// Ranges.
 		//
 		To* out = output.data();
@@ -244,35 +307,14 @@ namespace xstd
 			{
 				// Consume ASCII as SIMD.
 				//
-				size_t inout_limit = NoOutputConstraints ? view.size() : std::min<size_t>( view.size(), out_limit );
-				size_t vector_iterator = 0;
-				while ( inout_limit >= ( vector_iterator + Vector::Length ) ) [[likely]]
+				size_t limit = NoOutputConstraints ? view.size() : std::min<size_t>( view.size(), out_limit );
+				size_t iterator = impl::utf_ascii_enum<From>( view.data(), limit, [ & ] ( auto vector, size_t at )
 				{
-					// Convert assuming ASCII and store the result.
-					//
-					auto value = load_misaligned<Vector>( view.data() + vector_iterator );
-					auto result = vec::cast<To>( value );
-					store_misaligned( out + vector_iterator, result );
-				
-					// If it only contained ASCII, increment and continue.
-					//
-					auto cc = VectorCmp( value & From( ~0x7Fu ) );
-					if ( cc.is_zero() ) [[likely]]
-					{
-						vector_iterator += Vector::Length;
-						continue;
-					}
-
-					// Otherwise, determine the position of the non-ASCII character,
-					// increment upto it and continue onto slow decoding.
-					//
-					vector_iterator += lsb( sizeof( From ) == 1 ? value.bmask() : ( cc != 0 ).mask() );
-					break;
-				}
-
-				out += vector_iterator;
-				out_limit -= vector_iterator;
-				view.remove_prefix( vector_iterator );
+					store_misaligned( out + at, vec::cast<convert_uint_t<To>>( vector ) );
+				} );
+				out += iterator;
+				out_limit -= iterator;
+				view.remove_prefix( iterator );
 				if ( view.empty() ) break;
 			}
 
@@ -305,12 +347,6 @@ namespace xstd
 		if constexpr ( sizeof( To ) == sizeof( From ) )
 			return view.size();
 
-		// SIMD traits.
-		//
-		constexpr size_t SIMDLanes = XSTD_SIMD_WIDTH / sizeof( From );
-		using Vector =    xvec<convert_uint_t<From>, SIMDLanes>;
-		using VectorCmp = typename Vector::cmp_t;
-
 		size_t n = 0;
 		while ( !view.empty() )
 		{
@@ -318,31 +354,9 @@ namespace xstd
 			{
 				// Consume ASCII as SIMD.
 				//
-				size_t vector_iterator = 0;
-				while ( view.size() >= ( vector_iterator + Vector::Length ) )
-				{
-					// Load the value and check for non-ASCII.
-					//
-					auto value = load_misaligned<Vector>( view.data() + vector_iterator );
-					auto cc = VectorCmp( value & From( ~0x7Fu ) );
-				
-					// If was all ASCII, increment by vector length.
-					//
-					if ( cc.is_zero() ) [[unlikely]]
-					{
-						vector_iterator += Vector::Length;
-						continue;
-					}
-					
-					// Otherwise, determine the position of the non-ASCII character,
-					// increment upto it and continue onto slow decoding.
-					//
-					vector_iterator += lsb( sizeof( From ) == 1 ? value.bmask() : ( cc != 0 ).mask() );
-					break;
-				}
-
-				n += vector_iterator;
-				view.remove_prefix( vector_iterator );
+				size_t iterator = impl::utf_ascii_enum<From>( view.data(), view.size(), [ & ] ( auto&&... ) {} );
+				n += iterator;
+				view.remove_prefix( iterator );
 				if ( view.empty() ) break;
 			}
 			

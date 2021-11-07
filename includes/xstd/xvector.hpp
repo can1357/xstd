@@ -149,7 +149,7 @@ namespace xstd
 			if ( !std::is_constant_evaluated() )
 				return xvec( std::in_place_t{}, native_vector<T, N>( value ) );
 #endif
-			return xvec{} + value;
+			return xvec{} | value;
 		}
 
 		// Indexing.
@@ -305,7 +305,10 @@ namespace xstd
 			if constexpr ( XSTD_VECTOR_EXT )
 				if ( !std::is_constant_evaluated() )
 					return xvec<Ty, N2>( std::in_place_t{}, ( native_vector<Ty, N2> ) _nat );
-			return std::bit_cast< xvec<Ty, N2> >( *this );
+
+			xvec<Ty, N2> result = {};
+			result._data = std::bit_cast< std::array<Ty, N2> >( _data );
+			return result;
 		}
 		template<typename Ty, size_t N2> requires ( N2 == ( ByteLength / sizeof( T ) ) )
 		FORCE_INLINE constexpr operator xvec<Ty, N2>() const noexcept { return reinterpret<Ty>(); }
@@ -407,29 +410,50 @@ namespace xstd
 		//
 		FORCE_INLINE constexpr bool testz( const xvec& other ) const noexcept
 		{
-			if constexpr ( sizeof( _data ) == 1 || sizeof( _data ) == 2 || sizeof( _data ) == 4 || sizeof( _data ) == 8 )
+			// Fix odd sizes.
+			//
+			auto b1 = bytes();
+			auto b2 = other.bytes();
+			if constexpr ( ByteLength != std::bit_ceil( ByteLength ) )
+				return b1.template resize<std::bit_ceil( ByteLength )>().testz( b2.template resize<std::bit_ceil( ByteLength )>() );
+			
+			// Handle integral sizes.
+			//
+			if constexpr ( ByteLength <= 8 )
 			{
-				using U = convert_uint_t<decltype( _data )>;
-				return !( bit_cast<U>( _data ) & bit_cast<U>( other._data ) );
+				using U = convert_uint_t<decltype( b1._data )>;
+				return !( std::bit_cast<U>( b1._data ) & std::bit_cast<U>( b2._data ) );
 			}
 
+			// Handle hardware accelerated sizes.
+			//
 			if ( !std::is_constant_evaluated() )
 			{
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz128 )
-				if constexpr ( sizeof( _nat ) == 16 )
-					return ( bool ) __builtin_ia32_ptestz128( ( native_vector<char, 16> ) _nat, ( native_vector<char, 16> ) other._nat );
+				if constexpr ( ByteLength == 16 )
+					return ( bool ) __builtin_ia32_ptestz128( b1._nat, b2._nat );
 #endif
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz256 )
-				if constexpr ( sizeof( _nat ) == 32 )
-					return ( bool ) __builtin_ia32_ptestz256( ( native_vector<char, 32> ) _nat, ( native_vector<char, 32> ) other._nat );
+				if constexpr ( ByteLength == 32 )
+					return ( bool ) __builtin_ia32_ptestz256( b1._nat, b2._nat );
 #endif
+				
+				// Handle extended sizes.
+				//
+				if constexpr ( ByteLength > 32 )
+				{
+					return
+						b1.template resize<32>().testz( b2.template resize<32>() )&
+						b1.template slice<32>().testz( b2.template slice<32>() );
+				}
 			}
 
-			auto bm = bytes() & other.bytes();
-			bool result = true;
+			// Handle constexpr.
+			//
+			uint8_t result = 0;
 			for ( size_t i = 0; i != ByteLength; i++ )
-				result &= bm._data[ i ] == 0;
-			return result;
+				result |= b1._data[ i ] & b2._data[ i ];
+			return result == 0;
 		}
 
 		// Vector zero comparison.
@@ -442,48 +466,44 @@ namespace xstd
 		{
 			auto byte_vec = bytes();
 
-			// Handle 1, 16 and 32 bytes.
-			//
-			if constexpr ( ByteLength == 1 )
-			{
-				return uint32_t( uint8_t( byte_vec.at( 0 ) ) >> 7 );
-			}
-			else if constexpr ( ByteLength == 16 || ByteLength == 32 )
-			{
-				if ( !std::is_constant_evaluated() )
-				{
-#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
-					if constexpr ( ByteLength == 16 )
-						return ( uint32_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
-#endif
-#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb256 )
-					if constexpr ( ByteLength == 32 )
-						return ( uint32_t ) __builtin_ia32_pmovmskb256( byte_vec._nat );
-#endif
-				}
-
-				uint32_t result = 0;
-				for ( size_t i = 0; i != ByteLength; i++ )
-					result |= ( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
-				return result;
-			}
 			// Fix odd sizes.
 			//
-			else if constexpr ( ByteLength < 16 )
-				return ( uint32_t ) byte_vec.template resize<16>().bmask();
-			else
-				return ( uint32_t ) byte_vec.template resize<32>().bmask();
+			if constexpr ( ByteLength != std::bit_ceil( ByteLength ) )
+				return byte_vec.template resize<std::bit_ceil( ByteLength )>().bmask();
+
+			// Handle hardware accelerated sizes.
+			//
+			if ( !std::is_constant_evaluated() )
+			{
+#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
+				if constexpr ( ByteLength == 16 )
+					return ( uint32_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
+#endif
+#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb256 )
+				if constexpr ( ByteLength == 32 )
+					return ( uint32_t ) __builtin_ia32_pmovmskb256( byte_vec._nat );
+#endif
+
+				// Handle shrinked sizes.
+				//
+				if constexpr ( ByteLength != 1 && ByteLength <= 8 )
+					return byte_vec.template resize<16>().bmask();
+			}
+
+			// Handle constexpr.
+			//
+			uint32_t result = 0;
+			for ( size_t i = 0; i != ByteLength; i++ )
+				result |= ( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
+			return result;
 		}
 		// - Split up calculation for > u32.
-		FORCE_INLINE constexpr uint16_t bmask() const noexcept requires ( 32 < ByteLength && ByteLength <= 64 )
+		FORCE_INLINE constexpr uint64_t bmask() const noexcept requires ( 32 < ByteLength && ByteLength <= 64 )
 		{
 			auto byte_vec = bytes();
-			auto low =  byte_vec.template slice<0, 32>();
-			auto high = byte_vec.template slice<32, 32>();
-
-			uint64_t result = low.bmask();
-			result |= uint64_t( high.bmask() ) << 32;
-			return result;
+			uint32_t low =  byte_vec.template slice<0, 32>().bmask();
+			uint32_t high = byte_vec.template slice<32, 32>().bmask();
+			return low | ( uint64_t( high ) << 32 );
 		}
 
 		// Creates a mask made up of the most significant bit of each element(!).
