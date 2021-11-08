@@ -142,6 +142,27 @@ namespace xstd
 		FORCE_INLINE constexpr xvec( Tx... values ) noexcept : _data{ T(values)... } {}
 #endif
 
+		// Construction by load.
+		//
+		FORCE_INLINE constexpr static xvec load( const T* from ) noexcept
+		{
+			if ( !std::is_constant_evaluated() )
+			{
+				return xvec( std::in_place_t{}, load_misaligned<native_vector<T, N>>( from ) );
+			}
+			else
+			{
+				xvec result{};
+				for ( size_t i = 0; i != N; i++ )
+					result._data[ i ] = from[ i ];
+				return result;
+			}
+		}
+		FORCE_INLINE static xvec load( const void* from ) noexcept
+		{
+			return xvec( std::in_place_t{}, load_misaligned<native_vector<T, N>>( from ) );
+		}
+
 		// Construction by broadcast.
 		//
 		FORCE_INLINE constexpr static xvec broadcast( T value ) noexcept
@@ -322,6 +343,8 @@ namespace xstd
 		{
 			if constexpr ( Same<Ty, T> )
 				return *this;
+			if constexpr ( sizeof( T ) == sizeof( Ty ) && Integral<T> && Integral<Ty> )
+				return reinterpret<Ty>();
 
 #if __has_vector_builtin(__builtin_convertvector)
 			if ( !std::is_constant_evaluated() )
