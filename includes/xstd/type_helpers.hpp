@@ -771,17 +771,18 @@ namespace xstd
 	template<typename T>
 	FORCE_INLINE inline void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
 	{
+		auto& __restrict va = as_bytes( a );
+		auto& __restrict vb = as_bytes( b );
+
 		if constexpr ( sizeof( T ) <= 128 )
 		{
-			auto& __restrict va = as_bytes( a );
-			auto& __restrict vb = as_bytes( b );
 			auto tmp = va;
 			va = vb;
 			vb = tmp;
 		}
 		else
 		{
-			std::swap( as_bytes( a ), as_bytes( b ) );
+			std::swap( va, vb );
 		}
 	}
 	template<typename T>
@@ -792,10 +793,10 @@ namespace xstd
 			const auto& va = as_bytes( a );
 			const auto& vb = as_bytes( b );
 
-			bool mismatch = false;
+			uint8_t mismatch = 0;
 			for ( size_t n = 0; n != sizeof( T ); n++ )
-				mismatch |= va[ n ] != vb[ n ];
-			return !mismatch;
+				mismatch |= va[ n ] ^ vb[ n ];
+			return mismatch == 0;
 		}
 		else
 		{
