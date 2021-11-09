@@ -31,7 +31,7 @@ namespace xstd
 				{
 					if constexpr ( CaseInsensitive )
 						front = cxlower( U( front ) );
-					h.template add_bytes<char>( front );
+					h.template add_bytes<char>( ( char ) front );
 					input.remove_prefix( 1 );
 				}
 				// Otherwise add as code-point:

@@ -72,11 +72,11 @@ namespace xstd
 					else if constexpr ( I == 3 )
 					{
 						out[ 0 ] = uint8_t( tmp >> 16 );
-						*( uint16_t* ) &out[ 1 ] = bswapw( tmp );
+						*( uint16_t* ) &out[ 1 ] = bswapw( ( uint16_t ) tmp );
 					}
 					else
 					{
-						*( uint16_t* ) &out[ 0 ] = bswapw( tmp );
+						*( uint16_t* ) &out[ 0 ] = bswapw( ( uint16_t ) tmp );
 					}
 
 					out += I;
