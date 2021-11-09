@@ -392,7 +392,7 @@ namespace xstd
 				for ( auto it = end() - 1; it >= pos; --it )
 					it[ 1 ] = it[ 0 ];
 			}
-			*pos = T{ std::forward<Tx>( args )... };
+			*pos = T( std::forward<Tx>( args )... );
 			length++;
 			return *pos;
 		}
