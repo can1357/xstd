@@ -19,7 +19,198 @@ namespace xstd
 	{
 		template<typename T>
 		concept SafeObj = !std::is_void_v<T> && ( Trivial<T> || Final<T> );
+
+		// Magic tables for encoding/decoding of the indices.
+		//
+		inline constexpr std::array<uint8_t, 65> length_table = [ ] ()
+		{
+			std::array<uint8_t, 65> len = {};
+			for ( size_t n = 0; n <= 64; n++ )
+				len[ n ] = std::max<int>( 1, ( ( 64 - n + 6 ) / 7 ) );
+			return len;
+		}();
+		inline constexpr std::array<uint16_t, 33> decoder_table = [ ] ()
+		{
+			std::array<uint16_t, 33> result = {};
+			for ( size_t i = 0; i != 33; i++ )
+			{
+				uint8_t shift, length;
+
+				// [# = 0-9]
+				if ( i < 9 )
+				{
+					shift =  64 - ( 7 * ( i + 1 ) );
+					length = i + 1;
+				}
+				// [# = 10]
+				else if ( i == 16 )
+				{
+					shift =  0;
+					length = 10;
+				}
+				// [# = 0]
+				else
+				{
+					shift =  0;
+					length = 0xFF; // -1
+				}
+				result[ i ] = uint16_t( shift ) | ( uint16_t( length ) << 8 );
+			}
+			return result;
+		}();
 	};
+
+	// Maximum bytes an index serializes into.
+	//
+	inline constexpr size_t max_index_length = ( 64 + 6 ) / 7;
+
+	// Given an index returns the number of bytes it will take up.
+	//
+	FORCE_INLINE inline constexpr uint8_t length_index( uint64_t value )
+	{
+		uint8_t n = impl::length_table[ value ? 63 - msb( value ) : 64 ];
+		assume( n <= max_index_length );
+		return n;
+	}
+
+	// Decodes the given u64 in index from the pair given.
+	// - Returns the decoded integer and the length, length < 0 indicates error.
+	//
+	FORCE_INLINE inline constexpr std::pair<uint64_t, int8_t> decode_index( uint64_t e1, uint16_t e2 )
+	{
+#if AMD64_TARGET
+		if ( !std::is_constant_evaluated() )
+		{
+			uint32_t m = ( uint32_t ) bit_pext<uint64_t>( e1, 0x8080808080808080 );
+			m |= uint32_t( e2 & 0x8080 ) << 1; // 9th & 17th
+
+			uint8_t w = m ? xstd::lsb( m ) : 32;
+			uint64_t value =   bit_pext<uint64_t>( e1, 0x7f7f7f7f7f7f7f7f );
+			value |= uint64_t( bit_pext<uint32_t>( e2, 0x7f7f ) ) << ( 7 * 8 );
+
+			uint16_t dec = impl::decoder_table[ w ];
+			uint8_t len =  uint8_t( dec >> 8 );
+			uint64_t mask = ~0ull >> uint8_t( dec & 63 );
+			return std::pair{ value & mask, int8_t( len ) };
+		}
+#endif
+
+		size_t idx = 0;
+		for ( size_t i = 0; i != 8; i++ )
+		{
+			uint64_t seg = e1 >> ( i * 8 );
+			idx |= ( seg & 0x7F ) << ( i * 7 );
+			if ( seg & 0x80 )
+				return { idx, int8_t( i ) + 1 };
+		}
+		for ( size_t i = 8; i != max_index_length; i++ )
+		{
+			uint64_t seg = e2 >> ( ( i - 8 ) * 8 );
+			idx |= ( seg & 0x7F ) << ( i * 7 );
+			if ( seg & 0x80 )
+				return { idx, int8_t( i ) + 1 };
+		}
+		return { 0, -1 };
+	}
+
+	// Encodes the given u64 in index format into the buffer, caller must have
+	// max_index_length reserved as the output.
+	//  - Returns the actual length.
+	//
+	FORCE_INLINE inline constexpr size_t encode_index( uint8_t* out, uint64_t value )
+	{
+		uint8_t w = length_index( value );
+
+#if AMD64_TARGET
+		if ( !std::is_constant_evaluated() )
+		{
+			uint64_t e1 = bit_pdep<uint64_t>( value,              0x7f7f7f7f7f7f7f7f );
+			uint32_t e2 = bit_pdep<uint32_t>( value >> ( 7 * 8 ), 0x7f7f );
+			*( uint64_t* ) &out[ 0 ] = e1;
+			*( uint16_t* ) &out[ 8 ] = e2;
+			out[ w - 1 ] |= 0x80;
+			return w;
+		}
+#endif
+
+		for ( size_t n = 0; n != max_index_length; n++ )
+			out[ n ] = ( value >> ( 7 * n ) ) & 0x7F;
+		out[ w - 1 ] |= 0x80;
+		return w;
+	}
+
+	// Decodes the given u64 in index from from the buffer, caller must have
+	// max_index_length reserved as the input.
+	// - Returns the decoded integer and the length, length < 0 indicates error.
+	//
+	FORCE_INLINE inline constexpr std::pair<uint64_t, int8_t> decode_index( const uint8_t* in )
+	{
+		uint64_t e1 = 0;
+		uint16_t e2 = 0;
+		if ( !std::is_constant_evaluated() )
+		{
+			e1 = *( const uint64_t* ) &in[ 0 ];
+			e2 = *( const uint16_t* ) &in[ 8 ];
+		}
+		else
+		{
+			for ( size_t i = 0; i != 8; i++ )
+				e1 |= uint64_t( in[ i ] ) << ( 8 * i );
+			for ( size_t i = 0; i != 2; i++ )
+				e2 |= uint16_t( in[ 8 + i ] ) << ( 8 * i );
+		}
+		return decode_index( e1, e2 );
+	}
+	
+	// Decodes the given u64 in index from from the buffer, limit must be BELOW (not <=) the 
+	// maximum character count as this is a fallback function.
+	// - Returns the decoded integer and the length, length < 0 indicates error.
+	//
+	NO_INLINE inline constexpr std::pair<uint64_t, int8_t> decode_index_n( const uint8_t* in, uint8_t limit )
+	{
+		return visit_index<max_index_length>( limit, [ & ] <size_t N> ( const_tag<N> ) FORCE_INLINE
+		{
+			if constexpr ( N == 0 )
+			{
+				return std::pair{ uint64_t( 0 ), int8_t( -1 ) };
+			}
+			else
+			{
+				uint64_t e1 = 0;
+				uint16_t e2 = 0;
+				if ( !std::is_constant_evaluated() )
+				{
+					auto data = *( const std::array<uint8_t, N>* ) in;
+					for ( size_t i = 0; i < std::min<size_t>( 8, N ); i++ )
+						e1 |= uint64_t( data[ i ] ) << ( 8 * i );
+					for ( size_t i = 8; i < std::min<size_t>( 10, N ); i++ )
+						e2 |= uint16_t( data[ i ] ) << ( 8 * ( i - 8 ) );
+				}
+				else
+				{
+					for ( size_t i = 0; i < std::min<size_t>( 8, N ); i++ )
+						e1 |= uint64_t( in[ i ] ) << ( 8 * i );
+					for ( size_t i = 8; i < std::min<size_t>( 10, N ); i++ )
+						e2 |= uint16_t( in[ i ] ) << ( 8 * ( i - 8 ) );
+				}
+				return decode_index( e1, e2 );
+			}
+		} );
+	}
+
+	// Encodes the given u64 in index format into a vector.
+	//
+	FORCE_INLINE inline void encode_index( std::vector<uint8_t>& out, uint64_t value )
+	{
+		size_t pos = out.size();
+		out.resize( pos + max_index_length );
+
+		pos += encode_index( out.data() + pos, value );
+		
+		size_t clen = out.size();
+		assume( clen >= pos );
+		out.resize( pos );
+	}
 
 	// Declare serialization interface.
 	//
@@ -116,38 +307,23 @@ namespace xstd
 
 		// Index read/write.
 		//
-		static constexpr size_t max_index_length = ( 64 + 6 ) / 7;
 		void write_idx( size_t idx )
 		{
-			uint8_t buffer[ max_index_length ];
-			size_t iterator = 0;
-
-			while( true )
-			{
-				uint8_t seg = idx & 0x7F;
-				if ( ( idx >> 7 ) == 0 )
-					seg |= 0x80;
-				buffer[ iterator++ ] = seg;
-				idx >>= 7;
-				if ( seg & 0x80 ) break;
-			}
-			write( &buffer[ 0 ], iterator );
+			encode_index( output_stream, idx );
 		}
 		size_t read_idx()
 		{
-			size_t limit = std::min( max_index_length, input_stream.size() );
-			size_t idx = 0;
-			uint8_t shift = 0;
-			for( size_t i = 0; i != limit; i++ )
+			std::pair<uint64_t, int8_t> result;
+			if ( size_t limit = input_stream.size(); limit >= max_index_length ) [[likely]]
+				result = decode_index( &input_stream[ 0 ] );
+			else
+				result = decode_index_n( &input_stream[ 0 ], limit );
+
+			auto& [idx, len] = result;
+			if ( len >= 0 ) [[likely]]
 			{
-				uint8_t seg = input_stream[ i ];
-				idx |= uint64_t( seg & 0x7F ) << shift;
-				shift += 7;
-				if ( seg & 0x80 )
-				{
-					input_stream = input_stream.subspan( i + 1 );
-					return idx;
-				}
+				input_stream = input_stream.subspan( len );
+				return idx;
 			}
 			throw_fmt( XSTD_ESTR( "Invalid index value." ) );
 		}
