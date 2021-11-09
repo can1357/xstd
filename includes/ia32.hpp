@@ -21837,7 +21837,8 @@ namespace ia32
 
 	// CPUID:
 	//
-	template<typename T = std::array<uint32_t, 4>>
+	using cpuid_result = std::array<uint32_t, 4>;
+	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	_LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
 	{
 		static_assert( sizeof( T ) == ( 4 * 4 ), "Invalid type size." );
@@ -21849,13 +21850,21 @@ namespace ia32
 			"xchgq %%rsi, %%rbx;"
 			: "=a"( info[ 0 ] ), "=S"( info[ 1 ] ), "=c"( info[ 2 ] ), "=d"( info[ 3 ] )
 			: "a"( leaf ), "c"( subleaf )
-			);
+		);
 		return *( T* ) &info[ 0 ];
 	}
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
+
+	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	struct static_cpuid
 	{
-		inline static const auto result = query_cpuid<T>( leaf, subleaf );
+		inline static const T& result = *( const T* ) &static_cpuid<leaf, subleaf>::result;
+		inline operator const T&() const noexcept { return ( const T& ) static_cpuid<leaf, subleaf>::result; }
+	};
+	template<uint64_t leaf, uint64_t subleaf>
+	struct static_cpuid<leaf, subleaf, cpuid_result>
+	{
+		inline static const cpuid_result result = query_cpuid<cpuid_result>( leaf, subleaf );
+		inline operator const cpuid_result&() const noexcept { return result; }
 	};
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
 	struct static_cpuid_s
@@ -21866,8 +21875,34 @@ namespace ia32
 				return query_cpuid<T>( leaf, subleaf );
 			else
 				return T{};
-		}( );
+		}();
+		inline operator const T&() const noexcept { return result; }
 	};
+	
+	// Checks if the CPU vendor is Intel.
+	//
+	static constexpr size_t vendor_uid_idx = 10;
+	enum class cpu_vendor : char
+	{
+		intel =      "GenuineIntel"[ vendor_uid_idx ],
+		amd =        "AuthenticAMD"[ vendor_uid_idx ],
+		centaur =    "CentaurHauls"[ vendor_uid_idx ],
+		cyrix =      "CyrixInstead"[ vendor_uid_idx ],
+		hygon =      "HygonGenuine"[ vendor_uid_idx ],
+		transmeta =  "TransmetaCPU"[ vendor_uid_idx ],
+		transmeta2 = "GenuineTMx86"[ vendor_uid_idx ],
+		rise =       "RiseRiseRise"[ vendor_uid_idx ],
+		sis =        "SiS SiS SiS "[ vendor_uid_idx ],
+		umc =        "UMC UMC UMC "[ vendor_uid_idx ],
+		via =        "VIA VIA VIA "[ vendor_uid_idx ],
+		vortex =     "Vortex86 SoC"[ vendor_uid_idx ],
+	};
+	_LINKAGE CONST_FN cpu_vendor get_vendor()
+	{
+		return ( ( const cpu_vendor* ) &static_cpuid<0, 0, cpuid_eax_00>::result.ebx_value_genu )[ vendor_uid_idx ];
+	}
+	_LINKAGE CONST_FN bool is_intel() { return get_vendor() == cpu_vendor::intel; }
+	_LINKAGE CONST_FN bool is_amd() { return get_vendor() == cpu_vendor::amd; }
 
 	// Wrappers around EFLAGS.
 	//
@@ -22878,10 +22913,6 @@ namespace ia32
 			reset();
 		}
 	};
-
-	// Checks if the CPU vendor is Intel.
-	//
-	_LINKAGE CONST_FN bool is_intel() { return static_cpuid<0, 0, cpuid_eax_00>::result.ecx_value_ntel == bswap( 'ntel' ); };
 
 	// TSC/MSR/PMC based profiling in the style of xstd::profile.
 	//
