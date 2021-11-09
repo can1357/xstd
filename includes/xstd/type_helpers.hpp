@@ -12,10 +12,18 @@
 #include <utility>
 #include <memory>
 #include <variant>
+#include <bit>
 #include <string_view>
 #include <ranges>
 #include <initializer_list>
 #include "intrinsics.hpp"
+
+// [Configuration]
+// XSTD_VECTOR_EXT: Enables compiler support for vector extensions.
+//
+#ifndef XSTD_VECTOR_EXT
+	#define XSTD_VECTOR_EXT __has_builtin(__builtin_convertvector)
+#endif
 
 namespace xstd
 {
@@ -699,6 +707,53 @@ namespace xstd
 	//
 	template<typename T> FORCE_INLINE inline constexpr T* make_null() noexcept { return ( T* ) nullptr; }
 
+	// Nontemporal memory helpers.
+	//
+	template<typename T>
+	FORCE_INLINE inline constexpr T load_nontemporal( const T* p )
+	{
+#if GNU_COMPILER
+		if ( !std::is_constant_evaluated() )
+			return __builtin_nontemporal_load( p );
+#endif
+		return *p;
+	}
+	template<typename T>
+	FORCE_INLINE inline constexpr void store_nontemporal( T* p, T value )
+	{
+#if GNU_COMPILER
+		if ( !std::is_constant_evaluated() )
+			return ( void ) __builtin_nontemporal_store( value, p );
+#endif
+		*p = value;
+	}
+
+	// Misaligned memory helpers.
+	//
+	template<typename T>
+	FORCE_INLINE inline T load_misaligned( const void* p )
+	{
+#if GNU_COMPILER
+		struct wrapper { T value; } __attribute__((packed));
+		return ( ( const wrapper* ) p )->value;
+#else
+		using wrapper = std::array<char, sizeof( T )>;
+		return bit_cast< T >( *( const wrapper* ) p );
+#endif
+	}
+
+	template<typename T>
+	FORCE_INLINE inline void store_misaligned( void* p, T r )
+	{
+#if GNU_COMPILER
+		struct wrapper { T value; } __attribute__((packed));
+		( ( wrapper* ) p )->value = r;
+#else
+		using wrapper = std::array<char, sizeof( T )>;
+		*( wrapper* ) p = bit_cast< wrapper >( r );
+#endif
+	}
+
 	// Extracts types from a parameter pack.
 	//
 	namespace impl
@@ -724,6 +779,61 @@ namespace xstd
 	template<auto V, typename O>     using swap_to_type = O;
 	template<auto V, auto O>         static constexpr auto swap_value = O;
 	template<typename T, auto O>     static constexpr auto swap_to_value = O;
+
+	// Converts any type to their trivial equivalents.
+	//
+	template<size_t N>
+	struct trivial_converter;
+	template<>
+	struct trivial_converter<8>
+	{
+		using integral_signed =   int64_t;
+		using integral_unsigned = uint64_t;
+		using floating_point =    double;
+		using character =         void;
+	};
+	template<>
+	struct trivial_converter<4>
+	{
+		using integral_signed =   int32_t;
+		using integral_unsigned = uint32_t;
+		using floating_point =    float;
+		using character =         char32_t;
+	};
+	template<>
+	struct trivial_converter<2>
+	{
+		using integral_signed =   int16_t;
+		using integral_unsigned = uint16_t;
+		using floating_point =    void;
+		using character =         wchar_t;
+	};
+	template<>
+	struct trivial_converter<1>
+	{
+		using integral_signed =   int8_t;
+		using integral_unsigned = uint8_t;
+		using floating_point =    void;
+		using character =         char;
+	};
+
+	template<typename T> using convert_int_t =  typename trivial_converter<sizeof( T )>::integral_signed;
+	template<typename T> using convert_uint_t = typename trivial_converter<sizeof( T )>::integral_unsigned;
+	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
+	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
+	
+	// Declare the vector types.
+	//
+#if XSTD_VECTOR_EXT && defined(__clang__)
+	template<typename T, size_t N>
+	using native_vector = T  __attribute__((ext_vector_type(N), __aligned__(1)));
+#elif XSTD_VECTOR_EXT
+	template <typename T, size_t N>
+	using native_vector [[gnu::aligned(1), gnu::vector_size(sizeof(T[N]))]] = T;
+#else
+	template <typename T, size_t N>
+	using native_vector = std::array<T, std::bit_ceil(N)>;
+#endif
 
 	// Bitcasting.
 	//
@@ -753,15 +863,87 @@ namespace xstd
 	{
 		return ( const std::array<uint8_t, sizeof( T )>& ) src;
 	}
+
+	// Constant-lenght accelerated routines.
+	//
+	namespace impl
+	{
+		template<size_t N>
+		FORCE_INLINE inline auto mismatch_vector( const uint8_t* a, const uint8_t* b )
+		{
+			if constexpr ( N == 0 )
+			{
+				return 0;
+			}
+			else if constexpr ( N == 8 || N == 4 || N == 2 || N == 1 )
+			{
+				using T = typename trivial_converter<N>::integral_unsigned;
+				return *( const T* ) a ^ *( const T* ) b;
+			}
+			else if constexpr ( N == 16 || N == 32 )
+			{
+				using vec_t = native_vector<uint64_t, N / 8>;
+				auto c =   load_misaligned<vec_t>( a );
+				auto c2 =  load_misaligned<vec_t>( b );
+				
+				if constexpr ( Xorable<vec_t, vec_t> )
+				{
+					c ^= c2;
+				}
+				else
+				{
+					for ( size_t n = 0; n != ( N / 8 ); n++ )
+						c[ n ] ^= c2[ n ];
+				}
+				return c;
+			}
+			else if constexpr ( std::bit_floor( N ) != N )
+			{
+				constexpr size_t U = std::bit_floor( N );
+				auto c =  mismatch_vector<U>( a, b );
+				auto c2 = mismatch_vector<U>( a + ( N - U ), b + ( N - U ) );
+
+				if constexpr ( Orable<decltype( c ), decltype( c )> )
+				{
+					c |= c2;
+				}
+				else
+				{
+					for ( size_t n = 0; n != ( sizeof( c ) / sizeof( c[ 0 ] ) ); n++ )
+						c[ n ] |= c2[ n ];
+				}
+				return c;
+			}
+			else
+			{
+				auto c =  mismatch_vector<N / 2>( a, b );
+				auto c2 = mismatch_vector<N / 2>( a + ( N / 2 ), b + ( N / 2 ) );
+				if constexpr ( Orable<decltype( c ), decltype( c )> )
+				{
+					c |= c2;
+				}
+				else
+				{
+					for ( size_t n = 0; n != ( sizeof( c ) / sizeof( c[ 0 ] ) ); n++ )
+						c[ n ] |= c2[ n ];
+				}
+				return c;
+			}
+		}
+	};
 	template<typename T>
 	FORCE_INLINE inline void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 128 )
+		if constexpr ( sizeof( T ) <= 0x200 )
 		{
+#if __has_builtin(__builtin_memcpy_inline)
+			__builtin_memcpy_inline( &a, &b, N );
+#else
 			auto& __restrict va = as_bytes( a );
 			const auto& __restrict vb = as_bytes( b );
 			for ( size_t n = 0; n != sizeof( T ); n++ )
 				va[ n ] = vb[ n ];
+#endif
 		}
 		else
 		{
@@ -774,7 +956,7 @@ namespace xstd
 		auto& __restrict va = as_bytes( a );
 		auto& __restrict vb = as_bytes( b );
 
-		if constexpr ( sizeof( T ) <= 128 )
+		if constexpr ( sizeof( T ) <= 0x200 )
 		{
 			auto tmp = va;
 			va = vb;
@@ -788,15 +970,20 @@ namespace xstd
 	template<typename T>
 	FORCE_INLINE inline bool trivial_equals( const T& a, const T& b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 128 )
+		if constexpr ( sizeof( T ) <= 0x200 )
 		{
-			const auto& va = as_bytes( a );
-			const auto& vb = as_bytes( b );
-
-			uint8_t mismatch = 0;
-			for ( size_t n = 0; n != sizeof( T ); n++ )
-				mismatch |= va[ n ] ^ vb[ n ];
-			return mismatch == 0;
+			auto result = impl::mismatch_vector<sizeof( T )>( ( const uint8_t* ) &a, ( const uint8_t* ) &b );
+			if constexpr ( sizeof( result ) <= 8 )
+			{
+				return result == 0;
+			}
+			else
+			{
+				uint64_t acc = 0;
+				for ( size_t n = 0; n != ( sizeof( result ) / sizeof( result[ 0 ] ) ); n++ )
+					acc |= result[ n ];
+				return acc == 0;
+			}
 		}
 		else
 		{
@@ -1114,48 +1301,6 @@ namespace xstd
 				return f( std::get<I>( tuple ) );
 		} );
 	}
-
-	// Converts any type to their trivial equivalents.
-	//
-	template<size_t N>
-	struct trivial_converter;
-	template<>
-	struct trivial_converter<8>
-	{
-		using integral_signed =   int64_t;
-		using integral_unsigned = uint64_t;
-		using floating_point =    double;
-		using character =         void;
-	};
-	template<>
-	struct trivial_converter<4>
-	{
-		using integral_signed =   int32_t;
-		using integral_unsigned = uint32_t;
-		using floating_point =    float;
-		using character =         char32_t;
-	};
-	template<>
-	struct trivial_converter<2>
-	{
-		using integral_signed =   int16_t;
-		using integral_unsigned = uint16_t;
-		using floating_point =    void;
-		using character =         wchar_t;
-	};
-	template<>
-	struct trivial_converter<1>
-	{
-		using integral_signed =   int8_t;
-		using integral_unsigned = uint8_t;
-		using floating_point =    void;
-		using character =         char;
-	};
-
-	template<typename T> using convert_int_t =  typename trivial_converter<sizeof( T )>::integral_signed;
-	template<typename T> using convert_uint_t = typename trivial_converter<sizeof( T )>::integral_unsigned;
-	template<typename T> using convert_fp_t =   typename trivial_converter<sizeof( T )>::floating_point;
-	template<typename T> using convert_char_t = typename trivial_converter<sizeof( T )>::character;
 	
 	// Helper for resolving the minimum integer type that can store the given value.
 	//
@@ -1370,53 +1515,6 @@ namespace xstd
 	};
 	template<typename T>
 	using allocator_delete = typename impl::allocator_delete<T>::type;
-
-	// Nontemporal memory helpers.
-	//
-	template<typename T>
-	FORCE_INLINE inline constexpr T load_nontemporal( const T* p )
-	{
-#if GNU_COMPILER
-		if ( !std::is_constant_evaluated() )
-			return __builtin_nontemporal_load( p );
-#endif
-		return *p;
-	}
-	template<typename T>
-	FORCE_INLINE inline constexpr void store_nontemporal( T* p, T value )
-	{
-#if GNU_COMPILER
-		if ( !std::is_constant_evaluated() )
-			return ( void ) __builtin_nontemporal_store( value, p );
-#endif
-		*p = value;
-	}
-
-	// Misaligned memory helpers.
-	//
-	template<typename T>
-	FORCE_INLINE inline T load_misaligned( const void* p )
-	{
-#if GNU_COMPILER
-		struct wrapper { T value; } __attribute__((packed));
-		return ( ( const wrapper* ) p )->value;
-#else
-		using wrapper = std::array<char, sizeof( T )>;
-		return bit_cast< T >( *( const wrapper* ) p );
-#endif
-	}
-
-	template<typename T>
-	FORCE_INLINE inline void store_misaligned( void* p, T r )
-	{
-#if GNU_COMPILER
-		struct wrapper { T value; } __attribute__((packed));
-		( ( wrapper* ) p )->value = r;
-#else
-		using wrapper = std::array<char, sizeof( T )>;
-		*( wrapper* ) p = bit_cast< wrapper >( r );
-#endif
-	}
 };
 
 // Expose literals.

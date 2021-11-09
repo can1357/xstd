@@ -6,12 +6,8 @@
 #include <span>
 
 // [Configuration]
-// XSTD_VECTOR_EXT: Enables compiler support for vector extensions, by default detects clang support.
 // XSTD_SIMD_WIDTH: Defines the default SIMD length for xstd::max_vec_t.
 //
-#ifndef XSTD_VECTOR_EXT
-	#define XSTD_VECTOR_EXT __has_builtin(__builtin_convertvector)
-#endif
 #ifndef XSTD_SIMD_WIDTH
 	#if AMD64_TARGET
 		#if __AVX512DQ__
@@ -40,19 +36,6 @@
 //
 namespace xstd
 {
-	// Declare the vector types.
-	//
-#if XSTD_VECTOR_EXT && defined(__clang__)
-	template<typename T, size_t N>
-	using native_vector = T  __attribute__((ext_vector_type(N), __aligned__(1)));
-#elif XSTD_VECTOR_EXT
-	template <typename T, size_t N>
-	using native_vector [[gnu::aligned(1), gnu::vector_size(sizeof(T[N]))]] = T;
-#else
-	template <typename T, size_t N>
-	using native_vector = std::array<T, std::bit_ceil(N)>;
-#endif
-
 	// Comparison result helper.
 	//
 	namespace impl

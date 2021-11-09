@@ -44,6 +44,57 @@ namespace xstd
 			}
 			return h;
 		}
+
+		template<typename T>
+		struct ceval_ascii_helpers
+		{
+			FORCE_INLINE static constexpr size_t length( const T& ) noexcept { return std::string::npos; }
+			template<bool CaseSensitive, typename O> FORCE_INLINE static bool equals( const T&, const O* ) { unreachable(); }
+		};
+		template<typename T, size_t N> requires ( 2 <= N && N <= 32 )
+		struct ceval_ascii_helpers<T[N]>
+		{
+			FORCE_INLINE static constexpr size_t length( const T( &value )[ N ] ) noexcept
+			{
+				bool is_ascii = true;
+				for ( size_t i = 0; i != ( N - 1 ); i++ )
+					is_ascii &= value[ i ] <= 0x7f;
+				if ( is_ascii )
+					return N - 1;
+				return std::string::npos;
+			}
+			template<bool CaseSensitive, typename O>
+			FORCE_INLINE static constexpr bool equals( const T( &value )[ N ], const O* other )
+			{
+				using U = convert_uint_t<O>;
+
+				O mismatch = 0;
+				for ( size_t i = 0; i != ( N - 1 ); i++ )
+				{
+					if constexpr ( CaseSensitive )
+					{
+						mismatch |= U( value[ i ] ) ^ U( other[ i ] );
+					}
+					else
+					{
+						bool alpha = ( 'a' <= value[ i ] && value[ i ] <= 'z' ) || ( 'A' <= value[ i ] && value[ i ] <= 'Z' );
+						U mask = ~U( alpha ? 0x20 : 0x00 );
+						mismatch |= ( U( value[ i ] ) ^ U( other[ i ] ) ) & mask;
+					}
+				}
+				return mismatch == 0;
+			}
+		};
+		template<typename T>
+		FORCE_INLINE inline constexpr size_t ceval_ascii_length( const T& data )
+		{
+			return ceval_ascii_helpers<T>::length( data );
+		}
+		template<bool CaseSensitive, typename T, typename O>
+		FORCE_INLINE inline constexpr bool ceval_ascii_equals( const T& data, const O* y )
+		{
+			return ceval_ascii_helpers<T>::template equals<CaseSensitive>( data, y );
+		}
 	};
 
 	// Default string hashers.
@@ -104,52 +155,83 @@ namespace xstd
 	// Width insensitive string operations.
 	//
 	template<String S1, String S2>
-	inline constexpr int xstrcmp( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr int xstrcmp( S1&& a, S2&& b )
 	{
-		string_view_t<S1> va = { a };
-		string_view_t<S2> vb = { b };
-		return utf_compare( va, vb );
+		string_view_t<S1> av = { a };
+		string_view_t<S2> bv = { b };
+		return utf_compare( av, bv );
 	}
 	template<String S1, String S2>
-	inline constexpr bool xequals( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr bool xequals( S1&& a, S2&& b )
 	{
-		string_view_t<S1> va = { a };
-		string_view_t<S2> vb = { b };
-		return utf_cmpeq( va, vb );
+		string_view_t<S1> av = { a };
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+			return av.size() == clen && impl::ceval_ascii_equals<true>( b, av.data() );
+
+		string_view_t<S2> bv = { b };
+		return utf_cmpeq( av, bv );
 	}
 	template<String S1, String S2>
-	inline constexpr size_t xfind( S1&& in, S2&& v )
+	FORCE_INLINE inline constexpr size_t xfind( S1&& a, S2&& b )
 	{
-		string_view_t<S1> inv = { in };
-		string_view_t<S2> sv = { v };
-		size_t len = utf_length<string_unit_t<S1>>( sv );
-		ptrdiff_t diff = inv.length() - len;
-		for ( ptrdiff_t n = 0; n <= diff; n++ )
-			if ( xequals( inv.substr( n, len ), sv ) )
-				return ( size_t ) n;
+		string_view_t<S1> av = { a };
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+		{
+			auto* max = av.data() + av.size() - clen;
+			for ( auto it = av.data(); it <= max; it++ )
+				if ( impl::ceval_ascii_equals<true>( b, it ) )
+					return it - av.data();
+		}
+		else
+		{
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			ptrdiff_t diff = av.length() - len;
+			for ( ptrdiff_t n = 0; n <= diff; n++ )
+				if ( xequals( av.substr( n, len ), bv ) )
+					return ( size_t ) n;
+		}
 		return std::string::npos;
 	}
 	template<String S1, String S2>
-	inline constexpr bool xstarts_with( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr bool xstarts_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
-		string_view_t<S2> bv = { b };
-		size_t len = utf_length<string_unit_t<S1>>( bv );
-		if ( av.length() < len ) [[unlikely]]
-			return false;
-		av.remove_suffix( av.length() - len );
-		return xequals( av, bv );
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+		{
+			if ( av.length() < clen ) [[unlikely]]
+				return false;
+			return impl::ceval_ascii_equals<true>( b, av.data() );
+		}
+		else
+		{
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			if ( av.length() < len ) [[unlikely]]
+				return false;
+			av.remove_suffix( av.length() - len );
+			return xequals( av, bv );
+		}
 	}
 	template<String S1, String S2>
-	inline constexpr bool xends_with( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr bool xends_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
-		string_view_t<S2> bv = { b };
-		size_t len = utf_length<string_unit_t<S1>>( bv );
-		if ( av.length() < len ) [[unlikely]]
-			return false;
-		av.remove_prefix( av.length() - len );
-		return xequals( av, bv );
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+		{
+			if ( av.length() < clen ) [[unlikely]]
+				return false;
+			return impl::ceval_ascii_equals<true>( b, av.data() + av.size() - clen );
+		}
+		else
+		{
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			if ( av.length() < len ) [[unlikely]]
+				return false;
+			av.remove_prefix( av.length() - len );
+			return xequals( av, bv );
+		}
 	}
 
 	// Case conversion.
@@ -184,52 +266,82 @@ namespace xstd
 	// Case insensitive string operations.
 	//
 	template<String S1, String S2>
-	inline constexpr int istrcmp( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr int istrcmp( S1&& a, S2&& b )
 	{
-		string_view_t<S1> va = { a };
-		string_view_t<S2> vb = { b };
-		return utf_icompare( va, vb );
+		string_view_t<S1> av = { a };
+		string_view_t<S2> bv = { b };
+		return utf_icompare( av, bv );
 	}
 	template<String S1, String S2>
-	inline constexpr bool iequals( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr bool iequals( S1&& a, S2&& b )
 	{
-		string_view_t<S1> va = { a };
-		string_view_t<S2> vb = { b };
-		return utf_icmpeq( va, vb );
+		string_view_t<S1> av = { a };
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+			return av.size() == clen && impl::ceval_ascii_equals<false>( b, av.data() );
+		string_view_t<S2> bv = { b };
+		return utf_icmpeq( av, bv );
 	}
 	template<String S1, String S2>
-	inline constexpr size_t ifind( S1&& in, S2&& v )
+	FORCE_INLINE inline constexpr size_t ifind( S1&& a, S2&& b )
 	{
-		string_view_t<S1> inv = { in };
-		string_view_t<S2> sv = { v };
-		size_t len = utf_length<string_unit_t<S1>>( sv );
-		ptrdiff_t diff = inv.length() - len;
-		for ( ptrdiff_t n = 0; n <= diff; n++ )
-			if ( iequals( inv.substr( n, len ), sv ) )
-				return ( size_t ) n;
+		string_view_t<S1> av = { a };
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+		{
+			auto* max = av.data() + av.size() - clen;
+			for ( auto it = av.data(); it <= max; it++ )
+				if ( impl::ceval_ascii_equals<false>( b, it ) )
+					return it - av.data();
+		}
+		else
+		{
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			ptrdiff_t diff = av.length() - len;
+			for ( ptrdiff_t n = 0; n <= diff; n++ )
+				if ( iequals( av.substr( n, len ), bv ) )
+					return ( size_t ) n;
+		}
 		return std::string::npos;
 	}
 	template<String S1, String S2>
-	inline constexpr bool istarts_with( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr bool istarts_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
-		string_view_t<S2> bv = { b };
-		size_t len = utf_length<string_unit_t<S1>>( bv );
-		if ( av.length() < len ) [[unlikely]]
-			return false;
-		av.remove_suffix( av.length() - len );
-		return iequals( av, bv );
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+		{
+			if ( av.length() < clen ) [[unlikely]]
+				return false;
+			return impl::ceval_ascii_equals<false>( b, av.data() );
+		}
+		else
+		{
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			if ( av.length() < len ) [[unlikely]]
+				return false;
+			av.remove_suffix( av.length() - len );
+			return iequals( av, bv );
+		}
 	}
 	template<String S1, String S2>
-	inline constexpr bool iends_with( S1&& a, S2&& b )
+	FORCE_INLINE inline constexpr bool iends_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
-		string_view_t<S2> bv = { b };
-		size_t len = utf_length<string_unit_t<S1>>( bv );
-		if ( av.length() < len ) [[unlikely]]
-			return false;
-		av.remove_prefix( av.length() - len );
-		return iequals( av, bv );
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
+		{
+			if ( av.length() < clen ) [[unlikely]]
+				return false;
+			return impl::ceval_ascii_equals<false>( b, av.data() + av.size() - clen );
+		}
+		else
+		{
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			if ( av.length() < len ) [[unlikely]]
+				return false;
+			av.remove_prefix( av.length() - len );
+			return iequals( av, bv );
+		}
 	}
 
 	// Text splitting.

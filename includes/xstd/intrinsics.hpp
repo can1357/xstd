@@ -293,7 +293,7 @@ namespace xstd
 #if __has_builtin(__builtin_constant_p)
 		return __builtin_constant_p( value );
 #else
-		return false;
+		return std::is_constant_evaluated();
 #endif
 	}
 	FORCE_INLINE static constexpr bool const_condition( bool value ) noexcept

@@ -284,7 +284,7 @@ namespace xstd
 		static constexpr size_t MaxSIMDWidth = XSTD_VECTOR_EXT ? XSTD_SIMD_WIDTH : 0;
 
 		template<typename Char, typename Char2, bool CaseSensitive, bool ForEquality, size_t SIMDWidth> requires ( sizeof( Char ) <= sizeof( Char2 ) )
-		FORCE_INLINE inline std::optional<int> utf_ascii_cmp( const Char* v1, const Char2* v2, size_t limit, size_t& iterator )
+		PURE_FN FORCE_INLINE inline std::optional<int> utf_ascii_cmp( const Char* v1, const Char2* v2, size_t limit, size_t& iterator )
 		{
 			// SIMD traits.
 			//
@@ -347,7 +347,6 @@ namespace xstd
 				}
 			}
 		}
-
 		template<typename Char, size_t SIMDWidth, typename F>
 		FORCE_INLINE inline size_t utf_ascii_enum( const Char* data, size_t limit, F&& enumerator )
 		{
@@ -390,7 +389,6 @@ namespace xstd
 			}
 			return iterator;
 		}
-
 		template<typename To, typename From, bool NoOutputConstraints, bool CaseConversion, size_t SIMDWidth>
 		FORCE_INLINE inline constexpr To* utf_convert( const From* in, const From* in_end, To* out, To* out_end, bool to_lower = false )
 		{
@@ -490,9 +488,8 @@ namespace xstd
 			}
 			return out;
 		}
-
 		template<typename To, typename From, size_t SIMDWidth>
-		FORCE_INLINE inline constexpr size_t utf_calc_length( const From* in, const From* in_end )
+		PURE_FN FORCE_INLINE inline constexpr size_t utf_calc_length( const From* in, const From* in_end )
 		{
 			size_t n = 0;
 			while( in != in_end )
@@ -519,9 +516,8 @@ namespace xstd
 			}
 			return n;
 		}
-
 		template<typename Char, typename Char2, bool CaseSensitive, bool ForEquality, size_t SIMDWidth> requires ( sizeof( Char ) <= sizeof( Char2 ) )
-		FORCE_INLINE inline constexpr int utf_compare( const Char* a, const Char* a_end, const Char2* b, const Char2* b_end )
+		PURE_FN FORCE_INLINE inline constexpr int utf_compare( const Char* a, const Char* a_end, const Char2* b, const Char2* b_end )
 		{
 			using UChar =   convert_uint_t<Char>;
 			using UChar2 =  convert_uint_t<Char2>;
@@ -673,7 +669,7 @@ namespace xstd
 	// UTF aware string comparison.
 	//
 	template<String S1, String S2, bool CaseSensitive = true, bool ForEquality = false>
-	inline constexpr int utf_compare( S1&& a, S2&& b )
+	PURE_FN inline constexpr int utf_compare( S1&& a, S2&& b )
 	{
 		using Char =  string_unit_t<S1>;
 		using Char2 = string_unit_t<S2>;
@@ -692,17 +688,19 @@ namespace xstd
 		}
 	}
 	template<String S1, String S2>
-	inline constexpr int utf_icompare( S1&& a, S2&& b )
+	PURE_FN inline constexpr int utf_icompare( S1&& a, S2&& b )
 	{
 		return utf_compare<S1, S2, false>( std::forward<S1>( a ), std::forward<S2>( b ) );
 	}
-	template<String S1, String S2> inline constexpr bool utf_cmpeq( S1&& a, S2&& b )  { return utf_compare<S1, S2, true, true>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0; }
-	template<String S1, String S2> inline constexpr bool utf_icmpeq( S1&& a, S2&& b ) { return utf_compare<S1, S2, false, true>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0; }
+	template<String S1, String S2> 
+	PURE_FN inline constexpr bool utf_cmpeq( S1&& a, S2&& b )  { return utf_compare<S1, S2, true, true>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0; }
+	template<String S1, String S2> 
+	PURE_FN inline constexpr bool utf_icmpeq( S1&& a, S2&& b ) { return utf_compare<S1, S2, false, true>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0; }
 
 	// UTF aware (converted) string-length calculation.
 	//
 	template<typename To, String S>
-	inline constexpr size_t utf_length( S&& in )
+	PURE_FN inline constexpr size_t utf_length( S&& in )
 	{
 		using From = string_unit_t<S>;
 		string_view_t<S> view = { in };
