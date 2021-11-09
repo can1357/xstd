@@ -31,7 +31,7 @@ namespace xstd
 				{
 					if constexpr ( CaseInsensitive )
 						front = cxlower( U( front ) );
-					h.add_bytes( front );
+					h.template add_bytes<char>( front );
 					input.remove_prefix( 1 );
 				}
 				// Otherwise add as code-point:
@@ -53,7 +53,7 @@ namespace xstd
 
 	// Case/Width insensitive hasher.
 	//
-	template<typename H, typename T>
+	template<typename H, typename T = void>
 	struct basic_ihash;
 	template<typename H, String T>
 	struct basic_ihash<H, T>
@@ -75,7 +75,7 @@ namespace xstd
 
 	// Width insensitive hasher.
 	//
-	template<typename H, typename T>
+	template<typename H, typename T = void>
 	struct basic_xhash;
 	template<typename H, String T>
 	struct basic_xhash<H, T>
