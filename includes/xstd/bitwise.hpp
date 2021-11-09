@@ -218,7 +218,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btsq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-				return out;
+				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _interlockedbittestandset64( ( volatile long long* ) &value, n );
 #endif
@@ -228,7 +228,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btsl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-				return out;
+				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _interlockedbittestandset( ( volatile long* ) &value, n );
 #endif
@@ -238,7 +238,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btsw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-				return out;
+				return bool( out );
 #endif
 			}
 #endif
@@ -259,7 +259,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btsq %2, %1" : "=@ccc" ( out ), "+r" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittestandset64( ( volatile long long* ) &value, n );
 #endif
@@ -269,7 +269,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btsl %2, %1" : "=@ccc" ( out ), "+r" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittestandset( ( volatile long* ) &value, n );
 #endif
@@ -279,7 +279,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btsw %2, %1" : "=@ccc" ( out ), "+r" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-					return out;
+					return bool( out );
 #endif
 				}
 #endif
@@ -308,7 +308,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btrq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-				return out;
+				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _interlockedbittestandreset64( ( volatile long long* ) &value, n );
 #endif
@@ -318,7 +318,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btrl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-				return out;
+				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _interlockedbittestandreset( ( volatile long* ) &value, n );
 #endif
@@ -328,7 +328,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btrw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-				return out;
+				return bool( out );
 #endif
 			}
 #endif
@@ -349,7 +349,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btrq %2, %1" : "=@ccc" ( out ), "+r" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittestandreset64( ( long long* ) &value, n );
 #endif
@@ -359,7 +359,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btrl %2, %1" : "=@ccc" ( out ), "+r" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittestandreset( ( long* ) &value, n );
 #endif
@@ -369,7 +369,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btrw %2, %1" : "=@ccc" ( out ), "+r" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-					return out;
+					return bool( out );
 #endif
 				}
 #endif
@@ -398,7 +398,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btcq %2, %1" : "=@ccc" ( out ), "+m" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-				return out;
+				return bool( out );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 4 )
@@ -406,7 +406,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btcl %2, %1" : "=@ccc" ( out ), "+m" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-				return out;
+				return bool( out );
 #endif
 			}
 			else if constexpr ( sizeof( T ) == 2 )
@@ -414,7 +414,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "lock btcw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-				return out;
+				return bool( out );
 #endif
 			}
 #endif
@@ -435,7 +435,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btcq %2, %1" : "=@ccc" ( out ), "+r" ( *( uint64_t* ) &value ) : "Jr" ( uint64_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittestandcomplement64( ( volatile long long* ) &value, n );
 #endif
@@ -445,7 +445,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btcl %2, %1" : "=@ccc" ( out ), "+r" ( *( uint32_t* ) &value ) : "Jr" ( uint32_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittestandcomplement( ( volatile long* ) &value, n );
 #endif
@@ -455,7 +455,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btcw %2, %1" : "=@ccc" ( out ), "+r" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
-					return out;
+					return bool( out );
 #endif
 				}
 #endif
@@ -491,7 +491,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
-				return out;
+				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _bittest64( ( long long* ) &value, n );
 #endif
@@ -501,7 +501,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
-				return out;
+				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _bittest( ( long* ) &value, n );
 #endif
@@ -511,7 +511,7 @@ namespace xstd
 #if GNU_COMPILER
 				int out;
 				asm volatile( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
-				return out;
+				return bool( out );
 #endif
 			}
 #endif
@@ -529,7 +529,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btq %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittest64( ( long long* ) &value, n );
 #endif
@@ -539,7 +539,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btl %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
-					return out;
+					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittest( ( long* ) &value, n );
 #endif
@@ -549,7 +549,7 @@ namespace xstd
 #if GNU_COMPILER
 					int out;
 					asm volatile( "btw %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
-					return out;
+					return bool( out );
 #endif
 				}
 #endif
