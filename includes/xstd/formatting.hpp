@@ -116,7 +116,7 @@ namespace xstd::fmt
 
 		// If leading zeroes requested, simply store the vector.
 		//
-		if constexpr ( !LeadingZeroes )
+		if constexpr ( LeadingZeroes )
 		{
 			store_misaligned( it, chars );
 		}
