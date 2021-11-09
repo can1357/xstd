@@ -95,7 +95,7 @@ namespace xstd::fmt
 		bitcnt_t digits = max_digits;
 		if constexpr ( !LeadingZeroes )
 		{
-			digits = ( ( x ? msb( x ) : 1 ) + 3 ) / 4;
+			digits = 1 + ( msb( x | 0xF ) / 4 );
 			x = rotr( x, digits * 4 );
 		}
 
