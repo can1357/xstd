@@ -37,7 +37,8 @@ namespace xstd::fmt
 	{
 		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
 
-		auto x = vec::cast<uint16_t>( vec::from( as_bytes( data ) ) );
+		using bytes = std::array<uint8_t, sizeof( T )>;
+		auto x = vec::cast<uint16_t>( vec::from( bit_cast< bytes >( data ) ) );
 		x |= ( x << 12 );
 		x >>= 4;
 		x &= 0x0F0F;
