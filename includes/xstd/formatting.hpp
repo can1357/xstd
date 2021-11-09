@@ -221,10 +221,14 @@ namespace xstd::fmt
 	template<StringConvertible... Tx> requires ( sizeof...( Tx ) != 1 )
 	FORCE_INLINE inline std::string as_string( Tx&&... args )
 	{
-		if constexpr ( sizeof...( Tx ) == 0 )
-			return "{}";
-		else
-			return "{" + ( ( as_string<Tx>(std::forward<Tx>(args)) + ", " ) + ... ) + "}";
+		if constexpr ( sizeof...( Tx ) != 0 )
+		{
+			std::string result = ( ( ' ' + as_string<Tx>( std::forward<Tx>( args ) ) + ',' ) + ... );
+			result.front() = '{';
+			result.back() =  '}';
+			return result;
+		}
+		return "{}";
 	}
 
 	// Implement converters for STL wrappers.
