@@ -7,18 +7,44 @@ namespace xstd
 {
 	// Constexpr implementations of cstring functions.
 	//
-	constexpr static uint32_t cxlower( uint32_t v )
-	{
-		if ( 'A' <= v && v <= 'Z' )
-			return v - 'A' + 'a';
-		return v;
-	}
+	inline constexpr uint32_t cxlower( uint32_t cp ) { return cp ^ ( ( ( 'A' <= cp ) & ( cp <= 'Z' ) ) << 5 ); }
+	inline constexpr uint32_t cxupper( uint32_t cp ) { return cp ^ ( ( ( 'a' <= cp ) & ( cp <= 'z' ) ) << 5 ); }
+	template<String T> inline constexpr size_t strlen( T&& str ) { return string_view_t<T>{ str }.size(); }
 
-	template<String T>
-	constexpr static size_t strlen( T&& str )
+	// Common helpers.
+	//
+	namespace impl
 	{
-		return string_view_t<T>{ str }.size();
-	}
+		template<typename C, typename H, bool CaseInsensitive>
+		inline constexpr H make_text_hash( std::basic_string_view<C> input )
+		{
+			using U = convert_uint_t<C>;
+
+			H h = {};
+			while ( !input.empty() )
+			{
+				C front = input.front();
+
+				// If ASCII:
+				//
+				if ( U( front ) <= 0x7f ) [[likely]]
+				{
+					if constexpr ( CaseInsensitive )
+						front = cxlower( U( front ) );
+					h.add_bytes( front );
+					input.remove_prefix( 1 );
+				}
+				// Otherwise add as code-point:
+				//
+				else
+				{
+					uint32_t cp = codepoint_cvt<C>::decode( input );
+					h.add_bytes( cp );
+				}
+			}
+			return h;
+		}
+	};
 
 	// Default string hashers.
 	//
@@ -32,20 +58,16 @@ namespace xstd
 	template<typename H, String T>
 	struct basic_ihash<H, T>
 	{
-		constexpr H operator()( const T& value ) const noexcept
+		inline constexpr H operator()( const T& value ) const noexcept
 		{
-			string_view_t<T> view = { value };
-			H h = {};
-			for ( auto c : view )
-				h.add_bytes( cxlower( c ) );
-			return h;
+			return impl::make_text_hash<string_unit_t<T>, H, true>( { value } );
 		}
 	};
 	template<typename H>
 	struct basic_ihash<H, void>
 	{
 		template<String S>
-		constexpr H operator()( const S& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const S& value ) const noexcept
 		{
 			return basic_ihash<H, S>{}( value );
 		}
@@ -58,145 +80,156 @@ namespace xstd
 	template<typename H, String T>
 	struct basic_xhash<H, T>
 	{
-		constexpr H operator()( const T& value ) const noexcept
+		inline constexpr H operator()( const T& value ) const noexcept
 		{
-			string_view_t<T> view = { value };
-			H h = {};
-			while ( !view.empty() )
-				h.add_bytes( codepoint_cvt<string_unit_t<T>>::decode( view ) );
-			return h;
+			return impl::make_text_hash<string_unit_t<T>, H, false>( { value } );
 		}
 	};
 	template<typename H>
 	struct basic_xhash<H, void>
 	{
 		template<String S>
-		constexpr H operator()( const S& value ) const noexcept
+		FORCE_INLINE inline constexpr H operator()( const S& value ) const noexcept
 		{
 			return basic_xhash<H, S>{}( value );
 		}
 	};
 	template<typename T = void> using ihash = basic_ihash<ihash_t, T>;
 	template<typename T = void> using xhash = basic_xhash<xhash_t, T>;
-	template<typename H, String T> static constexpr H make_ihash( const T& value ) noexcept { return basic_ihash<H, T>{}( value ); }
-	template<typename H, String T> static constexpr H make_xhash( const T& value ) noexcept { return basic_xhash<H, T>{}( value ); }
-	template<String T> static constexpr ihash_t make_ihash( const T& value ) noexcept { return make_ihash<ihash_t>( value ); }
-	template<String T> static constexpr xhash_t make_xhash( const T& value ) noexcept { return make_xhash<xhash_t>( value ); }
+	template<typename H, String T> inline constexpr H make_ihash( const T& value ) noexcept { return basic_ihash<H, T>{}( value ); }
+	template<typename H, String T> inline constexpr H make_xhash( const T& value ) noexcept { return basic_xhash<H, T>{}( value ); }
+	template<String T> inline constexpr ihash_t make_ihash( const T& value ) noexcept { return make_ihash<ihash_t>( value ); }
+	template<String T> inline constexpr xhash_t make_xhash( const T& value ) noexcept { return make_xhash<xhash_t>( value ); }
 
 	// Width insensitive string operations.
 	//
 	template<String S1, String S2>
-	static constexpr int xstrcmp( S1&& a, S2&& b )
+	inline constexpr int xstrcmp( S1&& a, S2&& b )
 	{
-		string_view_t<S1> av = { a };
-		string_view_t<S2> bv = { b };
-		if ( int d = ( int ) av.length() - ( int ) bv.length(); d != 0 )
-			return d;
-		for ( size_t n = 0; n != av.length(); n++ )
-		{
-			if ( int d = av[ n ] - bv[ n ]; d != 0 )
-				return d;
-		}
-		return 0;
+		string_view_t<S1> va = { a };
+		string_view_t<S2> vb = { b };
+		return utf_compare( va, vb );
 	}
 	template<String S1, String S2>
-	static constexpr bool xequals( S1&& a, S2&& b )
+	inline constexpr bool xequals( S1&& a, S2&& b )
 	{
-		return xstrcmp<S1, S2>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0;
+		string_view_t<S1> va = { a };
+		string_view_t<S2> vb = { b };
+		return utf_cmpeq( va, vb );
 	}
 	template<String S1, String S2>
-	static constexpr size_t xfind( S1&& in, S2&& v )
+	inline constexpr size_t xfind( S1&& in, S2&& v )
 	{
 		string_view_t<S1> inv = { in };
 		string_view_t<S2> sv = { v };
-
-		ptrdiff_t diff = inv.length() - sv.length();
+		size_t len = utf_length<string_unit_t<S1>>( sv );
+		ptrdiff_t diff = inv.length() - len;
 		for ( ptrdiff_t n = 0; n <= diff; n++ )
-			if ( !xstrcmp( inv.substr( n, sv.length() ), sv ) )
+			if ( xequals( inv.substr( n, len ), sv ) )
 				return ( size_t ) n;
 		return std::string::npos;
 	}
 	template<String S1, String S2>
-	static constexpr bool xstarts_with( S1&& a, S2&& b )
+	inline constexpr bool xstarts_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
 		string_view_t<S2> bv = { b };
-		if ( av.length() < bv.length() )
+		size_t len = utf_length<string_unit_t<S1>>( bv );
+		if ( av.length() < len ) [[unlikely]]
 			return false;
-		av.remove_suffix( av.length() - bv.length() );
-		return xstrcmp( av, bv ) == 0;
+		av.remove_suffix( av.length() - len );
+		return xequals( av, bv );
 	}
 	template<String S1, String S2>
-	static constexpr bool xends_with( S1&& a, S2&& b )
+	inline constexpr bool xends_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
 		string_view_t<S2> bv = { b };
-		if ( av.length() < bv.length() )
+		size_t len = utf_length<string_unit_t<S1>>( bv );
+		if ( av.length() < len ) [[unlikely]]
 			return false;
-		av.remove_prefix( av.length() - bv.length() );
-		return xstrcmp( av, bv ) == 0;
+		av.remove_prefix( av.length() - len );
+		return xequals( av, bv );
 	}
+
+	// Case conversion.
+	//
+	template<bool ToLower, typename To, typename From>
+	inline std::basic_string<To> convert_case( std::basic_string_view<From> src )
+	{
+		size_t max_out = Same<To, From> ? src.size() + codepoint_cvt<To>::max_out : codepoint_cvt<To>::max_out * src.size();
+		std::basic_string<To> result( max_out, '\0' );
+		size_t length = utf_convert<To, From, true, !ToLower, ToLower>( src, result );
+
+		size_t clength = result.size();
+		assume( length < clength );
+		result.resize( length );
+		return result;
+	}
+	template<typename Encoding, String S>
+	inline std::basic_string<Encoding> to_lower( S&& str )
+	{
+		using From = string_unit_t<S>;
+		return convert_case<true, Encoding, From>( str );
+	}
+	template<typename Encoding, String S>
+	inline std::basic_string<Encoding> to_upper( S&& str )
+	{
+		using From = string_unit_t<S>;
+		return convert_case<false, Encoding, From>( str );
+	}
+	template<String S> inline auto to_lower( S&& str ) { return to_lower<string_unit_t<S>, S>( std::forward<S>( str ) ); }
+	template<String S> inline auto to_upper( S&& str ) { return to_upper<string_unit_t<S>, S>( std::forward<S>( str ) ); }
 
 	// Case insensitive string operations.
 	//
-	template<String S>
-	static inline std::basic_string<string_unit_t<S>> to_lower( S&& str )
+	template<String S1, String S2>
+	inline constexpr int istrcmp( S1&& a, S2&& b )
 	{
-		std::basic_string<string_unit_t<S>> result{ string_view_t<S>{str} };
-		for ( auto& c : result )
-			c = cxlower( c );
-		return result;
+		string_view_t<S1> va = { a };
+		string_view_t<S2> vb = { b };
+		return utf_icompare( va, vb );
 	}
 	template<String S1, String S2>
-	static constexpr int istrcmp( S1&& a, S2&& b )
+	inline constexpr bool iequals( S1&& a, S2&& b )
 	{
-		string_view_t<S1> av = { a };
-		string_view_t<S2> bv = { b };
-		if ( int d = ( int ) av.length() - ( int ) bv.length(); d != 0 )
-			return d;
-		for ( size_t n = 0; n != av.length(); n++ )
-		{
-			if ( int d = cxlower( av[ n ] ) - cxlower( bv[ n ] ); d != 0 )
-				return d;
-		}
-		return 0;
-	}
-	template<String S1, String S2> 
-	static constexpr bool iequals( S1&& a, S2&& b ) 
-	{ 
-		return istrcmp<S1, S2>( std::forward<S1>( a ), std::forward<S2>( b ) ) == 0; 
+		string_view_t<S1> va = { a };
+		string_view_t<S2> vb = { b };
+		return utf_icmpeq( va, vb );
 	}
 	template<String S1, String S2>
-	static constexpr size_t ifind( S1&& in, S2&& v )
+	inline constexpr size_t ifind( S1&& in, S2&& v )
 	{
 		string_view_t<S1> inv = { in };
 		string_view_t<S2> sv = { v };
-		
-		ptrdiff_t diff = inv.length() - sv.length();
+		size_t len = utf_length<string_unit_t<S1>>( sv );
+		ptrdiff_t diff = inv.length() - len;
 		for ( ptrdiff_t n = 0; n <= diff; n++ )
-			if ( !istrcmp( inv.substr( n, sv.length() ), sv ) )
+			if ( iequals( inv.substr( n, len ), sv ) )
 				return ( size_t ) n;
 		return std::string::npos;
 	}
 	template<String S1, String S2>
-	static constexpr bool istarts_with( S1&& a, S2&& b )
+	inline constexpr bool istarts_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
 		string_view_t<S2> bv = { b };
-		if ( av.length() < bv.length() )
+		size_t len = utf_length<string_unit_t<S1>>( bv );
+		if ( av.length() < len ) [[unlikely]]
 			return false;
-		av.remove_suffix( av.length() - bv.length() );
-		return istrcmp( av, bv ) == 0;
+		av.remove_suffix( av.length() - len );
+		return iequals( av, bv );
 	}
 	template<String S1, String S2>
-	static constexpr bool iends_with( S1&& a, S2&& b )
+	inline constexpr bool iends_with( S1&& a, S2&& b )
 	{
 		string_view_t<S1> av = { a };
 		string_view_t<S2> bv = { b };
-		if ( av.length() < bv.length() )
+		size_t len = utf_length<string_unit_t<S1>>( bv );
+		if ( av.length() < len ) [[unlikely]]
 			return false;
-		av.remove_prefix( av.length() - bv.length() );
-		return istrcmp( av, bv ) == 0;
+		av.remove_prefix( av.length() - len );
+		return iequals( av, bv );
 	}
 
 	// Text splitting.
@@ -253,7 +286,7 @@ namespace xstd
 		template<String T1, String T2>
 		constexpr bool operator()( const T1& s1, const T2& s2 ) const noexcept
 		{
-			return istrcmp( s1, s2 ) == 0;
+			return iequals( s1, s2 );
 		}
 	};
 	struct icmp_greater
