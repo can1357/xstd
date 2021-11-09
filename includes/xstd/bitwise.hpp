@@ -598,13 +598,20 @@ namespace xstd
 	template<Unsigned I>
 	FORCE_INLINE CONST_FN static constexpr I bit_pext( I value, I mask )
 	{
-#if GNU_COMPILER && AMD64_TARGET
+#if AMD64_TARGET
 		if ( !std::is_constant_evaluated() )
 		{
+#if GNU_COMPILER
 			if constexpr ( sizeof( I ) <= 4 )
 				return ( I ) __builtin_ia32_pext_si( value, mask );
 			else
 				return ( I ) __builtin_ia32_pext_di( value, mask );
+#elif MS_COMPILER
+			if constexpr ( sizeof( I ) <= 4 )
+				return ( I ) _pext_u32( value, mask );
+			else
+				return ( I ) _pext_u64( value, mask );
+#endif
 		}
 #endif
 
@@ -622,15 +629,23 @@ namespace xstd
 	template<Unsigned I>
 	FORCE_INLINE CONST_FN static constexpr I bit_pdep( I value, I mask )
 	{
-#if GNU_COMPILER && AMD64_TARGET
+#if AMD64_TARGET
 		if ( !std::is_constant_evaluated() )
 		{
+#if GNU_COMPILER
 			if constexpr ( sizeof( I ) <= 4 )
 				return ( I ) __builtin_ia32_pdep_si( value, mask );
 			else
 				return ( I ) __builtin_ia32_pdep_di( value, mask );
+#elif MS_COMPILER
+			if constexpr ( sizeof( I ) <= 4 )
+				return ( I ) _pdep_u32( value, mask );
+			else
+				return ( I ) _pdep_u64( value, mask );
+#endif
 		}
 #endif
+
 		I result = 0;
 		for ( bitcnt_t m = ( sizeof( I ) * 8 - 1 ); m >= 0; m-- )
 		{

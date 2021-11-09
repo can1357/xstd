@@ -13,7 +13,7 @@ namespace xstd::fmt
 	{
 		char delimiter = ' ';
 		bool ascii = false;
-		size_t row_length = std::numeric_limits<size_t>::max();
+		size_t row_length = std::string::npos;
 		bool uppercase = true;
 	};
 
@@ -26,8 +26,8 @@ namespace xstd::fmt
 		{
 			return digit >= 10 ? ( base + digit - 10 ) : digit + '0';
 		};
-		out[ 0 ] = print( value >> 4 );
-		out[ 1 ] = print( value & 0xF );
+		out[ 0 ] = ( C ) print( value >> 4 );
+		out[ 1 ] = ( C ) print( value & 0xF );
 	}
 
 	// Optimized hexdump for constant size input with no configuration.
@@ -70,7 +70,7 @@ namespace xstd::fmt
 		auto it = std::begin( container );
 		auto end = std::end( container );
 		size_t length = end - it;
-		cfg.row_length = std::min( length, cfg.row_length );
+		cfg.row_length = std::min<size_t>( length, cfg.row_length );
 
 		// Allocate storage and reserve an approximate size.
 		//

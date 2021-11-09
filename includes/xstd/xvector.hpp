@@ -266,16 +266,17 @@ namespace xstd
 			return *this;																					\
 		}
 
-		using cmp_t = xvec<typename impl::comparison_unit<T>::type, N>;
-#define __DECLARE_COMPARISON(Op, Req)												      		\
-		FORCE_INLINE constexpr cmp_t operator Op( const xvec& other ) const Req	      \
-		{																										\
-			if constexpr ( XSTD_VECTOR_EXT )															\
-				if ( !std::is_constant_evaluated() )												\
-					return cmp_t( std::in_place_t{}, _nat Op other._nat );					\
-			cmp_t result = {};																			\
-			for ( size_t i = 0; i != N; i++ )														\
-				result._data[ i ] = ( _data[ i ] Op other[ i ] ) ? -1 : 0;			      \
+		using cmpu_t = typename impl::comparison_unit<T>::type;
+		using cmp_t =  xvec<cmpu_t, N>;
+#define __DECLARE_COMPARISON(Op, Req)												      		   \
+		FORCE_INLINE constexpr cmp_t operator Op( const xvec& other ) const Req	         \
+		{																										   \
+			if constexpr ( XSTD_VECTOR_EXT )															   \
+				if ( !std::is_constant_evaluated() )												   \
+					return cmp_t( std::in_place_t{}, _nat Op other._nat );					   \
+			cmp_t result = {};																			   \
+			for ( size_t i = 0; i != N; i++ )														   \
+				result._data[ i ] = ( _data[ i ] Op other[ i ] ) ? cmpu_t(-1) : cmpu_t(0); \
 			return result;																					\
 		}																										\
 		FORCE_INLINE constexpr cmp_t operator Op( T other ) const Req					   \
@@ -285,7 +286,7 @@ namespace xstd
 					return cmp_t( std::in_place_t{}, _nat Op other );							\
 			cmp_t result = {};																			\
 			for ( size_t i = 0; i != N; i++ )														\
-				result._data[ i ] = ( _data[ i ] Op other ) ? -1 : 0;			            \
+				result._data[ i ] = ( _data[ i ] Op other ) ? cmpu_t(-1) : cmpu_t(0);   \
 			return result;																					\
 		}																										
 
@@ -329,7 +330,7 @@ namespace xstd
 					return xvec<Ty, N2>( std::in_place_t{}, ( native_vector<Ty, N2> ) _nat );
 
 			xvec<Ty, N2> result = {};
-			result._data = std::bit_cast< std::array<Ty, N2> >( _data );
+			result._data = bit_cast< std::array<Ty, N2> >( _data );
 			return result;
 		}
 		template<typename Ty, size_t N2> requires ( N2 == ( ByteLength / sizeof( T ) ) )
@@ -446,13 +447,20 @@ namespace xstd
 			if constexpr ( ByteLength <= 8 )
 			{
 				using U = convert_uint_t<decltype( b1._data )>;
-				return !( std::bit_cast<U>( b1._data ) & std::bit_cast<U>( b2._data ) );
+				return !( bit_cast<U>( b1._data ) & bit_cast<U>( b2._data ) );
 			}
 
 			// Handle hardware accelerated sizes.
 			//
 			if ( !std::is_constant_evaluated() )
 			{
+#if AMD64_TARGET
+#if MS_COMPILER
+				if constexpr ( ByteLength == 16 )
+					return ( bool ) _mm_testz_si128( bit_cast< __m128i >( b1._nat ), bit_cast< __m128i >( b2._nat ) );
+				else if constexpr ( ByteLength == 32 )
+					return ( bool ) _mm256_testz_si256( bit_cast< __m256i >( b1._nat ), bit_cast< __m256i >( b2._nat ) );
+#else
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz128 )
 				if constexpr ( ByteLength == 16 )
 					return ( bool ) __builtin_ia32_ptestz128( b1._nat, b2._nat );
@@ -460,6 +468,8 @@ namespace xstd
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz256 )
 				if constexpr ( ByteLength == 32 )
 					return ( bool ) __builtin_ia32_ptestz256( b1._nat, b2._nat );
+#endif
+#endif
 #endif
 				
 				// Handle extended sizes.
@@ -499,6 +509,13 @@ namespace xstd
 			//
 			if ( !std::is_constant_evaluated() )
 			{
+#if AMD64_TARGET
+#if MS_COMPILER
+				if constexpr ( ByteLength == 16 )
+					return ( bool ) _mm_movemask_epi8( bit_cast< __m128i >( byte_vec._nat ) );
+				else if constexpr ( ByteLength == 32 )
+					return ( bool ) _mm256_movemask_epi8( bit_cast< __m256i >( byte_vec._nat ) );
+#else
 #if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
 				if constexpr ( ByteLength == 16 )
 					return ( uint32_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
@@ -507,7 +524,8 @@ namespace xstd
 				if constexpr ( ByteLength == 32 )
 					return ( uint32_t ) __builtin_ia32_pmovmskb256( byte_vec._nat );
 #endif
-
+#endif
+#endif
 				// Handle shrinked sizes.
 				//
 				if constexpr ( ByteLength != 1 && ByteLength <= 8 )
@@ -635,7 +653,7 @@ namespace xstd
 		FORCE_INLINE constexpr xvec<T, N> from( std::array<T, N> arr )
 		{
 			if constexpr ( sizeof( xvec<T, N> ) == sizeof( std::array<T, N> ) )
-				return std::bit_cast< xvec<T, N> >( arr );
+				return bit_cast< xvec<T, N> >( arr );
 
 			xvec<T, N> vec = {};
 			vec._data = arr;

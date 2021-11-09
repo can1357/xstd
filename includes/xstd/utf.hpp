@@ -57,7 +57,7 @@ namespace xstd
 			{
 				auto p = out;
 				
-#if GNU_COMPILER && AMD64_TARGET
+#if AMD64_TARGET
 				if ( !std::is_constant_evaluated() )
 				{
 					uint32_t tmp = bit_pdep<uint32_t>( cp, 0b00000111'00111111'00111111'00111111 );
@@ -118,7 +118,7 @@ namespace xstd
 					return 0;
 				}
 				
-#if GNU_COMPILER && AMD64_TARGET
+#if AMD64_TARGET
 				if ( !std::is_constant_evaluated() )
 				{
 					// Do not use BSWAP here to avoid dependency on it via PEXT.
@@ -280,8 +280,8 @@ namespace xstd
 
 	namespace impl
 	{
-		static constexpr size_t MaxSIMDWidth = XSTD_SIMD_WIDTH;
 		static constexpr size_t MinSIMDWidth = 8;
+		static constexpr size_t MaxSIMDWidth = XSTD_VECTOR_EXT ? XSTD_SIMD_WIDTH : 0;
 
 		template<typename Char, typename Char2, bool CaseSensitive, bool ForEquality, size_t SIMDWidth> requires ( sizeof( Char ) <= sizeof( Char2 ) )
 		FORCE_INLINE inline std::optional<int> utf_ascii_cmp( const Char* v1, const Char2* v2, size_t limit, size_t& iterator )
@@ -291,7 +291,6 @@ namespace xstd
 			using U1 =        convert_uint_t<Char>;
 			using U2 =        convert_uint_t<Char2>;
 			using Vector =    xvec<U1, SIMDWidth / sizeof(Char2)>;
-			constexpr Vector ascii_mask = Vector::broadcast( 0x7F );
 
 			while ( true )
 			{
@@ -302,7 +301,7 @@ namespace xstd
 
 				// If non-ASCII, break out.
 				//
-				auto cc = vec1 > ascii_mask;
+				auto cc = vec1 > 0x7F;
 				if ( !cc.is_zero() ) [[unlikely]]
 					return std::nullopt;
 
@@ -318,7 +317,7 @@ namespace xstd
 				//
 				if ( !vec1.equals( vec2 ) ) [[unlikely]]
 				{
-					if constexpr ( ForEquality )
+					if constexpr ( !ForEquality )
 					{
 						auto pos = lsb( ( vec1 != vec2 ).mask() );
 						return int( vec1[ pos ] ) - int( vec2[ pos ] );
@@ -356,7 +355,6 @@ namespace xstd
 			//
 			using U =         convert_uint_t<Char>;
 			using Vector =    xvec<U, SIMDWidth / sizeof(Char)>;
-			constexpr Vector ascii_mask = Vector::broadcast( 0x7F );
 
 			size_t iterator = 0;
 			while ( true )
@@ -364,7 +362,7 @@ namespace xstd
 				// Load the value and check for non-ASCII, invoke the functor.
 				//
 				auto value = Vector::load( data + iterator );
-				auto cc = value > ascii_mask;
+				auto cc = value > 0x7F;
 				enumerator( value, iterator );
 
 				// If it was not all ASCII, determine the position and return early.
@@ -441,7 +439,10 @@ namespace xstd
 
 					// Do a range check, if overflowing break out.
 					//
-					if ( size_t( NoOutputConstraints ? in_end - in : std::min( in_end - in, out_end - out ) ) < length ) [[unlikely]]
+					size_t limit = size_t( in_end - in );
+					if constexpr ( !NoOutputConstraints )
+						limit = std::min<size_t>( limit, size_t( out_end - out ) );
+					if ( limit < length ) [[unlikely]]
 						break;
 
 					// Convert cases where relevant.
@@ -522,11 +523,14 @@ namespace xstd
 		template<typename Char, typename Char2, bool CaseSensitive, bool ForEquality, size_t SIMDWidth> requires ( sizeof( Char ) <= sizeof( Char2 ) )
 		FORCE_INLINE inline constexpr int utf_compare( const Char* a, const Char* a_end, const Char2* b, const Char2* b_end )
 		{
+			using UChar =   convert_uint_t<Char>;
+			using UChar2 =  convert_uint_t<Char2>;
+
 			while( true )
 			{
 				// Break out if we've reached the end.
 				//
-				size_t limit = std::min( size_t( b_end - b ), size_t( a_end - a ) );
+				size_t limit = std::min<size_t>( size_t( b_end - b ), size_t( a_end - a ) );
 				if ( !limit ) [[unlikely]]
 					break;
 
@@ -552,8 +556,8 @@ namespace xstd
 				// If ASCII:
 				//
 				Char c1 = *a;
-				Char c2 = *b;
-				if ( c1 <= 0x7F && ( ForEquality || c2 <= 0x7F ) ) [[likely]]
+				Char2 c2 = *b;
+				if ( UChar( c1 ) <= 0x7F && ( ForEquality || UChar2( c2 ) <= 0x7F ) ) [[likely]]
 				{
 					++a;
 					++b;
@@ -651,7 +655,7 @@ namespace xstd
 		//
 		if constexpr ( sizeof( From ) == sizeof( To ) && !ToUpper && !ToLower )
 		{
-			size_t limit = NoOutputConstraints ? view.size() : std::min( view.size(), output.size() );
+			size_t limit = NoOutputConstraints ? view.size() : std::min<size_t>( view.size(), output.size() );
 			std::copy_n( view.data(), limit, output.data() );
 			return limit;
 		}

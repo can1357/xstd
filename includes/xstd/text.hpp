@@ -60,7 +60,7 @@ namespace xstd
 	{
 		inline constexpr H operator()( const T& value ) const noexcept
 		{
-			return impl::make_text_hash<string_unit_t<T>, H, true>( { value } );
+			return impl::make_text_hash<string_unit_t<T>, H, true>( std::basic_string_view<string_unit_t<T>>{ value } );
 		}
 	};
 	template<typename H>
@@ -82,7 +82,7 @@ namespace xstd
 	{
 		inline constexpr H operator()( const T& value ) const noexcept
 		{
-			return impl::make_text_hash<string_unit_t<T>, H, false>( { value } );
+			return impl::make_text_hash<string_unit_t<T>, H, false>( std::basic_string_view<string_unit_t<T>>{ value } );
 		}
 	};
 	template<typename H>
