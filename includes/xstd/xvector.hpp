@@ -635,9 +635,6 @@ namespace xstd
 		template<Arithmetic T, size_t N>
 		FORCE_INLINE constexpr xvec<T, N> from( std::array<T, N> arr )
 		{
-			if constexpr ( sizeof( xvec<T, N> ) == sizeof( std::array<T, N> ) )
-				return bit_cast< xvec<T, N> >( arr );
-
 			xvec<T, N> vec = {};
 			vec._data = arr;
 			return vec;
