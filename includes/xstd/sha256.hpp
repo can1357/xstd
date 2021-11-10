@@ -50,16 +50,16 @@ namespace xstd
 		//
 		FORCE_INLINE static constexpr void compress( value_type& iv, const block_type& block )
 		{
-			constexpr auto e0 = [ ] ( uint32_t v ) { return rotr( v, 2 ) ^ rotr( v, 13 ) ^ rotr( v, 22 ); };
-			constexpr auto e1 = [ ] ( uint32_t v ) { return rotr( v, 6 ) ^ rotr( v, 11 ) ^ rotr( v, 25 ); };
-			constexpr auto s0 = [ ] ( uint32_t v ) { return rotr( v, 7 ) ^ rotr( v, 18 ) ^ ( v >> 3 ); };
-			constexpr auto s1 = [ ] ( uint32_t v ) { return rotr( v, 17 ) ^ rotr( v, 19 ) ^ ( v >> 10 ); };
-			constexpr auto ch = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return ( x & y ) ^ ( ( ~x ) & z ); };
-			constexpr auto maj = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return ( x & y ) ^ ( x & z ) ^ ( y & z ); };
+			constexpr auto e0 = [ ] ( uint32_t v ) FORCE_INLINE { return rotr( v, 2 ) ^ rotr( v, 13 ) ^ rotr( v, 22 ); };
+			constexpr auto e1 = [ ] ( uint32_t v ) FORCE_INLINE { return rotr( v, 6 ) ^ rotr( v, 11 ) ^ rotr( v, 25 ); };
+			constexpr auto s0 = [ ] ( uint32_t v ) FORCE_INLINE { return rotr( v, 7 ) ^ rotr( v, 18 ) ^ ( v >> 3 ); };
+			constexpr auto s1 = [ ] ( uint32_t v ) FORCE_INLINE { return rotr( v, 17 ) ^ rotr( v, 19 ) ^ ( v >> 10 ); };
+			constexpr auto ch = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return ( x & y ) ^ ( ( ~x ) & z ); };
+			constexpr auto maj = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return ( x & y ) ^ ( x & z ) ^ ( y & z ); };
 
 			value_type ivd = iv;
 			uint32_t workspace[ 16 ] = { 0 };
-			auto shuffle = [ & ] ( uint32_t value, size_t step )
+			auto shuffle = [ & ] ( uint32_t value, size_t step ) FORCE_INLINE
 			{
 				auto& [a, b, c, d, e, f, g, h] = ivd;
 				

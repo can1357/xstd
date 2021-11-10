@@ -39,9 +39,9 @@ namespace xstd
 		//
 		FORCE_INLINE static constexpr void compress( value_type& iv, const block_type& block )
 		{
-			constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return z ^ ( x & ( y ^ z ) ); };
-			constexpr auto f2 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return x ^ y ^ z; };
-			constexpr auto f3 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) { return ( x & y ) | ( x & z ) | ( y & z ); };
+			constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return z ^ ( x & ( y ^ z ) ); };
+			constexpr auto f2 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return x ^ y ^ z; };
+			constexpr auto f3 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return ( x & y ) | ( x & z ) | ( y & z ); };
 
 			uint32_t workspace[ 80 ] = { 0 };
 			for ( size_t i = 0; i != 16; i++ )
@@ -55,7 +55,7 @@ namespace xstd
 				workspace[ i ] = rotl( workspace[ i - 3 ] ^ workspace[ i - 8 ] ^ workspace[ i - 14 ] ^ workspace[ i - 16 ], 1 );
 
 			value_type ivd = iv;
-			auto mix = [ & ] <auto N> ( const_tag<N>, auto&& f )
+			auto mix = [ & ] <auto N> ( const_tag<N>, auto&& f ) FORCE_INLINE
 			{
 				auto& [a, b, c, d, e] = ivd;
 
