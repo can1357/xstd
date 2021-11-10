@@ -1456,34 +1456,38 @@ namespace xstd
 	template<typename F> requires ( !Pointer<F> )
 	FORCE_INLINE inline decltype( auto ) run_once( F&& fn )
 	{
-		using R = decltype( fn() );
+		// Traits of the result.
+		//
+		using R =  decltype( fn() );
+		using Rx = std::conditional_t<Void<R>, std::monostate, R>;
 
-		if constexpr ( Void<R> )
+		// Result and the state store.
+		//
+		static std::atomic<bool> ran = false, complete = false;
+		alignas( Rx ) static uint8_t result[ sizeof( Rx ) ] = {};
+		
+		if ( !ran.load( std::memory_order::relaxed ) ) [[unlikely]]
 		{
-			static std::atomic<bool> ran = false;
-			if ( !ran.exchange( true ) )
-				cold_call( fn );
-		}
-		else
-		{
-			static std::atomic<int> status = 0;
-			static std::optional<R> result = std::nullopt;
-			if ( status != 2 )
+			cold_call( [ & ]
 			{
-				cold_call( [ & ]
+				bool expected = false;
+				if ( ran.compare_exchange_strong( expected, true, std::memory_order::acquire ) )
 				{
-					int expected = 0;
-					if ( status.compare_exchange_strong( expected, 1, std::memory_order::acquire ) )
-					{
-						result.emplace( fn() );
-						status.store( 2, std::memory_order::release );
-					}
-					while ( status.load( std::memory_order::relaxed ) != 2 )
+					if constexpr ( !Void<R> )
+						std::construct_at<R>( ( R* ) &result[ 0 ], fn() );
+					else
+						fn();
+					complete.store( true, std::memory_order::relaxed );
+				}
+				else
+				{
+					while ( !complete.load( std::memory_order::relaxed ) )
 						yield_cpu();
-				} );
-			}
-			return result.value();
+				}
+			} );
 		}
+		if constexpr( !Void<R> )
+			return *( const R* ) &result[ 0 ];
 	}
 
 	// Creates a deleter from a given allocator type.
