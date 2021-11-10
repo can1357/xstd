@@ -26,7 +26,7 @@ namespace xstd
 		{
 			std::array<uint8_t, 65> len = {};
 			for ( size_t n = 0; n <= 64; n++ )
-				len[ n ] = std::max<int>( 1, ( ( 64 - n + 6 ) / 7 ) );
+				len[ n ] = ( uint8_t ) std::max<int>( 1, ( ( 64 - n + 6 ) / 7 ) );
 			return len;
 		}();
 		inline constexpr std::array<uint16_t, 33> decoder_table = [ ] ()
@@ -54,7 +54,7 @@ namespace xstd
 					shift =  0;
 					length = 0xFF; // -1
 				}
-				result[ i ] = uint16_t( shift ) | ( uint16_t( length ) << 8 );
+				result[ i ] = uint16_t( shift | ( uint16_t( length ) << 8 ) );
 			}
 			return result;
 		}();
@@ -84,7 +84,7 @@ namespace xstd
 			uint32_t m = ( uint32_t ) bit_pext<uint64_t>( e1, 0x8080808080808080 );
 			m |= uint32_t( e2 & 0x8080 ) << 1; // 9th & 17th
 
-			uint8_t w = m ? xstd::lsb( m ) : 32;
+			uint8_t w = m ? ( uint8_t ) xstd::lsb( m ) : 32;
 			uint64_t value =   bit_pext<uint64_t>( e1, 0x7f7f7f7f7f7f7f7f );
 			value |= uint64_t( bit_pext<uint32_t>( e2, 0x7f7f ) ) << ( 7 * 8 );
 
