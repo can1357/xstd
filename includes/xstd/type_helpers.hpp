@@ -937,7 +937,7 @@ namespace xstd
 		if constexpr ( sizeof( T ) <= 0x200 )
 		{
 #if __has_builtin(__builtin_memcpy_inline)
-			__builtin_memcpy_inline( &a, &b, N );
+			__builtin_memcpy_inline( &a, &b, sizeof( T ) );
 #else
 			auto& __restrict va = as_bytes( a );
 			const auto& __restrict vb = as_bytes( b );
