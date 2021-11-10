@@ -936,25 +936,14 @@ namespace xstd
 	{
 		if constexpr ( N > 0 )
 		{
-			if constexpr ( N <= 0x200 )
-			{
 #if __has_builtin(__builtin_memcpy_inline)
-				__builtin_memcpy_inline( a, b, N );
+			__builtin_memcpy_inline( a, b, N );
 #else
-				uint8_t* __restrict va = ( uint8_t* ) a;
-				const uint8_t* __restrict vb = ( const uint8_t* ) b;
-				for ( size_t n = 0; n != size_t( N ); n++ )
-					va[ n ] = vb[ n ];
+			uint8_t* __restrict va = ( uint8_t* ) a;
+			const uint8_t* __restrict vb = ( const uint8_t* ) b;
+			for ( size_t n = 0; n != size_t( N ); n++ )
+				va[ n ] = vb[ n ];
 #endif
-			}
-			else
-			{
-#if __has_builtin(__builtin_memcpy)
-				__builtin_memcpy( a, b, N );
-#else
-				memcpy( a, b, size_t( N ) );
-#endif
-			}
 		}
 	}
 	template<typename T>
@@ -982,24 +971,17 @@ namespace xstd
 	template<typename T>
 	FORCE_INLINE inline bool trivial_equals( const T& a, const T& b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 0x200 )
+		auto result = impl::mismatch_vector<sizeof( T )>( ( const uint8_t* ) &a, ( const uint8_t* ) &b );
+		if constexpr ( sizeof( result ) <= 8 )
 		{
-			auto result = impl::mismatch_vector<sizeof( T )>( ( const uint8_t* ) &a, ( const uint8_t* ) &b );
-			if constexpr ( sizeof( result ) <= 8 )
-			{
-				return result == 0;
-			}
-			else
-			{
-				uint64_t acc = 0;
-				for ( size_t n = 0; n != ( sizeof( result ) / sizeof( result[ 0 ] ) ); n++ )
-					acc |= result[ n ];
-				return acc == 0;
-			}
+			return result == 0;
 		}
 		else
 		{
-			return !memcmp( a, b, sizeof( T ) );
+			uint64_t acc = 0;
+			for ( size_t n = 0; n != ( sizeof( result ) / sizeof( result[ 0 ] ) ); n++ )
+				acc |= result[ n ];
+			return acc == 0;
 		}
 	}
 
