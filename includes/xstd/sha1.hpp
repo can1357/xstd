@@ -47,8 +47,15 @@ namespace xstd
 			for ( size_t i = 0; i != 16; i++ )
 			{
 				uint32_t n = 0;
-				for ( size_t j = 0; j != 4; j++ )
-					n |= uint32_t( block[ ( i * 4 ) + j ] ) << ( 24 - 8 * j );
+				if ( std::is_constant_evaluated() )
+				{
+					for ( size_t j = 0; j != 4; j++ )
+						n |= uint32_t( block[ ( i * 4 ) + j ] ) << ( 24 - 8 * j );
+				}
+				else
+				{
+					n = bswapd( *( const uint32_t* ) &block[ ( i * 4 ) ] );
+				}
 				workspace[ i ] = n;
 			}
 			for ( size_t i = 16; i != 80; i++ )
@@ -104,7 +111,7 @@ namespace xstd
 
 		// Appends the given array of bytes into the hash value.
 		//
-		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
+		inline constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
 			while ( n-- )
 			{
@@ -140,7 +147,7 @@ namespace xstd
 		//
 		constexpr void finalize() noexcept
 		{
-			if ( finalized ) [[likely]]
+			if ( finalized )
 				return;
 			
 			// Apply the leftover block and terminate the stream.
