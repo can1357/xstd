@@ -931,24 +931,36 @@ namespace xstd
 			}
 		}
 	};
+	template<auto N>
+	FORCE_INLINE inline void trivial_copy_n( void* __restrict a, const void* __restrict b ) noexcept
+	{
+		if constexpr ( N > 0 )
+		{
+			if constexpr ( N <= 0x200 )
+			{
+#if __has_builtin(__builtin_memcpy_inline)
+				__builtin_memcpy_inline( a, b, N );
+#else
+				uint8_t* __restrict va = ( uint8_t* ) a;
+				const uint8_t* __restrict vb = ( const uint8_t* ) b;
+				for ( size_t n = 0; n != size_t( N ); n++ )
+					va[ n ] = vb[ n ];
+#endif
+			}
+			else
+			{
+#if __has_builtin(__builtin_memcpy)
+				__builtin_memcpy( a, b, N );
+#else
+				memcpy( a, b, size_t( N ) );
+#endif
+			}
+		}
+	}
 	template<typename T>
 	FORCE_INLINE inline void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
 	{
-		if constexpr ( sizeof( T ) <= 0x200 )
-		{
-#if __has_builtin(__builtin_memcpy_inline)
-			__builtin_memcpy_inline( &a, &b, sizeof( T ) );
-#else
-			auto& __restrict va = as_bytes( a );
-			const auto& __restrict vb = as_bytes( b );
-			for ( size_t n = 0; n != sizeof( T ); n++ )
-				va[ n ] = vb[ n ];
-#endif
-		}
-		else
-		{
-			memcpy( &a, &b, sizeof( T ) );
-		}
+		trivial_copy_n<sizeof( T )>( &a, &b );
 	}
 	template<typename T>
 	FORCE_INLINE inline void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
@@ -988,6 +1000,54 @@ namespace xstd
 		else
 		{
 			return !memcmp( a, b, sizeof( T ) );
+		}
+	}
+
+	template<Unsigned T, auto N>
+	FORCE_INLINE inline constexpr T trivial_read_n( const uint8_t* src )
+	{
+		if constexpr ( N <= 0 )
+		{
+			return T( 0 );
+		}
+		else
+		{
+			constexpr size_t L = std::min<size_t>( ( size_t ) N, sizeof( T ) );
+
+			T result = 0;
+			if ( std::is_constant_evaluated() )
+			{
+				for ( size_t i = 0; i != L; i++ )
+					result |= T( src[ i ] ) << ( 8 * i );
+			}
+			else
+			{
+				if constexpr ( L == sizeof( T ) )
+				{
+					result = *( const T* ) src;
+				}
+				else if constexpr ( L >= 4 )
+				{
+					result = T( *( const uint32_t* ) src );
+					if constexpr ( L == 7 )
+						result |= T( *( const uint32_t* ) &src[ 3 ] ) << 24;
+					else if constexpr ( L == 6 )
+						result |= T( *( const uint16_t* ) &src[ 4 ] ) << 32;
+					else if constexpr ( L == 5 )
+						result |= T( src[ 4 ] ) << 32;
+				}
+				else if constexpr ( L >= 2 )
+				{
+					result = T( *( const uint16_t* ) src );
+					if constexpr ( L == 3 )
+						result |= T( src[ 2 ] ) << 16;
+				}
+				else if constexpr ( L == 1 )
+				{
+					result = T( *( const uint16_t* ) src );
+				}
+			}
+			return result;
 		}
 	}
 

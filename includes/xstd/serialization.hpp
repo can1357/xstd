@@ -117,7 +117,7 @@ namespace xstd
 	// max_index_length reserved as the output.
 	//  - Returns the actual length.
 	//
-	FORCE_INLINE inline constexpr size_t encode_index( uint8_t* out, uint64_t value )
+	inline constexpr size_t encode_index( uint8_t* out, uint64_t value )
 	{
 		uint8_t w = length_index( value );
 
@@ -139,63 +139,24 @@ namespace xstd
 		return w;
 	}
 
-	// Decodes the given u64 in index from from the buffer, caller must have
-	// max_index_length reserved as the input.
+	// Decodes the given u64 in index from from the buffer.
 	// - Returns the decoded integer and the length, length < 0 indicates error.
 	//
-	FORCE_INLINE inline constexpr std::pair<uint64_t, int8_t> decode_index( const uint8_t* in )
+	inline constexpr std::pair<uint64_t, int8_t> decode_index( const uint8_t* in, size_t limit = max_index_length )
 	{
-		uint64_t e1 = 0;
+		uint64_t e1 = 0; 
 		uint16_t e2 = 0;
-		if ( !std::is_constant_evaluated() )
+		auto read_as = [ & ] <size_t N> ( const_tag<N> ) FORCE_INLINE
 		{
-			e1 = *( const uint64_t* ) &in[ 0 ];
-			e2 = *( const uint16_t* ) &in[ 8 ];
-		}
+			e1 = trivial_read_n<uint64_t, N>( in );
+			if constexpr( N > 8 )
+				e2 = trivial_read_n<uint16_t, N - 8>( in + 8 );
+		};
+		if ( limit >= max_index_length ) [[likely]]
+			read_as( const_tag<max_index_length>{} );
 		else
-		{
-			for ( size_t i = 0; i != 8; i++ )
-				e1 |= uint64_t( in[ i ] ) << ( 8 * i );
-			for ( size_t i = 0; i != 2; i++ )
-				e2 |= uint16_t( in[ 8 + i ] ) << ( 8 * i );
-		}
+			visit_index<max_index_length>( limit, read_as );
 		return decode_index( e1, e2 );
-	}
-	
-	// Decodes the given u64 in index from from the buffer, limit must be BELOW (not <=) the 
-	// maximum character count as this is a fallback function.
-	// - Returns the decoded integer and the length, length < 0 indicates error.
-	//
-	NO_INLINE inline constexpr std::pair<uint64_t, int8_t> decode_index_n( const uint8_t* in, uint8_t limit )
-	{
-		return visit_index<max_index_length>( limit, [ & ] <size_t N> ( const_tag<N> ) FORCE_INLINE
-		{
-			if constexpr ( N == 0 )
-			{
-				return std::pair{ uint64_t( 0 ), int8_t( -1 ) };
-			}
-			else
-			{
-				uint64_t e1 = 0;
-				uint16_t e2 = 0;
-				if ( !std::is_constant_evaluated() )
-				{
-					auto data = *( const std::array<uint8_t, N>* ) in;
-					for ( size_t i = 0; i < std::min<size_t>( 8, N ); i++ )
-						e1 |= uint64_t( data[ i ] ) << ( 8 * i );
-					for ( size_t i = 8; i < std::min<size_t>( 10, N ); i++ )
-						e2 |= uint16_t( data[ i ] ) << ( 8 * ( i - 8 ) );
-				}
-				else
-				{
-					for ( size_t i = 0; i < std::min<size_t>( 8, N ); i++ )
-						e1 |= uint64_t( in[ i ] ) << ( 8 * i );
-					for ( size_t i = 8; i < std::min<size_t>( 10, N ); i++ )
-						e2 |= uint16_t( in[ i ] ) << ( 8 * ( i - 8 ) );
-				}
-				return decode_index( e1, e2 );
-			}
-		} );
 	}
 
 	// Encodes the given u64 in index format into a vector.
@@ -313,13 +274,7 @@ namespace xstd
 		}
 		size_t read_idx()
 		{
-			std::pair<uint64_t, int8_t> result;
-			if ( size_t limit = input_stream.size(); limit >= max_index_length ) [[likely]]
-				result = decode_index( &input_stream[ 0 ] );
-			else
-				result = decode_index_n( &input_stream[ 0 ], limit );
-
-			auto& [idx, len] = result;
+			auto [idx, len] = decode_index( &input_stream[ 0 ], input_stream.size() );
 			if ( len >= 0 ) [[likely]]
 			{
 				input_stream = input_stream.subspan( len );
