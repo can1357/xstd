@@ -1463,25 +1463,26 @@ namespace xstd
 
 		// Result and the state store.
 		//
-		static std::atomic<bool> ran = false, complete = false;
+		static std::atomic<uint8_t> status = 1; // 1 = first time, 2 = in-progress, 0 = complete
 		alignas( Rx ) static uint8_t result[ sizeof( Rx ) ] = {};
 		
-		if ( !ran.load( std::memory_order::relaxed ) ) [[unlikely]]
+		if ( status.load( std::memory_order::relaxed ) != 0 ) [[unlikely]]
 		{
 			cold_call( [ & ]
 			{
-				bool expected = false;
-				if ( ran.compare_exchange_strong( expected, true, std::memory_order::acquire ) )
+				uint8_t expected = 0;
+				if ( status.compare_exchange_strong( expected, 2, std::memory_order::acquire ) )
 				{
 					if constexpr ( !Void<R> )
 						std::construct_at<R>( ( R* ) &result[ 0 ], fn() );
 					else
 						fn();
-					complete.store( true, std::memory_order::relaxed );
+					std::atomic_thread_fence( std::memory_order::acquire );
+					status.store( 0, std::memory_order::relaxed );
 				}
 				else
 				{
-					while ( !complete.load( std::memory_order::relaxed ) )
+					while ( status.load( std::memory_order::relaxed ) != 0 )
 						yield_cpu();
 				}
 			} );
