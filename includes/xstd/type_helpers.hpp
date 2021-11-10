@@ -1470,7 +1470,7 @@ namespace xstd
 		{
 			cold_call( [ & ]
 			{
-				uint8_t expected = 0;
+				uint8_t expected = 1;
 				if ( status.compare_exchange_strong( expected, 2, std::memory_order::acquire ) )
 				{
 					if constexpr ( !Void<R> )
@@ -1480,10 +1480,11 @@ namespace xstd
 					std::atomic_thread_fence( std::memory_order::acquire );
 					status.store( 0, std::memory_order::relaxed );
 				}
-				else
+				else if ( expected != 0 )
 				{
-					while ( status.load( std::memory_order::relaxed ) != 0 )
+					do
 						yield_cpu();
+					while ( status.load( std::memory_order::relaxed ) != 0 );
 				}
 			} );
 		}
