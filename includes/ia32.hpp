@@ -22826,13 +22826,23 @@ namespace ia32
 	{
 		const bool caller_if =                read_flags().interrupt_enable_flag;
 
-		// Check for MWAIT support.
+		// Use a pause loop if MONITOR is not available.
 		//
-		const auto& monitor_flags =           static_cpuid_s<1, 0, cpuid_eax_01>::result.cpuid_feature_information_ecx;
+		const auto& monitor_flags = static_cpuid_s<1, 0, cpuid_eax_01>::result.cpuid_feature_information_ecx;
+		const bool mwait_supported = monitor_flags.monitor_mwait_instruction;
+		if ( !mwait_supported ) [[unlikely]]
+		{
+			while ( !pred( ref ) )
+				pause();
+			return;
+		}
+		
+		// Determine MWAIT flags.
+		//
 		const auto& mwait_flags =             static_cpuid_s<5, 0, cpuid_eax_05>::result.ecx;
-		const bool mwait_supported =          monitor_flags.monitor_mwait_instruction;
 		const bool mwait_supports_if_bypass = mwait_flags.enumeration_of_monitor_mwait_extensions && mwait_flags.supports_treating_interrupts_as_break_event_for_mwait;
 		const uint32_t mwait_exts =           ( caller_if && mwait_supports_if_bypass ) ? mwait_ext_v<true> : mwait_ext_v<>;
+		const bool sti_mwait =                ( caller_if && !mwait_supports_if_bypass );
 
 		while( !pred( ref ) )
 		{
@@ -22845,29 +22855,36 @@ namespace ia32
 					return;
 			}
 
-			// If there is MWAIT support:
+			// Disable interrupts, setup monitor address.
 			//
-			if ( mwait_supported ) [[likely]]
-			{
-				// Disable interrupts, setup monitor address.
-				//
-				disable();
-				monitor( &ref, 0, 0 );
+			disable();
+			monitor( &ref, 0, 0 );
 
-				// If interrupts were disabled, simply MWAIT.
+			// Check for the predicate one more time.
+			//
+			if ( !pred( ref ) )
+			{
+				// If interrupts were disabled or if MWAIT can bypass IF, just MWAIT.
 				//
-				if ( !caller_if )
+				if ( !sti_mwait )
 					asm volatile( "mwait"       :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
 
-				// Otherwise if MWAIT can bypass IF, first MWAIT, then enable interrupts. 
-				// 
-				else if ( mwait_supports_if_bypass )
-					asm volatile( "mwait; sti;" :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
-
-				// Else, enable interrupts and mwait during the interrupt deferring period of sti.
+				// Otherwise, enable interrupts and MWAIT during the interrupt deferring period of STI.
 				//
 				else
 					asm volatile( "sti; mwait;" :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
+
+				// Restore IF.
+				//
+				if ( caller_if ) enable();
+			}
+			else
+			{
+				// Restore IF and return.
+				//
+				if ( caller_if ) 
+					enable();
+				return;
 			}
 		}
 	}
