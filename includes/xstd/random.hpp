@@ -201,18 +201,36 @@ namespace xstd
 				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
 			}
 		}
+
+		static constexpr double generate_real( uint64_t v )
+		{
+			constexpr bitcnt_t mantissa_bits = 52;
+			uint64_t sign =     v >> 63;
+			uint64_t mantissa = v & fill_bits( mantissa_bits );
+			uint64_t exponent = 1021;
+			for ( bitcnt_t i = mantissa_bits; i <= 64; i++, exponent-- )
+				if ( i == 64 || ( v >> i ) & 1 )
+					break;
+			return std::bit_cast<double>( mantissa | ( exponent << mantissa_bits ) | ( sign << 63 ) ) + 0.5;
+		}
+		static constexpr float generate_real( uint32_t v )
+		{
+			constexpr bitcnt_t mantissa_bits = 23;
+			uint32_t sign =     v >> 31;
+			uint32_t mantissa = v & fill_bits( mantissa_bits );
+			uint32_t exponent = 125;
+			for ( bitcnt_t i = mantissa_bits; i <= 32; i++, exponent-- )
+				if ( i == 32 || ( v >> i ) & 1 )
+					break;
+			return std::bit_cast<float>( mantissa | ( exponent << mantissa_bits ) | ( sign << 31 ) ) + 0.5;
+		}
 		static constexpr double uniform_real( uint64_t v, double min, double max )
 		{
-			double delta = max - min;
-			double p1 = uint32_t( v )       / double( UINT32_MAX );
-			double p2 = uint32_t( v >> 32 ) / double( UINT32_MAX );
-			return double( min + ( p1 + p2 ) * delta / 2 );
+			return min + generate_real( v ) * ( max - min );
 		}
-		static constexpr float uniform_real( uint64_t v, float min, float max )
+		static constexpr float uniform_real( uint32_t v, float min, float max )
 		{
-			double delta = max - min;
-			double p1 = uint32_t( v ) / double( UINT32_MAX );
-			return float( min + p1 * delta );
+			return min + generate_real( v ) * ( max - min );
 		}
 #undef __xstd_rng
 	};
@@ -248,7 +266,7 @@ namespace xstd
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_srandom( T min = 0, T max = 1 )
 	{
-		return impl::uniform_real( make_srandom<uint64_t>(), min, max );
+		return impl::uniform_real( make_srandom<convert_uint_t<T>>(), min, max );
 	}
 
 	// Generates a single random number.
@@ -270,7 +288,7 @@ namespace xstd
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_random( T min = 0, T max = 1 )
 	{
-		return impl::uniform_real( make_random<uint64_t>(), min, max );
+		return impl::uniform_real( make_random<convert_uint_t<T>>(), min, max );
 	}
 	template<Integral T = uint64_t>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
@@ -281,7 +299,7 @@ namespace xstd
 	template<FloatingPoint T>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = 0, T max = 1 )
 	{
-		return impl::uniform_real( make_crandom<uint64_t>( key ), min, max );
+		return impl::uniform_real( make_crandom<convert_uint_t<T>>( key ), min, max );
 	}
 
 	// Fills the given range with randoms.
