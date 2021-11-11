@@ -22856,23 +22856,18 @@ namespace ia32
 
 				// If interrupts were disabled, simply MWAIT.
 				//
-				if ( !caller_if ) [[unlikely]]
-				{
-					mwait( mwait_ext_v<>, mwait_hint );
-				}
+				if ( !caller_if )
+					asm volatile( "mwait"       :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
+
 				// Otherwise if MWAIT can bypass IF, first MWAIT, then enable interrupts. 
 				// 
-				else if ( mwait_supports_if_bypass ) [[likely]]
-				{
-					mwait( mwait_ext_v<true>, mwait_hint );
-					enable();
-				}
+				else if ( mwait_supports_if_bypass )
+					asm volatile( "mwait; sti;" :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
+
 				// Else, enable interrupts and mwait during the interrupt deferring period of sti.
 				//
 				else
-				{
 					asm volatile( "sti; mwait;" :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
-				}
 			}
 		}
 	}
