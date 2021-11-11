@@ -30,7 +30,6 @@
 	#define ANSI_ESCAPE(...) ("\x1B[" __VA_ARGS__)
 #endif
 
-
 // Ignore format warnings.
 //
 #if GNU_COMPILER
@@ -59,7 +58,6 @@ namespace xstd::fmt
 		template<typename... Tx> 
 		using format_buffer_for = std::conditional_t<(conv_count<Tx...>::value==0), std::monostate, small_vector<std::string, conv_count<Tx...>::value>>;
 	};
-
 	namespace impl
 	{
 		// Fixes the type name to be more friendly.
@@ -530,12 +528,13 @@ namespace xstd::fmt
 		{
 			auto print_to_buffer = [ & ] ( const C* fmt_str, auto&&... args )
 			{
-				static constexpr size_t small_capacity = 15 / sizeof( C );
-				std::basic_string<C> buffer( small_capacity, C{} );
-				buffer.resize( provider( buffer.data(), buffer.size() + 1, fmt_str, args... ) );
-				if ( buffer.size() > small_capacity )
-					provider( buffer.data(), buffer.size() + 1, fmt_str, args... );
-				return buffer;
+				static constexpr size_t small_capacity = is_using_ms_stl() ? 15 / sizeof( C ) : 0;
+				
+				std::basic_string<C> result( small_capacity, C{} );
+				result.resize( provider( result.data(), result.size() + 1, fmt_str, args... ) );
+				if ( result.size() > small_capacity )
+					provider( result.data(), result.size() + 1, fmt_str, args... );
+				return result;
 			};
 
 			impl::format_buffer_for<std::decay_t<Tx>...> buf = {};

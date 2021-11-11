@@ -75,28 +75,16 @@ namespace xstd::fmt
 		T value = 0;
 		constexpr byte_count() {}
 		constexpr byte_count( T value ) : value( value ) {}
-
+		
 		std::string to_string() const
 		{
-			// Convert to double.
-			//
-			double fvalue = ( double ) value;
-
-			// Iterate unit list in descending order.
-			//
-			size_t n = unit_abbrv.size() - 1;
-			while ( n != 0 )
+			size_t limit = 1ull << ( 10 * ( unit_abbrv.size() - 1 ) );
+			for ( size_t n = unit_abbrv.size() - 1; n != 0; n--, limit >>= 10 )
 			{
-				if ( fvalue >= unit_size[ n ] )
-					break;
-				--n;
+				if ( value >= limit )
+					return fmt::str( "%.1lf", double( value ) / limit ) + unit_abbrv[ n ];
 			}
-
-			// Convert float to string.
-			//
-			char buffer[ 32 ];
-			snprintf( buffer, 32, "%.1lf%s", fvalue / unit_size[ n ], unit_abbrv[ n ] );
-			return buffer;
+			return fmt::str( "%llub", value );
 		}
 	};
 
@@ -111,7 +99,7 @@ namespace xstd::fmt
 
 		std::string to_string() const
 		{
-			if ( !value ) return "";
+			if ( !value ) return {};
 			else          return std::string( 1, ( char ) value );
 		}
 	};
@@ -136,9 +124,7 @@ namespace xstd::fmt
 
 		std::string to_string() const
 		{
-			char buffer[ 32 ];
-			snprintf( buffer, 32, "%.2lf%%", double( value * 100 ) );
-			return buffer;
+			return fmt::str( "%.2lf%%", double( value * 100 ) );
 		}
 	};
 

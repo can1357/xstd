@@ -77,6 +77,25 @@
 inline static constexpr bool is_debug_build() { return DEBUG_BUILD; }
 inline static constexpr bool is_release_build() { return RELEASE_BUILD; }
 
+// Determine STL type.
+//
+#if defined(_MSVC_STL_VERSION)
+	#define USING_MS_STL   1
+	#define USING_GNU_STL  0
+	#define USING_LLVM_STL 0
+#elif defined(_LIBCPP_VERSION)
+	#define USING_MS_STL   0
+	#define USING_GNU_STL  0
+	#define USING_LLVM_STL 1
+#elif defined(__GLIBCXX__)
+	#define USING_MS_STL   0
+	#define USING_GNU_STL  1
+	#define USING_LLVM_STL 0
+#endif
+inline static constexpr bool is_using_ms_stl() { return USING_MS_STL; }
+inline static constexpr bool is_using_gcc_stl() { return USING_GNU_STL; }
+inline static constexpr bool is_using_clang_stl() { return USING_LLVM_STL; }
+
 // Determine the target platform.
 //
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined (__AMD_64) || defined(_M_AMD64)

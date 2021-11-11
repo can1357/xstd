@@ -710,22 +710,22 @@ namespace xstd
 	// Nontemporal memory helpers.
 	//
 	template<typename T>
-	FORCE_INLINE inline constexpr T load_nontemporal( const T* p )
+	FORCE_INLINE inline T load_nontemporal( const void* p )
 	{
 #if GNU_COMPILER
-		if ( !std::is_constant_evaluated() )
-			return __builtin_nontemporal_load( p );
-#endif
+		return __builtin_nontemporal_load( ( const T* ) p );
+#else
 		return *p;
+#endif
 	}
 	template<typename T>
-	FORCE_INLINE inline constexpr void store_nontemporal( T* p, T value )
+	FORCE_INLINE inline void store_nontemporal( void* p, T value )
 	{
 #if GNU_COMPILER
-		if ( !std::is_constant_evaluated() )
-			return ( void ) __builtin_nontemporal_store( value, p );
-#endif
+		__builtin_nontemporal_store( value, ( T* ) p );
+#else
 		*p = value;
+#endif
 	}
 
 	// Misaligned memory helpers.
