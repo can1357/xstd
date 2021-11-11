@@ -201,28 +201,59 @@ namespace xstd
 				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
 			}
 		}
-
 		static constexpr double generate_real( uint64_t v )
 		{
 			constexpr bitcnt_t mantissa_bits = 52;
-			uint64_t sign =     v >> 63;
-			uint64_t mantissa = v & fill_bits( mantissa_bits );
-			uint64_t exponent = 1021;
-			for ( bitcnt_t i = mantissa_bits; i <= 64; i++, exponent-- )
-				if ( i == 64 || ( v >> i ) & 1 )
-					break;
-			return bit_cast<double>( mantissa | ( exponent << mantissa_bits ) | ( sign << 63 ) ) + 0.5;
+			constexpr bitcnt_t exponent_bits = 64 - ( mantissa_bits + 1 );
+			constexpr uint32_t exponent_0 =    1021; // 0.499999
+
+			// One step of LCG64.
+			//
+			v = 1 + 6364136223846793005 * v;
+
+			// Find the Lowest bit set, 0 requires 1 bit to be set '0', 1 requires
+			// 2 bits to be set '0' so each increment has 1/2'th the chance of being
+			// returned than the other one which leads to equal distribution between
+			// exponential levels.
+			//
+			uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_bits ) );
+
+			// Clear and replace the exponent bits.
+			//
+			v &= ~fill_bits( exponent_bits );
+			v |= exponent;
+
+			// Rotate until mantissa is at the bottom, add 0.5 to shift from [-0.5, +0.5] to [0.0, 1.0].
+			//
+			v = rotl( v, mantissa_bits );
+			return bit_cast< double >( v ) + 0.5;
 		}
 		static constexpr float generate_real( uint32_t v )
 		{
 			constexpr bitcnt_t mantissa_bits = 23;
-			uint32_t sign =     v >> 31;
-			uint32_t mantissa = v & fill_bits( mantissa_bits );
-			uint32_t exponent = 125;
-			for ( bitcnt_t i = mantissa_bits; i <= 32; i++, exponent-- )
-				if ( i == 32 || ( v >> i ) & 1 )
-					break;
-			return bit_cast<float>( mantissa | ( exponent << mantissa_bits ) | ( sign << 31 ) ) + 0.5;
+			constexpr bitcnt_t exponent_bits = 32 - ( mantissa_bits + 1 );
+			constexpr uint32_t exponent_0 =    125; // 0.499999
+
+			// One step of LCG32.
+			//
+			v = 1013904223 + 1664525 * v;
+
+			// Find the Lowest bit set, 0 requires 1 bit to be set '0', 1 requires
+			// 2 bits to be set '0' so each increment has 1/2'th the chance of being
+			// returned than the other one which leads to equal distribution between
+			// exponential levels.
+			//
+			uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_bits ) );
+
+			// Clear and replace the exponent bits.
+			//
+			v &= ~fill_bits( exponent_bits );
+			v |= exponent;
+			
+			// Rotate until mantissa is at the bottom, add 0.5 to shift from [-0.5, +0.5] to [0.0, 1.0].
+			//
+			v = rotl( v, mantissa_bits );
+			return bit_cast< float >( v ) + 0.5;
 		}
 		static constexpr double uniform_real( uint64_t v, double min, double max )
 		{
