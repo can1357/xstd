@@ -22834,15 +22834,15 @@ namespace ia32
 		const bool mwait_supports_if_bypass = mwait_flags.enumeration_of_monitor_mwait_extensions && mwait_flags.supports_treating_interrupts_as_break_event_for_mwait;
 		const uint32_t mwait_exts =           ( caller_if && mwait_supports_if_bypass ) ? mwait_ext_v<true> : mwait_ext_v<>;
 
-		while( true )
+		while( !pred( ref ) )
 		{
 			// Enter a pause loop until the given threshold is met.
 			//
 			for ( size_t i = 0; i != pause_count; i++ )
 			{
+				pause();
 				if ( pred( ref ) )
 					return;
-				pause();
 			}
 
 			// If there is MWAIT support:
