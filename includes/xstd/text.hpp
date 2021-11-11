@@ -190,7 +190,7 @@ namespace xstd
 	};
 	template<typename T = void> using ihash = basic_ihash<ihash_t, T>;
 	template<typename T = void> using xhash = basic_xhash<xhash_t, T>;
-	template<typename T = void> using ahash = basic_xhash<ahash_t, T>;
+	template<typename T = void> using ahash = basic_ahash<ahash_t, T>;
 	template<typename H, String T> inline constexpr H make_ihash( const T& value ) noexcept { return basic_ihash<H, T>{}( value ); }
 	template<typename H, String T> inline constexpr H make_xhash( const T& value ) noexcept { return basic_xhash<H, T>{}( value ); }
 	template<typename H, String T> inline constexpr H make_ahash( const T& value ) noexcept { return basic_ahash<H, T>{}( value ); }

@@ -327,6 +327,11 @@ namespace ia32::smbios
 				 xstd::ifind( str, "sernum" ) != std::string::npos )
 				str = {};
 
+			// Normalize the string.
+			//
+			while ( !str.empty() && str.back() == ' ' )
+				str.remove_suffix( 1 );
+
 			switch ( xstd::make_ahash( str ) )
 			{
 				case "Default string"_ahash:
@@ -413,11 +418,6 @@ namespace ia32::smbios
 				default:
 					break;
 			}
-
-			// Normalize the string.
-			//
-			while ( !str.empty() && str.back() == ' ' )
-				str.remove_suffix( 1 );
 		}
 
 		// Improperly terminated descriptor.
