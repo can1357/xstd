@@ -1079,8 +1079,8 @@ namespace xstd
 		inline constexpr any_ptr() : address( 0 ) {}
 		inline constexpr any_ptr( std::nullptr_t ) : address( 0 ) {}
 		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
-		inline constexpr any_ptr( const void* address ) : address( bit_cast<uint64_t>( address ) ) {}
-		inline constexpr any_ptr( const volatile void* address ) : address( bit_cast<uint64_t>( address ) ) {}
+		template<typename T>
+		inline constexpr any_ptr( T* address ) : address( bit_cast<uint64_t>( address ) ) {}
 		template<typename R, typename... A>
 		inline constexpr any_ptr( static_function_t<R, A...> fn ) : address( bit_cast<uint64_t>( fn ) ) {}
 		template<typename C, typename R, typename... A>
