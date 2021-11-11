@@ -22885,7 +22885,7 @@ namespace ia32
 
 				// Enable interrupts and mwait right afterwards.
 				//
-				asm volatile( "sti; mwait" :: "c" ( mwait_ext_v<> ), "d" ( mwait_hint ) );
+				asm volatile( "sti; mwait" :: "c" ( mwait_ext_v<> ), "a" ( mwait_hint ) );
 
 				// Check predicate, break if satisfied.
 				//
