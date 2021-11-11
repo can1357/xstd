@@ -22822,85 +22822,67 @@ namespace ia32
 	// Safe wrapper around MWAIT.
 	//
 	template<typename T, typename Predicate> requires xstd::Invocable<Predicate, bool, const volatile T&>
-	_LINKAGE void wait_on( const volatile T& ref, Predicate&& pred, size_t pause_count = 64, uint32_t mwait_hint = mwait_hint_v<0> )
+	_LINKAGE void wait_on( const volatile T& ref, Predicate&& pred, size_t pause_count = 4, uint32_t mwait_hint = mwait_hint_v<0> )
 	{
-		auto pause_wait = [ & ]() FORCE_INLINE
+		const bool caller_if =                read_flags().interrupt_enable_flag;
+
+		// Check for MWAIT support.
+		//
+		const auto& monitor_flags =           static_cpuid_s<1, 0, cpuid_eax_01>::result.cpuid_feature_information_ecx;
+		const auto& mwait_flags =             static_cpuid_s<5, 0, cpuid_eax_05>::result.ecx;
+		const bool mwait_supported =          monitor_flags.monitor_mwait_instruction;
+		const bool mwait_supports_if_bypass = mwait_flags.enumeration_of_monitor_mwait_extensions && mwait_flags.supports_treating_interrupts_as_break_event_for_mwait;
+		const uint32_t mwait_exts =           ( caller_if && mwait_supports_if_bypass ) ? mwait_ext_v<true> : mwait_ext_v<>;
+
+		while( true )
 		{
+			// Enter a pause loop until the given threshold is met.
+			//
 			for ( size_t i = 0; i != pause_count; i++ )
 			{
 				if ( pred( ref ) )
-					return true;
-				pause();
-			}
-			return false;
-		};
-
-		// Enter a pause loop until the given threshold is met.
-		//
-		if ( pause_wait() )
-			return;
-
-		// If no MWAIT support, continue looping pause.
-		//
-		const auto& monitor_flags = static_cpuid_s<1, 0, cpuid_eax_01>::result.cpuid_feature_information_ecx;
-		const auto& mwait_flags =   static_cpuid_s<5, 0, cpuid_eax_05>::result.ecx;
-		if ( !monitor_flags.monitor_mwait_instruction ) [[unlikely]]
-		{
-			while ( !pred( ref ) )
-				pause();
-			return;
-		}
-
-		// If interrupts are disabled or if MWAIT supports treating interrupts as break events:
-		//
-		auto flags = read_flags();
-		if ( !flags.interrupt_enable_flag ||
-			  ( mwait_flags.enumeration_of_monitor_mwait_extensions && mwait_flags.supports_treating_interrupts_as_break_event_for_mwait ) ) [[likely]]
-		{
-			while( true )
-			{
-				// Disable interrupts, setup monitor address, mwait.
-				//
-				disable();
-				monitor( &ref, 0, 0 );
-				mwait( mwait_ext_v<true>, mwait_hint );
-
-				// Restore flags, check predicate, break if satisfied.
-				//
-				write_flags( flags );
-				if ( pause_wait() )
 					return;
+				pause();
 			}
-		}
-		// Otherwise:
-		//
-		else
-		{
-			while( true )
+
+			// If there is MWAIT support:
+			//
+			if ( mwait_supported ) [[likely]]
 			{
 				// Disable interrupts, setup monitor address.
 				//
 				disable();
 				monitor( &ref, 0, 0 );
 
-				// Enable interrupts and mwait right afterwards.
+				// If interrupts were disabled, simply MWAIT.
 				//
-				asm volatile( "sti; mwait" :: "c" ( mwait_ext_v<> ), "a" ( mwait_hint ) );
-
-				// Check predicate, break if satisfied.
+				if ( !caller_if ) [[unlikely]]
+				{
+					mwait( mwait_ext_v<>, mwait_hint );
+				}
+				// Otherwise if MWAIT can bypass IF, first MWAIT, then enable interrupts. 
+				// 
+				else if ( mwait_supports_if_bypass ) [[likely]]
+				{
+					mwait( mwait_ext_v<true>, mwait_hint );
+					enable();
+				}
+				// Else, enable interrupts and mwait during the interrupt deferring period of sti.
 				//
-				if ( pause_wait() )
-					return;
+				else
+				{
+					asm volatile( "sti; mwait;" :: "c" ( mwait_exts ), "a" ( mwait_hint ) : "memory" );
+				}
 			}
 		}
 	}
 	template<typename T, typename Tv> requires xstd::Convertible<Tv, T>
-	_LINKAGE void wait_on( const volatile T& ref, Tv desired, size_t pause_count = 64, uint32_t mwait_hint = mwait_hint_v<0> )
+	_LINKAGE void wait_on( const volatile T& ref, Tv desired, size_t pause_count = 4, uint32_t mwait_hint = mwait_hint_v<0> )
 	{
 		wait_on( ref, [ v = T( desired ) ] ( T value ) FORCE_INLINE { return value == v; }, pause_count, mwait_hint );
 	}
 	template<typename T>
-	_LINKAGE void wait_on( const volatile T& ref, std::nullopt_t desired, size_t pause_count = 64, uint32_t mwait_hint = mwait_hint_v<0> )
+	_LINKAGE void wait_on( const volatile T& ref, std::nullopt_t desired, size_t pause_count = 4, uint32_t mwait_hint = mwait_hint_v<0> )
 	{
 		wait_on( ref, [ v = T( ref ) ] ( T value ) FORCE_INLINE { return value != v; }, pause_count, mwait_hint );
 	}
