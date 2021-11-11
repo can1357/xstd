@@ -78,27 +78,10 @@ namespace xstd::http
 		return hash_method( method_map[ N ] );
 	} );
 
-	// Define case insensitive string comperator for the header map.
-	//
-	namespace impl
-	{
-		struct icase_eq
-		{
-			bool operator()( const std::string& a, const std::string& b ) const noexcept
-			{
-				return istrcmp( a, b ) == 0;
-			}
-			bool operator()( const std::string_view& a, const std::string_view& b ) const noexcept
-			{
-				return istrcmp( a, b ) == 0;
-			}
-		};
-	};
-
 	// Define the header map.
 	//
-	using header_map =      std::unordered_map<std::string, std::string, ihash<std::string>, impl::icase_eq>;
-	using header_view_map = std::unordered_map<std::string_view, std::string_view, ihash<std::string_view>, impl::icase_eq>;
+	using header_map =      std::unordered_map<std::string, std::string, ahash<std::string>, icmp_equals>;
+	using header_view_map = std::unordered_map<std::string_view, std::string_view, ahash<std::string_view>, icmp_equals>;
 	using header_list =     std::initializer_list<std::pair<std::string_view, std::string_view>>;
 	using header_span =     std::span<const std::pair<std::string_view, std::string_view>>;
 	template<typename T> concept HeaderMap = std::is_same_v<T, header_map> || std::is_same_v<T, header_view_map>;

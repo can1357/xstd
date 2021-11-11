@@ -327,87 +327,87 @@ namespace ia32::smbios
 				 xstd::ifind( str, "sernum" ) != std::string::npos )
 				str = {};
 
-			switch ( xstd::make_ihash( str ) )
+			switch ( xstd::make_ahash( str ) )
 			{
-				case "Default string"_ihash:
+				case "Default string"_ahash:
 					
 				// Attempts at sanity.
 				//
 				// - Void group
-				case "Unknown"_ihash:
-				case "Undefined"_ihash:
-				case "Empty"_ihash:
-				case "[Empty]"_ihash:
+				case "Unknown"_ahash:
+				case "Undefined"_ahash:
+				case "Empty"_ahash:
+				case "[Empty]"_ahash:
 				// - No group
-				case "No DIMM"_ihash:
-				case "No Module Installed"_ihash:
+				case "No DIMM"_ahash:
+				case "No Module Installed"_ahash:
 				// - Not group
-				case "N/A"_ihash:
-				case "Not Settable"_ihash:
-				case "Not Provided"_ihash:
-				case "Not Specified"_ihash:
-				case "Not Available"_ihash:
-				case "None"_ihash:
-				case "NULL"_ihash:
+				case "N/A"_ahash:
+				case "Not Settable"_ahash:
+				case "Not Provided"_ahash:
+				case "Not Specified"_ahash:
+				case "Not Available"_ahash:
+				case "None"_ahash:
+				case "NULL"_ahash:
 
 				// All hail the OEM.
 				//
-				case "To Be Filled By O.E.M."_ihash:
-				case "To Be Filled By OEM"_ihash:
-				case "Fill By OEM"_ihash:
-				case "OEM"_ihash:
-				case "OEM_Define0"_ihash:
-				case "OEM_Define1"_ihash:
-				case "OEM_Define2"_ihash:
-				case "OEM_Define3"_ihash:
-				case "OEM_Define4"_ihash:
-				case "OEM_Define5"_ihash:
-				case "OEM_Define6"_ihash:
-				case "OEM_Define7"_ihash:
-				case "OEM_Define8"_ihash:
-				case "OEM_Define9"_ihash:
-				case "OEM String"_ihash:
-				case "OEM Define 0"_ihash:
-				case "OEM Define 1"_ihash:
-				case "OEM Define 2"_ihash:
-				case "OEM Define 3"_ihash:
-				case "OEM Define 4"_ihash:
-				case "OEM Define 5"_ihash:
-				case "OEM Define 6"_ihash:
-				case "OEM Define 7"_ihash:
-				case "OEM Define 8"_ihash:
-				case "OEM Define 9"_ihash:
-				case "OEM-specific"_ihash:
-				case "<OUT OF SPEC>"_ihash:
+				case "To Be Filled By O.E.M."_ahash:
+				case "To Be Filled By OEM"_ahash:
+				case "Fill By OEM"_ahash:
+				case "OEM"_ahash:
+				case "OEM_Define0"_ahash:
+				case "OEM_Define1"_ahash:
+				case "OEM_Define2"_ahash:
+				case "OEM_Define3"_ahash:
+				case "OEM_Define4"_ahash:
+				case "OEM_Define5"_ahash:
+				case "OEM_Define6"_ahash:
+				case "OEM_Define7"_ahash:
+				case "OEM_Define8"_ahash:
+				case "OEM_Define9"_ahash:
+				case "OEM String"_ahash:
+				case "OEM Define 0"_ahash:
+				case "OEM Define 1"_ahash:
+				case "OEM Define 2"_ahash:
+				case "OEM Define 3"_ahash:
+				case "OEM Define 4"_ahash:
+				case "OEM Define 5"_ahash:
+				case "OEM Define 6"_ahash:
+				case "OEM Define 7"_ahash:
+				case "OEM Define 8"_ahash:
+				case "OEM Define 9"_ahash:
+				case "OEM-specific"_ahash:
+				case "<OUT OF SPEC>"_ahash:
 
 				// Autism friendly placeholders.
 				//
-				case "System Product Name"_ihash:
-				case "System Version"_ihash:
-				case "Base Board"_ihash:
-				case "SKU Number"_ihash:
-				case "SKU"_ihash:
+				case "System Product Name"_ahash:
+				case "System Version"_ahash:
+				case "Base Board"_ahash:
+				case "SKU Number"_ahash:
+				case "SKU"_ahash:
 
 				// Credit card numbers.
 				//
-				case "0"_ihash:
-				case "1.0"_ihash:
-				case "1234567"_ihash:
-				case "12345678"_ihash:
-				case "0123456789"_ihash:
-				case "1234567890"_ihash:
-				case "9876543210"_ihash:
-				case "0987654321"_ihash:
-				case "03142563"_ihash:
-				case "FFFF"_ihash:
-				case "FFFFFFFF"_ihash:
-				case "FFFFFFFFFFFFFFFF"_ihash:
+				case "0"_ahash:
+				case "1.0"_ahash:
+				case "1234567"_ahash:
+				case "12345678"_ahash:
+				case "0123456789"_ahash:
+				case "1234567890"_ahash:
+				case "9876543210"_ahash:
+				case "0987654321"_ahash:
+				case "03142563"_ahash:
+				case "FFFF"_ahash:
+				case "FFFFFFFF"_ahash:
+				case "FFFFFFFFFFFFFFFF"_ahash:
 				
 				// Brain damage.
 				//
-				case "*"_ihash:
-				case "BSN12345678901234567"_ihash:
-				case "SQUARE"_ihash:
+				case "*"_ahash:
+				case "BSN12345678901234567"_ahash:
+				case "SQUARE"_ahash:
 					str = {};
 					break;
 				default:

@@ -101,6 +101,7 @@ namespace xstd
 	//
 	using xhash_t = fnv64;
 	using ihash_t = fnv64;
+	using ahash_t = fnv64;
 
 	// Case/Width insensitive hasher.
 	//
@@ -121,6 +122,48 @@ namespace xstd
 		FORCE_INLINE inline constexpr H operator()( const S& value ) const noexcept
 		{
 			return basic_ihash<H, S>{}( value );
+		}
+	};
+
+	// Fast case-insensitive ASCII hasher.
+	//
+	template<typename H, typename T = void>
+	struct basic_ahash;
+	template<typename H, String T>
+	struct basic_ahash<H, T>
+	{
+		using U = string_unit_t<T>;
+
+		inline constexpr H operator()( const T& value ) const noexcept
+		{
+			H h = {};
+			if constexpr ( CString<T> )
+			{
+				const U* iterator = value;
+				while ( true )
+				{
+					U c = *iterator++;
+					if ( c )
+						h.add_bytes( uint8_t( c & 0xDF ) );
+					else
+						break;
+				}
+			}
+			else
+			{
+				for ( U c : std::basic_string_view<U>{ value } )
+					h.add_bytes( uint8_t( c & 0xDF ) );
+			}
+			return h;
+		}
+	};
+	template<typename H>
+	struct basic_ahash<H, void>
+	{
+		template<String S>
+		FORCE_INLINE inline constexpr H operator()( const S& value ) const noexcept
+		{
+			return basic_ahash<H, S>{}( value );
 		}
 	};
 
@@ -147,10 +190,13 @@ namespace xstd
 	};
 	template<typename T = void> using ihash = basic_ihash<ihash_t, T>;
 	template<typename T = void> using xhash = basic_xhash<xhash_t, T>;
+	template<typename T = void> using ahash = basic_xhash<ahash_t, T>;
 	template<typename H, String T> inline constexpr H make_ihash( const T& value ) noexcept { return basic_ihash<H, T>{}( value ); }
 	template<typename H, String T> inline constexpr H make_xhash( const T& value ) noexcept { return basic_xhash<H, T>{}( value ); }
+	template<typename H, String T> inline constexpr H make_ahash( const T& value ) noexcept { return basic_ahash<H, T>{}( value ); }
 	template<String T> inline constexpr ihash_t make_ihash( const T& value ) noexcept { return make_ihash<ihash_t>( value ); }
 	template<String T> inline constexpr xhash_t make_xhash( const T& value ) noexcept { return make_xhash<xhash_t>( value ); }
+	template<String T> inline constexpr ahash_t make_ahash( const T& value ) noexcept { return make_ahash<ahash_t>( value ); }
 
 	// Width insensitive string operations.
 	//
@@ -544,4 +590,5 @@ constexpr auto operator""_hex()
 #endif
 	MAKE_HASHER( _ihash, xstd::ihash );
 	MAKE_HASHER( _xhash, xstd::xhash );
+	MAKE_HASHER( _ahash, xstd::ahash );
 #undef MAKE_HASHER

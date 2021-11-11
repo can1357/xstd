@@ -62,7 +62,7 @@ namespace xstd
 
 			// DOT attribute map.
 			//
-			std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
+			std::unordered_map<std::string_view, std::string, ahash<std::string_view>> attributes;
 			auto& attribute( const std::string_view& o, const std::string& v ) { attributes.insert_or_assign( o, v ); return *this; }
 		};
 		struct edge_entry
@@ -74,7 +74,7 @@ namespace xstd
 
 			// DOT attribute map.
 			//
-			std::unordered_map<std::string_view, std::string, ihash<std::string_view>> attributes;
+			std::unordered_map<std::string_view, std::string, ahash<std::string_view>> attributes;
 			auto& attribute( const std::string_view& o, const std::string& v ) { attributes.insert_or_assign( o, v ); return *this; }
 		};
 
@@ -90,9 +90,9 @@ namespace xstd
 
 		// DOT default attribute map.
 		//
-		std::unordered_map<std::string_view, std::string, ihash<std::string_view>> node_attributes;
-		std::unordered_map<std::string_view, std::string, ihash<std::string_view>> edge_attributes;
-		std::unordered_map<std::string_view, std::string, ihash<std::string_view>> graph_attributes;
+		std::unordered_map<std::string_view, std::string, ahash<std::string_view>> node_attributes;
+		std::unordered_map<std::string_view, std::string, ahash<std::string_view>> edge_attributes;
+		std::unordered_map<std::string_view, std::string, ahash<std::string_view>> graph_attributes;
 
 		// Attribute lookup.
 		//
