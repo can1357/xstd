@@ -340,8 +340,16 @@ namespace xstd
 	template<console_color color = CON_DEF, typename... Tx>
 	FORCE_INLINE inline int finspect( FILE* dst, Tx&&... objects )
 	{
-		std::string result = fmt::as_string( std::forward<Tx>( objects )... ) + '\n';
-		return flog( dst, color, result.c_str() );
+		if ( sizeof...( Tx ) != 0 )
+		{
+			std::string result = ( ( fmt::as_string( std::forward<Tx>( objects ) ) + ' ' ) + ... );
+			result.back() = '\n';
+			return flog( dst, color, result.c_str() );
+		}
+		else
+		{
+			return flog( dst, color, "\n" );
+		}
 	}
 	template<console_color color = CON_DEF, typename... Tx>
 	NO_INLINE inline int inspect( Tx&&... objects )
