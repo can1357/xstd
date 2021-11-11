@@ -211,7 +211,7 @@ namespace xstd
 			for ( bitcnt_t i = mantissa_bits; i <= 64; i++, exponent-- )
 				if ( i == 64 || ( v >> i ) & 1 )
 					break;
-			return std::bit_cast<double>( mantissa | ( exponent << mantissa_bits ) | ( sign << 63 ) ) + 0.5;
+			return bit_cast<double>( mantissa | ( exponent << mantissa_bits ) | ( sign << 63 ) ) + 0.5;
 		}
 		static constexpr float generate_real( uint32_t v )
 		{
@@ -222,7 +222,7 @@ namespace xstd
 			for ( bitcnt_t i = mantissa_bits; i <= 32; i++, exponent-- )
 				if ( i == 32 || ( v >> i ) & 1 )
 					break;
-			return std::bit_cast<float>( mantissa | ( exponent << mantissa_bits ) | ( sign << 31 ) ) + 0.5;
+			return bit_cast<float>( mantissa | ( exponent << mantissa_bits ) | ( sign << 31 ) ) + 0.5;
 		}
 		static constexpr double uniform_real( uint64_t v, double min, double max )
 		{

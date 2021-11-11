@@ -68,7 +68,7 @@ namespace xstd
 			{
 				using U = convert_uint_t<O>;
 
-				O mismatch = 0;
+				U mismatch = 0;
 				for ( size_t i = 0; i != ( N - 1 ); i++ )
 				{
 					if constexpr ( CaseSensitive )
@@ -223,10 +223,10 @@ namespace xstd
 		string_view_t<S1> av = { a };
 		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
 		{
-			auto* max = av.data() + av.size() - clen;
-			for ( auto it = av.data(); it <= max; it++ )
-				if ( impl::ceval_ascii_equals<true>( b, it ) )
-					return it - av.data();
+			ptrdiff_t diff = av.length() - clen;
+			for ( ptrdiff_t n = 0; n <= diff; n++ )
+				if ( impl::ceval_ascii_equals<true>( b, av.data() + n ) )
+					return ( size_t ) n;
 		}
 		else
 		{
@@ -333,10 +333,10 @@ namespace xstd
 		string_view_t<S1> av = { a };
 		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
 		{
-			auto* max = av.data() + av.size() - clen;
-			for ( auto it = av.data(); it <= max; it++ )
-				if ( impl::ceval_ascii_equals<false>( b, it ) )
-					return it - av.data();
+			ptrdiff_t diff = av.length() - clen;
+			for ( ptrdiff_t n = 0; n <= diff; n++ )
+				if ( impl::ceval_ascii_equals<false>( b, av.data() + n ) )
+					return ( size_t ) n;
 		}
 		else
 		{
