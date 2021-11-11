@@ -1,5 +1,4 @@
 #pragma once
-
 #if __has_include(<xstd/options.hpp>)
 	#include <xstd/options.hpp>
 #elif __has_include("xstd_options.hpp")

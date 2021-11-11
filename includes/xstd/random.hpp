@@ -201,6 +201,19 @@ namespace xstd
 				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
 			}
 		}
+		static constexpr double uniform_real( uint64_t v, double min, double max )
+		{
+			double delta = max - min;
+			double p1 = uint32_t( v )       / double( UINT32_MAX );
+			double p2 = uint32_t( v >> 32 ) / double( UINT32_MAX );
+			return double( min + ( p1 + p2 ) * delta / 2 );
+		}
+		static constexpr float uniform_real( uint64_t v, float min, float max )
+		{
+			double delta = max - min;
+			double p1 = uint32_t( v ) / double( UINT32_MAX );
+			return float( min + p1 * delta );
+		}
 #undef __xstd_rng
 	};
 
@@ -233,9 +246,9 @@ namespace xstd
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( std::random_device{} );
 	}
 	template<FloatingPoint T>
-	FORCE_INLINE static T make_srandom( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static T make_srandom( T min = 0, T max = 1 )
 	{
-		return std::uniform_real_distribution<T>{ min, max }( std::random_device{} );
+		return impl::uniform_real( make_srandom<uint64_t>(), min, max );
 	}
 
 	// Generates a single random number.
@@ -255,15 +268,20 @@ namespace xstd
 		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::global_rng );
 	}
 	template<FloatingPoint T>
-	FORCE_INLINE static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
+	FORCE_INLINE static T make_random( T min = 0, T max = 1 )
 	{
-		return std::uniform_real_distribution<T>{ min, max }( impl::global_rng );
+		return impl::uniform_real( make_random<uint64_t>(), min, max );
 	}
 	template<Integral T = uint64_t>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
 		return impl::uniform_eval( key, min, max );
+	}
+	template<FloatingPoint T>
+	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = 0, T max = 1 )
+	{
+		return impl::uniform_real( make_crandom<uint64_t>( key ), min, max );
 	}
 
 	// Fills the given range with randoms.
