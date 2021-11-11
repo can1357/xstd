@@ -21866,7 +21866,7 @@ namespace ia32
 		inline static const cpuid_result result = query_cpuid<cpuid_result>( leaf, subleaf );
 		inline operator const cpuid_result&() const noexcept { return result; }
 	};
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = std::array<uint32_t, 4>>
+	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	struct static_cpuid_s
 	{
 		inline static const T result = [ ] () -> T
@@ -22764,6 +22764,12 @@ namespace ia32
 	{
 		asm volatile( "hlt" ::: "memory" );
 	}
+	
+	template<uint8_t CState, uint8_t SubCState = 0> requires ( SubCState <= 0x7 && CState <= 7 )
+	static constexpr uint32_t mwait_hint_v = SubCState | ( CState ? CState - 1 : 0b1111 );
+	template<bool IgnoreIF = false>
+	static constexpr uint32_t mwait_ext_v = IgnoreIF ? 1 : 0;
+	
 	_LINKAGE void monitor( xstd::any_ptr adr, uint32_t extensions, uint32_t hints )
 	{
 		__builtin_ia32_monitor( ( void* ) adr, extensions, hints );
@@ -22811,6 +22817,92 @@ namespace ia32
 	_LINKAGE void intn( size_t idx )
 	{
 		asm volatile ( "int %0" :: "i" ( idx ) );
+	}
+
+	// Safe wrapper around MWAIT.
+	//
+	template<typename T, typename Predicate> requires xstd::Invocable<Predicate, bool, const volatile T&>
+	_LINKAGE void wait_on( const volatile T& ref, Predicate&& pred, size_t pause_count = 64, uint32_t mwait_hint = mwait_hint_v<0> )
+	{
+		auto pause_wait = [ & ]() FORCE_INLINE
+		{
+			for ( size_t i = 0; i != pause_count; i++ )
+			{
+				if ( pred( ref ) )
+					return true;
+				pause();
+			}
+			return false;
+		};
+
+		// Enter a pause loop until the given threshold is met.
+		//
+		if ( pause_wait() )
+			return;
+
+		// If no MWAIT support, continue looping pause.
+		//
+		const auto& monitor_flags = static_cpuid_s<1, 0, cpuid_eax_01>::result.cpuid_feature_information_ecx;
+		const auto& mwait_flags =   static_cpuid_s<5, 0, cpuid_eax_05>::result.ecx;
+		if ( !monitor_flags.monitor_mwait_instruction ) [[unlikely]]
+		{
+			while ( !pred( ref ) )
+				pause();
+			return;
+		}
+
+		// If interrupts are disabled or if MWAIT supports treating interrupts as break events:
+		//
+		auto flags = read_flags();
+		if ( !flags.interrupt_enable_flag ||
+			  ( mwait_flags.enumeration_of_monitor_mwait_extensions && mwait_flags.supports_treating_interrupts_as_break_event_for_mwait ) ) [[likely]]
+		{
+			while( true )
+			{
+				// Disable interrupts, setup monitor address, mwait.
+				//
+				disable();
+				monitor( &ref, 0, 0 );
+				mwait( mwait_ext_v<true>, mwait_hint );
+
+				// Restore flags, check predicate, break if satisfied.
+				//
+				write_flags( flags );
+				if ( pause_wait() )
+					return;
+			}
+		}
+		// Otherwise:
+		//
+		else
+		{
+			while( true )
+			{
+				// Disable interrupts, setup monitor address.
+				//
+				disable();
+				monitor( &ref, 0, 0 );
+
+				// Enable interrupts and mwait right afterwards.
+				//
+				asm volatile( "sti; mwait" :: "c" ( mwait_ext_v<> ), "d" ( mwait_hint ) );
+
+				// Check predicate, break if satisfied.
+				//
+				if ( pause_wait() )
+					return;
+			}
+		}
+	}
+	template<typename T, typename Tv> requires xstd::Convertible<Tv, T>
+	_LINKAGE void wait_on( const volatile T& ref, Tv desired, size_t pause_count = 64, uint32_t mwait_hint = mwait_hint_v<0> )
+	{
+		wait_on( ref, [ v = T( desired ) ] ( T value ) FORCE_INLINE { return value == v; }, pause_count, mwait_hint );
+	}
+	template<typename T>
+	_LINKAGE void wait_on( const volatile T& ref, std::nullopt_t desired, size_t pause_count = 64, uint32_t mwait_hint = mwait_hint_v<0> )
+	{
+		wait_on( ref, [ v = T( ref ) ] ( T value ) FORCE_INLINE { return value != v; }, pause_count, mwait_hint );
 	}
 
 	// Hardware accelerated crypto.
