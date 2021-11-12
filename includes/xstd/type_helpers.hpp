@@ -29,10 +29,13 @@ namespace xstd
 {
 	// Type traits.
 	//
-#if CLANG_COMPILER && !defined(__INTELLISENSE__)
-	#define __std_trait(name, ...) (xstrcat(__, name)(__VA_ARGS__))
+	#define __std_trait_1(name, ...) xstrcat(__, name)(__VA_ARGS__)
+	#define __std_trait_0(name, ...) xstrcat(std:: name, _v)<__VA_ARGS__>
+	#define __std_trait_cc(name)     xstrcat(__std_trait_, __has_builtin(name))
+#ifdef __INTELLISENSE__
+	#define __std_trait(name, ...) __std_trait_0(name, __VA_ARGS__)
 #else
-	#define __std_trait(name, ...) (xstrcat(xstrcat(std::, name), _v)<__VA_ARGS__>)
+	#define __std_trait(name, ...) __std_trait_cc(xstrcat(__, name))(name, __VA_ARGS__)
 #endif
 	// Comparison:
 	template<typename T> concept Void =                                   __std_trait( is_void, T );
@@ -89,6 +92,9 @@ namespace xstd
 	template<typename T> concept TriviallyMoveAssignable =                TriviallyAssignable<T&, T>;
 	template<typename T> concept TriviallyCopyAssignable =                TriviallyAssignable<T&, const T&>;
 #undef __std_trait
+#undef __std_trait_1
+#undef __std_trait_0
+#undef __std_trait_cc
 
 	// Type/value namers.
 	//
