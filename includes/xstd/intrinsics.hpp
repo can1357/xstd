@@ -160,6 +160,11 @@ inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
 	#pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
 	#define MS_COMPILER       0
 	#define GNU_COMPILER      1
+#ifdef __clang__
+	#define CLANG_COMPILER    1
+#else
+	#define CLANG_COMPILER    0
+#endif
 #ifdef _MSC_VER
 	#define HAS_MS_EXTENSIONS 1
 #else
@@ -168,12 +173,14 @@ inline static constexpr bool is_kernel_mode() { return KERNEL_TARGET; }
 #elif defined(_MSC_VER)
 	#define MS_COMPILER       1
 	#define GNU_COMPILER      0
+	#define CLANG_COMPILER    0
 	#define HAS_MS_EXTENSIONS 1
 #else
 	#error "Unknown compiler."
 #endif
 inline static constexpr bool is_msvc() { return MS_COMPILER; }
 inline static constexpr bool is_gcc() { return GNU_COMPILER; }
+inline static constexpr bool is_clang() { return CLANG_COMPILER; }
 inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 
 // Stop intellisense from dying.

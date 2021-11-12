@@ -29,7 +29,7 @@ namespace xstd
 {
 	// Type traits.
 	//
-#if defined(__clang__) && !defined(__INTELLISENSE__)
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
 	#define __std_trait(name, ...) (xstrcat(__, name)(__VA_ARGS__))
 #else
 	#define __std_trait(name, ...) (xstrcat(xstrcat(std::, name), _v)<__VA_ARGS__>)
@@ -751,7 +751,7 @@ namespace xstd
 	
 	// Declare the vector types.
 	//
-#if XSTD_VECTOR_EXT && defined(__clang__)
+#if XSTD_VECTOR_EXT && CLANG_COMPILER
 	template<typename T, size_t N>
 	using native_vector = T  __attribute__((ext_vector_type(N), __aligned__(1)));
 #elif XSTD_VECTOR_EXT

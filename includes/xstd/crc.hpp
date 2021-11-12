@@ -189,7 +189,7 @@ namespace xstd
 	using crc64 =    crc<uint64_t, int64_t, 0xD800000000000000, 0>;
 	using crc64xz =  crc<uint64_t, int64_t, 0xC96C5795D7870F42, 0>;
 
-#if __clang__
+#if CLANG_COMPILER
 	#ifndef __INTELLISENSE__
 		#define _intn(n) unsigned _ExtInt(n), _ExtInt(n)
 	#else

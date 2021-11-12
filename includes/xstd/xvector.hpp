@@ -150,7 +150,7 @@ namespace xstd
 		//
 		FORCE_INLINE constexpr static xvec broadcast( T value ) noexcept
 		{
-#if XSTD_VECTOR_EXT && defined(__clang__)
+#if XSTD_VECTOR_EXT && CLANG_COMPILER
 			if ( !std::is_constant_evaluated() )
 				return xvec( std::in_place_t{}, native_vector<T, N>( value ) );
 #endif

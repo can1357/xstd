@@ -241,7 +241,7 @@ namespace xstd
 
 	// Helper to get the current coroutine handle / promise.
 	//
-#if __clang__
+#if CLANG_COMPILER
 	// Clang:
 	FORCE_INLINE static coroutine_handle<> this_coroutine( void* adr = __builtin_coro_frame() ) { return coroutine_handle<>::from_address( adr ); }
 #else
@@ -258,7 +258,7 @@ namespace xstd
 
 // Clang requires coroutine_traits under std::experimental.
 //
-#if __clang__
+#if CLANG_COMPILER
 namespace std::experimental 
 { 
 	template<typename Promise = void>

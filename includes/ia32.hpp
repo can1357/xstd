@@ -21764,7 +21764,7 @@ namespace ia32
 };
 #pragma pack(pop)
 
-#if __clang__
+#if CLANG_COMPILER
 // This namespace provides IA32 intrinsics that Clang decided not to.
 //
 

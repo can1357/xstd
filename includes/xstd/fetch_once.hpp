@@ -17,7 +17,7 @@
 //
 namespace xstd
 {
-#if !defined(__clang__) || !AMD64_TARGET || XSTD_NO_RWX
+#if !CLANG_COMPILER || !AMD64_TARGET || XSTD_NO_RWX
 	// Fetches the value from the given consteval reference.
 	//
 	template<auto* Value> requires ( sizeof( *Value ) == 8 && TriviallyCopyable<std::decay_t<decltype( *Value )>> )
