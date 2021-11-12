@@ -32,13 +32,12 @@ namespace xstd::fmt
 
 	// Optimized hexdump for constant size input with no configuration.
 	//
-	template<bool Uppercase, typename T>
-	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data )
+	template<bool Uppercase, size_t N>
+	FORCE_INLINE inline constexpr std::array<char, 2 * N> print_hex( const std::array<uint8_t, N>& data)
 	{
 		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
 
-		using bytes = std::array<uint8_t, sizeof( T )>;
-		auto x = vec::cast<uint16_t>( vec::from( bit_cast< bytes >( data ) ) );
+		auto x = vec::cast<uint16_t>( vec::from( data ) );
 		x |= ( x << 12 );
 		x >>= 4;
 		x &= 0x0F0F;
@@ -47,6 +46,14 @@ namespace xstd::fmt
 		chars += '0';
 		chars += ( chars > '9' ) & K;
 		return chars.to_array();
+	}
+	template<bool Uppercase, typename T>
+	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data )
+	{
+		if ( std::is_constant_evaluated() )
+			return print_hex<Uppercase, sizeof( T )>( to_bytes<T>( data ) );
+		else
+			return print_hex<Uppercase, sizeof( T )>( as_bytes<T>( data ) );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> as_hex_array( const T& value )

@@ -776,7 +776,12 @@ namespace xstd
 	}
 	template<typename T>
 	concept Bitcastable = requires( T x ) { bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
-
+	
+	template<Bitcastable T>
+	FORCE_INLINE inline constexpr auto to_bytes( const T& src ) noexcept
+	{
+		return bit_cast<std::array<uint8_t, sizeof( T )>>( src );
+	}
 	template<typename T> requires ( !Reference<T> && !Const<T> )
 	FORCE_INLINE inline auto& as_bytes( T& src ) noexcept
 	{
@@ -871,25 +876,43 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE inline void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
+	FORCE_INLINE inline constexpr void trivial_copy( T& __restrict a, const T& __restrict b ) noexcept
 	{
-		trivial_copy_n<sizeof( T )>( &a, &b );
-	}
-	template<typename T>
-	FORCE_INLINE inline void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
-	{
-		auto& __restrict va = as_bytes( a );
-		auto& __restrict vb = as_bytes( b );
-
-		if constexpr ( sizeof( T ) <= 0x200 )
+		if ( std::is_constant_evaluated() )
 		{
-			auto tmp = va;
-			va = vb;
-			vb = tmp;
+			auto vb = to_bytes( b );
+			a = bit_cast< T >( vb );
 		}
 		else
 		{
-			std::swap( va, vb );
+			trivial_copy_n<sizeof( T )>( &a, &b );
+		}
+	}
+	template<typename T>
+	FORCE_INLINE inline constexpr void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
+	{
+		if ( std::is_constant_evaluated() )
+		{
+			auto va = to_bytes( a );
+			auto vb = to_bytes( b );
+			a = bit_cast< T >( vb );
+			b = bit_cast< T >( va );
+		}
+		else
+		{
+			auto& __restrict va = as_bytes( a );
+			auto& __restrict vb = as_bytes( b );
+
+			if constexpr ( sizeof( T ) <= 0x200 )
+			{
+				auto tmp = va;
+				va = vb;
+				vb = tmp;
+			}
+			else
+			{
+				std::swap( va, vb );
+			}
 		}
 	}
 	template<size_t N>
@@ -909,9 +932,12 @@ namespace xstd
 		}
 	}
 	template<typename T, typename T2 = T> requires ( sizeof( T ) == sizeof( T2 ) )
-	FORCE_INLINE inline bool trivial_equals( const T& a, const T2& b ) noexcept
+	FORCE_INLINE inline constexpr bool trivial_equals( const T& a, const T2& b ) noexcept
 	{
-		return trivial_equals_n<sizeof( T )>( &a, &b );
+		if ( std::is_constant_evaluated() )
+			return to_bytes( a ) == to_bytes( b );
+		else
+			return trivial_equals_n<sizeof( T )>( &a, &b );
 	}
 	template<Unsigned T, auto N>
 	FORCE_INLINE inline constexpr T trivial_read_n( const uint8_t* src ) noexcept
