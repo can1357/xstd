@@ -51,9 +51,10 @@ namespace xstd::fmt
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data )
 	{
 		if ( std::is_constant_evaluated() )
-			return print_hex<Uppercase, sizeof( T )>( to_bytes<T>( data ) );
-		else
-			return print_hex<Uppercase, sizeof( T )>( as_bytes<T>( data ) );
+			if constexpr( Bitcastable<T> )
+				return print_hex<Uppercase, sizeof( T )>( to_bytes<T>( data ) );
+
+		return print_hex<Uppercase, sizeof( T )>( as_bytes<T>( data ) );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> as_hex_array( const T& value )

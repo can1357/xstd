@@ -880,39 +880,43 @@ namespace xstd
 	{
 		if ( std::is_constant_evaluated() )
 		{
-			auto vb = to_bytes( b );
-			a = bit_cast< T >( vb );
+			if constexpr ( Bitcastable<T> )
+			{
+				auto vb = to_bytes( b );
+				a = bit_cast< T >( vb );
+				return;
+			}
 		}
-		else
-		{
-			trivial_copy_n<sizeof( T )>( &a, &b );
-		}
+
+		trivial_copy_n<sizeof( T )>( &a, &b );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr void trivial_swap( T& __restrict a, T& __restrict b ) noexcept
 	{
 		if ( std::is_constant_evaluated() )
 		{
-			auto va = to_bytes( a );
-			auto vb = to_bytes( b );
-			a = bit_cast< T >( vb );
-			b = bit_cast< T >( va );
+			if constexpr ( Bitcastable<T> )
+			{
+				auto va = to_bytes( a );
+				auto vb = to_bytes( b );
+				a = bit_cast< T >( vb );
+				b = bit_cast< T >( va );
+				return;
+			}
+		}
+
+		auto& __restrict va = as_bytes( a );
+		auto& __restrict vb = as_bytes( b );
+
+		if constexpr ( sizeof( T ) <= 0x200 )
+		{
+			auto tmp = va;
+			va = vb;
+			vb = tmp;
 		}
 		else
 		{
-			auto& __restrict va = as_bytes( a );
-			auto& __restrict vb = as_bytes( b );
-
-			if constexpr ( sizeof( T ) <= 0x200 )
-			{
-				auto tmp = va;
-				va = vb;
-				vb = tmp;
-			}
-			else
-			{
-				std::swap( va, vb );
-			}
+			std::swap( va, vb );
 		}
 	}
 	template<size_t N>
