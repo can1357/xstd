@@ -154,15 +154,15 @@ namespace xstd
 		if ( !std::is_constant_evaluated() )
 		{
 #if MS_COMPILER && AMD64_TARGET
-			if constexpr ( sizeof( T ) == 8 )
-				return ( bitcnt_t ) __popcnt64( x );
-			else
+			if constexpr ( sizeof( T ) <= 4 )
 				return ( bitcnt_t ) __popcnt( x );
-#elif __has_builtin(__builtin_popcount)
-			if constexpr ( sizeof( T ) == 8 )
-				return ( bitcnt_t ) __builtin_popcountll( x );
 			else
+				return ( bitcnt_t ) __popcnt64( x );
+#elif __has_builtin(__builtin_popcount)
+			if constexpr ( sizeof( T ) <= 4 )
 				return ( bitcnt_t ) __builtin_popcount( x );
+			else
+				return ( bitcnt_t ) __builtin_popcountll( x );
 #endif
 		}
 		bitcnt_t count = 0;
@@ -190,21 +190,25 @@ namespace xstd
 		//
 		if ( !std::is_constant_evaluated() )
 		{
-#if __has_builtin(__builtin_ctz)
-			if constexpr ( sizeof( T ) == 8 )
-				return x ? 63 - __builtin_clzll( x ) : -1;
-			else
+#if __has_builtin(__builtin_clz)
+#if __has_builtin(__builtin_clzs)
+			if constexpr ( sizeof( T ) <= 2 )
+				return x ? 15 - __builtin_clzs( x ) : -1;
+#endif
+			if constexpr ( sizeof( T ) <= 4 )
 				return x ? 31 - __builtin_clz( x ) : -1;
+			else
+				return x ? 63 - __builtin_clzll( x ) : -1;
 #elif MS_COMPILER && AMD64_TARGET
-			if constexpr ( sizeof( T ) == 8 )
+			if constexpr ( sizeof( T ) <= 4 )
 			{
 				unsigned long idx;
-				return _BitScanReverse64( &idx, x ) ? idx : -1;
+				return _BitScanReverse( &idx, x ) ? idx : -1;
 			}
 			else
 			{
 				unsigned long idx;
-				return _BitScanReverse( &idx, x ) ? idx : -1;
+				return _BitScanReverse64( &idx, x ) ? idx : -1;
 			}
 #endif
 		}
@@ -237,21 +241,25 @@ namespace xstd
 		if ( !std::is_constant_evaluated() )
 		{
 #if MS_COMPILER && AMD64_TARGET
-			if constexpr ( sizeof( T ) == 8 )
-			{
-				unsigned long idx;
-				return _BitScanForward64( &idx, x ) ? idx : -1;
-			}
-			else
+			if constexpr ( sizeof( T ) <= 4 )
 			{
 				unsigned long idx;
 				return _BitScanForward( &idx, x ) ? idx : -1;
 			}
-#elif __has_builtin(__builtin_ctz)
-			if constexpr ( sizeof( T ) == 8 )
-				return x ? __builtin_ctzll( x ) : -1;
 			else
+			{
+				unsigned long idx;
+				return _BitScanForward64( &idx, x ) ? idx : -1;
+			}
+#elif __has_builtin(__builtin_ctz)
+#if __has_builtin(__builtin_ctzs)
+			if constexpr ( sizeof( T ) <= 2 )
+				return x ? __builtin_ctzs( x ) : -1;
+#endif
+			if constexpr ( sizeof( T ) <= 4 )
 				return x ? __builtin_ctz( x ) : -1;
+			else
+				return x ? __builtin_ctzll( x ) : -1;
 #endif
 		}
 
@@ -701,13 +709,13 @@ namespace xstd
 		// Constant operand size demotion.
 		//
 		if constexpr ( sizeof( I ) > 1 )
-			if ( impl::const_demote<uint8_t>( value ) )
+			if ( impl::const_demote<uint8_t>( mask ) )
 				return ( I ) bit_pdep<uint8_t>( ( uint8_t ) value, ( uint8_t ) mask );
 		if constexpr ( sizeof( I ) > 2 )
-			if ( impl::const_demote<uint16_t>( value ) )
+			if ( impl::const_demote<uint16_t>( mask ) )
 				return ( I ) bit_pdep<uint16_t>( ( uint16_t ) value, ( uint16_t ) mask );
 		if constexpr ( sizeof( I ) > 4 )
-			if ( impl::const_demote<uint32_t>( value ) )
+			if ( impl::const_demote<uint32_t>( mask ) )
 				return ( I ) bit_pdep<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
 
 #if XSTD_HW_PDEP_PEXT
