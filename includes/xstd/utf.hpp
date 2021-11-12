@@ -802,6 +802,15 @@ namespace xstd
 		//
 		if ( data.size() < 3 || !trivial_equals_n<3>( data.data(), "\xEF\xBB\xBF" ) )
 		{
+			// Try matching against UTF-32 LE/BE:
+			//
+			if ( std::u32string_view view{ ( const char32_t* ) data.data(), data.size() / sizeof( char32_t ) }; !view.empty() )
+			{
+				if ( view.front() == 0xFEFF ) [[unlikely]]
+					return utf_convert<To>( view.substr( 1 ) );
+				if ( view.front() == bswap<char32_t>( 0xFEFF ) ) [[unlikely]]
+					return utf_convert<To>( view.substr( 1 ), foreign_endianness_t{} );
+			}
 			// Try matching against UTF-16 LE/BE:
 			//
 			if ( std::u16string_view view{ ( const char16_t* ) data.data(), data.size() / sizeof( char16_t ) }; !view.empty() )
@@ -809,15 +818,6 @@ namespace xstd
 				if ( view.front() == 0xFEFF ) 
 					return utf_convert<To>( view.substr( 1 ) );
 				if ( view.front() == bswap<char16_t>( 0xFEFF ) ) [[unlikely]]
-					return utf_convert<To>( view.substr( 1 ), foreign_endianness_t{} );
-			}
-			// Try matching against UTF-32 LE/BE:
-			//
-			if ( std::u32string_view view{ ( const char32_t* ) data.data(), data.size() / sizeof( char32_t ) }; !view.empty() )
-			{
-				if ( view.front() == 0xFEFF )
-					return utf_convert<To>( view.substr( 1 ) );
-				if ( view.front() == bswap<char32_t>( 0xFEFF ) ) [[unlikely]]
 					return utf_convert<To>( view.substr( 1 ), foreign_endianness_t{} );
 			}
 		}
