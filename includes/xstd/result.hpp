@@ -218,12 +218,12 @@ namespace xstd
 
 		// Consturction with value/state combination.
 		//
-		template<typename T> requires ( Constructable<value_type, T> && ( !Constructable<status_type, T> || Same<std::decay_t<T>, value_type> ) && !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
+		template<typename T> requires ( Constructible<value_type, T> && ( !Constructible<status_type, T> || Same<std::decay_t<T>, value_type> ) && !Same<std::decay_t<T>, in_place_success_t> && !Same<std::decay_t<T>, in_place_failure_t> )
 		constexpr basic_result( T&& value ) : status{ traits::success_value }, result( std::forward<T>( value ) ) {}
-		template<typename S> requires ( Constructable<status_type, S> && ( !Constructable<value_type, S> || Same<std::decay_t<S>, status_type> ) && !Same<std::decay_t<S>, in_place_success_t> && !Same<std::decay_t<S>, in_place_failure_t> )
+		template<typename S> requires ( Constructible<status_type, S> && ( !Constructible<value_type, S> || Same<std::decay_t<S>, status_type> ) && !Same<std::decay_t<S>, in_place_success_t> && !Same<std::decay_t<S>, in_place_failure_t> )
 		constexpr basic_result( S&& status ) : status( std::forward<S>( status ) ) 
 		{
-			if constexpr ( DefaultConstructable<value_type> )
+			if constexpr ( DefaultConstructible<value_type> )
 				if ( traits::is_success( this->status ) )
 					result.emplace();
 		}

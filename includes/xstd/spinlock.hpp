@@ -121,7 +121,7 @@ namespace xstd
 
 	// Recursive spinlock.
 	//
-	template<DefaultConstructable CidGetter>
+	template<DefaultConstructible CidGetter>
 	struct basic_recursive_spinlock
 	{
 		FORCE_INLINE static uint32_t get_cid() { return 1 + bit_cast<uint32_t>( CidGetter{}() ); }

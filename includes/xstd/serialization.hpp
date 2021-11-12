@@ -460,7 +460,7 @@ namespace xstd
 		static T reflect( serialization& ctx )
 		{
 			size_t cnt = ctx.read_idx();
-			if constexpr ( is_std_array_v<T> )
+			if constexpr ( StdArray<T> )
 			{
 				return make_constant_series<std::tuple_size_v<T>>( [ & ] <auto V> ( const_tag<V> _ )
 				{

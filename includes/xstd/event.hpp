@@ -67,7 +67,7 @@ namespace xstd
 	{
 		event_primitive primitive = {};
 
-		// Default constructable.
+		// Default constructible.
 		//
 		inline event_base() {};
 

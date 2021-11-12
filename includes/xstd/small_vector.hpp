@@ -48,7 +48,7 @@ namespace xstd
 		
 		// Construction by length.
 		//
-		small_vector( size_t n ) requires DefaultConstructable<T>
+		small_vector( size_t n ) requires DefaultConstructible<T>
 		{
 			resize( n );
 		}
@@ -64,7 +64,7 @@ namespace xstd
 			length = std::exchange( o.length, 0 );
 			std::uninitialized_move_n( o.begin(), length, begin() );
 		}
-		small_vector( const small_vector& o ) requires CopyConstructable<T>
+		small_vector( const small_vector& o ) requires CopyConstructible<T>
 		{
 			length = o.length;
 			std::uninitialized_copy_n( o.begin(), length, begin() );
@@ -76,7 +76,7 @@ namespace xstd
 			std::uninitialized_move_n( o.begin(), length, begin() );
 			return *this;
 		}
-		small_vector& operator=( const small_vector& o ) requires CopyConstructable<T>
+		small_vector& operator=( const small_vector& o ) requires CopyConstructible<T>
 		{
 			clear();
 			length = o.length;
@@ -85,22 +85,17 @@ namespace xstd
 		}
 		void swap( small_vector& o )
 		{
-			if constexpr ( TriviallySwappable<T> )
-			{
-				std::swap( bytes( *this ), bytes( o ) );
-			}
-			else
-			{
-				std::swap( length, o.length );
+			if constexpr ( TriviallyMoveConstructible<T> )
+				return trivial_swap( *this, o );
 
-				size_t n = 0;
-				for ( ; n != std::min<size_t>( length, o.length ); n++ )
-					std::swap( at( n ), o.at( n ) );
-				if ( n < length )
-					std::uninitialized_move( o.begin() + n, o.end(), begin() + n );
-				else if ( n < o.length )
-					std::uninitialized_move( begin() + n, end(), o.begin() + n );
-			}
+			std::swap( length, o.length );
+			size_t n = 0;
+			for ( ; n != std::min<size_t>( length, o.length ); n++ )
+				std::swap( at( n ), o.at( n ) );
+			if ( n < length )
+				std::uninitialized_move( o.begin() + n, o.end(), begin() + n );
+			else if ( n < o.length )
+				std::uninitialized_move( begin() + n, end(), o.begin() + n );
 		}
 
 		// Value removal.
@@ -173,7 +168,7 @@ namespace xstd
 		{
 			return emplace( end(), std::forward<Tx>( args )... );
 		}
-		void resize( size_t n ) requires DefaultConstructable<T>
+		void resize( size_t n ) requires DefaultConstructible<T>
 		{
 			if ( n > length )
 				std::uninitialized_default_construct( end(), begin() + n );
@@ -235,7 +230,7 @@ namespace xstd
 
 		// Decay to vector.
 		//
-		constexpr operator std::vector<T>() requires DefaultConstructable<T> { return { begin(), end() }; }
+		constexpr operator std::vector<T>() requires DefaultConstructible<T> { return { begin(), end() }; }
 
 		// Indexing.
 		//
@@ -262,7 +257,7 @@ namespace xstd
 
 	// If trivial type, implement the constexpr version.
 	//
-	template<typename T, size_t N> requires ( DefaultConstructable<T> && TriviallyDestructable<T> )
+	template<typename T, size_t N> requires ( DefaultConstructible<T> && TriviallyDestructable<T> )
 	struct small_vector<T, N>
 	{
 		// Container traits.
@@ -338,22 +333,18 @@ namespace xstd
 		}
 		constexpr void swap( small_vector& o )
 		{
-			if constexpr ( TriviallySwappable<T> )
-			{
-				trivial_swap( *this, o );
-			}
-			else
-			{
-				std::swap( length, o.length );
+			if constexpr ( TriviallyMoveConstructible<T> )
+				if ( !std::is_constant_evaluated() )
+					return trivial_swap( *this, o );
 
-				size_t n = 0;
-				for ( ; n != std::min<size_t>( length, o.length ); n++ )
-					std::swap( at( n ), o.at( n ) );
-				if ( n < length )
-					std::copy( std::make_move_iterator( o.begin() + n ), std::make_move_iterator( o.end() ), begin() + n );
-				else if ( n < o.length )
-					std::copy( std::make_move_iterator( begin() + n ), std::make_move_iterator( end() ), o.begin() + n );
-			}
+			std::swap( length, o.length );
+			size_t n = 0;
+			for ( ; n != std::min<size_t>( length, o.length ); n++ )
+				std::swap( at( n ), o.at( n ) );
+			if ( n < length )
+				std::copy( std::make_move_iterator( o.begin() + n ), std::make_move_iterator( o.end() ), begin() + n );
+			else if ( n < o.length )
+				std::copy( std::make_move_iterator( begin() + n ), std::make_move_iterator( end() ), o.begin() + n );
 		}
 
 		// Value removal.
@@ -479,7 +470,7 @@ namespace xstd
 
 		// Decay to vector.
 		//
-		operator std::vector<T>() requires DefaultConstructable<T> { return { begin(), end() }; }
+		operator std::vector<T>() requires DefaultConstructible<T> { return { begin(), end() }; }
 
 		// Indexing.
 		//

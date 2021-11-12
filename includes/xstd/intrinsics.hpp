@@ -1,4 +1,20 @@
 #pragma once
+#ifndef __has_builtin
+	#define __has_builtin(...) 0
+#endif
+#ifndef __has_attribute
+	#define __has_attribute(...) 0
+#endif
+#ifndef __has_cpp_attribute
+	#define __has_cpp_attribute(...) 0
+#endif
+#ifndef __has_include
+	#define __has_include(...) 0
+#endif
+#ifndef __has_feature
+	#define __has_feature(...) 0
+#endif
+
 #if __has_include(<xstd/options.hpp>)
 	#include <xstd/options.hpp>
 #elif __has_include("xstd_options.hpp")
@@ -12,19 +28,6 @@
 #include <typeinfo>
 #include <atomic>
 #include <array>
-
-#ifndef __has_builtin
-	#define __has_builtin(...) 0
-#endif
-#ifndef __has_attribute
-	#define __has_attribute(...) 0
-#endif
-#ifndef __has_cpp_attribute
-	#define __has_cpp_attribute(...) 0
-#endif
-#ifndef __has_include
-	#define __has_include(...) 0
-#endif
 
 // [Configuration]
 // XSTD_ESTR: Easy to override macro to control any error strings emitted into binary, must return a C string.
@@ -173,16 +176,6 @@ inline static constexpr bool is_msvc() { return MS_COMPILER; }
 inline static constexpr bool is_gcc() { return GNU_COMPILER; }
 inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 
-// Determine bitcast support.
-//
-#if (defined(_MSC_VER) && _MSC_VER >= 1926)
-	#define HAS_BIT_CAST   1
-#elif __has_builtin(__builtin_bit_cast)
-	#define HAS_BIT_CAST   __has_builtin(__builtin_bit_cast)
-#else
-	#define HAS_BIT_CAST   0
-#endif
-
 // Stop intellisense from dying.
 //
 #ifdef __INTELLISENSE__
@@ -282,11 +275,11 @@ MUST_MATCH( DEBUG_BUILD );
 	#pragma GCC diagnostic ignored "-Wmicrosoft-cast"
 #endif
 
-// Define MS-style builtins we're using if not available.
+// Define MS-style builtins if not available.
 //
 #if !MS_COMPILER
 	#define __forceinline __attribute__((always_inline)) inline
-	#define _ReturnAddress() ((xstd::any_ptr)__builtin_return_address(0))
+	#define _ReturnAddress() (__builtin_return_address(0))
 	#ifndef HAS_MS_EXTENSIONS
 		#define _AddressOfReturnAddress() ((xstd::any_ptr)nullptr) // No equivalent, __builtin_frame_address(0) is wrong.
 	#endif

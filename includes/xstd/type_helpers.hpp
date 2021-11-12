@@ -27,6 +27,69 @@
 
 namespace xstd
 {
+	// Type traits.
+	//
+#ifdef __clang__
+	#define __std_trait(name, ...) (xstrcat(__, name)(__VA_ARGS__))
+#else
+	#define __std_trait(name, ...) (xstrcat(xstrcat(std::, name), _v)<__VA_ARGS__>)
+#endif
+	// Comparison:
+	template<typename T> concept Void =                                   __std_trait( is_void, T );
+	template<typename T> concept NonVoid =                                !__std_trait( is_void, T );
+	template<typename A, typename B> concept Same =                       __std_trait( is_same, A, B );
+	// Classification:
+	template<typename T> concept Enum =                                   __std_trait( is_enum, T );
+	template<typename T> concept Class =                                  __std_trait( is_class, T );
+	template<typename T> concept Union =                                  __std_trait( is_union, T );
+	template<typename T> concept Pointer =                                __std_trait( is_pointer, T );
+	template<typename T> concept Aggregate =                              __std_trait( is_aggregate, T );
+	template<typename T> concept Array =                                  __std_trait( is_array, T );
+	template<typename T> concept MemberReference =                        __std_trait( is_member_object_pointer, T );
+	template<typename T> concept MemberFunction =                         __std_trait( is_member_function_pointer, T );
+	template<typename T> concept MemberPointer =                          __std_trait( is_member_pointer, T );
+	// Qualifiers:
+	template<typename T> concept Const =                                  __std_trait( is_const, T );
+	template<typename T> concept Mutable =                                !__std_trait( is_const, T );
+	template<typename T> concept Volatile =                               __std_trait( is_volatile, T );
+	template<typename T> concept Reference =                              __std_trait( is_reference, T );
+	template<typename T> concept LvReference =                            __std_trait( is_lvalue_reference, T );
+	template<typename T> concept RvReference =                            __std_trait( is_rvalue_reference, T );
+	// Arithmetic:
+	template<typename T> concept Signed =                                 __std_trait( is_signed, T );
+	template<typename T> concept Unsigned =                               __std_trait( is_unsigned, T );
+	template<typename T> concept Integral =                               __std_trait( is_integral, T );
+	template<typename T> concept Arithmetic =                             __std_trait( is_arithmetic, T );
+	template<typename T> concept FloatingPoint =                          __std_trait( is_floating_point, T );
+	// User-type:
+	template<typename T> concept Trivial =                                __std_trait( is_trivial, T );
+	template<typename T> concept Final =                                  __std_trait( is_final, T );
+	template<typename T> concept Empty =                                  __std_trait( is_empty, T );
+	template<typename T> concept Fundamental =                            __std_trait( is_fundamental, T );
+	template<typename T> concept Polymorphic =                            __std_trait( is_polymorphic, T );
+	template<typename T> concept HasVirtualDestructor =                   __std_trait( has_virtual_destructor, T );
+	template<typename T> concept TriviallyCopyable =                      __std_trait( is_trivially_copyable, T );
+	template<typename T> concept TriviallyDestructable =                  __std_trait( is_trivially_destructible, T );
+	template<typename B, typename T> concept HasBase =                    __std_trait( is_base_of, B, T );
+	template<typename S, typename D> concept Convertible =                __std_trait( is_convertible, S, D );
+	template<typename S, typename D> concept Assignable =                 __std_trait( is_assignable, S, D );
+	template<typename S, typename D> concept TriviallyAssignable =        __std_trait( is_trivially_assignable, S, D );
+	template<typename T, typename... Tx> concept Constructible =          __std_trait( is_constructible, T, Tx... );
+	template<typename T, typename... Tx> concept TriviallyConstructible = __std_trait( is_trivially_constructible, T, Tx... );
+	template<typename T> concept Destructable =                           std::is_destructible_v<T>;
+	// Compound traits:
+	template<typename T> concept DefaultConstructible =                   Constructible<T>;
+	template<typename T> concept TriviallyDefaultConstructible =          TriviallyConstructible<T>;
+	template<typename T> concept MoveConstructible =                      Constructible<T, T>;
+	template<typename T> concept CopyConstructible =                      Constructible<T, const T&>;
+	template<typename T> concept TriviallyMoveConstructible =             TriviallyConstructible<T, T>;
+	template<typename T> concept TriviallyCopyConstructible =             TriviallyConstructible<T, const T&>;
+	template<typename T> concept MoveAssignable =                         Assignable<T&, T>;
+	template<typename T> concept CopyAssignable =                         Assignable<T&, const T&>;
+	template<typename T> concept TriviallyMoveAssignable =                TriviallyAssignable<T&, T>;
+	template<typename T> concept TriviallyCopyAssignable =                TriviallyAssignable<T&, const T&>;
+#undef __std_trait
+
 	// Type/value namers.
 	//
 	namespace impl
@@ -185,27 +248,8 @@ namespace xstd
 		inline constexpr auto end() const { return get().end(); }
 		inline std::string to_string() const { return c_str(); }
 	};
-	template <size_t N>
-	struct wstring_literal
-	{
-		wchar_t value[ N ]{};
-		constexpr wstring_literal( const wchar_t( &str )[ N ] ) { std::copy_n( str, N, value ); }
 
-		// Observers.
-		//
-		inline constexpr const wchar_t* c_str() const { return &value[ 0 ]; }
-		inline constexpr const wchar_t* data() const { return c_str(); }
-		inline constexpr std::wstring_view get() const { return { c_str(), c_str() + size() }; }
-		inline constexpr size_t size() const { return N - 1; }
-		inline constexpr size_t length() const { return size(); }
-		inline constexpr bool empty() const { return size() == 0; }
-		inline constexpr const wchar_t& operator[]( size_t n ) const { return c_str()[ n ]; }
-		inline constexpr auto begin() const { return get().begin(); }
-		inline constexpr auto end() const { return get().end(); }
-		inline std::wstring to_string() const { return c_str(); }
-	};
-
-	// Check for specialization.
+	// Standard container traits based on checks for specialization.
 	//
 	template<typename T, size_t N>
 	struct small_vector;
@@ -215,40 +259,41 @@ namespace xstd
 		static constexpr bool is_specialization_v = false;
 		template <template<typename...> typename Tmp, typename... Tx>
 		static constexpr bool is_specialization_v<Tmp, Tmp<Tx...>> = true;
-
-		template<typename T, typename = void> struct is_std_array { static constexpr bool value = false; };
-		template<typename T, size_t N> struct is_std_array<std::array<T, N>, void> { static constexpr bool value = true; };
-
-		template<typename T, typename = void> struct is_std_span { static constexpr bool value = false; };
-		template<typename T, size_t N> struct is_std_span<std::span<T, N>, void> { static constexpr bool value = true; };
-
-		template<typename T, typename = void> struct is_small_vector { static constexpr bool value = false; };
-		template<typename T, size_t N> struct is_small_vector<small_vector<T, N>, void> { static constexpr bool value = true; };
+		template <template<typename, auto...> typename Tmp, typename>
+		static constexpr bool is_tn_specialization_v = false;
+		template <template<typename, auto...> typename Tmp, typename T, auto... X>
+		static constexpr bool is_tn_specialization_v<Tmp, Tmp<T, X...>> = true;
 	};
 	template <template<typename...> typename Tmp, typename T>
-	static constexpr bool is_specialization_v = impl::is_specialization_v<Tmp, std::remove_cvref_t<T>>;
-	template <typename T>
-	static constexpr bool is_std_array_v = impl::is_std_array<std::remove_cvref_t<T>>::value;
-	template <typename T>
-	static constexpr bool is_std_span_v = impl::is_std_span<std::remove_cvref_t<T>>::value;
-	template <typename T>
-	static constexpr bool is_small_vector_v = impl::is_small_vector<std::remove_cvref_t<T>>::value;
-
-	// Check whether data is stored contiguously in the iterable.
-	//
+	static constexpr bool is_specialization_v =    impl::is_specialization_v<Tmp, T>;
+	template <template<typename, auto...> typename Tmp, typename T>
+	static constexpr bool is_tn_specialization_v = impl::is_tn_specialization_v<Tmp, T>;
+	
+	template<typename T> concept Atomic =          is_specialization_v<std::atomic, T>;
+	template<typename T> concept AtomicRef =       is_specialization_v<std::atomic_ref, T>;
+	template<typename T> concept Duration =        is_specialization_v<std::chrono::duration, T>;
+	template<typename T> concept Timestamp =       is_specialization_v<std::chrono::time_point, T>;
+	template<typename T> concept Variant =         is_specialization_v<std::variant, T>;
+	template<typename T> concept Tuple =           is_specialization_v<std::tuple, T> || is_specialization_v<std::pair, T>;
+	template<typename T> concept Optional =        is_specialization_v<std::optional, T>;
+	template<typename T> concept SmallVector =     is_tn_specialization_v<small_vector, T>;
+	template<typename T> concept StdSpan =         is_tn_specialization_v<std::span, T>;
+	template<typename T> concept StdArray =        is_tn_specialization_v<std::array, T>;
+	template<typename T> concept StdVector =       is_specialization_v<std::vector, T>;
+	template<typename T> concept StdString =       is_specialization_v<std::basic_string, T>;
+	template<typename T> concept StdStringView =   is_specialization_v<std::basic_string_view, T>;
+	template<typename T> concept InitializerList = is_specialization_v<std::initializer_list, T>;
 	template<typename T>
-	static constexpr bool is_contiguous_iterable_v = 
-	(
-		is_std_array_v<T> ||
-		is_std_span_v<T> ||
-		is_small_vector_v<T> ||
-		is_specialization_v<std::vector, T> ||
-		is_specialization_v<std::basic_string, T> ||
-		is_specialization_v<std::basic_string_view, T> ||
-		is_specialization_v<std::initializer_list, T> ||
-		std::is_array_v<std::remove_cvref_t<T>> ||
-		std::is_array_v<T>
-	);
+	concept ContiguousIterable =
+		StdSpan<T> || 
+		StdStringView<T> || 
+		InitializerList<T> ||
+		StdArray<T> || 
+		Array<T> ||
+		Array<std::remove_cvref_t<T>> ||
+		StdVector<T> || 
+		StdString<T> ||
+		SmallVector<T>;
 
 	// Checks if the given lambda can be evaluated in compile time.
 	//
@@ -258,116 +303,11 @@ namespace xstd
 
 	// Common concepts.
 	//
-	template<typename T>
-	concept Integral = std::is_integral_v<T>;
-	template<typename T>
-	concept Arithmetic = std::is_arithmetic_v<T>;
-	template<typename T>
-	concept FloatingPoint = std::is_floating_point_v<T>;
-	template<typename T>
-	concept Void = std::is_void_v<T>;
-	template<typename T>
-	concept NonVoid = !std::is_void_v<T>;
-	template<typename T>
-	concept Trivial = std::is_trivial_v<T>;
-	template<typename T>
-	concept Enum = std::is_enum_v<T>;
-	template<typename T>
-	concept Tuple = is_specialization_v<std::tuple, T> || is_specialization_v<std::pair, T>;
-	template<typename T>
-	concept Span = is_std_span_v<T>;
-	template<typename T>
-	concept Pointer = std::is_pointer_v<T>;
-	template<typename T>
-	concept LvReference = std::is_lvalue_reference_v<T>;
-	template<typename T>
-	concept RvReference = std::is_rvalue_reference_v<T>;
-	template<typename T>
-	concept Reference = std::is_reference_v<T>;
-	template<typename T>
-	concept Const = std::is_const_v<T>;
-	template<typename T>
-	concept Mutable = !std::is_const_v<T>;
-	template<typename T>
-	concept Volatile = std::is_volatile_v<T>;
-	template<typename T>
-	concept Optional = is_specialization_v<std::optional, T>;
-	template<typename T>
-	concept Final = std::is_final_v<T>;
-	template<typename T>
-	concept Empty = std::is_empty_v<T>;
-	template<typename T>
-	concept Variant = is_specialization_v<std::variant, T>;
-	template<typename T>
-	concept Dereferencable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator*(); };
-	template<typename T>
-	concept MemberPointable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator->(); };
-	template<typename T>
-	concept PointerLike = MemberPointable<T> && Dereferencable<T>;
-
-	template<typename T>
-	concept TriviallyCopyable = std::is_trivially_copyable_v<T>;
-	template<typename T>
-	concept TriviallyMoveAssignable = std::is_trivially_move_assignable_v<T>;
-	template<typename T>
-	concept TriviallyMoveConstructable = std::is_trivially_move_constructible_v<T>;
-	template<typename T>
-	concept TriviallyCopyAssignable = std::is_trivially_copy_assignable_v<T>;
-	template<typename T>
-	concept TriviallyCopyConstructable = std::is_trivially_copy_constructible_v<T>;
-	template<typename T>
-	concept TriviallySwappable = TriviallyMoveConstructable<T> && TriviallyMoveConstructable<T>;
-	template<typename From, typename To>
-	concept TriviallyAssignable = std::is_trivially_assignable_v<From, To>;
-	template<typename T>
-	concept TriviallyConstructable = std::is_trivially_constructible_v<T>;
-	template<typename T>
-	concept TriviallyDefaultConstructable = std::is_trivially_default_constructible_v<T>;
-	template<typename T>
-	concept TriviallyDestructable = std::is_trivially_destructible_v<T>;
-	
-	template<typename T>
-	concept MoveAssignable = std::is_move_assignable_v<T>;
-	template<typename T>
-	concept MoveConstructable = std::is_move_constructible_v<T>;
-	template<typename T>
-	concept CopyAssignable = std::is_copy_assignable_v<T>;
-	template<typename T>
-	concept CopyConstructable = std::is_copy_constructible_v<T>;
-	template<typename T>
-	concept Swappable = MoveConstructable<T> && MoveConstructable<T>;
-	template<typename T>
-	concept DefaultConstructable = std::is_default_constructible_v<T>;
-	template<typename T>
-	concept Destructable = std::is_destructible_v<T>;
-
-	template<typename A, typename B>
-	concept Same = std::is_same_v<A, B>;
-	template <typename From, typename To>
-	concept Convertible = std::is_convertible_v<From, To>;
-	template <template<typename...> typename Tmp, typename T>
-	concept Specialization = is_specialization_v<Tmp, T>;
-	template<typename T, typename... Args>
-	concept Constructable = requires( Args&&... a ) { T{ std::forward<Args>( a )... }; };
-	template<typename From, typename To>
-	concept Assignable = std::is_assignable_v<From, To>;
-	template<typename T>
-	concept Complete = requires( T x ) { sizeof( T ) != 0; };
-	template <typename From, typename To>
-	concept Castable = requires( From && x ) { ( To ) x; };
-
-	// Comparison traits.
-	//
-	template<typename T, typename O> concept ThreeWayComparable = requires( T&& a, O&& b ) { a <=> b; };
-	template<typename T, typename O> concept LessEqualComparable = requires( T&& a, O&& b ) { a <= b; };
-	template<typename T, typename O> concept LessComparable = requires( T&& a, O&& b ) { a <  b; };
-	template<typename T, typename O> concept EqualComparable = requires( T&& a, O&& b ) { a == b; };
-	template<typename T, typename O> concept NotEqualComparable = requires( T&& a, O&& b ) { a != b; };
-	template<typename T, typename O> concept GreatComparable = requires( T&& a, O&& b ) { a >  b; };
-	template<typename T, typename O> concept GreatEqualComparable = requires( T&& a, O&& b ) { a >= b; };
-
-	// Artihmetic traits.
-	//
+	template<typename T> concept Dereferencable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator*(); };
+	template<typename T> concept MemberPointable = Pointer<std::decay_t<T>> || requires( T&& x ) { x.operator->(); };
+	template<typename T> concept PointerLike = MemberPointable<T> && Dereferencable<T>;
+	template<typename T> concept Complete = requires( T x ) { sizeof( T ) != 0; };
+	template <typename From, typename To> concept Castable = requires( From && x ) { ( To ) x; };
 	template<typename T> concept PreIncrementable = requires( T&& x ) { ++x; };
 	template<typename T> concept PostIncrementable = requires( T&& x ) { x++; };
 	template<typename T> concept PreDecrementable = requires( T&& x ) { --x; };
@@ -382,8 +322,13 @@ namespace xstd
 	template<typename T, typename O> concept Andable = requires( T&& x, O&& y ) { x & y; };
 	template<typename T, typename O> concept Orable = requires( T&& x, O&& y ) { x | y; };
 	template<typename T, typename O> concept Xorable = requires( T&& x, O&& y ) { x ^ y; };
-	template<typename T> concept Signed =   std::is_signed_v<T>;
-	template<typename T> concept Unsigned = std::is_unsigned_v<T>;
+	template<typename T, typename O> concept ThreeWayComparable = requires( T&& a, O&& b ) { a <=> b; };
+	template<typename T, typename O> concept LessEqualComparable = requires( T&& a, O&& b ) { a <= b; };
+	template<typename T, typename O> concept LessComparable = requires( T&& a, O&& b ) { a <  b; };
+	template<typename T, typename O> concept EqualComparable = requires( T&& a, O&& b ) { a == b; };
+	template<typename T, typename O> concept NotEqualComparable = requires( T&& a, O&& b ) { a != b; };
+	template<typename T, typename O> concept GreatComparable = requires( T&& a, O&& b ) { a >  b; };
+	template<typename T, typename O> concept GreatEqualComparable = requires( T&& a, O&& b ) { a >= b; };
 
 	template<Integral T1, Integral T2> requires ( Signed<T1> == Signed<T2> )
 	using integral_max_t = std::conditional_t<( sizeof( T1 ) > sizeof( T2 ) ), T1, T2>;
@@ -394,16 +339,6 @@ namespace xstd
 	template<FloatingPoint T1, FloatingPoint T2>
 	using floating_min_t = std::conditional_t<( sizeof( T1 ) < sizeof( T2 ) ), T1, T2>;
 	
-	// Checks if the type is a member function or not.
-	//
-	template<typename T>                                 struct is_member_function { static constexpr bool value = false; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...)>             { static constexpr bool value = true; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)>        { static constexpr bool value = true; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; };
-	template<typename T>
-	static constexpr bool is_member_function_v = is_member_function<T>::value;
-
 	// Function traits.
 	//
 	template<typename F>
@@ -473,7 +408,7 @@ namespace xstd
 
 	// Lambdas or callables.
 	//
-	template<typename F> concept CallableObject = requires{ is_member_function_v<decltype(&F::operator())>; };
+	template<typename F> concept CallableObject = requires{ MemberFunction<decltype(&F::operator())>; };
 	template<CallableObject F> struct function_traits<F> : function_traits<decltype( &F::operator() )> 
 	{ 
 		static constexpr bool is_lambda = true;
@@ -518,18 +453,16 @@ namespace xstd
 	concept ConvertibleIterator = Iterator<T> && Convertible<iterator_ref_t<T>, std::decay_t<V>>;
 
 	template<typename T> 
-	concept ForwardIterable = std::is_base_of_v<std::forward_iterator_tag, T>;
+	concept ForwardIterable = HasBase<std::forward_iterator_tag, T>;
 	template<typename T> 
-	concept BidirectionalIterable = std::is_base_of_v<std::bidirectional_iterator_tag, T>;
+	concept BidirectionalIterable = HasBase<std::bidirectional_iterator_tag, T>;
 	template<typename T> 
-	concept RandomIterable = std::is_base_of_v<std::random_access_iterator_tag, T>;
+	concept RandomIterable = HasBase<std::random_access_iterator_tag, T>;
 
 	// Container traits.
 	//
 	template<typename T>
 	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
-	template<typename T>
-	concept ContiguousIterable = is_contiguous_iterable_v<T>;
 	template<typename T>
 	using iterator_t = decltype( std::begin( std::declval<T&>() ) );
 	template<typename T>
@@ -592,15 +525,6 @@ namespace xstd
 	concept TimeLockable = requires( T & x, std::chrono::milliseconds y ) { x.try_lock_for( y ); x.try_lock_until( y ); };
 	template<typename T>
 	concept SharedTimeLockable = requires( T & x, std::chrono::milliseconds y ) { x.try_lock_shared_for( y ); x.try_lock_shared_until( y ); };
-	template<typename T>
-	concept Atomic = is_specialization_v<std::atomic, T>;
-
-	// Chrono traits.
-	//
-	template<typename T>
-	concept Duration = is_specialization_v<std::chrono::duration, T>;
-	template<typename T>
-	concept Timestamp = is_specialization_v<std::chrono::time_point, T>;
 	 
 	// XSTD traits, Tiable types have a mutable functor called tie which returns a list of members tied.
 	// => std::tuple<&...> T::tie()
@@ -637,7 +561,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename T>
-		using decay_ptr = typename std::conditional_t<std::is_pointer_v<std::remove_cvref_t<T>>, std::remove_cvref_t<T>, T>;
+		using decay_ptr = typename std::conditional_t<Pointer<std::remove_cvref_t<T>>, std::remove_cvref_t<T>, T>;
 
 		template<typename T, typename = void> struct make_const {};
 		template<typename T> struct make_const<T&, void>    { using type = std::add_const_t<T>&;    };
@@ -684,14 +608,14 @@ namespace xstd
 	//
 	template<typename T> FORCE_INLINE inline auto& make_atomic( T& value )
 	{
-		if constexpr ( std::is_const_v<T> )
+		if constexpr ( Const<T> )
 			return *( const std::atomic<std::remove_cv_t<T>>* ) &value;
 		else
 			return *( std::atomic<std::remove_volatile_t<T>>* ) &value;
 	}
 	template<typename T> FORCE_INLINE inline auto* make_atomic_ptr( T* value )
 	{
-		if constexpr ( std::is_const_v<T> )
+		if constexpr ( Const<T> )
 			return ( const std::atomic<std::remove_cv_t<T>>* ) value;
 		else
 			return ( std::atomic<std::remove_volatile_t<T>>* ) value;
@@ -842,11 +766,8 @@ namespace xstd
 	{
 		if ( !std::is_constant_evaluated() )
 			return *( const To* ) &src;
-#if HAS_BIT_CAST && !defined(__INTELLISENSE__)
-		else
-			return __builtin_bit_cast( To, src );
-#else
-		return std::bit_cast< To >( src );
+#if __has_builtin(__builtin_bit_cast) || ( HAS_MS_EXTENSIONS && _MSC_VER >= 1926 )
+		return __builtin_bit_cast( To, src );
 #endif
 		unreachable();
 	}
@@ -1033,34 +954,10 @@ namespace xstd
 		}
 	}
 
-	// Member reference helper.
+	// Member reference helpers.
 	//
 	template<typename C, typename M>
 	using member_reference_t = M C::*;
-
-	// Function pointer helpers.
-	//
-	template<typename R, typename... A>
-	using static_function_t = R(*)(A...);
-	template<typename C, typename R, typename... A>
-	using member_function_t = R(C::*)(A...);
-
-	// Concept versions of the traits above.
-	//
-	namespace impl
-	{
-		template<typename T, typename = void> struct is_member_reference { static constexpr bool value = false; };
-		template<typename C, typename M> struct is_member_reference<member_reference_t<C, M>, void> { static constexpr bool value = true; };
-
-		template<typename T, typename = void> struct is_static_function { static constexpr bool value = false; };
-		template<typename R, typename... A> struct is_static_function<static_function_t<R, A...>, void> { static constexpr bool value = true; };
-	};
-	template<typename T> concept MemberReference = impl::is_member_reference<T>::value;
-	template<typename T> concept MemberFunction = is_member_function_v<T>;
-	template<typename T> concept StaticFunction = impl::is_static_function<T>::value;
-
-	// Returns the offset/size of given member reference.
-	//
 	template<typename V, typename C> 
 	FORCE_INLINE inline int64_t make_offset( member_reference_t<C, V> ref ) noexcept { return ( int64_t ) ( uint64_t ) &( make_null<C>()->*ref ); }
 	template<typename V, typename C>
@@ -1076,15 +973,11 @@ namespace xstd
 		
 		// Constructed by any kind of pointer or a number.
 		//
-		inline constexpr any_ptr() : address( 0 ) {}
-		inline constexpr any_ptr( std::nullptr_t ) : address( 0 ) {}
-		inline constexpr any_ptr( uint64_t address ) : address( address ) {}
-		template<typename T>
-		inline constexpr any_ptr( T* address ) : address( bit_cast<uint64_t>( address ) ) {}
-		template<typename R, typename... A>
-		inline constexpr any_ptr( static_function_t<R, A...> fn ) : address( bit_cast<uint64_t>( fn ) ) {}
-		template<typename C, typename R, typename... A>
-		inline constexpr any_ptr( member_function_t<C, R, A...> fn ) : address( bit_cast<uint64_t>( fn ) ) {}
+		inline constexpr any_ptr() noexcept : address( 0 ) {}
+		inline constexpr any_ptr( std::nullptr_t ) noexcept : address( 0 ) {}
+		inline constexpr any_ptr( uint64_t address ) noexcept : address( address ) {}
+		template<typename T>       inline constexpr any_ptr( T* address ) noexcept : address( bit_cast<uint64_t>( address ) ) {}
+		template<MemberFunction P> inline constexpr any_ptr( P fn ) noexcept : address( bit_cast<uint64_t>( fn ) ) {}
 
 		// Default copy and move.
 		//
@@ -1095,23 +988,19 @@ namespace xstd
 
 		// Can decay to any pointer or an integer.
 		//
-		template<typename T>
-		inline constexpr operator T*() const { return bit_cast<T*>( address ); }
-		template<typename R, typename... A>
-		inline constexpr operator static_function_t<R, A...>() const { return bit_cast<static_function_t<R, A...>>( address ); }
-		template<typename C, typename R, typename... A>
-		inline constexpr operator member_function_t<C, R, A...>() const { return bit_cast<member_function_t<C, R, A...>>( address ); }
-		inline constexpr operator uint64_t() const { return address; }
+		inline constexpr operator uint64_t() const noexcept { return address; }
+		template<typename T>       inline constexpr operator T*() const noexcept { return bit_cast<T*>( address ); }
+		template<MemberFunction P> inline constexpr operator P() const noexcept { return bit_cast<P>( address ); }
 		
-		inline constexpr any_ptr& operator++() { address++; return *this; }
-		inline constexpr any_ptr operator++( int ) { auto s = *this; operator++(); return s; }
-		inline constexpr any_ptr& operator--() { address--; return *this; }
-		inline constexpr any_ptr operator--( int ) { auto s = *this; operator--(); return s; }
+		inline constexpr any_ptr& operator++() noexcept { address++; return *this; }
+		inline constexpr any_ptr operator++( int ) noexcept { auto s = *this; operator++(); return s; }
+		inline constexpr any_ptr& operator--() noexcept { address--; return *this; }
+		inline constexpr any_ptr operator--( int ) noexcept { auto s = *this; operator--(); return s; }
 
-		template<Integral T> inline constexpr any_ptr operator+( T d ) const { return address + d; }
-		template<Integral T> inline constexpr any_ptr operator-( T d ) const { return address - d; }
-		template<Integral T> inline constexpr any_ptr& operator+=( T d ) { address += d; return *this; }
-		template<Integral T> inline constexpr any_ptr& operator-=( T d ) { address -= d; return *this; }
+		template<Integral T> inline constexpr any_ptr operator+( T d ) const noexcept { return address + d; }
+		template<Integral T> inline constexpr any_ptr operator-( T d ) const noexcept { return address - d; }
+		template<Integral T> inline constexpr any_ptr& operator+=( T d ) noexcept { address += d; return *this; }
+		template<Integral T> inline constexpr any_ptr& operator-=( T d ) noexcept { address -= d; return *this; }
 	};
 
 	// Gets the type at the given offset.
@@ -1119,7 +1008,7 @@ namespace xstd
 	template<typename T = void>
 	FORCE_INLINE inline auto ptr_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
-		if constexpr( std::is_void_v<T> )
+		if constexpr( Void<T> )
 			return any_ptr( base + off );
 		else
 			return carry_const( base, ( T* ) ( base + off ) ); 
@@ -1153,7 +1042,7 @@ namespace xstd
 		template<typename Ti, template<typename...> typename Tr, typename T, Ti... I>
 		FLATTEN FORCE_INLINE inline constexpr auto make_tuple_series( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
 		{
-			if constexpr ( std::is_void_v<decltype( f( const_tag<( Ti ) 0>{} ) ) > )
+			if constexpr ( Void<decltype( f( const_tag<( Ti ) 0>{} ) ) > )
 			{
 				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
 				{
@@ -1187,7 +1076,7 @@ namespace xstd
 		{
 			using R = decltype( f( const_tag<( Ti ) 0>{} ) );
 
-			if constexpr ( std::is_void_v<R> )
+			if constexpr ( Void<R> )
 			{
 				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self )
 				{
@@ -1309,7 +1198,7 @@ namespace xstd
 			return visit_index<size_t( Last ) - size_t( First ) + 1>( size_t( key ) - size_t( First ), [ & ] <size_t N> ( const_tag<N> )
 			{
 				using Tag = const_tag<K( N + size_t( First ) )>;
-				if constexpr ( std::is_void_v<R> )
+				if constexpr ( Void<R> )
 				{
 					f( Tag{} );
 					return true;
@@ -1322,7 +1211,7 @@ namespace xstd
 		}
 		else
 		{
-			if constexpr ( std::is_void_v<R> )
+			if constexpr ( Void<R> )
 				return false;
 			else
 				return std::nullopt;
@@ -1376,7 +1265,7 @@ namespace xstd
 	{
 		mutable T value;
 
-		template<typename... Tx> requires Constructable<T, Tx...>
+		template<typename... Tx> requires Constructible<T, Tx...>
 		constexpr rvalue_wrap( Tx&&... args ) noexcept : value{ std::forward<Tx>( args )... } {}
 
 		// Copy by move.

@@ -72,7 +72,7 @@ namespace xstd
 		size_t height = 0;
 		std::vector<element_type> data;
 
-		// Default constructable, default copy/move.
+		// Default constructible, default copy/move.
 		//
 		bmp_image() = default;
 		bmp_image( bmp_image&& ) noexcept = default;

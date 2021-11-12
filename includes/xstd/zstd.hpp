@@ -65,7 +65,7 @@ namespace xstd::zstd
 		return res;
 	}
 	template<ContiguousIterable T> requires ( !Pointer<T> )
-	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = default_level )
+	inline static result<std::vector<uint8_t>> compress( const T& cont, int level = default_level )
 	{
 		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level );
 	}
@@ -82,8 +82,8 @@ namespace xstd::zstd
 		res.status = ZSTD_decompress( buffer.data(), buffer.size(), data, len );
 		return res;
 	}
-	template<Iterable T>
-	inline static result<std::vector<uint8_t>> decompress( T&& cont )
+	template<ContiguousIterable T>
+	inline static result<std::vector<uint8_t>> decompress( const T& cont )
 	{
 		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 	}
@@ -111,7 +111,7 @@ namespace xstd::zstd
 			return res;
 		}
 		template<ContiguousIterable T> requires ( !Pointer<T> )
-		inline result<std::vector<uint8_t>> compress( T&& cont, int level = default_level )
+		inline result<std::vector<uint8_t>> compress( const T& cont, int level = default_level )
 		{
 			return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level );
 		}
@@ -134,8 +134,8 @@ namespace xstd::zstd
 
 			return res;
 		}
-		template<Iterable T>
-		inline result<std::vector<uint8_t>> decompress( T&& cont )
+		template<ContiguousIterable T>
+		inline result<std::vector<uint8_t>> decompress( const T& cont )
 		{
 			return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 		}

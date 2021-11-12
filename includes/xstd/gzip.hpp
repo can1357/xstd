@@ -62,8 +62,8 @@ namespace xstd::gzip
 		res.status.clear();
 		return res;
 	}
-	template<ContiguousIterable T> requires ( !Pointer<T> )
-	inline static result<std::vector<uint8_t>> compress( T&& cont, int level = default_level, int strategy = Z_DEFAULT_STRATEGY )
+	template<ContiguousIterable T>
+	inline static result<std::vector<uint8_t>> compress( const T& cont, int level = default_level, int strategy = Z_DEFAULT_STRATEGY )
 	{
 		return compress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ), level, strategy );
 	}
@@ -108,8 +108,8 @@ namespace xstd::gzip
 		res.status.clear();
 		return res;
 	}
-	template<Iterable T>
-	inline static result<std::vector<uint8_t>> decompress( T&& cont )
+	template<ContiguousIterable T>
+	inline static result<std::vector<uint8_t>> decompress( const T& cont )
 	{
 		return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 	}

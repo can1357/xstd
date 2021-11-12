@@ -199,7 +199,7 @@ namespace xstd
 	template<Iterable C> inline auto covar( C&& c ) { return covar( std::begin( c ), std::end( c ) ); }
 	template<Iterable C, typename T> inline constexpr auto percentile_of( C&& c, T&& value ) { return percentile_of( std::begin( c ), std::end( c ), std::forward<T>( value ) ); }
 
-	template<Iterable C> requires ( !std::is_array_v<std::remove_cvref_t<C>> && !is_std_array_v<std::remove_cvref_t<C>> )
+	template<Iterable C> requires ( !Array<std::remove_cvref_t<C>> && !StdArray<std::remove_cvref_t<C>> )
 	inline auto sorted_clone( C&& c ) 
 	{ 
 		return sorted_clone( std::begin( c ), std::end( c ) ); 
