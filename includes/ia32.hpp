@@ -23004,13 +23004,6 @@ namespace ia32
 	//
 	namespace impl
 	{
-		_LINKAGE uint32_t read_tsc_low()
-		{
-			register uint32_t low asm( "eax" );
-			register uint32_t high asm( "edx" );
-			asm volatile( "rdtsc" : "=r" ( low ), "=r" ( high ) :: );
-			return low;
-		}
 		_LINKAGE uint32_t read_tscp_low()
 		{
 			register uint32_t low asm( "eax" );

@@ -67,6 +67,46 @@ namespace xstd
 		}
 	}
 
+	// Fast uniform real distribution.
+	//
+	template<FloatingPoint F, Unsigned S> requires ( sizeof( S ) >= sizeof( F ) )
+	inline constexpr F uniform_real( S v )
+	{
+		using U = std::conditional_t<Same<F, float>, uint32_t, uint64_t>;
+		constexpr bitcnt_t mantissa_bits = Same<F, float> ? 23  : 52;
+		constexpr bitcnt_t exponent_bits = Same<F, float> ? 8   : 11;
+		constexpr uint32_t exponent_0 =    uint32_t( fill_bits( exponent_bits - 1 ) - 2 ); // 2^-2, max at 0.499999.
+		
+		// Find the Lowest bit set, 0 requires 1 bit to be set '0', 1 requires
+		// 2 bits to be set '0' so each increment has 1/2'th the chance of being
+		// returned than the other one which leads to equal distribution between
+		// exponential levels.
+		//
+		constexpr bitcnt_t exponent_seed_bits = std::min<size_t>( 31, sizeof( S ) * 8 - ( mantissa_bits + 1 ) );
+		uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_seed_bits ) );
+
+		// Clear and replace the exponent bits.
+		//
+		v &= ~fill_bits( exponent_bits );
+		v |= exponent;
+
+		// Rotate until mantissa is at the bottom, add 0.5 to shift from [-0.5, +0.5] to [0.0, 1.0].
+		//
+		v = rotl( v, mantissa_bits );
+		return bit_cast< F >( U( v ) ) + 0.5;
+	}
+
+	template<Unsigned S> requires ( sizeof( S ) >= sizeof( double ) )
+	inline constexpr double uniform_real( S v, double min, double max )
+	{
+		return min + uniform_real<double, S>( v ) * ( max - min );
+	}
+	template<Unsigned S> requires ( sizeof( S ) >= sizeof( float ) )
+	inline constexpr float uniform_real( S v, float min, float max )
+	{
+		return min + uniform_real<float, S>( v ) * ( max - min );
+	}
+
 	// Implement an PCG and its atomic variant.
 	//
 	template<xstd::Unsigned T = uint64_t>
@@ -201,68 +241,6 @@ namespace xstd
 				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
 			}
 		}
-		static constexpr double generate_real( uint64_t v )
-		{
-			constexpr bitcnt_t mantissa_bits = 52;
-			constexpr bitcnt_t exponent_bits = 64 - ( mantissa_bits + 1 );
-			constexpr uint32_t exponent_0 =    1021; // 0.499999
-
-			// One step of LCG64.
-			//
-			v = 1 + 6364136223846793005 * v;
-
-			// Find the Lowest bit set, 0 requires 1 bit to be set '0', 1 requires
-			// 2 bits to be set '0' so each increment has 1/2'th the chance of being
-			// returned than the other one which leads to equal distribution between
-			// exponential levels.
-			//
-			uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_bits ) );
-
-			// Clear and replace the exponent bits.
-			//
-			v &= ~fill_bits( exponent_bits );
-			v |= exponent;
-
-			// Rotate until mantissa is at the bottom, add 0.5 to shift from [-0.5, +0.5] to [0.0, 1.0].
-			//
-			v = rotl( v, mantissa_bits );
-			return bit_cast< double >( v ) + 0.5;
-		}
-		static constexpr float generate_real( uint32_t v )
-		{
-			constexpr bitcnt_t mantissa_bits = 23;
-			constexpr bitcnt_t exponent_bits = 32 - ( mantissa_bits + 1 );
-			constexpr uint32_t exponent_0 =    125; // 0.499999
-
-			// One step of LCG32.
-			//
-			v = 1013904223 + 1664525 * v;
-
-			// Find the Lowest bit set, 0 requires 1 bit to be set '0', 1 requires
-			// 2 bits to be set '0' so each increment has 1/2'th the chance of being
-			// returned than the other one which leads to equal distribution between
-			// exponential levels.
-			//
-			uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_bits ) );
-
-			// Clear and replace the exponent bits.
-			//
-			v &= ~fill_bits( exponent_bits );
-			v |= exponent;
-			
-			// Rotate until mantissa is at the bottom, add 0.5 to shift from [-0.5, +0.5] to [0.0, 1.0].
-			//
-			v = rotl( v, mantissa_bits );
-			return bit_cast< float >( v ) + 0.5;
-		}
-		static constexpr double uniform_real( uint64_t v, double min, double max )
-		{
-			return min + generate_real( v ) * ( max - min );
-		}
-		static constexpr float uniform_real( uint32_t v, float min, float max )
-		{
-			return min + generate_real( v ) * ( max - min );
-		}
 #undef __xstd_rng
 	};
 
@@ -297,7 +275,7 @@ namespace xstd
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_srandom( T min = 0, T max = 1 )
 	{
-		return impl::uniform_real( make_srandom<convert_uint_t<T>>(), min, max );
+		return uniform_real( make_srandom<convert_uint_t<T>>(), min, max );
 	}
 
 	// Generates a single random number.
@@ -319,7 +297,7 @@ namespace xstd
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_random( T min = 0, T max = 1 )
 	{
-		return impl::uniform_real( make_random<convert_uint_t<T>>(), min, max );
+		return uniform_real( make_random<convert_uint_t<T>>(), min, max );
 	}
 	template<Integral T = uint64_t>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
@@ -330,7 +308,7 @@ namespace xstd
 	template<FloatingPoint T>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = 0, T max = 1 )
 	{
-		return impl::uniform_real( make_crandom<convert_uint_t<T>>( key ), min, max );
+		return uniform_real( make_crandom<convert_uint_t<T>>( key ), min, max );
 	}
 
 	// Fills the given range with randoms.
