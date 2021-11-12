@@ -259,14 +259,14 @@ namespace xstd
 		static constexpr bool is_specialization_v = false;
 		template <template<typename...> typename Tmp, typename... Tx>
 		static constexpr bool is_specialization_v<Tmp, Tmp<Tx...>> = true;
-		template <template<typename, auto...> typename Tmp, typename>
+		template <template<typename, size_t> typename Tmp, typename>
 		static constexpr bool is_tn_specialization_v = false;
-		template <template<typename, auto...> typename Tmp, typename T, auto... X>
-		static constexpr bool is_tn_specialization_v<Tmp, Tmp<T, X...>> = true;
+		template <template<typename, size_t> typename Tmp, typename T, size_t N>
+		static constexpr bool is_tn_specialization_v<Tmp, Tmp<T, N>> = true;
 	};
 	template <template<typename...> typename Tmp, typename T>
 	static constexpr bool is_specialization_v =    impl::is_specialization_v<Tmp, T>;
-	template <template<typename, auto...> typename Tmp, typename T>
+	template <template<typename, size_t> typename Tmp, typename T>
 	static constexpr bool is_tn_specialization_v = impl::is_tn_specialization_v<Tmp, T>;
 	
 	template<typename T> concept Atomic =          is_specialization_v<std::atomic, T>;
