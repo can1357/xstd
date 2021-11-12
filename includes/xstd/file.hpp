@@ -118,7 +118,7 @@ namespace xstd::file
 		if constexpr ( !ContiguousIterable<C> )
 		{
 			for ( auto& e : container )
-				file.write( ( char* ) e, sizeof( iterable_val_t<C> ) );
+				file.write( ( char* ) &e, sizeof( iterable_val_t<C> ) );
 		}
 		else
 		{

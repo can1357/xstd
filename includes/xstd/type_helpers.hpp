@@ -284,7 +284,7 @@ namespace xstd
 	template<typename T> concept StdStringView =   is_specialization_v<std::basic_string_view, T>;
 	template<typename T> concept InitializerList = is_specialization_v<std::initializer_list, T>;
 	template<typename T>
-	concept ContiguousIterable =
+	concept ContiguousContainer =
 		StdSpan<T> || 
 		StdStringView<T> || 
 		InitializerList<T> ||
@@ -463,6 +463,9 @@ namespace xstd
 	//
 	template<typename T>
 	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
+	template<typename T>
+	concept ContiguousIterable = ContiguousContainer<std::remove_cvref_t<T>>;
+
 	template<typename T>
 	using iterator_t = decltype( std::begin( std::declval<T&>() ) );
 	template<typename T>
