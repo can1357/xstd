@@ -616,16 +616,13 @@ namespace xstd
 #endif
 
 		I result = 0;
-		for ( bitcnt_t m = ( sizeof( I ) * 8 - 1 ); m >= 0; m-- )
-		{
-			if ( mask & ( I( 1u ) << m ) )
-			{
-				result <<= 1;
-				result |= ( value >> m ) & 1;
-			}
-		}
+		bitcnt_t k = 0;
+		for ( bitcnt_t m = 0; m != ( sizeof( I ) * 8 ); m++ )
+			if ( ( mask >> m ) & 1 )
+				result |= ( ( value >> m ) & 1 ) << ( k++ );
 		return result;
 	}
+
 	template<Unsigned I>
 	FORCE_INLINE CONST_FN static constexpr I bit_pdep( I value, I mask )
 	{
@@ -647,14 +644,10 @@ namespace xstd
 #endif
 
 		I result = 0;
-		for ( bitcnt_t m = ( sizeof( I ) * 8 - 1 ); m >= 0; m-- )
-		{
-			if ( mask & ( I( 1u ) << m ) )
-			{
-				result <<= 1;
-				result |= ( value >> m ) & 1;
-			}
-		}
+		bitcnt_t k = 0;
+		for ( bitcnt_t m = 0; m != ( sizeof( I ) * 8 ); m++ )
+			if ( ( mask >> m ) & 1 )
+				result |= ( ( value >> ( k++ ) ) & 1 ) << m;
 		return result;
 	}
 
