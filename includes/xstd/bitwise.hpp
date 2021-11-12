@@ -17,7 +17,7 @@ namespace xstd
 	FORCE_INLINE CONST_FN static constexpr T align_up( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_align_up)
-		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
+		if constexpr ( Same<T, xstd::any_ptr> )
 			return __builtin_align_up( ( void* ) value, alignment );
 		else
 			return __builtin_align_up( value, alignment );
@@ -43,7 +43,7 @@ namespace xstd
 	FORCE_INLINE CONST_FN static constexpr T align_down( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_align_down)
-		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
+		if constexpr ( Same<T, xstd::any_ptr> )
 			return __builtin_align_down( ( void* ) value, alignment );
 		else
 			return __builtin_align_down( value, alignment );
@@ -67,7 +67,7 @@ namespace xstd
 	FORCE_INLINE CONST_FN static constexpr bool is_aligned( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_is_aligned)
-		if constexpr ( std::is_same_v<T, xstd::any_ptr> )
+		if constexpr ( Same<T, xstd::any_ptr> )
 			return __builtin_is_aligned( ( void* ) value, alignment );
 		else
 			return __builtin_is_aligned( value, alignment );
@@ -210,7 +210,7 @@ namespace xstd
 	{
 		using U = convert_uint_t<T>;
 
-		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
+		if constexpr ( Volatile<T> || Atomic<T> )
 		{
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
@@ -300,7 +300,7 @@ namespace xstd
 	{
 		using U = convert_uint_t<T>;
 
-		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
+		if constexpr ( Volatile<T> || Atomic<T> )
 		{
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
@@ -390,7 +390,7 @@ namespace xstd
 	{
 		using U = convert_uint_t<T>;
 
-		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
+		if constexpr ( Volatile<T> || Atomic<T> )
 		{
 #if AMD64_TARGET
 			if constexpr ( sizeof( T ) == 8 )
@@ -475,7 +475,7 @@ namespace xstd
 	FORCE_INLINE PURE_FN static constexpr bool bit_test( const T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
-		if constexpr ( std::is_volatile_v<T> || xstd::Atomic<T> )
+		if constexpr ( Volatile<T> || Atomic<T> )
 		{
 			// If shift is constant and can be encoded as imm32/imm8, TEST will be faster.
 			//
@@ -752,8 +752,8 @@ namespace xstd
 	template<Integral T>
 	FORCE_INLINE CONST_FN static constexpr auto imm_extend( T imm )
 	{
-		if constexpr ( std::is_signed_v<T> ) return ( int64_t ) imm;
-		else                                 return ( uint64_t ) imm;
+		if constexpr ( Signed<T> ) return ( int64_t ) imm;
+		else                       return ( uint64_t ) imm;
 	}
 
 	// Zero extends the given integer.

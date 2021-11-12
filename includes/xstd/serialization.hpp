@@ -18,7 +18,7 @@ namespace xstd
 	namespace impl
 	{
 		template<typename T>
-		concept SafeObj = !std::is_void_v<T> && ( Trivial<T> || Final<T> );
+		concept SafeObj = !Void<T> && ( Trivial<T> || Final<T> );
 
 		// Magic tables for encoding/decoding of the indices.
 		//

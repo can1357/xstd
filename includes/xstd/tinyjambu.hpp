@@ -120,7 +120,7 @@ namespace xstd
 				while ( count-- )
 				{
 					unit_type res = update_single( rounds, framebits, *io, reverse );
-					if constexpr ( !std::is_const_v<T> )
+					if constexpr ( !Const<T> )
 						*io = res;
 					io++;
 				}
@@ -134,7 +134,7 @@ namespace xstd
 					while ( count >= sizeof( unit_type ) )
 					{
 						unit_type res = update_single( rounds, framebits, *( const unit_type* ) io, reverse );
-						if constexpr ( !std::is_const_v<T> )
+						if constexpr ( !Const<T> )
 							*( unit_type* ) io = res;
 						io += sizeof( unit_type );
 						count -= sizeof( unit_type );
@@ -172,7 +172,7 @@ namespace xstd
 
 					// If there is an output, write it byte by byte.
 					//
-					if constexpr ( !std::is_const_v<T> )
+					if constexpr ( !Const<T> )
 					{
 						io -= n;
 						if ( std::is_constant_evaluated() )

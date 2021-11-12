@@ -589,7 +589,7 @@ namespace xstd
 	struct promise_ref_tag_t {};
 	
 	template<typename V, typename T, typename S>
-	inline constexpr bool is_promise_v = std::is_base_of_v<promise_ref_tag_t<T, S>, V>;
+	inline constexpr bool is_promise_v = HasBase<promise_ref_tag_t<T, S>, V>;
 	template<typename V, typename T, typename S>
 	concept Promise = is_promise_v<V, T, S>;
 
@@ -944,7 +944,7 @@ namespace xstd
 
 	// Make promise references co awaitable.
 	//
-	template<typename P> requires std::is_base_of_v<make_awaitable_tag_t, P>
+	template<typename P> requires HasBase<make_awaitable_tag_t, P>
 	inline auto operator co_await( const P& ref )
 	{
 		using R = typename P::result_type;
@@ -986,7 +986,7 @@ namespace xstd
 		};
 		return awaitable{ ref };
 	}
-	template<typename P> requires std::is_base_of_v<make_awaitable_tag_t, P>
+	template<typename P> requires HasBase<make_awaitable_tag_t, P>
 	inline auto operator co_await( P&& ref )
 	{
 		using R = typename P::result_type;

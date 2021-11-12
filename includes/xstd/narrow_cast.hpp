@@ -39,7 +39,7 @@ namespace xstd
 
 		// Validate sign.
 		//
-		if constexpr ( std::is_signed_v<Src> && !std::is_signed_v<Dst> )
+		if constexpr ( Signed<Src> && !Signed<Dst> )
 		{
 			if ( o < 0 )
 				return false;
@@ -47,7 +47,7 @@ namespace xstd
 		
 		// If signed, [-2^(x-1), (2^(x-1))-1]:
 		//
-		if constexpr ( std::is_signed_v<Dst> )
+		if constexpr ( Signed<Dst> )
 		{
 			const int64_t signed_max = ( 1ll << ( bits - 1 ) ) - 1;
 			const int64_t signed_min = -( 1ll << ( bits - 1 ) );

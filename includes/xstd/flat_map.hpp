@@ -685,23 +685,23 @@ namespace xstd
 	//
 	// -> std::unordered_map, O(log log n) insert, O(log log n) lookup
 	template<typename K, typename V, typename Hs = void, size_t L = 0>
-	using flat_map =           basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, true, L>;
+	using flat_map =           basic_flat_map<K, V, std::conditional_t<Void<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, true, L>;
 	// -> std::map,           O(log n) insert, O(log n) lookup
 	template<typename K, typename V, size_t L = 0>
 	using sorted_flat_map =    basic_sorted_flat_map<K, V, false, L>;
 	// -> std::unordered_map, O(1) insert, O(N) lookup.
 	template<typename K, typename V, typename Hs = void, size_t L = 0>
-	using random_flat_map =    basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, false, L>;
+	using random_flat_map =    basic_flat_map<K, V, std::conditional_t<Void<Hs>, typename impl::pick_hasher<K>::type, Hs>, false, false, L>;
 	
 	// Inplace versions.
 	// - Does not allocate per entry, but no guarantee on pointer remaining the same upon insertion.
 	//
 	template<typename K, typename V, typename Hs = void, size_t L = 0>
-	using inplace_map =        basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, true, true, L>;
+	using inplace_map =        basic_flat_map<K, V, std::conditional_t<Void<Hs>, typename impl::pick_hasher<K>::type, Hs>, true, true, L>;
 	template<typename K, typename V, size_t L = 0>
 	using sorted_inplace_map = basic_sorted_flat_map<K, V, true, L>;
 	template<typename K, typename V, typename Hs = void, size_t L = 0>
-	using random_inplace_map = basic_flat_map<K, V, std::conditional_t<std::is_void_v<Hs>, typename impl::pick_hasher<K>::type, Hs>, true, false, L>;
+	using random_inplace_map = basic_flat_map<K, V, std::conditional_t<Void<Hs>, typename impl::pick_hasher<K>::type, Hs>, true, false, L>;
 };
 
 namespace std

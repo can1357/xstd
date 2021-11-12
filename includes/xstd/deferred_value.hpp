@@ -17,7 +17,7 @@ namespace xstd
 		//
 		template<typename T>
 		using wrap_t = std::conditional_t<
-			std::is_reference_v<T>,
+			Reference<T>,
 			std::reference_wrapper<std::remove_reference_t<T>>,
 			std::remove_const_t<T>
 		>;

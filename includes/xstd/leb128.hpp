@@ -16,7 +16,7 @@ namespace xstd::encode
 	template<Integral T>
 	inline static void leb128( std::vector<uint8_t>& out, T value )
 	{
-		if constexpr ( !std::is_same_v<T, bool> )
+		if constexpr ( !Same<T, bool> )
 		{
 			while ( 1 )
 			{
@@ -51,7 +51,7 @@ namespace xstd::encode
 	template<Integral T, typename It1, typename It2>
 	inline static std::optional<T> rleb128( It1&& it, It2&& end )
 	{
-		if constexpr ( !std::is_same_v<T, bool> )
+		if constexpr ( !Same<T, bool> )
 		{
 			T value = 0;
 			for ( size_t bitcnt = 0; it != end; bitcnt += 7 )

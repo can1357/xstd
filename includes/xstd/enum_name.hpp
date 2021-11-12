@@ -22,7 +22,7 @@ namespace xstd
 		// Type characteristics.
 		//
 		using value_type = std::underlying_type_t<T>;
-		static constexpr bool is_signed = std::is_signed_v<value_type>;
+		static constexpr bool is_signed = Signed<value_type>;
 		using ex_value_type = std::conditional_t<is_signed, int64_t, uint64_t>;
 
 		static constexpr int min_value = is_signed ? -(int)( iteration_limit / 2 ) : 0;

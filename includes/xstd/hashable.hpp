@@ -356,7 +356,7 @@ namespace xstd
 		{
 			// If C array with char/wchar element, we'll skip last one despite the lameness.
 			//
-			if constexpr ( std::is_array_v<T> && ( Same<U, char> || Same<U, char8_t> || Same<U, wchar_t> || Same<U, char16_t> ) )
+			if constexpr ( Array<T> && ( Same<U, char> || Same<U, char8_t> || Same<U, wchar_t> || Same<U, char16_t> ) )
 			{
 				extend_hash<H>( out, std::span{ std::begin( value ), std::end( value ) - 1 } );
 			}
@@ -450,7 +450,7 @@ namespace xstd
 	// Disjunction of all possible conversions.
 	//
 	template<typename T>
-	concept Hashable = requires( T v ) { !std::is_void_v<decltype( hasher<>{}( v ) )>; };
+	concept Hashable = requires( T v ) { !Void<decltype( hasher<>{}( v ) )>; };
 };
 
 // Redirect from std::hash.

@@ -191,10 +191,10 @@ namespace xstd
 	{
 		// Traits.
 		//
-		using status_type =    std::conditional_t<Same<Status, void>, impl::no_status, Status>;
-		using value_type =     std::conditional_t<Same<Value, void>, std::monostate, Value>;
-		static constexpr bool has_status = !std::is_same_v<status_type, impl::no_status>;
-		static constexpr bool has_value =  !std::is_same_v<value_type, std::monostate>;
+		using status_type =    std::conditional_t<Void<Status>, impl::no_status, Status>;
+		using value_type =     std::conditional_t<Void<Value>,  std::monostate,  Value>;
+		static constexpr bool has_status = !Same<status_type,   impl::no_status>;
+		static constexpr bool has_value =  !Same<value_type,    std::monostate>;
 
 		using traits =         status_traits<status_type>;
 		using store_type =     std::conditional_t<has_value, std::optional<value_type>, impl::optional_monostate>;

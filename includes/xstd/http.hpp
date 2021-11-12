@@ -84,7 +84,7 @@ namespace xstd::http
 	using header_view_map = std::unordered_map<std::string_view, std::string_view, ahash<std::string_view>, icmp_equals>;
 	using header_list =     std::initializer_list<std::pair<std::string_view, std::string_view>>;
 	using header_span =     std::span<const std::pair<std::string_view, std::string_view>>;
-	template<typename T> concept HeaderMap = std::is_same_v<T, header_map> || std::is_same_v<T, header_view_map>;
+	template<typename T> concept HeaderMap = Same<T, header_map> || Same<T, header_view_map>;
 
 	// Declare the I/O helpers.
 	//
@@ -142,7 +142,7 @@ namespace xstd::http
 		method_id method;
 		std::string_view path;
 	};
-	template<typename T> concept RequestHeader = std::is_same_v<T, request_header> || std::is_same_v<T, request_header_view>;
+	template<typename T> concept RequestHeader = Same<T, request_header> || Same<T, request_header_view>;
 
 	// Declare the I/O helpers.
 	//
@@ -207,7 +207,7 @@ namespace xstd::http
 		uint32_t status;
 		std::string_view message;
 	};
-	template<typename T> concept ResponseHeader = std::is_same_v<T, response_header> || std::is_same_v<T, response_header_view>;
+	template<typename T> concept ResponseHeader = Same<T, response_header> || Same<T, response_header_view>;
 
 	// Declare the I/O helpers.
 	//
@@ -266,7 +266,7 @@ namespace xstd::http
 	// after being indicated success, it means more data is required.
 	//
 	template<typename T> 
-	concept Buffer = std::is_same_v<T, std::string> || std::is_same_v<T, std::string_view> || std::is_same_v<T, std::vector<uint8_t>> || std::is_same_v<T, std::vector<char>>;
+	concept Buffer = Same<T, std::string> || Same<T, std::string_view> || Same<T, std::vector<uint8_t>> || Same<T, std::vector<char>>;
 	template<Buffer T1, Buffer T2>
 	inline bool decode_chunked( T1& output, T2& rx_buffer )
 	{

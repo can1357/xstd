@@ -23048,7 +23048,7 @@ namespace ia32
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
-		if constexpr ( std::is_same_v<result_t, void> )
+		if constexpr ( xstd::Void<result_t> )
 		{
 			serialize();
 			uint64_t t0 = read_msr( id );
@@ -23075,7 +23075,7 @@ namespace ia32
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
-		if constexpr ( std::is_same_v<result_t, void> )
+		if constexpr ( xstd::Void<result_t> )
 		{
 			serialize();
 			uint64_t t0 = read_pmc( id );

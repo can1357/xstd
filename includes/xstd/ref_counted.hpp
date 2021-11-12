@@ -13,7 +13,7 @@ namespace xstd
 	{
 		struct ref_base { mutable std::atomic<uint32_t> ref_count = { 1 }; };
 		struct wrapper : T, ref_base { using T::T; };
-		using store_type = std::conditional_t<std::is_base_of_v<ref_counted_tag_t, T>, T, wrapper>;
+		using store_type = std::conditional_t<HasBase<ref_counted_tag_t, T>, T, wrapper>;
 
 		store_type* ptr = nullptr;
 
@@ -119,7 +119,7 @@ namespace xstd
 	{ 
 		using V = typename ref<T>::store_type;
 		V* ptr = new V( std::forward<Tx>( args )... );
-		if constexpr ( std::is_base_of_v<ref_counted_tag_t, T> )
+		if constexpr ( HasBase<ref_counted_tag_t, T> )
 			ptr->_wptr = ( T* ) ptr;
 		return ref<T>( ptr, false ); 
 	}

@@ -44,8 +44,8 @@ namespace xstd::fmt
 		//
 		template<typename T>
 		concept CFormatStringArgument = 
-			std::is_fundamental_v<T> || std::is_enum_v<T>  ||
-			std::is_pointer_v<T>     || std::is_array_v<T>;
+			Fundamental<T> || Enum<T>  ||
+			Pointer<T>     || Array<T>;
 		template<typename T>
 		concept ValidFormatStringArgument = 
 			CFormatStringArgument<T> || 
@@ -351,7 +351,7 @@ namespace xstd::fmt
 			return value.string();
 		}
 	};
-	template<typename T> requires std::is_base_of_v<T, std::exception>
+	template<typename T> requires HasBase<T, std::exception>
 	struct string_formatter<T>
 	{
 		FORCE_INLINE inline std::string operator()( const T& value ) const

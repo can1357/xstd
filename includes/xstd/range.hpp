@@ -216,7 +216,7 @@ namespace xstd
 	{
 		auto fn = [ ref = std::move( ref ) ] <typename T> ( T && v ) -> decltype( auto )
 		{
-			if constexpr ( std::is_base_of_v<B, T> )
+			if constexpr ( HasBase<B, T> )
 				return v.*ref;
 			else
 				return std::to_address( v )->*ref;

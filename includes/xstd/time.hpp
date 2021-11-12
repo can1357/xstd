@@ -114,7 +114,7 @@ namespace xstd
 	{
 		using result_t = decltype( std::declval<T>()( std::forward<Tx>( args )... ) );
 
-		if constexpr ( std::is_same_v<result_t, void> )
+		if constexpr ( Void<result_t> )
 		{
 			timestamp t0 = time::now();
 			f( std::forward<Tx>( args )... );
