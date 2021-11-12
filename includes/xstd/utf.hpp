@@ -59,7 +59,7 @@ namespace xstd
 			{
 				auto p = out;
 				
-#if AMD64_TARGET
+#if XSTD_HW_PDEP_PEXT
 				if ( !std::is_constant_evaluated() )
 				{
 					uint32_t tmp = bit_pdep<uint32_t>( cp, 0b00000111'00111111'00111111'00111111 );
@@ -120,7 +120,7 @@ namespace xstd
 					return 0;
 				}
 				
-#if AMD64_TARGET
+#if XSTD_HW_PDEP_PEXT
 				if ( !std::is_constant_evaluated() )
 				{
 					// Do not use BSWAP here to avoid dependency on it via PEXT.

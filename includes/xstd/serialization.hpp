@@ -78,7 +78,7 @@ namespace xstd
 	//
 	FORCE_INLINE inline constexpr std::pair<uint64_t, int8_t> decode_index( uint64_t e1, uint16_t e2 )
 	{
-#if AMD64_TARGET
+#if XSTD_HW_PDEP_PEXT
 		if ( !std::is_constant_evaluated() )
 		{
 			uint32_t m = ( uint32_t ) bit_pext<uint64_t>( e1, 0x8080808080808080 );
@@ -121,7 +121,7 @@ namespace xstd
 	{
 		uint8_t w = length_index( value );
 
-#if AMD64_TARGET
+#if XSTD_HW_PDEP_PEXT
 		if ( !std::is_constant_evaluated() )
 		{
 			uint64_t e1 = bit_pdep<uint64_t>( value,              0x7f7f7f7f7f7f7f7f );

@@ -7,8 +7,14 @@
 #include "type_helpers.hpp"
 #include "intrinsics.hpp"
 
-using bitcnt_t = int;
+// [[Configuration]]
+// XSTD_HW_PDEP_PEXT: Determines the availability of hardware PDEP/PEXT.
+//
+#ifndef XSTD_HW_PDEP_PEXT
+	#define XSTD_HW_PDEP_PEXT ( AMD64_TARGET && ( GNU_COMPILER || MS_COMPILER ) )
+#endif
 
+using bitcnt_t = int;
 namespace xstd
 {
 	// Alignment helper.
@@ -82,13 +88,26 @@ namespace xstd
 
 	// Extracts the sign bit from the given value.
 	//
-	template<Integral T>
-	FORCE_INLINE CONST_FN static constexpr bool sgn( T type ) { return bool( type >> ( ( sizeof( T ) * 8 ) - 1 ) ); }
+	template<Signed T>
+	FORCE_INLINE CONST_FN static constexpr bool sgn( T type ) 
+	{ 
+		return type < 0; 
+	}
 
 	// Micro-optimized implementation to trick MSVC into actually optimizing it, like Clang :).
 	//
 	namespace impl
 	{
+		template<typename To, typename T>
+		FORCE_INLINE CONST_FN static constexpr bool const_demote( T value )
+		{
+			return const_condition( To( value ) == value );
+		}
+		template<typename To, typename T1, typename T2>
+		FORCE_INLINE CONST_FN static constexpr bool const_demote_and( T1 a, T2 b )
+		{
+			return const_demote<To>( a & b ) || const_demote<To>( a ) || const_demote<To>( b );
+		}
 		FORCE_INLINE CONST_FN static constexpr bitcnt_t rshiftcnt( bitcnt_t n )
 		{
 			// If MSVC x86-64:
@@ -118,6 +137,18 @@ namespace xstd
 	template<Integral T = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr bitcnt_t popcnt( T x )
 	{
+		// Constant operand size demotion.
+		//
+		if constexpr ( sizeof( T ) > 1 )
+			if ( impl::const_demote<uint8_t>( x ) )
+				return popcnt<uint8_t>( uint8_t( x ) );
+		if constexpr ( sizeof( T ) > 2 )
+			if ( impl::const_demote<uint16_t>( x ) )
+				return popcnt<uint16_t>( uint16_t( x ) );
+		if constexpr ( sizeof( T ) > 4 )
+			if ( impl::const_demote<uint32_t>( x ) )
+				return popcnt<uint32_t>( uint32_t( x ) );
+
 		// Optimized using intrinsics if not const evaluated.
 		//
 		if ( !std::is_constant_evaluated() )
@@ -139,9 +170,22 @@ namespace xstd
 			count += ( bitcnt_t ) ( x & 1 );
 		return count;
 	}
+
 	template<Integral T = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr bitcnt_t msb( T x )
 	{
+		// Constant operand size demotion.
+		//
+		if constexpr ( sizeof( T ) > 1 )
+			if ( impl::const_demote<uint8_t>( x ) )
+				return msb<uint8_t>( uint8_t( x ) );
+		if constexpr ( sizeof( T ) > 2 )
+			if ( impl::const_demote<uint16_t>( x ) )
+				return msb<uint16_t>( uint16_t( x ) );
+		if constexpr ( sizeof( T ) > 4 )
+			if ( impl::const_demote<uint32_t>( x ) )
+				return msb<uint32_t>( uint32_t( x ) );
+
 		// Optimized using intrinsics if not const evaluated.
 		//
 		if ( !std::is_constant_evaluated() )
@@ -172,9 +216,22 @@ namespace xstd
 				return i;
 		return -1;
 	}
+
 	template<Integral T = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr bitcnt_t lsb( T x )
 	{
+		// Constant operand size demotion.
+		//
+		if constexpr ( sizeof( T ) > 1 )
+			if ( impl::const_demote<uint8_t>( x ) )
+				return lsb<uint8_t>( uint8_t( x ) );
+		if constexpr ( sizeof( T ) > 2 )
+			if ( impl::const_demote<uint16_t>( x ) )
+				return lsb<uint16_t>( uint16_t( x ) );
+		if constexpr ( sizeof( T ) > 4 )
+			if ( impl::const_demote<uint32_t>( x ) )
+				return lsb<uint32_t>( uint32_t( x ) );
+
 		// Optimized using intrinsics if not const evaluated.
 		//
 		if ( !std::is_constant_evaluated() )
@@ -205,6 +262,7 @@ namespace xstd
 				return i;
 		return -1;
 	}
+
 	template<typename T>
 	FORCE_INLINE static constexpr bool bit_set( T& value, bitcnt_t n )
 	{
@@ -595,60 +653,88 @@ namespace xstd
 
 	// Parallel extraction/deposit.
 	//
-	template<Unsigned I>
+	template<Integral I = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr I bit_pext( I value, I mask )
 	{
-#if AMD64_TARGET
+		// Constant operand size demotion.
+		//
+		if constexpr ( sizeof( I ) > 1 )
+			if ( impl::const_demote_and<uint8_t>( value, mask ) )
+				return ( I ) bit_pext<uint8_t>( ( uint8_t ) value, ( uint8_t ) mask );
+		if constexpr ( sizeof( I ) > 2 )
+			if ( impl::const_demote_and<uint16_t>( value, mask ) )
+				return ( I ) bit_pext<uint16_t>( ( uint16_t ) value, ( uint16_t ) mask );
+		if constexpr ( sizeof( I ) > 4 )
+			if ( impl::const_demote_and<uint32_t>( value, mask ) )
+				return ( I ) bit_pext<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
+
+#if XSTD_HW_PDEP_PEXT
 		if ( !std::is_constant_evaluated() )
 		{
 #if GNU_COMPILER
 			if constexpr ( sizeof( I ) <= 4 )
-				return ( I ) __builtin_ia32_pext_si( value, mask );
+				return ( I ) __builtin_ia32_pext_si( ( uint32_t ) value, ( uint32_t ) mask );
 			else
-				return ( I ) __builtin_ia32_pext_di( value, mask );
+				return ( I ) __builtin_ia32_pext_di( ( uint64_t ) value, ( uint64_t ) mask );
 #elif MS_COMPILER
 			if constexpr ( sizeof( I ) <= 4 )
-				return ( I ) _pext_u32( value, mask );
+				return ( I ) _pext_u32( ( uint32_t ) value, ( uint32_t ) mask );
 			else
-				return ( I ) _pext_u64( value, mask );
+				return ( I ) _pext_u64( ( uint64_t ) value, ( uint64_t ) mask );
 #endif
 		}
 #endif
 
-		I result = 0;
+		using U = convert_uint_t<I>;
+
+		U result = 0;
 		bitcnt_t k = 0;
 		for ( bitcnt_t m = 0; m != ( sizeof( I ) * 8 ); m++ )
-			if ( ( mask >> m ) & 1 )
-				result |= ( ( value >> m ) & 1 ) << ( k++ );
-		return result;
+			if ( ( U( mask ) >> m ) & 1 )
+				result |= ( ( U( value ) >> m ) & 1 ) << ( k++ );
+		return ( I ) result;
 	}
 
-	template<Unsigned I>
+	template<Integral I = uint64_t>
 	FORCE_INLINE CONST_FN static constexpr I bit_pdep( I value, I mask )
 	{
-#if AMD64_TARGET
+		// Constant operand size demotion.
+		//
+		if constexpr ( sizeof( I ) > 1 )
+			if ( impl::const_demote<uint8_t>( value ) )
+				return ( I ) bit_pdep<uint8_t>( ( uint8_t ) value, ( uint8_t ) mask );
+		if constexpr ( sizeof( I ) > 2 )
+			if ( impl::const_demote<uint16_t>( value ) )
+				return ( I ) bit_pdep<uint16_t>( ( uint16_t ) value, ( uint16_t ) mask );
+		if constexpr ( sizeof( I ) > 4 )
+			if ( impl::const_demote<uint32_t>( value ) )
+				return ( I ) bit_pdep<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
+
+#if XSTD_HW_PDEP_PEXT
 		if ( !std::is_constant_evaluated() )
 		{
 #if GNU_COMPILER
 			if constexpr ( sizeof( I ) <= 4 )
-				return ( I ) __builtin_ia32_pdep_si( value, mask );
+				return ( I ) __builtin_ia32_pdep_si( ( uint32_t ) value, ( uint32_t ) mask );
 			else
-				return ( I ) __builtin_ia32_pdep_di( value, mask );
+				return ( I ) __builtin_ia32_pdep_di( ( uint64_t ) value, ( uint64_t ) mask );
 #elif MS_COMPILER
 			if constexpr ( sizeof( I ) <= 4 )
-				return ( I ) _pdep_u32( value, mask );
+				return ( I ) _pdep_u32( ( uint32_t ) value, ( uint32_t ) mask );
 			else
-				return ( I ) _pdep_u64( value, mask );
+				return ( I ) _pdep_u64( ( uint64_t ) value, ( uint64_t ) mask );
 #endif
 		}
 #endif
 
-		I result = 0;
+		using U = convert_uint_t<I>;
+
+		U result = 0;
 		bitcnt_t k = 0;
 		for ( bitcnt_t m = 0; m != ( sizeof( I ) * 8 ); m++ )
-			if ( ( mask >> m ) & 1 )
-				result |= ( ( value >> ( k++ ) ) & 1 ) << m;
-		return result;
+			if ( ( U( mask ) >> m ) & 1 )
+				result |= ( ( U( value ) >> ( k++ ) ) & 1 ) << m;
+		return ( I ) result;
 	}
 
 	// Used to find a bit with a specific value in a linear memory region.

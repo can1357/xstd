@@ -29,7 +29,7 @@ namespace xstd
 {
 	// Type traits.
 	//
-#ifdef __clang__
+#if defined(__clang__) && !defined(__INTELLISENSE__)
 	#define __std_trait(name, ...) (xstrcat(__, name)(__VA_ARGS__))
 #else
 	#define __std_trait(name, ...) (xstrcat(xstrcat(std::, name), _v)<__VA_ARGS__>)
