@@ -2,6 +2,9 @@
 #ifndef __has_builtin
 	#define __has_builtin(...) 0
 #endif
+#ifndef __has_xcxx_builtin
+	#define __has_xcxx_builtin(...) 0
+#endif
 #ifndef __has_attribute
 	#define __has_attribute(...) 0
 #endif

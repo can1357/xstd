@@ -226,9 +226,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range_map.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fetch_once.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\string_literal.hpp">
       <Filter>Types</Filter>
     </ClInclude>

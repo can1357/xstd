@@ -1,7 +1,6 @@
 #pragma once
 #include "../ia32.hpp"
 #include <xstd/type_helpers.hpp>
-#include <xstd/fetch_once.hpp>
 
 // [[Configuration]]
 // XSTD_IA32_LA57: Enables or disables LA57.
@@ -85,6 +84,14 @@ namespace ia32::mem
 	inline uint32_t self_ref_index = 0;
 	inline uint64_t pxe_base_div_8 = 0;
 
+#if __has_xcxx_builtin(__builtin_fetch_dynamic)
+	FORCE_INLINE inline void __set_pxe_base_div8( uint64_t value ) { pxe_base_div_8 = value;  __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
+	FORCE_INLINE CONST_FN inline uint64_t __get_pxe_base_div8() { return ( uint64_t ) __builtin_fetch_dynamic( "@.pxe_base" ); }
+#else
+	FORCE_INLINE inline void __set_pxe_base_div8( uint64_t value ) { pxe_base_div_8 = value; }
+	FORCE_INLINE CONST_FN inline uint64_t __get_pxe_base_div8() { return pxe_base_div_8; }
+#endif
+
 	// Virtual address details.
 	//
 	FORCE_INLINE CONST_FN inline constexpr bool is_cannonical( xstd::any_ptr ptr ) { return ( ptr >> ( va_bits - 1 ) ) == 0 || ( int64_t( ptr ) >> ( va_bits - 1 ) ) == -1; }
@@ -134,7 +141,7 @@ namespace ia32::mem
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth )
 	{
-		xstd::any_ptr ptr = xstd::fetch_once<&pxe_base_div_8>();
+		xstd::any_ptr ptr = __get_pxe_base_div8();
 		if ( xstd::const_condition( depth == pxe_level ) )
 			return ( pt_entry_64* ) ( ptr << 3 );
 
@@ -146,9 +153,8 @@ namespace ia32::mem
 	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth )
 	{
-		uint64_t base = xstd::fetch_once<&pxe_base_div_8>();
+		uint64_t base = __get_pxe_base_div8();
 		auto important_bits = ( page_table_depth - depth ) * 9;
-
 		uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
 		return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
 	}
@@ -162,7 +168,7 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe( xstd::any_ptr ptr ) { return get_pte( ptr, pxe_level ); }
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index ) 
 	{
-		uint64_t base = xstd::fetch_once<&pxe_base_div_8>();
+		uint64_t base = __get_pxe_base_div8();
 		return ( pt_entry_64* ) rotlq( shrd( base, index, 9 ), 12 );
 	}
 
@@ -328,6 +334,6 @@ namespace ia32::mem
 	inline void init( uint32_t idx )
 	{
 		self_ref_index = idx;
-		pxe_base_div_8 = uint64_t( locate_page_table( pxe_level, idx ) ) >> 3;
+		__set_pxe_base_div8( uint64_t( locate_page_table( pxe_level, idx ) ) >> 3 );
 	}
 };

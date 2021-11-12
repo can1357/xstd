@@ -42,7 +42,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fetch_once.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
