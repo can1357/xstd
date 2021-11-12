@@ -290,7 +290,7 @@ namespace xstd
 		size_t length = utf_convert<To, From, true, !ToLower, ToLower>( src, result );
 
 		size_t clength = result.size();
-		assume( length < clength );
+		assume( length <= clength );
 		result.resize( length );
 		return result;
 	}

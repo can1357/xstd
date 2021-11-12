@@ -6,13 +6,15 @@
 
 namespace xstd
 {
-	template<typename C>
+	struct foreign_endianness_t {};
+
+	template<typename C, bool ForeignEndianness = false>
 	struct codepoint_cvt;
 
 	// UTF-8.
 	//
-	template<Char8 T>
-	struct codepoint_cvt<T>
+	template<Char8 T, bool ForeignEndianness>
+	struct codepoint_cvt<T, ForeignEndianness>
 	{
 		//    7 bits
 		// 0xxxxxxx
@@ -173,13 +175,15 @@ namespace xstd
 
 	// UTF-16.
 	//
-	template<Char16 T>
-	struct codepoint_cvt<T>
+	template<Char16 T, bool ForeignEndianness>
+	struct codepoint_cvt<T, ForeignEndianness>
 	{
 		static constexpr size_t max_out = 2;
 
 		FORCE_INLINE inline static constexpr uint8_t rlength( T front )
 		{
+			if constexpr ( ForeignEndianness )
+				front = ( T ) bswapw( ( uint16_t ) front );
 			uint8_t result = 1 + ( ( uint16_t( front ) >> 10 ) == 0x36 );
 			assume( result != 0 && result <= max_out );
 			return result;
@@ -214,6 +218,8 @@ namespace xstd
 
 			// Write the data and return the size.
 			//
+			if constexpr ( ForeignEndianness )
+				lo = bswapw( lo ), hi = bswapw( hi );
 			p[ has_high ] = T( hi );
 			p[ 0 ] = T( lo );
 		}
@@ -222,12 +228,16 @@ namespace xstd
 			// Read the low pair, rotate.
 			//
 			uint16_t lo = in[ 0 ];
+			if constexpr ( ForeignEndianness )
+				lo = bswapw( lo );
 			uint16_t lo_flg = lo & fill_bits( 6, 10 );
 
 			// Read the high pair.
 			//
 			const bool has_high = lo_flg == 0xD800 && in.size() != 1;
 			uint16_t hi = in[ has_high ];
+			if constexpr ( ForeignEndianness )
+				hi = bswapw( hi );
 
 			// Adjust the codepoint accordingly.
 			//
@@ -252,8 +262,8 @@ namespace xstd
 
 	// UTF-32.
 	//
-	template<Char32 T>
-	struct codepoint_cvt<T>
+	template<Char32 T, bool ForeignEndianness>
+	struct codepoint_cvt<T, ForeignEndianness>
 	{
 		static constexpr size_t max_out = 1;
 
@@ -261,13 +271,17 @@ namespace xstd
 		FORCE_INLINE inline static constexpr uint8_t length( uint32_t ) { return 1; }
 		FORCE_INLINE inline static constexpr void encode( uint32_t cp, T*& out )
 		{
+			if constexpr ( ForeignEndianness )
+				cp = bswapd( cp );
 			*out++ = ( T ) cp;
 		}
 		FORCE_INLINE inline static constexpr uint32_t decode( std::basic_string_view<T>& in )
 		{
-			uint32_t c = ( uint32_t ) in.front();
+			uint32_t cp = ( uint32_t ) in.front();
 			in.remove_prefix( 1 );
-			return c;
+			if constexpr ( ForeignEndianness )
+				cp = bswapd( cp );
+			return cp;
 		}
 		FORCE_INLINE inline static constexpr uint32_t decode( const T*& in, size_t limit = max_out )
 		{
@@ -738,8 +752,84 @@ namespace xstd
 		std::basic_string<To> result( max_out, '\0' );
 		size_t length = utf_convert<To, From, true>( view, result );
 		size_t clength = result.size();
-		assume( length < clength );
+		assume( length <= clength );
 		result.resize( length );
 		return result;
+	}
+	template<typename To, String S>
+	inline std::basic_string<To> utf_convert( S&& in, foreign_endianness_t )
+	{
+		// If same unit, just byteswap the data.
+		//
+		using From = string_unit_t<S>;
+		if constexpr ( Same<From, To> )
+		{
+			using U = convert_uint_t<To>;
+			std::basic_string<To> result{ std::forward<S>( in ) };
+			for ( To& ch : result )
+				ch = ( To ) bswap( ( U ) ch );
+			return result;
+		}
+
+		// Construct a view and compute the maximum length.
+		//
+		std::basic_string_view<From> view{ in };
+		size_t max_out = codepoint_cvt<To>::max_out * view.size();
+
+		// Reserve the maximum length, execute the encoder loop until view is empty.
+		//
+		std::basic_string<To> result( max_out, '\0' );
+		To* iterator = result.data();
+		while ( !view.empty() )
+			codepoint_cvt<To>::encode( codepoint_cvt<From, true>::decode( view ), iterator );
+
+		// Resize and return the result.
+		//
+		size_t length = iterator - result.data();
+		size_t clength = result.size();
+		assume( length <= clength );
+		result.resize( length );
+		return result;
+	}
+
+	// Given a span of raw-data, identifies the encoding using the byte order mark 
+	// if relevant and re-encodes into the requested codepoint.
+	//
+	template<typename To>
+	inline std::basic_string<To> utf_convert( std::span<const uint8_t> data )
+	{
+		// If stream does not start with UTF8 BOM:
+		//
+		if ( data.size() < 3 || !trivial_equals_n<3>( data.data(), "\xEF\xBB\xBF" ) )
+		{
+			// Try matching against UTF-16 LE/BE:
+			//
+			if ( std::u16string_view view{ ( const char16_t* ) data.data(), data.size() / sizeof( char16_t ) }; !view.empty() )
+			{
+				if ( view.front() == 0xFEFF ) 
+					return utf_convert<To>( view.substr( 1 ) );
+				if ( view.front() == bswap<char16_t>( 0xFEFF ) ) [[unlikely]]
+					return utf_convert<To>( view.substr( 1 ), foreign_endianness_t{} );
+			}
+			// Try matching against UTF-32 LE/BE:
+			//
+			if ( std::u32string_view view{ ( const char32_t* ) data.data(), data.size() / sizeof( char32_t ) }; !view.empty() )
+			{
+				if ( view.front() == 0xFEFF )
+					return utf_convert<To>( view.substr( 1 ) );
+				if ( view.front() == bswap<char32_t>( 0xFEFF ) ) [[unlikely]]
+					return utf_convert<To>( view.substr( 1 ), foreign_endianness_t{} );
+			}
+		}
+		// Otherwise remove the header and continue with the default.
+		//
+		else
+		{
+			data = data.subspan( 3 );
+		}
+
+		// Decode as UTF-8 and return.
+		//
+		return utf_convert<To>( std::u8string_view{ ( const char8_t* ) data.data(), data.size() / sizeof( char8_t ) } );
 	}
 }

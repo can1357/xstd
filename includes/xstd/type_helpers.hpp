@@ -790,7 +790,7 @@ namespace xstd
 	namespace impl
 	{
 		template<size_t N>
-		FORCE_INLINE inline auto mismatch_vector( const uint8_t* a, const uint8_t* b )
+		FORCE_INLINE inline auto mismatch_vector( const uint8_t* a, const uint8_t* b ) noexcept
 		{
 			if constexpr ( N == 0 )
 			{
@@ -889,10 +889,10 @@ namespace xstd
 			std::swap( va, vb );
 		}
 	}
-	template<typename T>
-	FORCE_INLINE inline bool trivial_equals( const T& a, const T& b ) noexcept
+	template<size_t N>
+	FORCE_INLINE inline bool trivial_equals_n( const void* a, const void* b ) noexcept
 	{
-		auto result = impl::mismatch_vector<sizeof( T )>( ( const uint8_t* ) &a, ( const uint8_t* ) &b );
+		auto result = impl::mismatch_vector<N>( ( const uint8_t* ) a, ( const uint8_t* ) b );
 		if constexpr ( sizeof( result ) <= 8 )
 		{
 			return result == 0;
@@ -905,9 +905,13 @@ namespace xstd
 			return acc == 0;
 		}
 	}
-
+	template<typename T, typename T2 = T> requires ( sizeof( T ) == sizeof( T2 ) )
+	FORCE_INLINE inline bool trivial_equals( const T& a, const T2& b ) noexcept
+	{
+		return trivial_equals_n<sizeof( T )>( &a, &b );
+	}
 	template<Unsigned T, auto N>
-	FORCE_INLINE inline constexpr T trivial_read_n( const uint8_t* src )
+	FORCE_INLINE inline constexpr T trivial_read_n( const uint8_t* src ) noexcept
 	{
 		if constexpr ( N <= 0 )
 		{
