@@ -715,7 +715,7 @@ namespace xstd
 #if GNU_COMPILER
 		return __builtin_nontemporal_load( ( const T* ) p );
 #else
-		return *p;
+		return *( const T* ) p;
 #endif
 	}
 	template<typename T>
@@ -724,7 +724,7 @@ namespace xstd
 #if GNU_COMPILER
 		__builtin_nontemporal_store( value, ( T* ) p );
 #else
-		*p = value;
+		*( T* ) p = value;
 #endif
 	}
 
