@@ -208,7 +208,7 @@ namespace std
 
 		// Invoke find bit.
 		//
-		size_t index = xstd::bit_find( it.proxy.storage, last.proxy.storage, value, false );
+		auto index = xstd::bit_find( it.proxy.storage, last.proxy.storage, value, false );
 
 		// Adjust the result for overflow and return.
 		//

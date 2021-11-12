@@ -8,8 +8,12 @@
 #include "intrinsics.hpp"
 
 // [[Configuration]]
-// XSTD_HW_PDEP_PEXT: Determines the availability of hardware PDEP/PEXT.
+// XSTD_HW_BITSCAN:   Determines the availability of hardware bit-scan.
+// XSTD_HW_PDEP_PEXT: Determines the availability of hardware parallel bit deposit / extraction.
 //
+#ifndef XSTD_HW_BITSCAN
+	#define XSTD_HW_BITSCAN   ( __has_builtin(__builtin_ctz) || ( AMD64_TARGET && MS_COMPILER ) )
+#endif
 #ifndef XSTD_HW_PDEP_PEXT
 	#define XSTD_HW_PDEP_PEXT ( AMD64_TARGET && ( GNU_COMPILER || MS_COMPILER ) )
 #endif
@@ -176,18 +180,21 @@ namespace xstd
 	{
 		// Constant operand size demotion.
 		//
+#if !XSTD_HW_BITSCAN
 		if constexpr ( sizeof( T ) > 1 )
 			if ( impl::const_demote<uint8_t>( x ) )
 				return msb<uint8_t>( uint8_t( x ) );
 		if constexpr ( sizeof( T ) > 2 )
 			if ( impl::const_demote<uint16_t>( x ) )
 				return msb<uint16_t>( uint16_t( x ) );
+#endif
 		if constexpr ( sizeof( T ) > 4 )
 			if ( impl::const_demote<uint32_t>( x ) )
 				return msb<uint32_t>( uint32_t( x ) );
 
 		// Optimized using intrinsics if not const evaluated.
 		//
+#if XSTD_HW_BITSCAN
 		if ( !std::is_constant_evaluated() )
 		{
 #if __has_builtin(__builtin_clz)
@@ -212,6 +219,7 @@ namespace xstd
 			}
 #endif
 		}
+#endif
 
 		// Start scan loop, return idx if found, else -1.
 		//
@@ -226,18 +234,21 @@ namespace xstd
 	{
 		// Constant operand size demotion.
 		//
+#if !XSTD_HW_BITSCAN
 		if constexpr ( sizeof( T ) > 1 )
 			if ( impl::const_demote<uint8_t>( x ) )
 				return lsb<uint8_t>( uint8_t( x ) );
 		if constexpr ( sizeof( T ) > 2 )
 			if ( impl::const_demote<uint16_t>( x ) )
 				return lsb<uint16_t>( uint16_t( x ) );
+#endif
 		if constexpr ( sizeof( T ) > 4 )
 			if ( impl::const_demote<uint32_t>( x ) )
 				return lsb<uint32_t>( uint32_t( x ) );
 
 		// Optimized using intrinsics if not const evaluated.
 		//
+#if XSTD_HW_BITSCAN
 		if ( !std::is_constant_evaluated() )
 		{
 #if MS_COMPILER && AMD64_TARGET
@@ -262,6 +273,7 @@ namespace xstd
 				return x ? __builtin_ctzll( x ) : -1;
 #endif
 		}
+#endif
 
 		// Start scan loop, return idx if found, else -1.
 		//
@@ -747,22 +759,21 @@ namespace xstd
 
 	// Used to find a bit with a specific value in a linear memory region.
 	//
-	static constexpr size_t bit_npos = ( size_t ) -1;
+	static constexpr int64_t bit_npos = -1ll;
 	template<typename T>
-	static constexpr size_t bit_find( const T* begin, const T* end, bool value, bool reverse = false )
+	static constexpr int64_t bit_find( const T* begin, const T* end, bool value, bool reverse = false )
 	{
-		constexpr size_t bit_size = sizeof( T ) * 8;
+		constexpr bitcnt_t bit_size = sizeof( T ) * 8;
 		using uint_t = std::make_unsigned_t<T>;
 		using int_t =  std::make_signed_t<T>;
 
-		// Generate the xor mask, if we're looking for 1, -!1 will evaluate to 0,
-		// otherwise -!0 will evaluate to 0xFF.. in order to flip all bits.
+		// Generate the xor mask.
 		//
-		uint_t xor_mask = ( uint_t ) ( -( ( int_t ) !value ) );
+		const uint_t xor_mask = value ? 0 : ~uint_t( 0 );
 
 		// Loop each block:
 		//
-		size_t n = 0;
+		int64_t n = 0;
 		for ( auto it = begin; it != end; it++, n += bit_size )
 		{
 			// Return if we could find the bit in the block:
