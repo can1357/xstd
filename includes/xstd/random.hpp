@@ -55,7 +55,7 @@ namespace xstd
 	}
 	inline constexpr uint64_t pce_64( uint64_t& value )
 	{
-		return piecewise( pce_32( value ), pce_32( value ) );
+		return uint64_t( pce_32( value ) ) | ( uint64_t( pce_32( value ) ) << 32 );
 	}
 	[[nodiscard]] inline constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
 	{
@@ -163,7 +163,7 @@ namespace xstd
 				value = ( value ^ c ) * 0x100000001B3;
 			return value;
 		} )();
-		inline __xstd_rng global_rng{ piecewise<uint32_t>( std::random_device{}(), std::random_device{}() ) };
+		inline __xstd_rng global_rng{ uint64_t( std::random_device{}() ) | ( uint64_t( std::random_device{}() ) << 32 ) };
 #else
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
 		inline __xstd_rng global_rng{ XSTD_RANDOM_FIXED_SEED };

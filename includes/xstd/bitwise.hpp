@@ -24,7 +24,7 @@ namespace xstd
 	// Alignment helper.
 	//
 	template<typename T>
-	FORCE_INLINE CONST_FN static constexpr T align_up( T value, size_t alignment )
+	FORCE_INLINE CONST_FN inline constexpr T align_up( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_align_up)
 		if constexpr ( Same<T, xstd::any_ptr> )
@@ -50,7 +50,7 @@ namespace xstd
 #endif
 	}
 	template<typename T>
-	FORCE_INLINE CONST_FN static constexpr T align_down( T value, size_t alignment )
+	FORCE_INLINE CONST_FN inline constexpr T align_down( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_align_down)
 		if constexpr ( Same<T, xstd::any_ptr> )
@@ -74,7 +74,7 @@ namespace xstd
 #endif
 	}
 	template<typename T>
-	FORCE_INLINE CONST_FN static constexpr bool is_aligned( T value, size_t alignment )
+	FORCE_INLINE CONST_FN inline constexpr bool is_aligned( T value, size_t alignment )
 	{
 #if __has_builtin(__builtin_is_aligned)
 		if constexpr ( Same<T, xstd::any_ptr> )
@@ -93,7 +93,7 @@ namespace xstd
 	// Extracts the sign bit from the given value.
 	//
 	template<Signed T>
-	FORCE_INLINE CONST_FN static constexpr bool sgn( T type ) 
+	FORCE_INLINE CONST_FN inline constexpr bool sgn( T type )
 	{ 
 		return type < 0; 
 	}
@@ -103,20 +103,18 @@ namespace xstd
 	namespace impl
 	{
 		template<typename To, typename T>
-		FORCE_INLINE CONST_FN static constexpr bool const_demote( T value )
+		FORCE_INLINE CONST_FN inline constexpr bool const_demote( T value )
 		{
 			return const_condition( To( value ) == value );
 		}
 		template<typename To, typename T1, typename T2>
-		FORCE_INLINE CONST_FN static constexpr bool const_demote_and( T1 a, T2 b )
+		FORCE_INLINE CONST_FN inline constexpr bool const_demote_and( T1 a, T2 b )
 		{
 			return const_demote<To>( a & b ) || const_demote<To>( a ) || const_demote<To>( b );
 		}
-		FORCE_INLINE CONST_FN static constexpr bitcnt_t rshiftcnt( bitcnt_t n )
+		FORCE_INLINE CONST_FN inline constexpr bitcnt_t rshiftcnt( bitcnt_t n )
 		{
-			// If MSVC x86-64:
-			//
-#if MS_COMPILER && AMD64_TARGET && !defined(__INTELLISENSE__)
+#if AMD64_TARGET && !defined(__INTELLISENSE__)
 			// SAR/SHR/SHL will ignore anything besides [x % 64], which lets us 
 			// optimize (64 - n) into [-n] by substracting modulo size {64}.
 			//
@@ -126,7 +124,8 @@ namespace xstd
 			return 64 - n;
 		}
 
-		static constexpr auto bit_reverse_lookup_table = xstd::make_constant_series<0x100>( [] <int N> ( const_tag<N> )
+#if !GNU_COMPILER
+		inline constexpr auto bit_reverse_lookup_table = xstd::make_constant_series<0x100>( [] <int N> ( const_tag<N> )
 		{
 			uint8_t value = 0;
 			for ( size_t n = 0; n != 8; n++ )
@@ -134,12 +133,13 @@ namespace xstd
 					value |= 1 << ( 7 - n );
 			return value;
 		} );
+#endif
 	};
 
 	// Implement platform-indepdenent bitwise operations.
 	//
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN static constexpr bitcnt_t popcnt( T x )
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t popcnt( T x )
 	{
 		// Constant operand size demotion.
 		//
@@ -176,7 +176,7 @@ namespace xstd
 	}
 
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN static constexpr bitcnt_t msb( T x )
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t msb( T x )
 	{
 		// Constant operand size demotion.
 		//
@@ -230,7 +230,7 @@ namespace xstd
 	}
 
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN static constexpr bitcnt_t lsb( T x )
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t lsb( T x )
 	{
 		// Constant operand size demotion.
 		//
@@ -284,7 +284,7 @@ namespace xstd
 	}
 
 	template<typename T>
-	FORCE_INLINE static constexpr bool bit_set( T& value, bitcnt_t n )
+	FORCE_INLINE inline constexpr bool bit_set( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -374,7 +374,7 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE static constexpr bool bit_reset( T& value, bitcnt_t n )
+	FORCE_INLINE inline constexpr bool bit_reset( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -464,7 +464,7 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE static constexpr bool bit_complement( T& value, bitcnt_t n )
+	FORCE_INLINE inline constexpr bool bit_complement( T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 
@@ -550,7 +550,7 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE PURE_FN static constexpr bool bit_test( const T& value, bitcnt_t n )
+	FORCE_INLINE PURE_FN inline constexpr bool bit_test( const T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 		if constexpr ( Volatile<T> || Atomic<T> )
@@ -641,7 +641,7 @@ namespace xstd
 		}
 	}
 	template<Integral I>
-	FORCE_INLINE CONST_FN static constexpr I bit_reverse( I value )
+	FORCE_INLINE CONST_FN inline constexpr I bit_reverse( I value )
 	{
 #if GNU_COMPILER
 		switch ( sizeof( I ) )
@@ -674,7 +674,7 @@ namespace xstd
 	// Parallel extraction/deposit.
 	//
 	template<Integral I = uint64_t>
-	FORCE_INLINE CONST_FN static constexpr I bit_pext( I value, I mask )
+	FORCE_INLINE CONST_FN inline constexpr I bit_pext( I value, I mask )
 	{
 		// Constant operand size demotion.
 		//
@@ -716,7 +716,7 @@ namespace xstd
 	}
 
 	template<Integral I = uint64_t>
-	FORCE_INLINE CONST_FN static constexpr I bit_pdep( I value, I mask )
+	FORCE_INLINE CONST_FN inline constexpr I bit_pdep( I value, I mask )
 	{
 		// Constant operand size demotion.
 		//
@@ -759,17 +759,16 @@ namespace xstd
 
 	// Used to find a bit with a specific value in a linear memory region.
 	//
-	static constexpr int64_t bit_npos = -1ll;
+	inline constexpr int64_t bit_npos = -1ll;
 	template<typename T>
-	static constexpr int64_t bit_find( const T* begin, const T* end, bool value, bool reverse = false )
+	inline constexpr int64_t bit_find( const T* begin, const T* end, bool value, bool reverse = false )
 	{
 		constexpr bitcnt_t bit_size = sizeof( T ) * 8;
-		using uint_t = std::make_unsigned_t<T>;
-		using int_t =  std::make_signed_t<T>;
+		using U = std::make_unsigned_t<T>;
 
 		// Generate the xor mask.
 		//
-		const uint_t xor_mask = value ? 0 : ~uint_t( 0 );
+		const U xor_mask = value ? 0 : ~U( 0 );
 
 		// Loop each block:
 		//
@@ -790,7 +789,7 @@ namespace xstd
 	// Used to enumerate each set bit in the integer.
 	//
 	template<typename V, typename T>
-	static constexpr void bit_enum( V mask, T&& fn, bool reverse = false )
+	inline constexpr void bit_enum( V mask, T&& fn, bool reverse = false )
 	{
 		while ( true )
 		{
@@ -807,37 +806,26 @@ namespace xstd
 	}
 
 	// Generate a mask for the given variable size and offset.
+	// - Undefined if [ bit count < 0 || bit count > 64 || bit offset < 0 ].
 	//
-	FORCE_INLINE CONST_FN static constexpr uint64_t fill_bits( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
+	FORCE_INLINE CONST_FN inline constexpr uint64_t fill_bits( bitcnt_t bit_count, bitcnt_t bit_offset = 0 )
 	{
-		// If bit offset is negative, substract from bit count 
-		// and zero it out.
+		// Substract with borrow to handle bit count == 0.
 		//
-		bit_count += bit_offset < 0 ? bit_offset : 0; // CMOV
-		bit_offset = bit_offset < 0 ? 0 : bit_offset; // CMOV
+		uint64_t value = uint64_t( 0ll - ( bit_count != 0 ) );
 
-		// Provide constexpr safety.
+		// Shift to right to remove bits, shift to left for adjustment.
 		//
-		if ( std::is_constant_evaluated() )
-			if( bit_count <= 0 || bit_offset >= 64 )
-				return 0;
-		
-		// Create the value by two shifts.
-		//
-		uint64_t value = bit_count > 0 ? ~0ull : 0; // CMOV
 		value >>= impl::rshiftcnt( bit_count );
 		value <<= bit_offset;
-
-		// If offset overflows, zero out, else return.
-		//
-		return bit_offset >= 64 ? 0 : value; // CMOV
+		return value;
 	}
 
 	// Fills the bits of the uint64_t type after the given offset with the sign bit.
 	// - We accept an [uint64_t] as the sign "bit" instead of a for 
 	//   the sake of a further trick we use to avoid branches.
 	//
-	FORCE_INLINE CONST_FN static constexpr uint64_t fill_sign( uint64_t sign, bitcnt_t bit_offset = 0 )
+	FORCE_INLINE CONST_FN inline constexpr uint64_t fill_sign( uint64_t sign, bitcnt_t bit_offset = 0 )
 	{
 		// The XOR operation with 0b1 flips the sign bit, after which when we subtract
 		// one to create 0xFF... for (1) and 0x00... for (0).
@@ -848,7 +836,7 @@ namespace xstd
 	// Extends the given integral type into uint64_t or int64_t.
 	//
 	template<Integral T>
-	FORCE_INLINE CONST_FN static constexpr auto imm_extend( T imm )
+	FORCE_INLINE CONST_FN inline constexpr auto imm_extend( T imm )
 	{
 		if constexpr ( Signed<T> ) return ( int64_t ) imm;
 		else                       return ( uint64_t ) imm;
@@ -856,18 +844,14 @@ namespace xstd
 
 	// Zero extends the given integer.
 	//
-	FORCE_INLINE CONST_FN static constexpr uint64_t zero_extend( uint64_t value, bitcnt_t bcnt_src )
+	FORCE_INLINE CONST_FN inline constexpr uint64_t zero_extend( uint64_t value, bitcnt_t bcnt_src )
 	{
-		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
-		//
-		if ( std::is_constant_evaluated() )
+		if ( std::is_constant_evaluated() || is_consteval( bcnt_src ) )
 		{
 			return value & fill_bits( bcnt_src );
 		}
 		else
 		{
-			// Shift left matching the MSB and shift right.
-			//
 			value <<= impl::rshiftcnt( bcnt_src );
 			value >>= impl::rshiftcnt( bcnt_src );
 			return value;
@@ -877,7 +861,7 @@ namespace xstd
 	// Sign extends the given integer.
 	//
 	template<xstd::Integral I>
-	FORCE_INLINE CONST_FN static constexpr int64_t sign_extend( I _value, bitcnt_t bcnt_src )
+	FORCE_INLINE CONST_FN inline constexpr int64_t sign_extend( I _value, bitcnt_t bcnt_src )
 	{
 		// Constexpr implementation, the VM does not like signed/overflowing shifts very much.
 		//
@@ -917,25 +901,5 @@ namespace xstd
 			value >>= impl::rshiftcnt( bcnt_src );
 			return value;
 		}
-	}
-
-	// Couples two unsigned numbers together or breaks them apart.
-	//
-	template<Integral T>
-	FORCE_INLINE CONST_FN static constexpr auto piecewise( T hi, T lo )
-	{
-		using R = typename trivial_converter<sizeof( T ) * 2>::integral_unsigned;
-		R result = R( lo );
-		result |= R( hi ) << ( sizeof( T ) * 8 );
-		return result;
-	}
-
-	template<Integral T>
-	FORCE_INLINE CONST_FN static constexpr auto breakdown( T value )
-	{
-		using R = typename trivial_converter<sizeof( T ) / 2>::integral_unsigned;
-		R hi = R( convert_uint_t<T>( value ) >> ( sizeof( T ) * 8 / 2 ) );
-		R lo = R( value );
-		return std::pair{ hi, lo };
 	}
 };

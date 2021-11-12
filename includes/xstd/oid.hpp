@@ -167,14 +167,14 @@ namespace xstd
 					uint32_t root = value / 40;
 					if ( root >= 2 ) root = 2;
 					result += std::to_string( root );
-					result += ".";
+					result += '.';
 					result += std::to_string( value - ( root * 40 ) );
-					result += ".";
+					result += '.';
 				}
 				else
 				{
 					result += std::to_string( value );
-					result += ".";
+					result += '.';
 				}
 
 				// Skip to the next instance.
