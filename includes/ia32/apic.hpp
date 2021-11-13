@@ -60,20 +60,20 @@ namespace ia32::apic
 
 	// Global APIC mapping if relevant.
 	//
-	inline volatile uint32_t* apic_base = nullptr;
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
-	FORCE_INLINE inline void __set_apic_base( volatile uint32_t* value ) { apic_base = value;  __builtin_store_dynamic( "@.apic_base", ( void* ) value ); }
-	FORCE_INLINE CONST_FN inline volatile uint32_t* __get_apic_base() { return ( volatile uint32_t* ) __builtin_fetch_dynamic( "@.apic_base" ); }
+	FORCE_INLINE inline void set_apic_base( volatile uint32_t* value ) { __builtin_store_dynamic( "@.apic_base", ( void* ) value ); }
+	FORCE_INLINE CONST_FN inline volatile uint32_t* apic_base() { return ( volatile uint32_t* ) __builtin_fetch_dynamic( "@.apic_base" ); }
 #else
-	FORCE_INLINE inline void __set_apic_base( volatile uint32_t* value ) { apic_base = value; }
-	FORCE_INLINE CONST_FN inline volatile uint32_t* __get_apic_base() { return apic_base; }
+	inline volatile uint32_t* __apic_base = nullptr;
+	FORCE_INLINE inline void set_apic_base( volatile uint32_t* value ) { __apic_base = value; }
+	FORCE_INLINE CONST_FN inline volatile uint32_t* apic_base() { return __apic_base; }
 #endif
 
 	// APIC controller.
 	//
 	struct controller
 	{
-		volatile uint32_t* const base_address = __get_apic_base();
+		volatile uint32_t* const base_address = apic_base();
 
 		// Check for the state.
 		//
@@ -212,11 +212,11 @@ namespace ia32::apic
 		{
 			static mem::unique_phys_ptr<volatile uint32_t> base;
 			base = mem::map_physical<volatile uint32_t>( apic_info.apic_base << 12, 0x1000 );
-			__set_apic_base( base.get() );
+			set_apic_base( base.get() );
 		}
 		else
 		{
-			__set_apic_base( nullptr );
+			set_apic_base( nullptr );
 		}
 		initialized = true;
 		return true;

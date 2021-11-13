@@ -81,15 +81,21 @@ namespace ia32::mem
 
 	// Index of the self referencing page table entry and the bases.
 	//
-	inline uint32_t self_ref_index = 0;
-	inline uint64_t pxe_base_div_8 = 0;
 
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
-	FORCE_INLINE inline void __set_pxe_base_div8( uint64_t value ) { pxe_base_div_8 = value;  __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
-	FORCE_INLINE CONST_FN inline uint64_t __get_pxe_base_div8() { return ( uint64_t ) __builtin_fetch_dynamic( "@.pxe_base" ); }
+	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
+	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return ( uint64_t ) __builtin_fetch_dynamic( "@.pxe_base" ); }
+
+	FORCE_INLINE inline void set_self_ref_index( uint32_t value ) { __builtin_store_dynamic( "@.self_ref_idx", ( void* ) ( uint64_t ) value ); }
+	FORCE_INLINE CONST_FN inline uint32_t self_ref_index() { return ( uint32_t ) ( uint64_t ) __builtin_fetch_dynamic( "@.self_ref_idx" ); }
 #else
-	FORCE_INLINE inline void __set_pxe_base_div8( uint64_t value ) { pxe_base_div_8 = value; }
-	FORCE_INLINE CONST_FN inline uint64_t __get_pxe_base_div8() { return pxe_base_div_8; }
+	inline uint64_t __pxe_base_div_8 = 0;
+	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __pxe_base_div_8 = value; }
+	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return __pxe_base_div_8; }
+
+	inline uint32_t __self_ref_index = 0;
+	FORCE_INLINE inline void set_self_ref_index( uint32_t value ) { __self_ref_index = value; }
+	FORCE_INLINE CONST_FN inline uint32_t self_ref_index() { return __self_ref_index; }
 #endif
 
 	// Virtual address details.
@@ -141,10 +147,26 @@ namespace ia32::mem
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth )
 	{
-		xstd::any_ptr ptr = __get_pxe_base_div8();
+		if ( xstd::is_consteval( depth ) )
+		{
+#if __has_xcxx_builtin(__builtin_fetch_dynamic)
+			switch ( depth )
+			{
+#if XSTD_IA32_LA57
+				case pml5e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml5e" );
+#endif
+				case pml4e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml4e" );
+				case pdpte_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pdpte" );
+				case pde_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pde" );
+				case pte_level:    return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pte" );
+				default:           unreachable();
+			}
+#endif
+		}
+
+		xstd::any_ptr ptr = pxe_base_div8();
 		if ( xstd::const_condition( depth == pxe_level ) )
 			return ( pt_entry_64* ) ( ptr << 3 );
-
 		auto shift = 12 + ( pxe_level - depth ) * 9;
 		return ( pt_entry_64* ) ( ( ptr >> ( shift - 3 ) ) << shift );
 	}
@@ -153,10 +175,18 @@ namespace ia32::mem
 	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth )
 	{
-		uint64_t base = __get_pxe_base_div8();
-		auto important_bits = ( page_table_depth - depth ) * 9;
-		uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
-		return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
+		if ( xstd::is_consteval( depth ) )
+		{
+			pt_entry_64* tbl = locate_page_table( depth );
+			return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
+		}
+		else
+		{
+			uint64_t base = pxe_base_div8();
+			auto important_bits = ( page_table_depth - depth ) * 9;
+			uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
+			return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
+		}
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr ) { return get_pte( ptr, pte_level ); }
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return get_pte( ptr, pde_level ); }
@@ -166,11 +196,7 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pml5e( xstd::any_ptr ptr ) { return get_pte( ptr, pml5e_level ); }
 #endif
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe( xstd::any_ptr ptr ) { return get_pte( ptr, pxe_level ); }
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index ) 
-	{
-		uint64_t base = __get_pxe_base_div8();
-		return ( pt_entry_64* ) rotlq( shrd( base, index, 9 ), 12 );
-	}
+	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index ) { return &locate_page_table( pxe_level )[ index ]; }
 
 	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr )
 	{
@@ -186,7 +212,7 @@ namespace ia32::mem
 			// entry is not present, return.
 			//
 			auto* entry = get_pte( ptr, n );
-			if ( !entry->present || ( n <= max_large_page_level && entry->large_page ) )
+			if ( !entry->present || ( n <= max_large_page_level && entry->large_page ) ) [[unlikely]]
 				return { entry, n };
 		}
 
@@ -251,11 +277,11 @@ namespace ia32::mem
 	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( const pt_entry_64* pte )
 	{
 		std::array hierarchy = unpack( pte );
-		if ( hierarchy[ 0 ] != self_ref_index )
+		if ( hierarchy[ 0 ] != self_ref_index() )
 			return { nullptr, -1 };
 
 		size_t n = 1;
-		while ( n != page_table_depth && hierarchy[ n ] == self_ref_index )
+		while ( n != page_table_depth && hierarchy[ n ] == self_ref_index() )
 			n++;
 		return { pte_to_va( pte, n - 1 ), n - 1 };
 	}
@@ -333,7 +359,17 @@ namespace ia32::mem
 	//
 	inline void init( uint32_t idx )
 	{
-		self_ref_index = idx;
-		__set_pxe_base_div8( uint64_t( locate_page_table( pxe_level, idx ) ) >> 3 );
+		set_self_ref_index( idx );
+		set_pxe_base_div8( uint64_t( locate_page_table( pxe_level, idx ) ) >> 3 );
+
+#if __has_xcxx_builtin(__builtin_fetch_dynamic)
+#if XSTD_IA32_LA57
+		__builtin_store_dynamic( "@.tbl_pml5e", locate_page_table( pml5e_level, idx ) );
+#endif
+		__builtin_store_dynamic( "@.tbl_pml4e", locate_page_table( pml4e_level, idx ) );
+		__builtin_store_dynamic( "@.tbl_pdpte", locate_page_table( pdpte_level, idx ) );
+		__builtin_store_dynamic( "@.tbl_pde", locate_page_table( pde_level, idx ) );
+		__builtin_store_dynamic( "@.tbl_pte", locate_page_table( pte_level, idx ) );
+#endif
 	}
 };
