@@ -935,6 +935,14 @@ namespace xstd
 		}
 		else
 		{
+#if AMD64_TARGET && __has_builtin( __builtin_ia32_ptestz128 )
+			if constexpr ( sizeof( result ) == 16 )
+				return ( bool ) __builtin_ia32_ptestz128( result, result );
+#endif
+#if AMD64_TARGET && __has_builtin( __builtin_ia32_ptestz256 )
+			if constexpr ( sizeof( result ) == 32 )
+				return ( bool ) __builtin_ia32_ptestz256( result, result );
+#endif
 			uint64_t acc = 0;
 			for ( size_t n = 0; n != ( sizeof( result ) / sizeof( result[ 0 ] ) ); n++ )
 				acc |= result[ n ];
