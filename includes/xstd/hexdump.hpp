@@ -42,10 +42,25 @@ namespace xstd::fmt
 		x >>= 4;
 		x &= 0x0F0F;
 
-		auto chars = vec::bytes( x );
+		auto chars = x.template reinterpret<uint8_t>();
 		chars += '0';
 		chars += ( chars > '9' ) & K;
-		return chars.to_array();
+		return bit_cast<std::array<char, 2 * N>>( chars.to_array() );
+	}
+	template<bool Uppercase, size_t N>
+	FORCE_INLINE inline constexpr std::array<char16_t, 2 * N> print_hex16( const std::array<uint8_t, N>& data)
+	{
+		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
+
+		auto x = vec::cast<uint32_t>( vec::from( data ) );
+		x |= ( x << 20 );
+		x >>= 4;
+		x &= 0x000F000F;
+
+		auto chars = x.template reinterpret<uint16_t>();
+		chars += '0';
+		chars += ( chars > '9' ) & K;
+		return bit_cast<std::array<char16_t, 2 * N>>( chars.to_array() );
 	}
 	template<bool Uppercase, typename T>
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data )
@@ -53,8 +68,15 @@ namespace xstd::fmt
 		if ( std::is_constant_evaluated() )
 			if constexpr( Bitcastable<T> )
 				return print_hex<Uppercase, sizeof( T )>( to_bytes<T>( data ) );
-
 		return print_hex<Uppercase, sizeof( T )>( as_bytes<T>( data ) );
+	}
+	template<bool Uppercase, typename T>
+	FORCE_INLINE inline constexpr std::array<char16_t, 2 * sizeof( T )> print_hex16( const T& data )
+	{
+		if ( std::is_constant_evaluated() )
+			if constexpr( Bitcastable<T> )
+				return print_hex16<Uppercase, sizeof( T )>( to_bytes<T>( data ) );
+		return print_hex16<Uppercase, sizeof( T )>( as_bytes<T>( data ) );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> as_hex_array( const T& value )

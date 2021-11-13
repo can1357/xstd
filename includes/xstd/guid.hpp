@@ -2,6 +2,7 @@
 #include <tuple>
 #include <string>
 #include "intrinsics.hpp"
+#include "hexdump.hpp"
 #include "hashable.hpp"
 
 namespace xstd
@@ -35,7 +36,7 @@ namespace xstd
 		// Constructed by any hashable type as a constant expression.
 		//
 		template<typename T> requires ( !Same<std::decay_t<T>, guid> )
-		constexpr guid( const T& obj ) : low( make_hash( 0x49c54a9166f5c01cull, obj ).as64() ), high( make_hash( 0x7b0b6b0f8933b6a5ull, obj ).as64() ) {}
+		constexpr guid( const T& obj ) : low( make_hash<fnv64>( 0x49c54a9166f5c01cull, obj ).as64() ), high( make_hash<fnv64>( 0x7b0b6b0f8933b6a5ull, obj ).as64() ) {}
 
 		// Static helper that guarantees const evaluation.
 		//
@@ -54,29 +55,37 @@ namespace xstd
 		template<typename C>
 		constexpr void to_string( C&& buffer ) const
 		{
-			constexpr auto tochr = [ ] ( auto digit )
+			auto* iterator = &buffer[ 0 ];
+			auto write_hex = [ & ] <typename I> ( I integer ) FORCE_INLINE
 			{
-				digit &= 0xF;
-				if ( digit <= 9 ) return ( char ) ( '0' + digit );
-				else              return ( char ) ( 'a' + ( digit - 0xA ) );
+				if ( !std::is_constant_evaluated() )
+				{
+					if constexpr ( sizeof( *iterator ) == 1 )
+					{
+						std::array res = fmt::print_hex<false>( integer );
+						*( ( decltype( res )*& ) iterator )++ = res;
+						return;
+					}
+					else if constexpr ( sizeof( *iterator ) == 2 )
+					{
+						std::array res = fmt::print_hex16<false>( integer );
+						*( ( decltype( res )*& ) iterator )++ = res;
+						return;
+					}
+				}
+				for ( auto c : fmt::print_hex<false>( integer ) )
+					*iterator++ = c;
 			};
-			uint16_t high_lo = bswap( ( uint16_t ) high );
-			uint64_t high_hi = bswap( high >> 16 ) >> 16;
-			size_t i = 0;
-			for ( int n = 32-4; n >= 0; n -= 4 )
-				buffer[ i++ ] = tochr( ( low >> n ) );
-			buffer[ i++ ] = '-';
-			for ( int n = 48-4; n >= 32; n -= 4 )
-				buffer[ i++ ] = tochr( ( low >> n ) );
-			buffer[ i++ ] = '-';
-			for ( int n = 64-4; n >= 48; n -= 4 )
-				buffer[ i++ ] = tochr( ( low >> n ) );
-			buffer[ i++ ] = '-';
-			for ( int n = 16-4; n >= 0; n -= 4 )
-				buffer[ i++ ] = tochr( ( high_lo >> n ) );
-			buffer[ i++ ] = '-';
-			for ( int n = 48-4; n >= 0; n -= 4 )
-				buffer[ i++ ] = tochr( ( high_hi >> n ) );
+			write_hex( bswap( uint32_t( low ) ) );
+			*iterator++ = '-';
+			write_hex( bswap( uint16_t( low >> 32 ) ) );
+			*iterator++ = '-';
+			write_hex( bswap( uint16_t( low >> 48 ) ) );
+			*iterator++ = '-';
+			write_hex( uint16_t( high ) );
+			*iterator++ = '-';
+			write_hex( uint16_t( high >> 16 ) );
+			write_hex( uint32_t( high >> 32 ) );
 		}
 		std::string to_string() const
 		{

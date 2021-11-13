@@ -147,46 +147,40 @@ namespace ia32::mem
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth )
 	{
-		if ( xstd::is_consteval( depth ) )
-		{
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
-			switch ( depth )
-			{
+		switch ( depth )
+		{
 #if XSTD_IA32_LA57
-				case pml5e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml5e" );
+			case pml5e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml5e" );
 #endif
-				case pml4e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml4e" );
-				case pdpte_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pdpte" );
-				case pde_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pde" );
-				case pte_level:    return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pte" );
-				default:           unreachable();
-			}
-#endif
+			case pml4e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml4e" );
+			case pdpte_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pdpte" );
+			case pde_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pde" );
+			case pte_level:    return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pte" );
+			default:           unreachable();
 		}
-
+#else
 		xstd::any_ptr ptr = pxe_base_div8();
 		if ( xstd::const_condition( depth == pxe_level ) )
 			return ( pt_entry_64* ) ( ptr << 3 );
 		auto shift = 12 + ( pxe_level - depth ) * 9;
 		return ( pt_entry_64* ) ( ( ptr >> ( shift - 3 ) ) << shift );
+#endif
 	}
 
 	// Recursive page table lookup.
 	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth )
 	{
-		if ( xstd::is_consteval( depth ) )
-		{
-			pt_entry_64* tbl = locate_page_table( depth );
-			return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
-		}
-		else
-		{
-			uint64_t base = pxe_base_div8();
-			auto important_bits = ( page_table_depth - depth ) * 9;
-			uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
-			return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
-		}
+#if __has_xcxx_builtin(__builtin_fetch_dynamic)
+		pt_entry_64* tbl = locate_page_table( depth );
+		return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
+#else
+		uint64_t base = pxe_base_div8();
+		auto important_bits = ( page_table_depth - depth ) * 9;
+		uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
+		return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
+#endif
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr ) { return get_pte( ptr, pte_level ); }
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return get_pte( ptr, pde_level ); }
