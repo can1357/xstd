@@ -58,8 +58,12 @@ namespace xstd
 				}
 				workspace[ i ] = n;
 			}
-			for ( size_t i = 16; i != 80; i++ )
+			for ( size_t i = 16; i != 32; i++ )
 				workspace[ i ] = rotl( workspace[ i - 3 ] ^ workspace[ i - 8 ] ^ workspace[ i - 14 ] ^ workspace[ i - 16 ], 1 );
+
+			__hint_unroll()
+			for ( size_t i = 32; i != 80; i++ )
+				workspace[ i ] = rotl( workspace[ i - 6 ] ^ workspace[ i - 16 ] ^ workspace[ i - 28 ] ^ workspace[ i - 32 ], 2 );
 
 			value_type ivd = iv;
 			auto mix = [ & ] <auto N> ( const_tag<N>, auto&& f ) FORCE_INLINE

@@ -87,8 +87,11 @@ namespace xstd
 					n = bswapd( *( const uint32_t* ) &block[ ( i * 4 ) ] );
 				}
 				workspace[ i ] = n;
-				shuffle( n, i );
 			}
+			
+			__hint_unroll()
+			for ( size_t i = 0; i != 16; i++ )
+				shuffle( workspace[ i ], i );
 
 			__hint_unroll()
 			for ( size_t i = 16; i != 64; i++ )
