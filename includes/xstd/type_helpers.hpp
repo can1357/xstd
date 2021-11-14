@@ -262,13 +262,13 @@ namespace xstd
 
 		// Observers.
 		//
-		inline constexpr const char* c_str() const { return &value[ 0 ]; }
-		inline constexpr const char* data() const { return c_str(); }
+		inline constexpr const wchar_t* c_str() const { return &value[ 0 ]; }
+		inline constexpr const wchar_t* data() const { return c_str(); }
 		inline constexpr std::wstring_view get() const { return { c_str(), c_str() + size() }; }
 		inline constexpr size_t size() const { return N - 1; }
 		inline constexpr size_t length() const { return size(); }
 		inline constexpr bool empty() const { return size() == 0; }
-		inline constexpr const char& operator[]( size_t n ) const { return c_str()[ n ]; }
+		inline constexpr const wchar_t& operator[]( size_t n ) const { return c_str()[ n ]; }
 		inline constexpr auto begin() const { return get().begin(); }
 		inline constexpr auto end() const { return get().end(); }
 		inline std::wstring to_string() const { return c_str(); }
