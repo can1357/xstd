@@ -154,24 +154,29 @@ namespace xstd
 			else
 			{
 				std::basic_string_view<U> sv{ value };
-				if ( !std::is_constant_evaluated() )
+
+				if constexpr ( Same<H, crc32c> || Same<H, xcrc> )
 				{
-					while ( sv.size() >= 8 )
+					if ( !std::is_constant_evaluated() )
 					{
-						uint64_t value;
-						if constexpr ( sizeof( U ) == 1 )
+						while ( sv.size() >= 8 )
 						{
-							value = *( const uint64_t* ) sv.data();
+							uint64_t value;
+							if constexpr ( sizeof( U ) == 1 )
+							{
+								value = *( const uint64_t* ) sv.data();
+							}
+							else
+							{
+								auto vec = xvec<I, 8>::load( ( const I* ) sv.data() );
+								value = vec::cast<char>( vec ).template reinterpret<uint64_t>()[ 0 ];
+							}
+							h.add_bytes( value & 0xDFDFDFDFDFDFDFDF );
+							sv.remove_prefix( 8 );
 						}
-						else
-						{
-							auto vec = xvec<I, 8>::load( sv.data() );
-							value = vec::cast<char>( vec ).template reinterpret<uint64_t>()[ 0 ];
-						}
-						h.add_bytes( value & 0xDFDFDFDFDFDFDFDF );
-						sv.remove_prefix( 8 );
 					}
 				}
+
 				for ( U c : sv )
 					h.add_bytes( uint8_t( c & 0xDF ) );
 			}
