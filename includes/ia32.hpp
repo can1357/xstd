@@ -23057,6 +23057,7 @@ namespace ia32
 		{
 			serialize();
 			uint64_t t0 = read_msr( id );
+			lfence();
 			f( std::forward<Tx>( args )... );
 			serialize();
 			uint64_t t1 = read_msr( id );
@@ -23067,6 +23068,7 @@ namespace ia32
 		{
 			serialize();
 			uint64_t t0 = read_msr( id );
+			lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
 			serialize();
 			uint64_t t1 = read_msr( id );
@@ -23084,6 +23086,7 @@ namespace ia32
 		{
 			serialize();
 			uint64_t t0 = read_pmc( id );
+			lfence();
 			f( std::forward<Tx>( args )... );
 			serialize();
 			uint64_t t1 = read_pmc( id );
@@ -23094,6 +23097,7 @@ namespace ia32
 		{
 			serialize();
 			uint64_t t0 = read_pmc( id );
+			lfence();
 			std::pair<result_t, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
 			serialize();
 			uint64_t t1 = read_pmc( id );
