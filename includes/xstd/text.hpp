@@ -2,6 +2,7 @@
 #include "type_helpers.hpp"
 #include "hashable.hpp"
 #include "utf.hpp"
+#include "xvector.hpp"
 
 namespace xstd
 {
@@ -133,6 +134,7 @@ namespace xstd
 	struct basic_ahash<H, T>
 	{
 		using U = string_unit_t<T>;
+		using I = convert_uint_t<U>;
 
 		inline constexpr H operator()( const T& value ) const noexcept
 		{
@@ -151,7 +153,26 @@ namespace xstd
 			}
 			else
 			{
-				for ( U c : std::basic_string_view<U>{ value } )
+				std::basic_string_view<U> sv{ value };
+				if ( !std::is_constant_evaluated() )
+				{
+					while ( sv.size() >= 8 )
+					{
+						uint64_t value;
+						if constexpr ( sizeof( U ) == 1 )
+						{
+							value = *( const uint64_t* ) sv.data();
+						}
+						else
+						{
+							auto vec = xvec<I, 8>::load( sv.data() );
+							value = vec::cast<char>( vec ).template reinterpret<uint64_t>()[ 0 ];
+						}
+						h.add_bytes( value & 0xDFDFDFDFDFDFDFDF );
+						sv.remove_prefix( 8 );
+					}
+				}
+				for ( U c : sv )
 					h.add_bytes( uint8_t( c & 0xDF ) );
 			}
 			return h;
