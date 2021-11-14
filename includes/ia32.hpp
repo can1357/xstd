@@ -22448,9 +22448,18 @@ namespace ia32
 
 #if !XSTD_SERIALIZING_LFENCE
 		if constexpr ( is_kernel_mode() )
+		{
 			clts();
+		}
 		else
-			set_ss( get_ss() );
+		{
+			uint16_t tmp;
+			asm volatile( 
+				"mov %%ss, %0;"
+				"sfence;"
+				"mov %0,   %%ss;" 
+				: "=r" ( tmp ) :: );
+		}
 #else
 		lfence();
 #endif
@@ -23002,17 +23011,18 @@ namespace ia32
 
 	// TSC/MSR/PMC based profiling in the style of xstd::profile.
 	//
-	namespace impl
+	_LINKAGE uint32_t read_tsc_low()
 	{
-		_LINKAGE uint32_t read_tscp_low()
-		{
-			register uint32_t low asm( "eax" );
-			register uint32_t high asm( "edx" );
-			register uint32_t pid asm( "ecx" );
-			asm volatile( "rdtscp" : "=r" ( low ), "=r" ( pid ), "=r" ( high ) :: );
-			return low;
-		}
-	};
+		uint32_t low;
+		asm volatile( "rdtsc" : "=a" ( low ) :: "rdx" );
+		return low;
+	}
+	_LINKAGE uint32_t read_tscp_low()
+	{
+		uint32_t low;
+		asm volatile( "rdtscp" : "=a" ( low ) :: "rdx", "rcx" );
+		return low;
+	}
 	template<typename T, typename... Tx> requires xstd::InvocableWith<T, Tx...>
 	_LINKAGE FLATTEN auto uprofile_tsc( T&& f, Tx&&... args )
 	{
@@ -23020,17 +23030,19 @@ namespace ia32
 
 		if constexpr ( xstd::Void<R> )
 		{
-			uint32_t t0 = impl::read_tscp_low();
+			serialize();
+			uint32_t t0 = read_tsc_low();
 			f( std::forward<Tx>( args )... );
-			uint32_t t1 = impl::read_tscp_low();
+			uint32_t t1 = read_tscp_low();
 			serialize();
 			return t1 - t0;
 		}
 		else
 		{
-			uint32_t t0 = impl::read_tscp_low();
+			serialize();
+			uint32_t t0 = read_tsc_low();
 			std::pair<R, uint64_t> result = { f( std::forward<Tx>( args )... ), 0ull };
-			uint32_t t1 = impl::read_tscp_low();
+			uint32_t t1 = read_tscp_low();
 			serialize();
 			result.second = t1 - t0;
 			return result;
