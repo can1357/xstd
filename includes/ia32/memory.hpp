@@ -86,16 +86,16 @@ namespace ia32::mem
 	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
 	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return ( uint64_t ) __builtin_fetch_dynamic( "@.pxe_base" ); }
 
-	FORCE_INLINE inline void set_self_ref_index( uint32_t value ) { __builtin_store_dynamic( "@.self_ref_idx", ( void* ) ( uint64_t ) value ); }
-	FORCE_INLINE CONST_FN inline uint32_t self_ref_index() { return ( uint32_t ) ( uint64_t ) __builtin_fetch_dynamic( "@.self_ref_idx" ); }
+	FORCE_INLINE inline void set_self_ref_index( uint64_t value ) { __builtin_store_dynamic( "@.self_ref_idx", ( void* ) value ); }
+	FORCE_INLINE CONST_FN inline uint64_t self_ref_index() { return ( uint64_t ) __builtin_fetch_dynamic( "@.self_ref_idx" ); }
 #else
 	inline uint64_t __pxe_base_div_8 = 0;
 	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __pxe_base_div_8 = value; }
 	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return __pxe_base_div_8; }
 
-	inline uint32_t __self_ref_index = 0;
-	FORCE_INLINE inline void set_self_ref_index( uint32_t value ) { __self_ref_index = value; }
-	FORCE_INLINE CONST_FN inline uint32_t self_ref_index() { return __self_ref_index; }
+	inline uint64_t __self_ref_index = 0;
+	FORCE_INLINE inline void set_self_ref_index( uint64_t value ) { __self_ref_index = value; }
+	FORCE_INLINE CONST_FN inline uint64_t self_ref_index() { return __self_ref_index; }
 #endif
 
 	// Virtual address details.
