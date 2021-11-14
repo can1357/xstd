@@ -414,23 +414,23 @@ namespace xstd
 			return result;
 		}
 
-		// Vector test as byte.
+		// Vector zero comparison.
 		//
-		FORCE_INLINE constexpr bool testz( const xvec& other ) const noexcept
+		FORCE_INLINE constexpr bool is_zero() const noexcept
 		{
 			// Fix odd sizes.
 			//
-			auto b1 = bytes();
-			auto b2 = other.bytes();
+			auto vec_bytes = bytes();
 			if constexpr ( ByteLength != std::bit_ceil( ByteLength ) )
-				return b1.template resize<std::bit_ceil( ByteLength )>().testz( b2.template resize<std::bit_ceil( ByteLength )>() );
-			
+			{
+				return vec_bytes.template resize<std::bit_ceil( ByteLength )>().is_zero();
+			}
 			// Handle integral sizes.
 			//
-			if constexpr ( ByteLength <= 8 )
+			else if constexpr ( ByteLength <= 8 )
 			{
-				using U = convert_uint_t<decltype( b1._data )>;
-				return !( bit_cast<U>( b1._data ) & bit_cast<U>( b2._data ) );
+				using U = convert_uint_t<decltype( vec_bytes._data )>;
+				return bit_cast< U >( vec_bytes._data ) == 0;
 			}
 
 			// Handle hardware accelerated sizes.
@@ -440,17 +440,17 @@ namespace xstd
 #if AMD64_TARGET
 #if MS_COMPILER
 				if constexpr ( ByteLength == 16 )
-					return ( bool ) _mm_testz_si128( bit_cast< __m128i >( b1._nat ), bit_cast< __m128i >( b2._nat ) );
+					return ( bool ) _mm_testz_si128( bit_cast< __m128i >( vec_bytes._nat ), bit_cast< __m128i >( vec_bytes._nat ) );
 				else if constexpr ( ByteLength == 32 )
-					return ( bool ) _mm256_testz_si256( bit_cast< __m256i >( b1._nat ), bit_cast< __m256i >( b2._nat ) );
+					return ( bool ) _mm256_testz_si256( bit_cast< __m256i >( vec_bytes._nat ), bit_cast< __m256i >( vec_bytes._nat ) );
 #else
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz128 )
 				if constexpr ( ByteLength == 16 )
-					return ( bool ) __builtin_ia32_ptestz128( b1._nat, b2._nat );
+					return ( bool ) __builtin_ia32_ptestz128( vec_bytes._nat, vec_bytes._nat );
 #endif
 #if __has_ia32_vector_builtin( __builtin_ia32_ptestz256 )
 				if constexpr ( ByteLength == 32 )
-					return ( bool ) __builtin_ia32_ptestz256( b1._nat, b2._nat );
+					return ( bool ) __builtin_ia32_ptestz256( vec_bytes._nat, vec_bytes._nat );
 #endif
 #endif
 #endif
@@ -459,9 +459,19 @@ namespace xstd
 				//
 				if constexpr ( ByteLength > 32 )
 				{
-					return
-						b1.template resize<32>().testz( b2.template resize<32>() )&
-						b1.template slice<32>().testz( b2.template slice<32>() );
+					if constexpr ( !( ByteLength % 2 ) )
+					{
+						constexpr size_t HalfLength = ByteLength / 2;
+						auto vtmp = vec_bytes.template resize<HalfLength>();
+						vtmp |= vec_bytes.template slice<HalfLength, HalfLength>();
+						return vtmp.is_zero();
+					}
+					else
+					{
+						return
+							vec_bytes.template resize<32>().is_zero() &
+							vec_bytes.template slice<32>().is_zero();
+					}
 				}
 			}
 
@@ -469,13 +479,9 @@ namespace xstd
 			//
 			uint8_t result = 0;
 			for ( size_t i = 0; i != ByteLength; i++ )
-				result |= b1._data[ i ] & b2._data[ i ];
+				result |= vec_bytes._data[ i ];
 			return result == 0;
 		}
-
-		// Vector zero comparison.
-		//
-		FORCE_INLINE constexpr bool is_zero() const noexcept { return testz( *this ); }
 
 		// Creates a mask made up of the most significant bit of each byte.
 		//
