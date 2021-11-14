@@ -666,7 +666,10 @@ namespace xstd
 		if constexpr ( sizeof( From ) == sizeof( To ) && !ToUpper && !ToLower )
 		{
 			size_t limit = NoOutputConstraints ? view.size() : std::min<size_t>( view.size(), output.size() );
-			std::copy_n( view.data(), limit, output.data() );
+			if ( std::is_constant_evaluated() )
+				std::copy_n( view.data(), limit, output.data() );
+			else
+				memcpy( output.data(), view.data(), limit * sizeof( From ) );
 			return limit;
 		}
 		else
