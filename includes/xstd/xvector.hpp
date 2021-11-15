@@ -682,6 +682,20 @@ namespace xstd
 			return x;
 		}
 
+		// Permutation.
+		//
+		FORCE_INLINE constexpr xvec<int32_t, 8> perm8x32( xvec<int32_t, 8> vec, xvec<int32_t, 8> offsets )
+		{
+#if __has_ia32_vector_builtin( __builtin_ia32_permvarsi256 )
+			if ( !std::is_constant_evaluated() )
+				return xvec<int32_t, 8>( std::in_place_t{}, __builtin_ia32_permvarsi256( vec._nat, offsets._nat ) );
+#endif
+			xstd::native_vector<int32_t, 8> result = {};
+			for ( size_t i = 0; i != 8; i++ )
+				result[ i ] = vec[ offsets[ i ] % 8 ];
+			return result;
+		}
+
 		// Load/Store non-temporal wrappers.
 		//
 		template<typename T>
