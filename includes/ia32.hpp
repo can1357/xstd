@@ -21971,12 +21971,20 @@ namespace ia32
 	_LINKAGE uint32_t read_mxcsr()
 	{
 		uint32_t value;
+#if __AVX__
+		asm volatile( "vstmxcsr %0" :: "m" ( value ) );
+#else
 		asm volatile( "stmxcsr %0" :: "m" ( value ) );
+#endif
 		return value;
 	}
 	_LINKAGE void write_mxcsr( const uint32_t& value )
 	{
+#if __AVX__
+		asm volatile( "vldmxcsr %0" :: "m" ( value ) );
+#else
 		asm volatile( "ldmxcsr %0" :: "m" ( value ) );
+#endif
 	}
 
 	// GS/FS base wrappers.
