@@ -622,26 +622,26 @@ namespace xstd
 		// Syntax sugars.
 		//
 		template<typename Tn, typename T, size_t N>
-		FORCE_INLINE constexpr xvec<Tn, N> cast( xvec<T, N> vec ) noexcept { return vec.template cast<Tn>(); }
+		FORCE_INLINE inline constexpr xvec<Tn, N> cast( xvec<T, N> vec ) noexcept { return vec.template cast<Tn>(); }
 		template<typename T, size_t N> 
-		FORCE_INLINE constexpr bvec<sizeof( T[ N ] )> bytes( xvec<T, N> x ) noexcept { return x.bytes(); }
+		FORCE_INLINE inline constexpr bvec<sizeof( T[ N ] )> bytes( xvec<T, N> x ) noexcept { return x.bytes(); }
 
 		// Vector broadcast.
 		//
 		template<Arithmetic T, size_t N>
-		FORCE_INLINE constexpr xvec<T, N> broadcast( T value ) { return xvec<T, N>::broadcast( value ); }
+		FORCE_INLINE inline constexpr xvec<T, N> broadcast( T value ) { return xvec<T, N>::broadcast( value ); }
 		template<Arithmetic T, size_t N> inline constexpr xvec<T, N> zero =    broadcast<T, N>( T(0) );
 		template<Arithmetic T, size_t N> inline constexpr xvec<T, N> inverse = broadcast<T, N>( ~T() );
 
 		// Vector from varargs.
 		//
 		template<size_t N, Arithmetic T, Arithmetic... Tx> requires ( ( sizeof...( Tx ) + 1 ) <= N )
-		FORCE_INLINE constexpr xvec<T, N> from_n( T value, Tx... rest )
+		FORCE_INLINE inline constexpr xvec<T, N> from_n( T value, Tx... rest )
 		{
 			return xvec<T, N>( value, rest... );
 		}
 		template<Arithmetic T, Arithmetic... Tx>
-		FORCE_INLINE constexpr xvec<T, ( sizeof...( Tx ) + 1 )> from( T value, Tx... rest )
+		FORCE_INLINE inline constexpr xvec<T, ( sizeof...( Tx ) + 1 )> from( T value, Tx... rest )
 		{
 			return xvec<T, ( sizeof...( Tx ) + 1 )>( value, rest... );
 		}
@@ -649,7 +649,7 @@ namespace xstd
 		// Vector from array.
 		//
 		template<Arithmetic T, size_t N>
-		FORCE_INLINE constexpr xvec<T, N> from( std::array<T, N> arr )
+		FORCE_INLINE inline constexpr xvec<T, N> from( std::array<T, N> arr )
 		{
 			xvec<T, N> vec = {};
 			vec._data = arr;
@@ -659,7 +659,7 @@ namespace xstd
 		// Vector from constant span.
 		//
 		template<Arithmetic T, size_t N> requires ( N != std::dynamic_extent )
-		FORCE_INLINE constexpr xvec<T, N> from( std::span<T, N> span )
+		FORCE_INLINE inline constexpr xvec<T, N> from( std::span<T, N> span )
 		{
 			xvec<T, N> vec = {};
 			for( size_t n = 0; n != N; n++ )
@@ -670,7 +670,7 @@ namespace xstd
 		// Element-wise operations.
 		//
 		template<typename T, size_t N>
-		FORCE_INLINE constexpr xvec<T, N> (max)( xvec<T, N> x, xvec<T, N> y ) noexcept
+		FORCE_INLINE inline constexpr xvec<T, N> (max)( xvec<T, N> x, xvec<T, N> y ) noexcept
 		{
 #if __has_vector_builtin(__builtin_elementwise_max)
 			if ( !std::is_constant_evaluated() )
@@ -681,7 +681,7 @@ namespace xstd
 			return x;
 		}
 		template<typename T, size_t N>
-		FORCE_INLINE constexpr xvec<T, N> (min)( xvec<T, N> x, xvec<T, N> y ) noexcept
+		FORCE_INLINE inline constexpr xvec<T, N> (min)( xvec<T, N> x, xvec<T, N> y ) noexcept
 		{
 #if __has_vector_builtin(__builtin_elementwise_min)
 			if ( !std::is_constant_evaluated() )
@@ -694,22 +694,22 @@ namespace xstd
 
 		// Permutation.
 		//
-		FORCE_INLINE constexpr xvec<int32_t, 8> perm8x32( xvec<int32_t, 8> vec, xvec<int32_t, 8> offsets )
+		FORCE_INLINE inline constexpr xvec<int32_t, 8> perm8x32( xvec<int32_t, 8> vec, xvec<int32_t, 8> offsets )
 		{
 #if __has_ia32_vector_builtin( __builtin_ia32_permvarsi256 )
 			if ( !std::is_constant_evaluated() )
 				return xvec<int32_t, 8>( std::in_place_t{}, __builtin_ia32_permvarsi256( vec._nat, offsets._nat ) );
 #endif
-			xstd::native_vector<int32_t, 8> result = {};
+			xvec<int32_t, 8> result = {};
 			for ( size_t i = 0; i != 8; i++ )
-				result[ i ] = vec[ offsets[ i ] % 8 ];
+				result[ i ] = ( int32_t ) vec[ offsets[ i ] % 8 ];
 			return result;
 		}
 
 		// Vector reduction.
 		//
 		template<typename T, auto N>
-		FORCE_INLINE constexpr T reduce_or( xvec<T, N> vec )
+		FORCE_INLINE inline constexpr T reduce_or( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) )
@@ -722,7 +722,7 @@ namespace xstd
 			return result;
 		}
 		template<typename T, auto N>
-		FORCE_INLINE constexpr T reduce_and( xvec<T, N> vec )
+		FORCE_INLINE inline constexpr T reduce_and( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) )
@@ -735,7 +735,7 @@ namespace xstd
 			return result;
 		}
 		template<typename T, auto N>
-		FORCE_INLINE constexpr T reduce_xor( xvec<T, N> vec )
+		FORCE_INLINE inline constexpr T reduce_xor( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
@@ -748,7 +748,7 @@ namespace xstd
 			return result;
 		}
 		template<typename T, auto N>
-		FORCE_INLINE constexpr T reduce_add( xvec<T, N> vec )
+		FORCE_INLINE inline constexpr T reduce_add( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
@@ -761,7 +761,7 @@ namespace xstd
 			return result;
 		}
 		template<typename T, auto N>
-		FORCE_INLINE constexpr T reduce_mul( xvec<T, N> vec )
+		FORCE_INLINE inline constexpr T reduce_mul( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
