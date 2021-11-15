@@ -551,11 +551,19 @@ namespace xstd
 					if ( limit >= ( SIMDWidth / sizeof( Char2 ) ) )
 					{
 						size_t count = 0;
-						if ( auto result = utf_ascii_cmp<Char, Char2, CaseSensitive, ForEquality, SIMDWidth>( a, b, limit, count ) )
-							return *result;
+
+						auto result = utf_ascii_cmp<Char, Char2, CaseSensitive, ForEquality, SIMDWidth>( a, b, limit, count );
 						a += count;
 						b += count;
 						limit -= count;
+
+						if ( result )
+						{
+							if ( *result )
+								return *result;
+							else
+								break;
+						}
 					}
 					else
 					{
@@ -610,9 +618,8 @@ namespace xstd
 						}
 						else
 						{
-							uint32_t c1 = 0, c2 = 0;
-							c1 = codepoint_cvt<Char>::decode( a, size_t( a_end - a ) );
-							c2 = codepoint_cvt<Char2>::decode( b, size_t( b_end - b ) );
+							uint32_t c1 = codepoint_cvt<Char>::decode( a, size_t( a_end - a ) );
+							uint32_t c2 = codepoint_cvt<Char2>::decode( b, size_t( b_end - b ) );
 							return int( c1 ) - int( c2 );
 						}
 					}
