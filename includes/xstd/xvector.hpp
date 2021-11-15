@@ -36,10 +36,20 @@
 //
 namespace xstd
 {
-	// Comparison result helper.
-	//
 	namespace impl
 	{
+		// LLVM intrinsics.
+		//
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+		template<typename T, auto N> T __vector_reduce_or(  native_vector<T, N> ) asm( "llvm.vector.reduce.or" );
+		template<typename T, auto N> T __vector_reduce_and( native_vector<T, N> ) asm( "llvm.vector.reduce.and" );
+		template<typename T, auto N> T __vector_reduce_xor( native_vector<T, N> ) asm( "llvm.vector.reduce.xor" );
+		template<typename T, auto N> T __vector_reduce_add( native_vector<T, N> ) asm( "llvm.vector.reduce.add" );
+		template<typename T, auto N> T __vector_reduce_mul( native_vector<T, N> ) asm( "llvm.vector.reduce.mul" );
+#endif
+
+		// Comparison result helper.
+		//
 		template<typename T> struct comparison_unit;
 		template<typename T> requires ( sizeof( T ) == 1 ) struct comparison_unit<T> { using type = char; };
 		template<typename T> requires ( sizeof( T ) == 2 ) struct comparison_unit<T> { using type = int16_t; };
@@ -693,6 +703,74 @@ namespace xstd
 			xstd::native_vector<int32_t, 8> result = {};
 			for ( size_t i = 0; i != 8; i++ )
 				result[ i ] = vec[ offsets[ i ] % 8 ];
+			return result;
+		}
+
+		// Vector reduction.
+		//
+		template<typename T, auto N>
+		FORCE_INLINE constexpr T reduce_or( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) )
+				if ( !std::is_constant_evaluated() )
+					return impl::__vector_reduce_or<T, N>( vec._nat );
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+				result |= vec[ i ];
+			return result;
+		}
+		template<typename T, auto N>
+		FORCE_INLINE constexpr T reduce_and( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) )
+				if ( !std::is_constant_evaluated() )
+					return impl::__vector_reduce_and<T, N>( vec._nat );
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+				result &= vec[ i ];
+			return result;
+		}
+		template<typename T, auto N>
+		FORCE_INLINE constexpr T reduce_xor( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
+				if ( !std::is_constant_evaluated() )
+					return impl::__vector_reduce_xor<T, N>( vec._nat );
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+				result ^= vec[ i ];
+			return result;
+		}
+		template<typename T, auto N>
+		FORCE_INLINE constexpr T reduce_add( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
+				if ( !std::is_constant_evaluated() )
+					return impl::__vector_reduce_add<T, N>( vec._nat );
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+				result += vec[ i ];
+			return result;
+		}
+		template<typename T, auto N>
+		FORCE_INLINE constexpr T reduce_mul( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
+				if ( !std::is_constant_evaluated() )
+					return impl::__vector_reduce_mul<T, N>( vec._nat );
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+				result *= vec[ i ];
 			return result;
 		}
 
