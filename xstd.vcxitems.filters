@@ -109,9 +109,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp">
-      <Filter>Thread</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\spinlock.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
@@ -147,9 +144,6 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_hashmap.hpp">
       <Filter>Containers</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guarded.hpp">
-      <Filter>Thread</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp">
       <Filter>Types</Filter>
@@ -258,9 +252,6 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp">
       <Filter>Formats</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp">
-      <Filter>Misc</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp">
       <Filter>Misc</Filter>

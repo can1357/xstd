@@ -37,11 +37,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bmp.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\chore.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\color.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\conditional_lock.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\deferred_value.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
@@ -56,7 +54,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\formatting.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guarded.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\gzip.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hashable.hpp" />
