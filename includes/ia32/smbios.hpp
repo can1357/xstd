@@ -249,8 +249,8 @@ namespace ia32::smbios
 	//
 	struct entry
 	{
-		xstd::range<const char*> data = { nullptr, nullptr };
-		xstd::small_vector<std::string_view, 8> strings = {};
+		std::span<const char> data = {};
+		xstd::small_vector<std::string_view, 16> strings = {};
 
 		// Helpers to read type specific information.
 		//
@@ -258,12 +258,11 @@ namespace ia32::smbios
 		T as() const
 		{
 			if ( data.size() >= sizeof( T ) )
-				return *( T* ) data.begin();
+				return *( const T* ) data.data();
 
-			char raw[ sizeof( T ) ];
-			auto it = std::copy( data.begin(), data.end(), std::begin( raw ) );
-			std::fill( it, std::end( raw ), 0 );
-			return *( T* ) &raw[ 0 ];
+			std::array<uint8_t, sizeof( T )> raw = {};
+			memcpy( raw.data(), data.data(), data.size() );
+			return xstd::bit_cast< T >( raw );
 		}
 		std::string_view resolve( string_t str ) const
 		{

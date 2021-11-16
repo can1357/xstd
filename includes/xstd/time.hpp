@@ -6,7 +6,6 @@
 #include <thread>
 #include <atomic>
 #include "type_helpers.hpp"
-#include "zip.hpp"
 #include "algorithm.hpp"
 
 // [Configuration]

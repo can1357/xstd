@@ -7,9 +7,6 @@
     <Filter Include="Misc">
       <UniqueIdentifier>{e4b12102-ba84-4791-87d6-9693f3c4c95c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Ranges">
-      <UniqueIdentifier>{16e6d8ed-60e2-4e49-9445-aa6de7892f3f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Types">
       <UniqueIdentifier>{47bd5405-b504-4d21-8120-06c21d432948}</UniqueIdentifier>
     </Filter>
@@ -60,15 +57,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp">
       <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\range.hpp">
-      <Filter>Ranges</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zip.hpp">
-      <Filter>Ranges</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp">
-      <Filter>Ranges</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\hashable.hpp">
       <Filter>Types</Filter>
     </ClInclude>
@@ -99,14 +87,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp">
       <Filter>I/O</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp">
-      <Filter>Ranges</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp">
       <Filter>Misc</Filter>
-    </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\nested_range.hpp">
-      <Filter>Ranges</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\statistics.hpp">
@@ -290,6 +272,12 @@
       <Filter>Misc</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\image_view.hpp">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
   </ItemGroup>
