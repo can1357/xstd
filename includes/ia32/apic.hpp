@@ -71,6 +71,7 @@ namespace ia32::apic
 
 	// APIC controller.
 	//
+	template<bool Safe = false>
 	struct controller
 	{
 		volatile uint32_t* const base_address = apic_base();
@@ -128,7 +129,7 @@ namespace ia32::apic
 		{
 			if ( !is_x2apic() )
 			{
-				while ( read_register<command>( cmd_register ).is_pending )
+				while ( read_register<command>( cmd_register ).is_pending ) [[unlikely]]
 					yield_cpu();
 			}
 			else
@@ -143,9 +144,14 @@ namespace ia32::apic
 		{
 			if ( !is_x2apic() )
 			{
-				// Disable interrupts since it is not atomic.
+				// Disable interrupts if safe.
 				//
-				scope_irql<HIGH_LEVEL> _g{};
+				bool prev = false;
+				if constexpr ( Safe )
+				{
+					prev = read_flags().interrupt_enable_flag;
+					disable();
+				}
 
 				// Wait for the pending flag to clear.
 				//
@@ -159,6 +165,10 @@ namespace ia32::apic
 				// Write the command.
 				//
 				write_register( cmd_register, cmd );
+
+				// Restore interrupt state.
+				//
+				if ( prev ) enable();
 			}
 			else
 			{

@@ -22973,8 +22973,8 @@ namespace ia32
 		irql_t prev;
 		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) : prev( prev )
 		{
-			if ( prev < new_irql )
-				set_irql( new_irql );
+			dassert( prev <= new_irql );
+			set_irql( new_irql );
 		}
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
@@ -23010,7 +23010,6 @@ namespace ia32
 				else enable();
 			}
 		}
-
 		~scope_irql()
 		{
 			reset();
