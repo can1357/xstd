@@ -382,17 +382,22 @@ namespace xstd
 
 // Define yield for busy loops.
 //
-FORCE_INLINE static void yield_cpu()
+FORCE_INLINE constexpr static void yield_cpu()
 {
-	#if MS_COMPILER
-		_mm_pause();
-	#elif AMD64_TARGET
-		asm volatile ( "pause" ::: "memory" );
-	#elif ARM64_TARGET
-		asm volatile ( "yield" ::: "memory" );
-	#else
-		std::atomic_thread_fence( std::memory_order_release ); // Close enough...
-	#endif
+	if ( std::is_constant_evaluated() )
+		return;
+
+#if AMD64_TARGET && CLANG_COMPILER
+	__builtin_ia32_pause();
+#elif AMD64_TARGET && GNU_COMPILER
+	asm volatile( "pause" ::: "memory" );
+#elif AMD64_TARGET && MS_COMPILER
+	_mm_pause();
+#elif ARM64_TARGET
+	asm volatile ( "yield" ::: "memory" );
+#else
+	std::atomic_thread_fence( std::memory_order::release ); // Close enough...
+#endif
 }
 
 // Define task priority.

@@ -69,11 +69,11 @@ namespace xstd
 		}
 		FORCE_INLINE void downgrade()
 		{
-			counter = 1;
+			counter.store( 1, std::memory_order::release );
 		}
 		FORCE_INLINE void unlock()
 		{
-			dassert( counter == UINT16_MAX );
+			dassert( counter.load( std::memory_order::relaxed ) == UINT16_MAX );
 			counter.store( 0, std::memory_order::release );
 		}
 		FORCE_INLINE void unlock_shared()
@@ -169,7 +169,7 @@ namespace xstd
 			auto [owner, depth] = split( expected );
 			if ( owner == cid && depth )
 			{
-				value.store( combine( cid, depth + 1 ) );
+				value.store( combine( cid, depth + 1 ), std::memory_order::relaxed );
 				return;
 			}
 

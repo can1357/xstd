@@ -109,9 +109,9 @@ namespace xstd
 		}
 		FORCE_INLINE void unlock()
 		{
-			int32_t prev = share_count.exchange( 0 );
+			dassert_s( share_count.load( std::memory_order::relaxed ) == -1 );
+			share_count.store( 0, std::memory_order::release );
 			mutex.unlock();
-			dassert_s( prev == -1 );
 		}
 		FORCE_INLINE void unlock_shared()
 		{

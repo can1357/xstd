@@ -116,7 +116,7 @@ namespace xstd
 		//
 		void commit( size_t pos, size_t count )
 		{
-			producer_tail = ( pos + count ) % N;
+			producer_tail.store( ( pos + count ) % N, std::memory_order::release );
 		}
 		void commit( size_t pos, const void* data, size_t count )
 		{
@@ -140,7 +140,7 @@ namespace xstd
 		{
 			// Update the consumer head.
 			//
-			consumer_head = ( pos - 1 + count ) % N;
+			consumer_head.store( ( pos - 1 + count ) % N, std::memory_order::release );
 		}
 
 		// Reads a byte from a given position.

@@ -1478,8 +1478,7 @@ namespace xstd
 						std::construct_at<R>( ( R* ) &result[ 0 ], fn() );
 					else
 						fn();
-					std::atomic_thread_fence( std::memory_order::acquire );
-					status.store( 0, std::memory_order::relaxed );
+					status.store( 0, std::memory_order::release );
 				}
 				else if ( expected != 0 )
 				{

@@ -104,7 +104,6 @@ namespace xstd
 				// Reset the primitive, then reset the flag.
 				//
 				primitive.reset();
-				std::atomic_thread_fence( std::memory_order::seq_cst );
 				flag.store( 0, std::memory_order::release );
 				return true;
 			}
