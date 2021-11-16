@@ -1521,6 +1521,90 @@ namespace xstd
 	};
 	template<typename T>
 	using allocator_delete = typename impl::allocator_delete<T>::type;
+
+	// Swaps the given container's allocator with [A].
+	//
+	template<typename T, typename A>
+	struct swap_allocator { using type = void; };
+	template<template<typename...> typename C, typename... T, typename A>
+	struct swap_allocator<C<T...>, A> { using type = C<typename std::conditional_t<Same<T, typename C<T...>::allocator_type>, A, T>...>; };
+	template<typename T, typename A>
+	using swap_allocator_t = typename swap_allocator<T, A>::type;
+
+	// Uninitialized allocator.
+	//
+	template <typename A>
+	struct uninitialized_allocator : A
+	{
+		using Traits = std::allocator_traits<A>;
+		template<typename U>
+		struct rebind { using other = uninitialized_allocator<typename Traits::template rebind_alloc<U>>; };
+
+		using A::A;
+		using A::operator=;
+
+		template <typename U, typename... Tx>                    
+		FORCE_INLINE inline constexpr void construct( U*, Tx&&... ) {}
+	};
+
+	// Disabled allocator.
+	//
+	template <typename A>
+	struct disabled_allocator : A
+	{
+		using Traits = std::allocator_traits<A>;
+		using Pointer = typename Traits::pointer;
+		template<typename U>
+		struct rebind { using other = disabled_allocator<typename Traits::template rebind_alloc<U>>; };
+
+		using A::A;
+		using A::operator=;
+
+		FORCE_INLINE inline Pointer allocate( size_t n, void* hint = 0 ) { unreachable(); return Pointer{ nullptr }; }
+	};
+
+	// Optimized helpers for STL containers.
+	//
+	template<typename Container>
+	FORCE_INLINE inline constexpr Container make_uninitialized_container( size_t length )
+	{
+		if ( std::is_constant_evaluated() )
+			return Container( length );
+
+		using Allocator =    typename Container::allocator_type;
+		using TmpContainer = swap_allocator_t<Container, uninitialized_allocator<Allocator>>;
+		TmpContainer result( length );
+		return std::move( ( Container& ) result );
+	}
+	template<typename Container>
+	FORCE_INLINE inline constexpr decltype( auto ) uninitialized_resize( Container& ref, size_t length )
+	{
+		if ( std::is_constant_evaluated() )
+			return ref.resize( length );
+
+		using Allocator =    typename Container::allocator_type;
+		using TmpContainer = swap_allocator_t<Container, uninitialized_allocator<Allocator>>;
+		return ( ( TmpContainer& ) ref ).resize( length );
+	}
+	template<typename Container>
+	FORCE_INLINE inline constexpr decltype( auto ) shrink_resize( Container& ref, size_t length )
+	{
+		if ( std::is_constant_evaluated() )
+			return ref.resize( length );
+		
+		using Allocator =    typename Container::allocator_type;
+		using TmpContainer = swap_allocator_t<Container, disabled_allocator<Allocator>>;
+		TmpContainer& nref = ( TmpContainer& ) ref;
+		
+		size_t prev_length = nref.size();
+		assume( prev_length >= length );
+		return nref.resize( length );
+	}
+	template<typename T>
+	FORCE_INLINE inline constexpr std::vector<T> make_uninitialized_vector( size_t length )
+	{
+		return make_uninitialized_container<std::vector<T>>( length );
+	}
 };
 
 // Expose literals.

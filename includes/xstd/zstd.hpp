@@ -58,10 +58,10 @@ namespace xstd::zstd
 	inline static result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = default_level )
 	{
 		result<std::vector<uint8_t>> res;
-		auto& buffer = res.result.emplace( std::vector<uint8_t>( ZSTD_compressBound( len ), 0 ) );
+		auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( ZSTD_compressBound( len ) ) );
 		res.status = ZSTD_compress( buffer.data(), buffer.size(), data, len, level );
 		if ( res.status.is_success() )
-			res.result->resize( res.status );
+			shrink_resize( *res.result, res.status );
 		return res;
 	}
 	template<ContiguousIterable T> requires ( !Pointer<T> )
@@ -78,7 +78,7 @@ namespace xstd::zstd
 		res.status = ZSTD_getFrameContentSize( data, len );
 		if ( res.status.is_error() )
 			return res;
-		auto& buffer = res.result.emplace( std::vector<uint8_t>( res.status, 0 ) );
+		auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( res.status ) );
 		res.status = ZSTD_decompress( buffer.data(), buffer.size(), data, len );
 		return res;
 	}
@@ -104,10 +104,10 @@ namespace xstd::zstd
 		inline result<std::vector<uint8_t>> compress( const void* data, size_t len, int level = default_level )
 		{
 			result<std::vector<uint8_t>> res;
-			auto& buffer = res.result.emplace( std::vector<uint8_t>( ZSTD_compressBound( len ), 0 ) );
+			auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( ZSTD_compressBound( len ) ) );
 			res.status = ZSTD_compressCCtx( ctx.get(), buffer.data(), buffer.size(), data, len, level );
 			if ( res.status.is_success() )
-				res.result->resize( res.status );
+				shrink_resize( *res.result, res.status );
 			return res;
 		}
 		template<ContiguousIterable T> requires ( !Pointer<T> )
@@ -129,7 +129,7 @@ namespace xstd::zstd
 			res.status = ZSTD_getFrameContentSize( data, len );
 			if ( res.status.is_error() )
 				return res;
-			auto& buffer = res.result.emplace( std::vector<uint8_t>( res.status, 0 ) );
+			auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( res.status ) );
 			res.status = ZSTD_decompressDCtx( ctx.get(), buffer.data(), buffer.size(), data, len );
 
 			return res;

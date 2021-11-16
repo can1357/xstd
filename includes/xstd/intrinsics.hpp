@@ -349,7 +349,7 @@ namespace xstd
 	#elif __has_builtin(__builtin_trap)
 		#define unreachable() __builtin_trap();
 	#else
-		#define unreachable() { *(volatile int*)0 = 0; }
+		#define unreachable() { *(int*)0 = 0; }
 	#endif
 
 	#if __has_builtin(__builtin_debugtrap)

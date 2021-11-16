@@ -9,23 +9,10 @@
 #include <memory>
 #include <stdlib.h>
 #include <optional>
-#include "intrinsics.hpp"
+#include "type_helpers.hpp"
 
 namespace xstd
 {
-	namespace impl
-	{
-		// Swaps the given container's allocator with [A].
-		//
-		template<typename T, typename A>
-		struct swap_allocator { using type = void; };
-		template<template<typename...> typename C, typename... T, typename A>
-		struct swap_allocator<C<T...>, A> { using type = C<typename std::conditional_t<Same<T, typename C<T...>::allocator_type>, A, T>...>; };
-
-		template<typename T, typename A>
-		using swap_allocator_t = typename swap_allocator<T, A>::type;
-	};
-
 	// Stack buffer state with iterators enforcing equivalent alignment for any type.
 	//
 	template<typename T = uint8_t, typename real_type = T>

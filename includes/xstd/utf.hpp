@@ -761,9 +761,7 @@ namespace xstd
 		//
 		std::basic_string<To> result( max_out, '\0' );
 		size_t length = utf_convert<To, From, true>( view, result );
-		size_t clength = result.size();
-		assume( length <= clength );
-		result.resize( length );
+		shrink_resize( result, length );
 		return result;
 	}
 	template<typename To, String S>
@@ -796,9 +794,7 @@ namespace xstd
 		// Resize and return the result.
 		//
 		size_t length = iterator - result.data();
-		size_t clength = result.size();
-		assume( length <= clength );
-		result.resize( length );
+		shrink_resize( result, length );
 		return result;
 	}
 

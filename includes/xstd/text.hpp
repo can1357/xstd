@@ -314,10 +314,7 @@ namespace xstd
 		size_t max_out = Same<To, From> ? src.size() + codepoint_cvt<To>::max_out : codepoint_cvt<To>::max_out * src.size();
 		std::basic_string<To> result( max_out, '\0' );
 		size_t length = utf_convert<To, From, true, !ToLower, ToLower>( src, result );
-
-		size_t clength = result.size();
-		assume( length <= clength );
-		result.resize( length );
+		shrink_resize( result, length );
 		return result;
 	}
 	template<typename Encoding, String S>

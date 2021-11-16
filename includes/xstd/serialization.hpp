@@ -167,10 +167,7 @@ namespace xstd
 		out.resize( pos + max_index_length );
 
 		pos += encode_index( out.data() + pos, value );
-		
-		size_t clen = out.size();
-		assume( clen >= pos );
-		out.resize( pos );
+		shrink_resize( out, pos );
 	}
 
 	// Declare serialization interface.

@@ -89,13 +89,13 @@ namespace xstd
 		}
 		std::string to_string() const
 		{
-			std::string out( string_length, '\x0' );
+			std::string out( string_length, '\0' );
 			to_string( out );
 			return out;
 		}
 		std::wstring to_wstring() const
 		{
-			std::wstring out( string_length, L'\x0' );
+			std::wstring out( string_length, L'\0' );
 			to_string( out );
 			return out;
 		}

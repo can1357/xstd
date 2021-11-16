@@ -86,7 +86,7 @@ namespace xstd::fmt
 	template<typename T>
 	FORCE_INLINE inline std::string as_hex_string( const T& value )
 	{
-		std::string out( sizeof( T ) * 2, '\x0' );
+		std::string out( sizeof( T ) * 2, '\0' );
 		store_misaligned( out.data(), print_hex<true>( value ) );
 		return out;
 	}
