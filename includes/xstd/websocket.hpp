@@ -56,7 +56,7 @@ namespace xstd::ws
 	static constexpr uint8_t length_extend_u16 = 126;
 	static constexpr uint8_t length_extend_u64 = 127;
 	static constexpr size_t default_length_limit = 64_mb;
-	static constexpr size_t max_packet_size = 65535 * 8 - 50;
+	static constexpr size_t max_packet_size = 65535 * 4 - 50;
 
 	// Websocket opcodes and the traits.
 	//
