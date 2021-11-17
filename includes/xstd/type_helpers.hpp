@@ -1230,9 +1230,6 @@ namespace xstd
 		template<size_t Lim, typename F> FORCE_INLINE inline constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: unreachable(); } }
 		template<size_t Lim, typename F> FORCE_INLINE inline constexpr decltype( auto ) numeric_visit_512( size_t n, F&& fn ) { switch ( n ) { __visit_512( 0, __visitor ); default: unreachable(); } }
 #undef __visitor
-#undef __visit_512
-#undef __visit_64
-#undef __visit_8
 	};
 
 	// Strict numeric visit.
