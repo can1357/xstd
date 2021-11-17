@@ -22979,22 +22979,47 @@ namespace ia32
 
 	// RAII wrapper for IRQL.
 	//
-	template<irql_t new_irql>
+	template<irql_t new_irql, bool relaxed = false>
 	struct scope_irql
 	{
 		irql_t prev;
 		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) : prev( prev )
 		{
-			dassert( prev <= new_irql );
-			set_irql( new_irql );
+			if constexpr ( relaxed )
+			{
+				if ( prev <= new_irql )
+					set_irql( new_irql );
+			}
+			else
+			{
+				dassert( prev <= new_irql );
+				set_irql( new_irql );
+			}
 		}
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
 
 		void reset( bool state = false )
 		{
-			if ( state ) set_irql( new_irql );
-			else set_irql( prev );
+			if constexpr ( relaxed )
+			{
+				if ( state )
+				{
+					if ( prev <= new_irql )
+						set_irql( new_irql );
+				}
+				else
+				{
+					set_irql( prev );
+				}
+			}
+			else
+			{
+				if ( state ) 
+					set_irql( new_irql );
+				else 
+					set_irql( prev );
+			}
 		}
 
 		~scope_irql()
@@ -23003,8 +23028,8 @@ namespace ia32
 		}
 	};
 
-	template<>
-	struct scope_irql<NO_INTERRUPTS>
+	template<bool relaxed>
+	struct scope_irql<NO_INTERRUPTS, relaxed>
 	{
 		rflags prev_flags;
 		scope_irql( rflags prev_flags = read_flags() ) : prev_flags( prev_flags )
