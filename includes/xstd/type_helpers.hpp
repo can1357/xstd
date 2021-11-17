@@ -1560,7 +1560,7 @@ namespace xstd
 		using A::A;
 		using A::operator=;
 
-		FORCE_INLINE inline Pointer allocate( size_t n, void* hint = 0 ) { unreachable(); return Pointer{ nullptr }; }
+		FORCE_INLINE inline Pointer allocate( size_t, void* = 0 ) { unreachable(); return Pointer{ nullptr }; }
 	};
 
 	// Optimized helpers for STL containers.
