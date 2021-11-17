@@ -21914,6 +21914,17 @@ namespace ia32
 	{
 		__writeeflags( flags.flags );
 	}
+	_LINKAGE rflags read_flags_low()
+	{
+		register uint8_t result asm( "ah" );
+		asm( "sahf" : "=r"( result ) );
+		return { .flags = result };
+	}
+	_LINKAGE void write_flags_low( rflags flags )
+	{
+		register uint8_t input asm( "ah" ) = ( uint8_t ) flags.flags;
+		asm volatile( "lahf" :: "r"( input ) : "flags" );
+	}
 	_LINKAGE void set_ac( bool flag )
 	{
 		if ( flag )
@@ -21935,6 +21946,7 @@ namespace ia32
 		else
 			asm volatile( "clc" ::: "flags" );
 	}
+
 	_LINKAGE bool get_cf()
 	{
 		int flag;
