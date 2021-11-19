@@ -21544,6 +21544,17 @@ typedef union
 
 // Some missing enumerations.
 //
+// Misc
+#define IA32_ARCH_CAPABILITIES          0x10A
+#define ARCH_CAPABILITIES_RDCL_NO             (1ull << 0)
+#define ARCH_CAPABILITIES_IBRS_ALL            (1ull << 1)
+#define ARCH_CAPABILITIES_RSBA                (1ull << 2)
+#define ARCH_CAPABILITIES_SKIP_L1DFL_VME      (1ull << 3)
+#define ARCH_CAPABILITIES_SSB_NO              (1ull << 4)
+#define ARCH_CAPABILITIES_MDS_NO              (1ull << 5)
+#define ARCH_CAPABILITIES_IF_PCSCHANGE_MC_NO  (1ull << 6)
+#define ARCH_CAPABILITIES_TSX_CTRL            (1ull << 7)
+#define ARCH_CAPABILITIES_TAA_NO              (1ull << 8)
 // Po
 #define IA32_PKG_ENERGY_STATUS          0x611
 #define IA32_MSR_DRAM_ENERGY_STATUS     0x619
