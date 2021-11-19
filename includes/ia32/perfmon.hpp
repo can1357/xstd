@@ -147,6 +147,19 @@ namespace ia32::pmu
 
 		// CPU capability information.
 		//
+		inline static size_t get_counter_max_value() 
+		{
+			if constexpr ( is_intel )
+			{
+				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>::result;
+				return xstd::fill_bits( caps.eax.bit_width_of_performance_monitoring_counter );
+			}
+			else
+			{
+				return xstd::fill_bits( 48 );
+			}
+
+		}
 		inline static size_t get_dynamic_counter_count()
 		{
 			if constexpr ( is_intel )
