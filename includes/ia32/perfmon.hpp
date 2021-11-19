@@ -37,6 +37,9 @@ namespace ia32::pmu
 		avx_to_sse,
 		sse_to_avx,
 		recovery_stall,
+		rtm_retired_start,
+		rtm_retired_commit,
+		rtm_retired_aborted,
 
 		// AMD only.
 		//
@@ -95,7 +98,9 @@ namespace ia32::pmu
 	template<> struct dynamic_selector<true, event_id::avx_to_sse> { static constexpr evtsel_t value = { 0xC1, 0x10 }; };
 	template<> struct dynamic_selector<true, event_id::sse_to_avx> { static constexpr evtsel_t value = { 0xC1, 0x20 }; };
 	template<> struct dynamic_selector<true, event_id::recovery_stall> { static constexpr evtsel_t value = { 0x0D, 0x20, 1 }; };
-
+	template<> struct dynamic_selector<true, event_id::rtm_retired_start> { static constexpr evtsel_t value = { 0xC9, 0x01 }; };
+	template<> struct dynamic_selector<true, event_id::rtm_retired_commit> { static constexpr evtsel_t value = { 0xC9, 0x02 }; };
+	template<> struct dynamic_selector<true, event_id::rtm_retired_aborted> { static constexpr evtsel_t value = { 0xC9, 0x04 }; };
 
 	// -- AMD exclusive events.
 	template<> struct dynamic_selector<false, event_id::smi_received> { static constexpr evtsel_t value = { 0x2B, 0x00 }; };
@@ -147,18 +152,24 @@ namespace ia32::pmu
 
 		// CPU capability information.
 		//
-		inline static size_t get_counter_max_value() 
+		inline static constexpr bitcnt_t get_counter_resolution()
 		{
-			if constexpr ( is_intel )
-			{
-				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>::result;
-				return xstd::fill_bits( caps.eax.bit_width_of_performance_monitoring_counter );
-			}
-			else
-			{
-				return xstd::fill_bits( 48 );
-			}
-
+			// TODO: Revert if any hardware actually implements this > 48.
+			//
+			//if constexpr ( is_intel )
+			//{
+			//	auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>::result;
+			//	return caps.eax.bit_width_of_performance_monitoring_counter;
+			//}
+			//else
+			//{
+			//	return 48;
+			//}
+			return 48;
+		}
+		inline static constexpr size_t get_counter_max_value()
+		{
+			return xstd::fill_bits( get_counter_resolution() );
 		}
 		inline static size_t get_dynamic_counter_count()
 		{
@@ -170,7 +181,7 @@ namespace ia32::pmu
 			else
 			{
 				auto& caps = static_cpuid<0x80000001, 0, cpuid_eax_80000001>::result;
-				if ( caps.ecx.flags & ( 1ull << 23 ) /*[PerfCtrExtCore]*/ )
+				if ( xstd::bit_test( caps.ecx.flags, 23 ) /*[PerfCtrExtCore]*/ )
 					return 6;
 				else
 					return 4;
