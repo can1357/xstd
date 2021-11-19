@@ -21865,6 +21865,7 @@ namespace ia32
 		return *( T* ) &info[ 0 ];
 	}
 
+	namespace impl { inline constexpr cpuid_result null_result = {}; };
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	struct static_cpuid
 	{
@@ -21874,21 +21875,31 @@ namespace ia32
 	template<uint64_t leaf, uint64_t subleaf>
 	struct static_cpuid<leaf, subleaf, cpuid_result>
 	{
-		inline static const cpuid_result result = query_cpuid<cpuid_result>( leaf, subleaf );
+		inline static cpuid_result _storage = query_cpuid<cpuid_result>( leaf, subleaf );
+
+		static constexpr const cpuid_result& result = _storage;
 		inline operator const cpuid_result&() const noexcept { return result; }
 	};
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	struct static_cpuid_s
 	{
-		inline static const T result = [ ] () -> T
+		inline static const T& result = [ ] () -> const T&
 		{
 			if ( query_cpuid<cpuid_eax_00>( 0 ).max_cpuid_input_value >= leaf )
-				return query_cpuid<T>( leaf, subleaf );
+				return ( const T& ) static_cpuid<leaf, subleaf>::result;
 			else
-				return T{};
+				return ( const T& ) impl::null_result;
 		}();
 		inline operator const T&() const noexcept { return result; }
 	};
+
+	// Refreshes a previously queried CPUID result.
+	//
+	template<uint64_t leaf, uint64_t subleaf = 0>
+	_LINKAGE void refresh_cpuid() 
+	{
+		static_cpuid<leaf, subleaf>::_storage = query_cpuid<cpuid_result>( leaf, subleaf );
+	}
 	
 	// Checks if the CPU vendor is Intel.
 	//
