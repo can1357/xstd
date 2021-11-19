@@ -21852,35 +21852,31 @@ namespace ia32
 	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	_LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
 	{
-		static_assert( sizeof( T ) == ( 4 * 4 ), "Invalid type size." );
-
-		uint32_t info[ 4 ];
+		cpuid_result result = { 0 };
 		asm volatile(
 			"movq %%rbx, %%rsi;"
 			"cpuid;"
 			"xchgq %%rsi, %%rbx;"
-			: "=a"( info[ 0 ] ), "=S"( info[ 1 ] ), "=c"( info[ 2 ] ), "=d"( info[ 3 ] )
+			: "=a"( result[ 0 ] ), "=S"( result[ 1 ] ), "=c"( result[ 2 ] ), "=d"( result[ 3 ] )
 			: "a"( leaf ), "c"( subleaf )
 		);
-		return *( T* ) &info[ 0 ];
+		return xstd::bit_cast< T >( result );
 	}
 
-	namespace impl { inline constexpr cpuid_result null_result = {}; };
+	namespace impl { inline constexpr cpuid_result null_cpuid_result = {}; };
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	struct static_cpuid
 	{
 		inline static const T& result = *( const T* ) &static_cpuid<leaf, subleaf>::result;
-		inline operator const T&() const noexcept { return ( const T& ) static_cpuid<leaf, subleaf>::result; }
 	};
 	template<uint64_t leaf, uint64_t subleaf>
 	struct static_cpuid<leaf, subleaf, cpuid_result>
 	{
 		inline static cpuid_result _storage = query_cpuid<cpuid_result>( leaf, subleaf );
-
 		static constexpr const cpuid_result& result = _storage;
-		inline operator const cpuid_result&() const noexcept { return result; }
 	};
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> 
+		requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && leaf < 0x40000000 )
 	struct static_cpuid_s
 	{
 		inline static const T& result = [ ] () -> const T&
@@ -21888,14 +21884,13 @@ namespace ia32
 			if ( query_cpuid<cpuid_eax_00>( 0 ).max_cpuid_input_value >= leaf )
 				return ( const T& ) static_cpuid<leaf, subleaf>::result;
 			else
-				return ( const T& ) impl::null_result;
+				return ( const T& ) impl::null_cpuid_result;
 		}();
-		inline operator const T&() const noexcept { return result; }
 	};
 
 	// Refreshes a previously queried CPUID result.
 	//
-	template<uint64_t leaf, uint64_t subleaf = 0>
+	template<uint64_t leaf, uint64_t subleaf = 0> requires ( leaf != 0 )
 	_LINKAGE void refresh_cpuid() 
 	{
 		static_cpuid<leaf, subleaf>::_storage = query_cpuid<cpuid_result>( leaf, subleaf );
