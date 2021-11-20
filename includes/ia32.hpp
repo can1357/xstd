@@ -21851,9 +21851,7 @@ namespace ia32
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wuninitialized"
 	using cpuid_result =    std::array<uint32_t, 4>;
-	using cpuid_result_ex = std::array<uint64_t, 4>;
-	
-	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) || sizeof( T ) == sizeof( cpuid_result_ex ) )
+	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	_LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
 	{
 		cpuid_result result;
@@ -21881,23 +21879,6 @@ namespace ia32
 		    mov     %%r8,   %%rbx
 		)" : "=x" ( result ), "+a" ( leaf ), "+c" ( subleaf ) :: "rdx", "r8" );
 		*( v4d_u* ) out = result;
-	}
-	template<typename T = cpuid_result_ex> requires( sizeof( T ) == sizeof( cpuid_result_ex ) )
-	_LINKAGE void query_cpuid( T* out, uint64_t leaf, uint64_t subleaf = 0 )
-	{
-		using v4q_u = xstd::native_vector<uint64_t, 4>;
-
-		v4q_u result;
-		asm volatile( R"(
-		    mov     %%rbx,  %%r8
-		    cpuid
-		    vmovq   %%rax,  %0
-		    vpinsrq $1,     %%rbx, %0, %0
-		    vpinsrq $2,     %%rcx, %0, %0
-		    vpinsrq $3,     %%rdx, %0, %0
-		    mov     %%r8,   %%rbx
-		)" : "=x" ( result ), "+a" ( leaf ), "+c" ( subleaf ) :: "rdx", "r8" );
-		*( v4q_u* ) out = result;
 	}
 #pragma clang diagnostic pop
 	
