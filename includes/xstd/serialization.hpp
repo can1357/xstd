@@ -25,14 +25,14 @@ namespace xstd
 		inline constexpr std::array<uint8_t, 65> length_table = [ ] ()
 		{
 			std::array<uint8_t, 65> len = {};
-			for ( size_t n = 0; n <= 64; n++ )
+			for ( uint8_t n = 0; n <= 64; n++ )
 				len[ n ] = ( uint8_t ) std::max<int>( 1, ( ( 64 - n + 6 ) / 7 ) );
 			return len;
 		}();
 		inline constexpr std::array<uint16_t, 33> decoder_table = [ ] ()
 		{
 			std::array<uint16_t, 33> result = {};
-			for ( size_t i = 0; i != 33; i++ )
+			for ( uint8_t i = 0; i != 33; i++ )
 			{
 				uint8_t shift, length;
 
