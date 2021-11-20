@@ -21848,49 +21848,90 @@ namespace ia32
 
 	// CPUID:
 	//
-	using cpuid_result = std::array<uint32_t, 4>;
-	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wuninitialized"
+	using cpuid_result =    std::array<uint32_t, 4>;
+	using cpuid_result_ex = std::array<uint64_t, 4>;
+	
+	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) || sizeof( T ) == sizeof( cpuid_result_ex ) )
 	_LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
 	{
-		cpuid_result result = { 0 };
-		asm volatile(
-			"movq %%rbx, %%rsi;"
-			"cpuid;"
-			"xchgq %%rsi, %%rbx;"
-			: "=a"( result[ 0 ] ), "=S"( result[ 1 ] ), "=c"( result[ 2 ] ), "=d"( result[ 3 ] )
-			: "a"( leaf ), "c"( subleaf )
-		);
+		cpuid_result result;
+		register uint64_t tmp asm( "rbx" );
+		asm volatile( R"(
+			movq   %%rbx, %q1
+			cpuid
+			xchgq  %q1,   %%rbx  
+		)" : "=a"( result[ 0 ] ), "=&r"( result[ 1 ] ), "=c"( result[ 2 ] ), "=&d"( result[ 3 ] ) : "r" ( tmp ), "a"( leaf ), "c"( subleaf ) );
 		return xstd::bit_cast< T >( result );
 	}
+	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+	_LINKAGE void query_cpuid( T* out, uint64_t leaf, uint64_t subleaf = 0 )
+	{
+		using v4d_u = xstd::native_vector<uint32_t, 4>;
 
-	template<uint64_t leaf, uint64_t subleaf>
-	struct cpuid_result_of
+		v4d_u result;
+		asm volatile( R"(
+		    mov     %%rbx,  %%r8
+		    cpuid
+		    vmovd   %%eax,  %0
+		    vpinsrd $1,     %%ebx, %0, %0
+		    vpinsrd $2,     %%ecx, %0, %0
+		    vpinsrd $3,     %%edx, %0, %0
+		    mov     %%r8,   %%rbx
+		)" : "=x" ( result ), "+a" ( leaf ), "+c" ( subleaf ) :: "rdx", "r8" );
+		*( v4d_u* ) out = result;
+	}
+	template<typename T = cpuid_result_ex> requires( sizeof( T ) == sizeof( cpuid_result_ex ) )
+	_LINKAGE void query_cpuid( T* out, uint64_t leaf, uint64_t subleaf = 0 )
 	{
-		inline static cpuid_result value = {};
-		[[gnu::constructor( 102 ), gnu::used]] inline static void init() { value = query_cpuid<cpuid_result>( leaf, subleaf ); }
-	};
-	template<>
-	struct cpuid_result_of<0, 0>
+		using v4q_u = xstd::native_vector<uint64_t, 4>;
+
+		v4q_u result;
+		asm volatile( R"(
+		    mov     %%rbx,  %%r8
+		    cpuid
+		    vmovq   %%rax,  %0
+		    vpinsrq $1,     %%rbx, %0, %0
+		    vpinsrq $2,     %%rcx, %0, %0
+		    vpinsrq $3,     %%rdx, %0, %0
+		    mov     %%r8,   %%rbx
+		)" : "=x" ( result ), "+a" ( leaf ), "+c" ( subleaf ) :: "rdx", "r8" );
+		*( v4q_u* ) out = result;
+	}
+#pragma clang diagnostic pop
+	
+	namespace impl
 	{
-		inline static cpuid_result value = {};
-		[[gnu::constructor( 101 ), gnu::used]] inline static void init() { value = query_cpuid<cpuid_result>( 0, 0 ); }
+		template<uint64_t leaf, uint64_t subleaf>
+		struct cpuid_result_of
+		{
+			inline static cpuid_result value = {};
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, leaf, subleaf ); }
+		};
+		template<>
+		struct cpuid_result_of<0, 0>
+		{
+			inline static cpuid_result value = {};
+			[[gnu::constructor( 101 ), gnu::used]] inline static void init() { query_cpuid( &value, 0, 0 ); }
+		};
+		template<uint64_t leaf, uint64_t subleaf>
+		struct cpuid_result_of_s
+		{
+			inline static cpuid_result value = {};
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init()
+			{ 
+				if ( cpuid_result_of<0, 0>::value[ 0 ] >= leaf )
+					query_cpuid( &value, leaf, subleaf );
+			}
+		};
 	};
-	template<uint64_t leaf, uint64_t subleaf>
-	struct cpuid_result_of_s
-	{
-		inline static cpuid_result value = {};
-		[[gnu::constructor( 102 ), gnu::used]] inline static void init()
-		{ 
-			if ( cpuid_result_of<0, 0>::value[ 0 ] >= leaf )
-				value = query_cpuid<cpuid_result>( leaf, subleaf ); 
-		}
-	};
-	_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) { return cpuid_result_of<0, 0>::value[ 0 ] >= leaf; }
+	_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) { return impl::cpuid_result_of<0, 0>::value[ 0 ] >= leaf; }
 	
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
-	inline const T& static_cpuid =   *( const T* ) &cpuid_result_of<leaf, subleaf>::value;
+	inline const T& static_cpuid =   *( const T* ) &impl::cpuid_result_of<leaf, subleaf>::value;
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && leaf < 0x40000000 )
-	inline const T& static_cpuid_s = *( const T* ) &cpuid_result_of_s<leaf, subleaf>::value;
+	inline const T& static_cpuid_s = *( const T* ) &impl::cpuid_result_of_s<leaf, subleaf>::value;
 
 	// Refreshes a previously queried CPUID result.
 	//
@@ -21898,9 +21939,9 @@ namespace ia32
 	_LINKAGE void refresh_cpuid() 
 	{
 		cpuid_result result = query_cpuid<cpuid_result>( leaf, subleaf );
-		cpuid_result_of<leaf, subleaf>::value = result;
+		impl::cpuid_result_of<leaf, subleaf>::value = result;
 		if ( has_cpuid_leaf( leaf ) )
-			cpuid_result_of_s<leaf, subleaf>::value = result;
+			impl::cpuid_result_of_s<leaf, subleaf>::value = result;
 	}
 	
 	// Checks if the CPU vendor is Intel.
