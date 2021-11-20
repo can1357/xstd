@@ -21583,6 +21583,15 @@ typedef union
 #define EFER_TCE                        (1ull << 15) /* Translation Cache Extension */
 // LBR selection
 #define IA32_LBR_SELECT 0x1C8
+#define LBR_SELECT_CPL_EQ_0       (1ull<<0)
+#define LBR_SELECT_CPL_NEQ_0      (1ull<<1)
+#define LBR_SELECT_JCC            (1ull<<2)
+#define LBR_SELECT_NEAR_REL_CALL  (1ull<<3)
+#define LBR_SELECT_NEAR_IND_CALL  (1ull<<4)
+#define LBR_SELECT_NEAR_RET       (1ull<<5)
+#define LBR_SELECT_NEAR_IND_JMP   (1ull<<6)
+#define LBR_SELECT_NEAR_REL_JMP   (1ull<<7)
+#define LBR_SELECT_FAR_BRANCH     (1ull<<8)
 // TSX control
 #define IA32_TSX_CTRL          0x122
 #define TSX_CTRL_DISABLE_RTM   (1<<0)
