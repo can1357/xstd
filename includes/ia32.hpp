@@ -21863,37 +21863,44 @@ namespace ia32
 		return xstd::bit_cast< T >( result );
 	}
 
-	namespace impl { inline constexpr cpuid_result null_cpuid_result = {}; };
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
-	struct static_cpuid
+	template<uint64_t leaf, uint64_t subleaf>
+	struct cpuid_result_of
 	{
-		inline static const T& result = *( const T* ) &static_cpuid<leaf, subleaf>::result;
+		inline static cpuid_result value = {};
+		[[gnu::constructor( 102 ), gnu::used]] inline static void init() { value = query_cpuid<cpuid_result>( leaf, subleaf ); }
+	};
+	template<>
+	struct cpuid_result_of<0, 0>
+	{
+		inline static cpuid_result value = {};
+		[[gnu::constructor( 101 ), gnu::used]] inline static void init() { value = query_cpuid<cpuid_result>( 0, 0 ); }
 	};
 	template<uint64_t leaf, uint64_t subleaf>
-	struct static_cpuid<leaf, subleaf, cpuid_result>
+	struct cpuid_result_of_s
 	{
-		inline static cpuid_result _storage = query_cpuid<cpuid_result>( leaf, subleaf );
-		static constexpr const cpuid_result& result = _storage;
+		inline static cpuid_result value = {};
+		[[gnu::constructor( 102 ), gnu::used]] inline static void init()
+		{ 
+			if ( cpuid_result_of<0, 0>::value[ 0 ] >= leaf )
+				value = query_cpuid<cpuid_result>( leaf, subleaf ); 
+		}
 	};
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> 
-		requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && leaf < 0x40000000 )
-	struct static_cpuid_s
-	{
-		inline static const T& result = [ ] () -> const T&
-		{
-			if ( query_cpuid<cpuid_eax_00>( 0 ).max_cpuid_input_value >= leaf )
-				return ( const T& ) static_cpuid<leaf, subleaf>::result;
-			else
-				return ( const T& ) impl::null_cpuid_result;
-		}();
-	};
+	_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) { return cpuid_result_of<0, 0>::value[ 0 ] >= leaf; }
+	
+	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+	inline const T& static_cpuid =   *( const T* ) &cpuid_result_of<leaf, subleaf>::value;
+	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && leaf < 0x40000000 )
+	inline const T& static_cpuid_s = *( const T* ) &cpuid_result_of_s<leaf, subleaf>::value;
 
 	// Refreshes a previously queried CPUID result.
 	//
 	template<uint64_t leaf, uint64_t subleaf = 0> requires ( leaf != 0 )
 	_LINKAGE void refresh_cpuid() 
 	{
-		static_cpuid<leaf, subleaf>::_storage = query_cpuid<cpuid_result>( leaf, subleaf );
+		cpuid_result result = query_cpuid<cpuid_result>( leaf, subleaf );
+		cpuid_result_of<leaf, subleaf>::value = result;
+		if ( has_cpuid_leaf( leaf ) )
+			cpuid_result_of_s<leaf, subleaf>::value = result;
 	}
 	
 	// Checks if the CPU vendor is Intel.
@@ -21916,7 +21923,7 @@ namespace ia32
 	};
 	_LINKAGE CONST_FN cpu_vendor get_vendor()
 	{
-		return ( ( const cpu_vendor* ) &static_cpuid<0, 0, cpuid_eax_00>::result.ebx_value_genu )[ vendor_uid_idx ];
+		return ( ( const cpu_vendor* ) &static_cpuid<0, 0, cpuid_eax_00>.ebx_value_genu )[ vendor_uid_idx ];
 	}
 	_LINKAGE CONST_FN bool is_intel() { return get_vendor() == cpu_vendor::intel; }
 	_LINKAGE CONST_FN bool is_amd() { return get_vendor() == cpu_vendor::amd; }
@@ -22163,7 +22170,7 @@ namespace ia32
 	}
 	_LINKAGE void flush_tlb()
 	{
-		if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.invpcid )
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.invpcid )
 			return invpcid( invpcid_type::global, 0, nullptr );
 
 		auto cr4 = read_cr4();
@@ -22308,14 +22315,14 @@ namespace ia32
 
 	_LINKAGE void clflushopt_s( xstd::any_ptr ptr )
 	{
-		if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clflushopt )
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clflushopt )
 			clflushopt( ptr );
 		else
 			clflush( ptr );
 	}
 	_LINKAGE void clwb_s( xstd::any_ptr ptr )
 	{
-		if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clwb )
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clwb )
 			clwb( ptr );
 		else
 			clflush( ptr );
@@ -22374,14 +22381,14 @@ namespace ia32
 	}
 	_LINKAGE void clflushopt_s( xstd::any_ptr ptr, size_t n )
 	{
-		if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clflushopt )
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clflushopt )
 			clflushopt( ptr, n );
 		else
 			clflush( ptr, n );
 	}
 	_LINKAGE void clwb_s( xstd::any_ptr ptr, size_t n )
 	{
-		if ( static_cpuid_s<7, 0, cpuid_eax_07>::result.ebx.clwb )
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clwb )
 			clwb( ptr, n );
 		else
 			clflushopt_s( ptr, n );
@@ -22878,7 +22885,7 @@ namespace ia32
 
 		// Use a pause loop if MONITOR is not available.
 		//
-		const auto& monitor_flags = static_cpuid_s<1, 0, cpuid_eax_01>::result.cpuid_feature_information_ecx;
+		const auto& monitor_flags = static_cpuid_s<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx;
 		const bool mwait_supported = monitor_flags.monitor_mwait_instruction;
 		if ( !mwait_supported ) [[unlikely]]
 		{
@@ -22889,7 +22896,7 @@ namespace ia32
 		
 		// Determine MWAIT flags.
 		//
-		const auto& mwait_flags =             static_cpuid_s<5, 0, cpuid_eax_05>::result.ecx;
+		const auto& mwait_flags =             static_cpuid_s<5, 0, cpuid_eax_05>.ecx;
 		const bool mwait_supports_if_bypass = mwait_flags.enumeration_of_monitor_mwait_extensions && mwait_flags.supports_treating_interrupts_as_break_event_for_mwait;
 		const uint32_t mwait_exts =           ( caller_if && mwait_supports_if_bypass ) ? mwait_ext_v<true> : mwait_ext_v<>;
 		const bool sti_mwait =                ( caller_if && !mwait_supports_if_bypass );

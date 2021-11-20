@@ -158,7 +158,7 @@ namespace ia32::pmu
 			//
 			//if constexpr ( is_intel )
 			//{
-			//	auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>::result;
+			//	auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>;
 			//	return caps.eax.bit_width_of_performance_monitoring_counter;
 			//}
 			//else
@@ -175,12 +175,12 @@ namespace ia32::pmu
 		{
 			if constexpr ( is_intel )
 			{
-				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>::result;
+				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>;
 				return caps.eax.number_of_performance_monitoring_counter_per_logical_processor;
 			}
 			else
 			{
-				auto& caps = static_cpuid<0x80000001, 0, cpuid_eax_80000001>::result;
+				auto& caps = static_cpuid<0x80000001, 0, cpuid_eax_80000001>;
 				if ( xstd::bit_test( caps.ecx.flags, 23 ) /*[PerfCtrExtCore]*/ )
 					return 6;
 				else
@@ -191,7 +191,7 @@ namespace ia32::pmu
 		{
 			if constexpr ( is_intel )
 			{
-				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>::result;
+				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>;
 				return caps.edx.number_of_fixed_function_performance_counters;
 			}
 			return 0;
