@@ -67,7 +67,7 @@ namespace xstd
 		}
 	}
 
-	// Fast uniform real distribution.
+	// Fast uniform distribution.
 	//
 	template<FloatingPoint F, Unsigned S> requires ( sizeof( S ) >= sizeof( F ) )
 	inline constexpr F uniform_real( S v )
@@ -95,7 +95,6 @@ namespace xstd
 		v = rotl( v, mantissa_bits );
 		return bit_cast< F >( U( v ) ) + 0.5;
 	}
-
 	template<Unsigned S> requires ( sizeof( S ) >= sizeof( double ) )
 	inline constexpr double uniform_real( S v, double min, double max )
 	{
@@ -105,6 +104,16 @@ namespace xstd
 	inline constexpr float uniform_real( S v, float min, float max )
 	{
 		return min + uniform_real<float, S>( v ) * ( max - min );
+	}
+	template<Integral I, Unsigned S>
+	inline constexpr I uniform_integer( S seed, I min, I max ) 
+	{
+		if constexpr ( sizeof( S ) > sizeof( I ) )
+			return uniform_integer<I, convert_uint_t<I>>( ( convert_uint_t<I> ) seed, min, max );
+		else if constexpr ( Same<I, bool> )
+			return ( seed & 1 ) ? min : max;
+		else
+			return min + ( seed % ( max - min ) );
 	}
 
 	// Implement an PCG and its atomic variant.
@@ -208,39 +217,6 @@ namespace xstd
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
 		inline __xstd_rng global_rng{ XSTD_RANDOM_FIXED_SEED };
 #endif
-
-		// Constexpr uniform integer distribution.
-		//
-		template<Integral T>
-		static constexpr T uniform_eval( uint64_t value, T min, T max )
-		{
-			using U = std::make_unsigned_t<T>;
-			
-			if ( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() )
-			{
-				value &= std::numeric_limits<U>::max();
-
-				if constexpr ( Signed<T> )
-					return ( T ) ( int64_t( value ) + min );
-				else
-					return ( T ) value;
-			}
-
-			if constexpr ( Signed<T> )
-			{
-				if ( min < 0 && max < 0 )
-					return -( T ) uniform_eval<U>( value, ( U ) -min, ( U ) -max );
-				else if ( min < 0 )
-					return T( uniform_eval<U>( value, 0, ( U ) max + ( U ) -min ) ) - min;
-				else
-					return ( T ) uniform_eval<U>( value, ( U ) min, ( U ) max );
-			}
-			else
-			{
-				uint64_t range = ( uint64_t( max - min ) + 1 );
-				return ( T ) ( convert_uint_t<T> ) ( min + ( value % range ) );
-			}
-		}
 #undef __xstd_rng
 	};
 
@@ -255,22 +231,13 @@ namespace xstd
 	// Generates a secure random number.
 	//
 	template<Integral T = uint64_t>
-	FORCE_INLINE static T make_srandom()
+	FORCE_INLINE static T make_srandom( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		using U = std::random_device::result_type;
 		U seed[ ( sizeof( T ) + sizeof( U ) - 1 ) / sizeof( U ) ];
 		for( auto& v : seed )
 			v = std::random_device{}();
-		return *( T* ) &seed[ 0 ];
-	}
-	template<Integral T = uint64_t>
-	FORCE_INLINE static T make_srandom( T min, T max = std::numeric_limits<T>::max() )
-	{
-		if ( const_condition( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() ) )
-			return make_srandom<T>();
-
-		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
-		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( std::random_device{} );
+		return uniform_integer( *( convert_uint_t<T>* ) & seed[ 0 ], min, max );
 	}
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_srandom( T min = 0, T max = 1 )
@@ -281,18 +248,9 @@ namespace xstd
 	// Generates a single random number.
 	//
 	template<Integral T = uint64_t>
-	FORCE_INLINE static T make_random()
+	FORCE_INLINE static T make_random( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
-		uint64_t result = impl::global_rng();
-		return ( T& ) result;
-	}
-	template<Integral T = uint64_t>
-	FORCE_INLINE static T make_random( T min, T max = std::numeric_limits<T>::max() )
-	{
-		if ( const_condition( min == std::numeric_limits<T>::min() && max == std::numeric_limits<T>::max() ) )
-			return make_random<T>();
-		using V = std::conditional_t < sizeof( T ) < 4, int32_t, T > ;
-		return ( T ) std::uniform_int_distribution<V>{ ( V ) min, ( V ) max }( impl::global_rng );
+		return uniform_integer( impl::global_rng(), min, max );
 	}
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_random( T min = 0, T max = 1 )
@@ -303,7 +261,7 @@ namespace xstd
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
-		return impl::uniform_eval( key, min, max );
+		return uniform_integer( key, min, max );
 	}
 	template<FloatingPoint T>
 	FORCE_INLINE static constexpr T make_crandom( uint64_t key = 0, T min = 0, T max = 1 )
@@ -330,7 +288,7 @@ namespace xstd
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
 		for ( auto& v : cnt )
-			v = impl::uniform_eval<T>( lce_64( key ), min, max );
+			v = uniform_integer( lce_64( key ), min, max );
 	}
 
 	// Enum equivalents.
@@ -370,7 +328,7 @@ namespace xstd
 	FORCE_INLINE static constexpr std::array<T, sizeof...( I )> make_crandom_n( uint64_t key, T min, T max, std::index_sequence<I...> )
 	{
 		key = pce_64_n( impl::crandom_default_seed ^ key, 1 + ( key & 3 ) );
-		return { impl::uniform_eval( lce_64( ( I, key ) ), min, max )... };
+		return { uniform_integer( lce_64( ( I, key ) ), min, max )... };
 	}
 	template<typename T, size_t N>
 	FORCE_INLINE static std::array<T, N> make_random_n( T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max() )
