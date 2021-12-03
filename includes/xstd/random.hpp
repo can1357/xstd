@@ -125,9 +125,9 @@ namespace xstd
 		static constexpr uint64_t multiplier = 6364136223846793005;
 		static constexpr uint64_t increment =  1;
 
-		uint64_t state;
-		inline constexpr basic_pcg( uint64_t s = 0 ) : state( ( pce_32( ++s ), s ) ) {}
-		inline constexpr void seed( uint64_t s ) { state = basic_pcg<>{ s }.state; }
+		uint64_t state = 0;
+		inline constexpr basic_pcg( uint64_t s = 0 ) { seed( s ); }
+		inline constexpr void seed( uint64_t s ) { state = s; pce_32( state ); }
 
 		constexpr basic_pcg( const basic_pcg& o ) = default;
 		constexpr basic_pcg& operator=( const basic_pcg& o ) = default;
