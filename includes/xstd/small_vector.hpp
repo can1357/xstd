@@ -161,7 +161,10 @@ namespace xstd
 		}
 		bool push_back( const T& value )
 		{
-			return insert( end(), value ) != nullptr;
+			if ( length == N )
+				return false;
+			emplace( end(), value );
+			return true;
 		}
 		template<typename... Tx>
 		reference emplace_back( Tx&&... args )
@@ -414,7 +417,10 @@ namespace xstd
 		}
 		constexpr bool push_back( const T& value )
 		{
-			return insert( end(), value ) != nullptr;
+			if ( length == N )
+				return false;
+			emplace( end(), value );
+			return true;
 		}
 		template<typename... Tx>
 		constexpr reference emplace_back( Tx&&... args )
