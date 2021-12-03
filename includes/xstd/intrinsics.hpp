@@ -372,7 +372,7 @@ namespace xstd
 	FORCE_INLINE static void fastfail [[noreturn]] ( int status )
 	{
 		#if AMD64_TARGET
-			asm volatile ( "int $0x2c" :: "c" ( status ) );
+			asm volatile ( "int $0x29" :: "c" ( status ) );
 		#else
 			__trap();
 		#endif
