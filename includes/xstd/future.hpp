@@ -232,7 +232,7 @@ namespace xstd
 
 		// Event and the continuation list.
 		//
-		mutable impl::wait_block* volatile      events = nullptr;
+		mutable impl::wait_block*               events = nullptr;
 		mutable impl::continuation_vector       continuation = {};
 
 		// Result.
@@ -296,10 +296,10 @@ namespace xstd
 				if ( it->next == &wb )
 				{
 					it->next = wb.next;
-					break;
+					return true;
 				}
 			}
-			return true;
+			xstd::error( XSTD_ESTR( "Corrupt wait list." ) );
 		}
 
 		// Waits for the event to be complete.
