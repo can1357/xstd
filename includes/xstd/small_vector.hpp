@@ -166,6 +166,13 @@ namespace xstd
 			emplace( end(), value );
 			return true;
 		}
+		bool push_back( T&& value )
+		{
+			if ( length == N )
+				return false;
+			emplace( end(), std::move( value ) );
+			return true;
+		}
 		template<typename... Tx>
 		reference emplace_back( Tx&&... args )
 		{
@@ -420,6 +427,13 @@ namespace xstd
 			if ( length == N )
 				return false;
 			emplace( end(), value );
+			return true;
+		}
+		constexpr bool push_back( T&& value )
+		{
+			if ( length == N )
+				return false;
+			emplace( end(), std::move( value ) );
 			return true;
 		}
 		template<typename... Tx>
