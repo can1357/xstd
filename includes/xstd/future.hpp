@@ -394,9 +394,13 @@ namespace xstd
 
 				// Notify all events.
 				//
-				for ( auto it = events; it; it = it->next )
-					it->event.notify( true );
-				events = nullptr;
+				auto it = std::exchange( events, nullptr );
+				while ( it )
+				{
+					auto* evt = &it->event;
+					it = it->next;
+					evt->notify( true );
+				}
 			}
 
 			// If there are any continuation entries:
