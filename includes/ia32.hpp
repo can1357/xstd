@@ -22155,11 +22155,13 @@ namespace ia32
 		{
 			struct
 			{
-				uint32_t low = 0;
-				uint32_t high = 0;
+				uint32_t low;
+				uint32_t high;
 			};
+			uint64_t full;
 			T t;
-		} value = {};
+		} value;
+		value.full = 0;
 		value.t = tvalue;
 		asm volatile( "wrmsr" :: "a" ( value.low ), "d" ( value.high ), "c" ( id ) );
 	}
@@ -22188,11 +22190,13 @@ namespace ia32
 		{
 			struct
 			{
-				uint32_t low = 0;
-				uint32_t high = 0;
+				uint32_t low;
+				uint32_t high;
 			};
+			uint64_t full;
 			T t;
-		} value = {};
+		} value;
+		value.full = 0;
 		value.t = tvalue;
 		asm volatile( "xsetbv" :: "a" ( value.low ), "d" ( value.high ), "c" ( id ) );
 	}
@@ -22597,7 +22601,7 @@ namespace ia32
 
 	// I/O ports.
 	//
-	template<typename T>
+	template<typename T> requires ( sizeof( T ) <= 4 )
 	_LINKAGE T read_io( uint16_t adr )
 	{
 		union
@@ -22607,59 +22611,52 @@ namespace ia32
 			uint32_t i32;
 			T t;
 		} value;
-		if constexpr ( sizeof( T ) == 4 )
+		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "in %%dx, %%eax" : "=a" ( value.i32 ) : "d" ( adr ) );
-		else if constexpr ( sizeof( T ) == 2 )
+		else if constexpr ( sizeof( T ) > 1 )
 			asm volatile( "in %%dx, %%ax"  : "=a" ( value.i16 ) : "d" ( adr ) );
-		else if constexpr ( sizeof( T ) == 1 )
-			asm volatile( "in %%dx, %%al"  : "=a" ( value.i8 )  : "d" ( adr ) );
 		else
-			unreachable();
+			asm volatile( "in %%dx, %%al"  : "=a" ( value.i8 )  : "d" ( adr ) );
 		return value.t;
 	}
-	template<typename T>
+	template<typename T> requires ( sizeof( T ) <= 4 )
 	_LINKAGE void read_io( xstd::any_ptr dst, uint16_t adr, size_t count )
 	{
-		if constexpr ( sizeof( T ) == 4 )
+		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
-		else if constexpr ( sizeof( T ) == 2 )
+		else if constexpr ( sizeof( T ) > 1 )
 			asm volatile( "cld; rep insw" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
-		else if constexpr ( sizeof( T ) == 1 )
-			asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
 		else
-			unreachable();
+			asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
 	}
-	template<typename T = uint8_t>
+	template<typename T = uint8_t> requires ( sizeof( T ) <= 4 )
 	_LINKAGE void write_io( uint16_t adr, T tvalue )
 	{
 		union
 		{
 			uint8_t  i8;
 			uint16_t i16;
-			uint32_t i32 = 0;
+			uint32_t i32;
 			T t;
-		} value = {};
+		} value;
+		value.i32 = 0;
 		value.t = tvalue;
-		if constexpr ( sizeof( T ) == 4 )
+		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "out %%eax, %%dx" :: "a" ( value.i32 ), "d" ( adr ) );
-		else if constexpr ( sizeof( T ) == 2 )
+		else if constexpr ( sizeof( T ) > 1 )
 			asm volatile( "out %%ax, %%dx"  :: "a" ( value.i16 ), "d" ( adr ) );
-		else if constexpr ( sizeof( T ) == 1 )
-			asm volatile( "out %%al, %%dx"  :: "a" ( value.i8 ),  "d" ( adr ) );
 		else
-			unreachable();
+			asm volatile( "out %%al, %%dx"  :: "a" ( value.i8 ),  "d" ( adr ) );
 	}
-	template<typename T>
+	template<typename T> requires ( sizeof( T ) <= 4 )
 	_LINKAGE void write_io( uint16_t adr, xstd::any_ptr dst, size_t count )
 	{
-		if constexpr ( sizeof( T ) == 4 )
+		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
-		else if constexpr ( sizeof( T ) == 2 )
+		else if constexpr ( sizeof( T ) > 1 )
 			asm volatile( "cld; rep outsw" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
-		else if constexpr ( sizeof( T ) == 1 )
-			asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
 		else
-			unreachable();
+			asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
 	}
 	_LINKAGE void usleep()
 	{
