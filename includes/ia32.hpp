@@ -22138,13 +22138,14 @@ namespace ia32
 	{
 		union
 		{
+			uint64_t full;
 			struct
 			{
 				uint32_t low;
 				uint32_t high;
 			};
 			T t;
-		} value;
+		} value = { .full = 0 };
 		asm volatile( "rdmsr" : "=a" ( value.low ), "=d" ( value.high ) : "c" ( id ) );
 		return value.t;
 	}
@@ -22153,15 +22154,14 @@ namespace ia32
 	{
 		union
 		{
+			uint64_t full;
 			struct
 			{
 				uint32_t low;
 				uint32_t high;
 			};
-			uint64_t full;
 			T t;
-		} value;
-		value.full = 0;
+		} value = { .full = 0 };
 		value.t = tvalue;
 		asm volatile( "wrmsr" :: "a" ( value.low ), "d" ( value.high ), "c" ( id ) );
 	}
@@ -22173,13 +22173,14 @@ namespace ia32
 	{
 		union
 		{
+			uint64_t full;
 			struct
 			{
 				uint32_t low;
 				uint32_t high;
 			};
 			T t;
-		} value;
+		} value = { .full = 0 };
 		asm volatile( "xgetbv" : "=a" ( value.low ), "=d" ( value.high ) : "c" ( id ) : );
 		return value.t;
 	}
@@ -22188,15 +22189,14 @@ namespace ia32
 	{
 		union
 		{
+			uint64_t full;
 			struct
 			{
 				uint32_t low;
 				uint32_t high;
 			};
-			uint64_t full;
 			T t;
-		} value;
-		value.full = 0;
+		} value = { .full = 0 };
 		value.t = tvalue;
 		asm volatile( "xsetbv" :: "a" ( value.low ), "d" ( value.high ), "c" ( id ) );
 	}
@@ -22610,7 +22610,7 @@ namespace ia32
 			uint16_t i16;
 			uint32_t i32;
 			T t;
-		} value;
+		} value = { .i32 = 0 };
 		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "in %%dx, %%eax" : "=a" ( value.i32 ) : "d" ( adr ) );
 		else if constexpr ( sizeof( T ) > 1 )
@@ -22638,8 +22638,7 @@ namespace ia32
 			uint16_t i16;
 			uint32_t i32;
 			T t;
-		} value;
-		value.i32 = 0;
+		} value = { .i32 = 0 };
 		value.t = tvalue;
 		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "out %%eax, %%dx" :: "a" ( value.i32 ), "d" ( adr ) );
