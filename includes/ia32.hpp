@@ -22105,35 +22105,30 @@ namespace ia32
 	//
 	_LINKAGE uint64_t read_tsc()
 	{
-		register uint32_t low asm( "eax" );
-		register uint32_t high asm( "edx" );
-		asm volatile( "rdtsc" : "=r" ( low ), "=r" ( high ) :: );
+		uint32_t low, high;
+		asm volatile( "rdtsc" : "=a" ( low ), "=d" ( high ) :: );
 		return low | ( uint64_t( high ) << 32 );
 	}
 	_LINKAGE std::pair<uint64_t, uint32_t> read_tscp()
 	{
-		register uint32_t low asm( "eax" );
-		register uint32_t high asm( "edx" );
-		register uint32_t pid asm( "ecx" );
-		asm volatile( "rdtscp" : "=r" ( low ), "=r" ( pid ), "=r" ( high ) :: );
-		return { low | ( uint64_t( high ) << 32 ), pid };
+		uint32_t low, high, pcid;
+		asm volatile( "rdtscp" : "=a" ( low ), "=d" ( high ), "=c" ( pcid ) :: );
+		return { low | ( uint64_t( high ) << 32 ), pcid };
 	}
 	_LINKAGE uint64_t read_pmc( uint64_t id, bool fixed = false, bool fast = false )
 	{
 		if ( fast ) id |= 1ull << 31;
 		if ( fixed ) id |= 1ull << 30;
 
-		register uint32_t low asm( "eax" );
-		register uint32_t high asm( "edx" );
-		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "rdpmc" : "=r" ( low ), "=r" ( high ) : "r" ( _id ) );
+		uint32_t low, high;
+		asm volatile( "rdpmc" : "=a" ( low ), "=d" ( high ) : "c" ( id ) );
 		return low | ( uint64_t( high ) << 32 );
 	}
 	_LINKAGE uint32_t read_pcid()
 	{
-		register uint32_t pid asm( "ecx" );
-		asm volatile( "rdtscp" : "=r" ( pid ) :: "rax", "rdx" );
-		return pid;
+		uint32_t pcid;
+		asm volatile( "rdtscp" : "=c" ( pcid ) :: "rax", "rdx" );
+		return pcid;
 	}
 
 	// Read write model-specific registers.
@@ -22141,22 +22136,32 @@ namespace ia32
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
 	_LINKAGE T read_msr( uint64_t id )
 	{
-		register uint32_t low asm( "eax" );
-		register uint32_t high asm( "edx" );
-		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "rdmsr" : "=r" ( low ), "=r" ( high ) : "r" ( _id ) );
-		uint64_t value = low | ( uint64_t( high ) << 32 );
-		return *( T* ) &value;
+		union
+		{
+			struct
+			{
+				uint32_t low;
+				uint32_t high;
+			};
+			T t;
+		} value;
+		asm volatile( "rdmsr" : "=a" ( value.low ), "=d" ( value.high ) : "c" ( id ) );
+		return value.t;
 	}
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
 	_LINKAGE void write_msr( uint64_t id, T tvalue )
 	{
-		uint64_t value = 0;
-		memcpy( &value, &tvalue, sizeof( T ) );
-		register uint32_t low asm( "eax" ) = uint32_t( value );
-		register uint32_t high asm( "edx" ) = uint32_t( value >> 32 );
-		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "wrmsr" :: "r" ( low ), "r" ( high ), "r" ( _id ) );
+		union
+		{
+			struct
+			{
+				uint32_t low = 0;
+				uint32_t high = 0;
+			};
+			T t;
+		} value = {};
+		value.t = tvalue;
+		asm volatile( "wrmsr" :: "a" ( value.low ), "d" ( value.high ), "c" ( id ) );
 	}
 
 	// Extended control registers.
@@ -22164,22 +22169,32 @@ namespace ia32
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
 	_LINKAGE T read_xcr( uint64_t id )
 	{
-		register uint32_t low asm( "eax" );
-		register uint32_t high asm( "edx" );
-		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "xgetbv" : "=r" ( low ), "=r" ( high ) : "r" ( _id ) : );
-		uint64_t value = low | ( uint64_t( high ) << 32 );
-		return *( T* ) &value;
+		union
+		{
+			struct
+			{
+				uint32_t low;
+				uint32_t high;
+			};
+			T t;
+		} value;
+		asm volatile( "xgetbv" : "=a" ( value.low ), "=d" ( value.high ) : "c" ( id ) : );
+		return value.t;
 	}
 	template<typename T = uint64_t> requires ( sizeof( T ) <= 8 )
 	_LINKAGE void write_xcr( uint64_t id, T tvalue )
 	{
-		uint64_t value = 0;
-		memcpy( &value, &tvalue, sizeof( T ) );
-		register uint32_t low asm( "eax" ) = uint32_t( value );
-		register uint32_t high asm( "edx" ) = uint32_t( value >> 32 );
-		register uint64_t _id asm( "rcx" ) = id;
-		asm volatile( "xsetbv" :: "r" ( low ), "r" ( high ), "r" ( _id ) );
+		union
+		{
+			struct
+			{
+				uint32_t low = 0;
+				uint32_t high = 0;
+			};
+			T t;
+		} value = {};
+		value.t = tvalue;
+		asm volatile( "xsetbv" :: "a" ( value.low ), "d" ( value.high ), "c" ( id ) );
 	}
 
 	// Memory intrinsics.
@@ -22585,17 +22600,22 @@ namespace ia32
 	template<typename T>
 	_LINKAGE T read_io( uint16_t adr )
 	{
-		register uint32_t result asm( "eax" ) = 0;
-		register uint16_t adr_reg asm( "dx" ) = adr;
+		union
+		{
+			uint8_t  i8;
+			uint16_t i16;
+			uint32_t i32;
+			T t;
+		} value;
 		if constexpr ( sizeof( T ) == 4 )
-			asm volatile( "in %%dx, %%eax" : "=r" ( result ) : "r" ( adr_reg ) );
+			asm volatile( "in %%dx, %%eax" : "=a" ( value.i32 ) : "d" ( adr ) );
 		else if constexpr ( sizeof( T ) == 2 )
-			asm volatile( "in %%dx, %%ax" : "=r" ( result ) : "r" ( adr_reg ) );
+			asm volatile( "in %%dx, %%ax"  : "=a" ( value.i16 ) : "d" ( adr ) );
 		else if constexpr ( sizeof( T ) == 1 )
-			asm volatile( "in %%dx, %%al" : "=r" ( result ) : "r" ( adr_reg ) );
+			asm volatile( "in %%dx, %%al"  : "=a" ( value.i8 )  : "d" ( adr ) );
 		else
 			unreachable();
-		return *( T* ) &result;
+		return value.t;
 	}
 	template<typename T>
 	_LINKAGE void read_io( xstd::any_ptr dst, uint16_t adr, size_t count )
@@ -22610,18 +22630,22 @@ namespace ia32
 			unreachable();
 	}
 	template<typename T = uint8_t>
-	_LINKAGE void write_io( uint16_t adr, T value )
+	_LINKAGE void write_io( uint16_t adr, T tvalue )
 	{
-		uint32_t v = 0;
-		*( T* ) &v = value;
-		register uint32_t _value asm( "eax" ) = v;
-		register uint16_t adr_reg asm( "dx" ) = adr;
+		union
+		{
+			uint8_t  i8;
+			uint16_t i16;
+			uint32_t i32 = 0;
+			T t;
+		} value = {};
+		value.t = tvalue;
 		if constexpr ( sizeof( T ) == 4 )
-			asm volatile( "out %%eax, %%dx" :: "r" ( _value ), "r" ( adr_reg ) );
+			asm volatile( "out %%eax, %%dx" :: "a" ( value.i32 ), "d" ( adr ) );
 		else if constexpr ( sizeof( T ) == 2 )
-			asm volatile( "out %%ax, %%dx" :: "r" ( _value ), "r" ( adr_reg ) );
+			asm volatile( "out %%ax, %%dx"  :: "a" ( value.i16 ), "d" ( adr ) );
 		else if constexpr ( sizeof( T ) == 1 )
-			asm volatile( "out %%al, %%dx" :: "r" ( _value ), "r" ( adr_reg ) );
+			asm volatile( "out %%al, %%dx"  :: "a" ( value.i8 ),  "d" ( adr ) );
 		else
 			unreachable();
 	}
@@ -22713,51 +22737,51 @@ namespace ia32
 	}
 	_LINKAGE void xsave( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsave %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsave %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsave64( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsaveq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsaveq %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsaves( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsaves %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsaves %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsaves64( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsavesq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsavesq %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsavec( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsavec %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsavec %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsavec64( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsavecq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsavecq %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsaveopt( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsaveopt %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsaveopt %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xsaveopt64( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xsaveoptq %0" : "=m" ( buffer ) : "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xsaveoptq %0" : "=m" ( buffer ) : "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void fxrstor( void* buffer )
 	{
@@ -22769,27 +22793,27 @@ namespace ia32
 	}
 	_LINKAGE void xrstor( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xrstor %0" ::  "m" ( buffer ), "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xrstor %0" ::  "m" ( buffer ), "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xrstor64( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xrstorq %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xrstorq %0" :: "m" ( buffer ), "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xrstors( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xrstors %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xrstors %0" :: "m" ( buffer ), "a"( low ), "d"( high ) );
 	}
 	_LINKAGE void xrstors64( void* buffer, uint64_t components )
 	{
-		register uint32_t low asm( "eax" ) = uint32_t( components );
-		register uint32_t high asm( "edx" ) = uint32_t( components >> 32 );
-		asm volatile( "xrstorsq %0" :: "m" ( buffer ), "r"( low ), "r"( high ) );
+		uint32_t low = uint32_t( components );
+		uint32_t high = uint32_t( components >> 32 );
+		asm volatile( "xrstorsq %0" :: "m" ( buffer ), "a"( low ), "d"( high ) );
 	}
 
 	// String intrinsics.
