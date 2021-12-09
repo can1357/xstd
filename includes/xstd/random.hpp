@@ -108,12 +108,13 @@ namespace xstd
 	template<Integral I, Unsigned S>
 	inline constexpr I uniform_integer( S seed, I min, I max ) 
 	{
+		using U = convert_uint_t<I>;
 		if constexpr ( sizeof( S ) > sizeof( I ) )
-			return uniform_integer<I, convert_uint_t<I>>( ( convert_uint_t<I> ) seed, min, max );
+			return uniform_integer<I, U>( ( U ) seed, min, max );
 		else if constexpr ( Same<I, bool> )
 			return ( seed & 1 ) ? min : max;
 		else
-			return min + ( seed % ( max - min ) );
+			return min + ( seed % ( bit_cast<U>( max ) - bit_cast<U>( min ) ) );
 	}
 
 	// Implement an PCG and its atomic variant.
