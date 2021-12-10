@@ -22680,12 +22680,11 @@ namespace ia32
 		assume( irql <= 0xF );
 		return irql;
 	}
-	_LINKAGE CONST_FN irql_t get_effective_irql( rflags flags = read_flags(), irql_t irql = get_irql() )
+	_LINKAGE irql_t get_effective_irql( std::optional<rflags> flags = std::nullopt, std::optional<irql_t> irql = std::nullopt )
 	{
-		static_assert( NO_INTERRUPTS == RFLAGS_INTERRUPT_ENABLE_FLAG_FLAG, "Invalid flags." );
-		irql |= RFLAGS_INTERRUPT_ENABLE_FLAG_FLAG;
-		irql -= flags.flags & RFLAGS_INTERRUPT_ENABLE_FLAG_FLAG;
-		return irql;
+		irql_t i = irql.value_or( get_irql() ) | NO_INTERRUPTS;
+		i ^= ( flags.value_or( read_flags() ).flags ) & NO_INTERRUPTS;
+		return i;
 	}
 	_LINKAGE void set_irql( irql_t new_irql )
 	{
