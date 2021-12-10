@@ -22682,7 +22682,9 @@ namespace ia32
 	}
 	_LINKAGE CONST_FN irql_t get_effective_irql( rflags flags = read_flags(), irql_t irql = get_irql() )
 	{
-		irql |= flags.interrupt_enable_flag ? 0 : NO_INTERRUPTS;
+		static_assert( NO_INTERRUPTS == RFLAGS_INTERRUPT_ENABLE_FLAG_FLAG, "Invalid flags." );
+		irql |= RFLAGS_INTERRUPT_ENABLE_FLAG_FLAG;
+		irql -= flags.flags & RFLAGS_INTERRUPT_ENABLE_FLAG_FLAG;
 		return irql;
 	}
 	_LINKAGE void set_irql( irql_t new_irql )
@@ -22691,7 +22693,7 @@ namespace ia32
 	}
 	_LINKAGE void set_effective_irql( irql_t new_irql )
 	{
-		set_irql( new_irql & ~NO_INTERRUPTS );
+		set_irql( new_irql & 0xF );
 		if ( new_irql & NO_INTERRUPTS )
 			disable();
 		else
@@ -22699,8 +22701,8 @@ namespace ia32
 	}
 	_LINKAGE void set_effective_irql( rflags* flags, irql_t new_irql )
 	{
-		set_irql( new_irql & ~NO_INTERRUPTS );
-		flags->interrupt_enable_flag = !( new_irql & NO_INTERRUPTS );
+		set_irql( new_irql & 0xF );
+		flags->interrupt_enable_flag = ( ~new_irql ) & NO_INTERRUPTS;
 	}
 	_LINKAGE void lower_irql( irql_t new_irql )
 	{
