@@ -274,6 +274,24 @@ namespace xstd
 		inline std::wstring to_string() const { return c_str(); }
 	};
 
+	// Function literal.
+	//
+	namespace impl
+	{
+		template<auto V, typename T>
+		struct to_lambda{};
+		template<auto V, typename R, typename... A>
+		struct to_lambda<V, R(*)(A...)>
+		{
+			inline constexpr R operator()( A... args ) const noexcept( noexcept( V( std::declval<A>()... ) ) )
+			{ 
+				return V( std::forward<A>( args )... ); 
+			}
+		};
+	};
+	template<auto F>
+	inline constexpr impl::to_lambda<F, decltype( F )> to_lambda() noexcept { return {}; };
+
 	// Standard container traits based on checks for specialization.
 	//
 	template<typename T, size_t N>
