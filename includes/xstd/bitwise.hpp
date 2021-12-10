@@ -319,6 +319,15 @@ namespace xstd
 				return bool( out );
 #endif
 			}
+			else if constexpr ( sizeof( T ) == 1 )
+			{
+#if GNU_COMPILER
+				auto ptr = ( uint64_t ) &value;
+				if ( ptr & 1 )
+					n += 8, ptr -= 1;
+				return bit_set( *( volatile uint16_t* ) ptr, n );
+#endif
+			}
 #endif
 			auto& ref = *( std::atomic<U>* ) &value;
 			U value = ref.load( std::memory_order::relaxed );
@@ -409,6 +418,15 @@ namespace xstd
 				return bool( out );
 #endif
 			}
+			else if constexpr ( sizeof( T ) == 1 )
+			{
+#if GNU_COMPILER
+				auto ptr = ( uint64_t ) &value;
+				if ( ptr & 1 )
+					n += 8, ptr -= 1;
+				return bit_reset( *( volatile uint16_t* ) ptr, n );
+#endif
+			}
 #endif
 			auto& ref = *( std::atomic<U>* ) &value;
 			U value = ref.load( std::memory_order::relaxed );
@@ -493,6 +511,15 @@ namespace xstd
 				int out;
 				asm volatile( "lock btcw %2, %1" : "=@ccc" ( out ), "+m" ( *( uint16_t* ) &value ) : "Jr" ( uint16_t( n ) ) );
 				return bool( out );
+#endif
+			}
+			else if constexpr ( sizeof( T ) == 1 )
+			{
+#if GNU_COMPILER
+				auto ptr = ( uint64_t ) &value;
+				if ( ptr & 1 )
+					n += 8, ptr -= 1;
+				return bit_complement( *( volatile uint16_t* ) ptr, n );
 #endif
 			}
 #endif
