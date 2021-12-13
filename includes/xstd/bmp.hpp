@@ -102,7 +102,7 @@ namespace xstd
 
 		// Indexing of the pixels.
 		//
-		element_type& at( size_t x, size_t y ) { return *address_pixel<orientation>( data, width, height, x, y ); }
+		element_type& at( size_t x, size_t y ) { return *address_pixel<orientation>( data.data(), width, height, x, y); }
 		const element_type& at( size_t x, size_t y ) const
 		{
 			return ( const_cast< bmp_image* >( this ) )->at( x, y );
@@ -117,30 +117,30 @@ namespace xstd
 			// Get the header.
 			//
 			if ( stream.size() < sizeof( bmp_header_t ) )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "Invalid stream length." ) };
 			bmp_header_t* header = ( bmp_header_t* ) stream.data();
 			
 			// Validate the header.
 			//
 			if ( header->signature != bmp_signature )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "Invalid BMP header." ) };
 			if ( header->reserved )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "Invalid BMP header." ) };
 			if ( header->file_size > stream.size() )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "BMP stream underflow." ) };
 
 			// Make sure the DIB header is in the format we've expected.
 			// - RGB or ARGB.
 			if ( header->dib.bits_per_pixel != 24 && header->dib.bits_per_pixel != 32 )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "BMP pixel format unrecognized." ) };
 			// - No compression.
-			if ( header->dib.compression )
-				return false;
+			if ( header->dib.compression != 0 && header->dib.compression != 3 )
+				return xstd::exception{ XSTD_ESTR( "BMP compression unrecognized." ) };
 			// - Single plane, no color table.
 			if ( header->dib.planes != 1 || header->dib.len_color_table )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "BMP color format unrecognized." ) };
 			if ( header->dib.width <= 0 || header->dib.height == 0 )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "Invalid BMP dimensions." ) };
 
 			// Validate the size and read the image.
 			//
@@ -148,10 +148,11 @@ namespace xstd
 			size_t line_count = top_down ? -header->dib.height : header->dib.height;
 			size_t stream_size = header->dib.width * line_count * (header->dib.bits_per_pixel / 8);
 			if ( ( header->offset_image + stream_size ) > header->file_size )
-				return false;
+				return xstd::exception{ XSTD_ESTR( "BMP pixel stream underflow." ) };
 
 			// Convert to our format.
 			//
+			auto* begin = stream.data() + header->offset_image;
 			switch ( header->dib.bits_per_pixel )
 			{
 				case 24: 

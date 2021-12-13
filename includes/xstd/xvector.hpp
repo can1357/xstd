@@ -118,7 +118,7 @@ namespace xstd
 		// Construction by value.
 		//
 #if XSTD_VECTOR_EXT
-		template<Arithmetic... Tx>
+		template<typename... Tx> requires ( Convertible<Tx, T> && ... )
 		FORCE_INLINE constexpr xvec( Tx... values ) noexcept
 		{
 			if ( !std::is_constant_evaluated() )
@@ -131,7 +131,7 @@ namespace xstd
 			}
 		}
 #else
-		template<Arithmetic... Tx>
+		template<typename... Tx> requires ( Convertible<Tx, T> && ... )
 		FORCE_INLINE constexpr xvec( Tx... values ) noexcept : _data{ T(values)... } {}
 #endif
 
