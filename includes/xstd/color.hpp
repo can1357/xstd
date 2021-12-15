@@ -166,10 +166,10 @@ namespace xstd
 			float rs = 1 + src.s * ( cos( src.h ) - 1 );
 			float gs = 1 + src.s * ( cos( src.h - 2.09439f ) - 1 );
 			float bs = 1 + src.s * ( cos( src.h + 2.09439f ) - 1 );
-			res.b = ( uint8_t ) std::clamp<float>( bs * src.v * 256.0f, 0, 255 );
-			res.g = ( uint8_t ) std::clamp<float>( gs * src.v * 256.0f, 0, 255 );
-			res.r = ( uint8_t ) std::clamp<float>( rs * src.v * 256.0f, 0, 255 );
-			res.a = ( uint8_t ) std::clamp<float>( src.a * 256.0f, 0, 255 );
+			res.b = ( uint8_t ) std::clamp<float>( bs * src.v * 255.0f, 0, 255 );
+			res.g = ( uint8_t ) std::clamp<float>( gs * src.v * 255.0f, 0, 255 );
+			res.r = ( uint8_t ) std::clamp<float>( rs * src.v * 255.0f, 0, 255 );
+			res.a = ( uint8_t ) std::clamp<float>( src.a * 255.0f, 0, 255 );
 			return res;
 		}
 		else
@@ -227,10 +227,10 @@ namespace xstd
 		if ( !std::is_constant_evaluated() )
 		{
 			ahsv_t res;
-			float rs = src.r / 256.0f;
-			float gs = src.g / 256.0f;
-			float bs = src.b / 256.0f;
-			float as = src.a / 256.0f;
+			float rs = src.r / 255.0f;
+			float gs = src.g / 255.0f;
+			float bs = src.b / 255.0f;
+			float as = src.a / 255.0f;
 
 			float c = rs + gs + bs;
 			float p = 2 * sqrtf( bs * bs + gs * gs + rs * rs - gs * rs - bs * gs - bs * rs );
@@ -244,7 +244,7 @@ namespace xstd
 		{
 			// Tricking msvc.
 			if ( !src.r && !src.g && !src.b )
-				return { 0, 0, 0, src.a / 256.0f };
+				return { 0, 0, 0, src.a / 255.0f };
 			else
 				unreachable();
 		}
