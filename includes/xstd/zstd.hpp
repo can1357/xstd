@@ -72,15 +72,29 @@ namespace xstd::zstd
 
 	// Simple decompression wrapper.
 	//
+	inline static status get_decompressed_length( const void* data, size_t len )
+	{
+		return { ZSTD_getFrameContentSize( data, len ) };
+	}
+	inline static result<> decompress_into( void* buffer, size_t buffer_len, const void* data, size_t len )
+	{
+		return status{ ZSTD_decompress( buffer, buffer_len, data, len ) };
+	}
 	inline static result<std::vector<uint8_t>> decompress( const void* data, size_t len )
 	{
 		result<std::vector<uint8_t>> res;
-		res.status = ZSTD_getFrameContentSize( data, len );
-		if ( res.status.is_error() )
-			return res;
-		auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( res.status ) );
-		res.status = ZSTD_decompress( buffer.data(), buffer.size(), data, len );
+		res.status = get_decompressed_length( data, len );
+		if ( res.status.is_success() )
+		{
+			auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( res.status ) );
+			res.status = decompress_into( buffer.data(), buffer.size(), data, len ).status;
+		}
 		return res;
+	}
+	template<ContiguousIterable T>
+	inline static result<> decompress_into( void* buffer, size_t buffer_len, T&& cont )
+	{
+		return decompress_into( buffer, buffer_len, &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 	}
 	template<ContiguousIterable T>
 	inline static result<std::vector<uint8_t>> decompress( T&& cont )
@@ -123,16 +137,25 @@ namespace xstd::zstd
 
 		// Simple decompression.
 		//
+		inline result<> decompress_into( void* buffer, size_t buffer_len, const void* data, size_t len )
+		{
+			return status{ ZSTD_decompressDCtx( ctx.get(), buffer, buffer_len, data, len ) };
+		}
 		inline result<std::vector<uint8_t>> decompress( const void* data, size_t len )
 		{
 			result<std::vector<uint8_t>> res;
-			res.status = ZSTD_getFrameContentSize( data, len );
-			if ( res.status.is_error() )
-				return res;
-			auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( res.status ) );
-			res.status = ZSTD_decompressDCtx( ctx.get(), buffer.data(), buffer.size(), data, len );
-
+			res.status = get_decompressed_length( data, len );
+			if ( res.status.is_success() )
+			{
+				auto& buffer = res.result.emplace( make_uninitialized_vector<uint8_t>( res.status ) );
+				res.status = decompress_into( buffer.data(), buffer.size(), data, len ).status;
+			}
 			return res;
+		}
+		template<ContiguousIterable T>
+		inline result<> decompress_into( void* buffer, size_t buffer_len, T&& cont )
+		{
+			return decompress_into( buffer, buffer_len, &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 		}
 		template<ContiguousIterable T>
 		inline result<std::vector<uint8_t>> decompress( T&& cont )
