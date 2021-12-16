@@ -1471,33 +1471,37 @@ namespace xstd
 		using R =  decltype( fn() );
 		using Rx = std::conditional_t<Void<R>, std::monostate, R>;
 
-		// Result and the state store.
+		// Storage of the state and the result.
 		//
-		static std::atomic<uint8_t> status = 1; // 1 = first time, 2 = in-progress, 0 = complete
-		alignas( Rx ) static uint8_t result[ sizeof( Rx ) ] = {};
-		
-		if ( status.load( std::memory_order::relaxed ) != 0 ) [[unlikely]]
+		static volatile uint8_t status = 1; // 1 = first time, 2 = in-progress, 0 = complete
+		alignas( Rx ) static uint8_t result[ sizeof( Rx ) ];
+
+		// If not complete:
+		//
+		if ( status != 0 ) [[unlikely]]
 		{
 			cold_call( [ & ]
 			{
 				uint8_t expected = 1;
-				if ( status.compare_exchange_strong( expected, 2, std::memory_order::acquire ) )
+				if ( cmpxchg<uint8_t>( status, expected, 2 ) )
 				{
 					if constexpr ( !Void<R> )
 						std::construct_at<R>( ( R* ) &result[ 0 ], fn() );
 					else
 						fn();
-					status.store( 0, std::memory_order::release );
+					status = 0;
 				}
-				else if ( expected != 0 )
+				else
 				{
-					do
+					while ( expected != 0 )
+					{
 						yield_cpu();
-					while ( status.load( std::memory_order::relaxed ) != 0 );
+						expected = status;
+					}
 				}
 			} );
 		}
-		if constexpr( !Void<R> )
+		if constexpr ( !Void<R> )
 			return *( const R* ) &result[ 0 ];
 	}
 
