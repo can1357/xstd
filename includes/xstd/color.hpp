@@ -7,6 +7,31 @@
 
 namespace xstd
 {
+	namespace impl
+	{
+		static constexpr float pi = ( float ) 3.14159265358979323846;
+		inline constexpr float fmodcx( float a, float b ) 
+		{
+			if ( std::is_constant_evaluated() )
+			{
+				b = b < 0 ? -b : +b;
+				while ( a < ( -b ) )
+					a += b;
+				while ( a > b )
+					a -= b;
+				return a;
+			}
+			else
+			{
+				return fmodf( a, b );
+			}
+		}
+		inline constexpr float normalize_angle_pos( float rad ) 
+		{
+			return fmodcx( rad, pi );
+		}
+	};
+
 	// Define the color models.
 	//
 	enum class color_model
@@ -160,26 +185,31 @@ namespace xstd
 	template<>
 	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
 	{
-		if ( !std::is_constant_evaluated() )
+		float hh = impl::normalize_angle_pos( src.h ) / ( impl::pi * 60 / 180 );
+		uint32_t i = ( uint32_t ) hh;
+		float ff = hh - i;
+		float p = src.v * ( 1 - src.s );
+		float q = src.v * ( 1 - ( src.s * ff ) );
+		float t = src.v * ( 1 - ( src.s * ( 1 - ff ) ) );
+
+		std::tuple<float, float, float> res;
+		switch ( i )
 		{
-			argb_t res;
-			float rs = 1 + src.s * ( cos( src.h ) - 1 );
-			float gs = 1 + src.s * ( cos( src.h - 2.09439f ) - 1 );
-			float bs = 1 + src.s * ( cos( src.h + 2.09439f ) - 1 );
-			res.b = ( uint8_t ) std::clamp<float>( bs * src.v * 255.0f, 0, 255 );
-			res.g = ( uint8_t ) std::clamp<float>( gs * src.v * 255.0f, 0, 255 );
-			res.r = ( uint8_t ) std::clamp<float>( rs * src.v * 255.0f, 0, 255 );
-			res.a = ( uint8_t ) std::clamp<float>( src.a * 255.0f, 0, 255 );
-			return res;
+			case 0: res = { src.v, t, p }; break;
+			case 1: res = { q, src.v, p }; break;
+			case 2: res = { p, src.v, t }; break;
+			case 3: res = { p, q, src.v }; break;
+			case 4: res = { t, p, src.v }; break;
+			default:
+			case 5: res = { src.v, p, q }; break;
 		}
-		else
-		{
-			// Tricking msvc.
-			if ( src.v == 0.0f )
-				return { 0, 0, 0, uint8_t( src.a * 256 ) };
-			else
-				unreachable();
-		}
+
+		argb_t out = { 0, 0, 0, 0 };
+		out.b = ( uint8_t ) std::clamp<float>( std::get<2>( res ) * 255.0f, 0, 255 );
+		out.g = ( uint8_t ) std::clamp<float>( std::get<1>( res ) * 255.0f, 0, 255 );
+		out.r = ( uint8_t ) std::clamp<float>( std::get<0>( res ) * 255.0f, 0, 255 );
+		out.a = ( uint8_t ) std::clamp<float>( src.a * 255.0f, 0, 255 );
+		return out;
 	}
 	template<>
 	FORCE_INLINE constexpr argb_t to_argb<color_model::hsv>( const hsv_t& src )
@@ -222,32 +252,32 @@ namespace xstd
 	template<>
 	constexpr ahsv_t from_argb<color_model::ahsv>( const argb_t& src )
 	{
-		constexpr float sqrt3 = 1.732050807570f;
+		float fr = src.r / 255.0f;
+		float fg = src.g / 255.0f;
+		float fb = src.b / 255.0f;
+		float fa = src.a / 255.0f;
 
-		if ( !std::is_constant_evaluated() )
-		{
-			ahsv_t res;
-			float rs = src.r / 255.0f;
-			float gs = src.g / 255.0f;
-			float bs = src.b / 255.0f;
-			float as = src.a / 255.0f;
+		float rmin = std::min<float>( { fr, fg, fb } );
+		float rmax = std::max<float>( { fr, fg, fb } );
 
-			float c = rs + gs + bs;
-			float p = 2 * sqrtf( bs * bs + gs * gs + rs * rs - gs * rs - bs * gs - bs * rs );
-			res.h = atan2( bs - gs, ( 2 * rs - bs - gs ) / sqrt3 );
-			res.s = p / ( c + p );
-			res.v = ( c + p ) / 3;
-			res.a = as;
-			return res;
-		}
+		ahsv_t out = { 0, 0, 0, 0 };
+		out.a = fa;
+		out.v = rmax;
+		
+		float delta = rmax - rmin;
+		if ( delta < 0.001 )
+			return out;
+
+		out.s = delta / rmax;
+
+		if ( fr == rmax )
+			out.h = ( fg - fb ) / delta;
+		else if ( fg == rmax )
+			out.h = 2.0f + ( fb - fr ) / delta;
 		else
-		{
-			// Tricking msvc.
-			if ( !src.r && !src.g && !src.b )
-				return { 0, 0, 0, src.a / 255.0f };
-			else
-				unreachable();
-		}
+			out.h = 4.0f + ( fr - fg ) / delta;
+		out.h = impl::normalize_angle_pos( out.h * ( impl::pi * 60 / 180 ) );
+		return out;
 	}
 	template<>
 	FORCE_INLINE constexpr hsv_t from_argb<color_model::hsv>( const argb_t& src )
