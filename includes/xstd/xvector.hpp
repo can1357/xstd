@@ -712,7 +712,7 @@ namespace xstd
 		FORCE_INLINE inline constexpr T reduce_or( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
-			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) )
+			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
 					return impl::__vector_reduce_or<T, N>( vec._nat );
 #endif
@@ -725,7 +725,7 @@ namespace xstd
 		FORCE_INLINE inline constexpr T reduce_and( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
-			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) )
+			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
 					return impl::__vector_reduce_and<T, N>( vec._nat );
 #endif
@@ -738,7 +738,7 @@ namespace xstd
 		FORCE_INLINE inline constexpr T reduce_xor( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
-			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
 					return impl::__vector_reduce_xor<T, N>( vec._nat );
 #endif
@@ -751,7 +751,7 @@ namespace xstd
 		FORCE_INLINE inline constexpr T reduce_add( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
-			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
 					return impl::__vector_reduce_add<T, N>( vec._nat );
 #endif
@@ -764,7 +764,7 @@ namespace xstd
 		FORCE_INLINE inline constexpr T reduce_mul( xvec<T, N> vec )
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
-			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) )
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
 					return impl::__vector_reduce_mul<T, N>( vec._nat );
 #endif
