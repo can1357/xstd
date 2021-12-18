@@ -46,6 +46,8 @@ namespace xstd
 		template<typename T, auto N> T __vector_reduce_xor( native_vector<T, N> ) asm( "llvm.vector.reduce.xor" );
 		template<typename T, auto N> T __vector_reduce_add( native_vector<T, N> ) asm( "llvm.vector.reduce.add" );
 		template<typename T, auto N> T __vector_reduce_mul( native_vector<T, N> ) asm( "llvm.vector.reduce.mul" );
+		template<typename T, auto N> T __vector_reduce_fadd( T, native_vector<T, N> ) asm( "llvm.vector.reduce.fadd" );
+		template<typename T, auto N> T __vector_reduce_fmul( T, native_vector<T, N> ) asm( "llvm.vector.reduce.fmul" );
 #endif
 
 		// Comparison result helper.
@@ -752,8 +754,15 @@ namespace xstd
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
+			{
 				if ( !std::is_constant_evaluated() )
-					return impl::__vector_reduce_add<T, N>( vec._nat );
+				{
+					if constexpr ( !FloatingPoint<T> )
+						return impl::__vector_reduce_add<T, N>( vec._nat );
+					else
+						return impl::__vector_reduce_fadd<T, N>( 0, vec._nat );
+				}
+			}
 #endif
 			T result = vec[ 0 ];
 			for ( size_t i = 1; i != N; i++ )
@@ -765,8 +774,15 @@ namespace xstd
 		{
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
+			{
 				if ( !std::is_constant_evaluated() )
-					return impl::__vector_reduce_mul<T, N>( vec._nat );
+				{
+					if constexpr ( !FloatingPoint<T> )
+						return impl::__vector_reduce_mul<T, N>( vec._nat );
+					else
+						return impl::__vector_reduce_fmul<T, N>( 1, vec._nat );
+				}
+			}
 #endif
 			T result = vec[ 0 ];
 			for ( size_t i = 1; i != N; i++ )
