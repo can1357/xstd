@@ -71,6 +71,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\ref_counted.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\relaxed_atomics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\robin_hood.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha1.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp" />
