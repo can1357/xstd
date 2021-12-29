@@ -253,6 +253,10 @@ namespace xstd
 		inline constexpr auto begin() const { return get().begin(); }
 		inline constexpr auto end() const { return get().end(); }
 		inline std::string to_string() const { return c_str(); }
+
+		// Decay to string view.
+		//
+		inline constexpr operator std::string_view() const { return get(); }
 	};
 	template <size_t N>
 	struct wstring_literal
@@ -272,6 +276,10 @@ namespace xstd
 		inline constexpr auto begin() const { return get().begin(); }
 		inline constexpr auto end() const { return get().end(); }
 		inline std::wstring to_string() const { return c_str(); }
+
+		// Decay to string view.
+		//
+		inline constexpr operator std::wstring_view() const { return get(); }
 	};
 
 	// Function literal.

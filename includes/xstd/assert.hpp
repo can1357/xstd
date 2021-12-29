@@ -100,13 +100,13 @@ namespace xstd
 	#define fassert(...)     xassert( __VA_ARGS__ )
 	#define fassert_s( ... ) xassert( __VA_ARGS__ )
 #elif XSTD_ASSERT_LEVEL >= 1
-	#define dassert(...)     
+	#define dassert(...)     do{}while(false)
 	#define dassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
 	#define fassert(...)     xassert( __VA_ARGS__ )
 	#define fassert_s( ... ) xassert( __VA_ARGS__ )
 #else
-	#define dassert(...)     
+	#define dassert(...)     do{}while(false)
 	#define dassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
-	#define fassert(...)     
+	#define fassert(...)     do{}while(false)
 	#define fassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
 #endif

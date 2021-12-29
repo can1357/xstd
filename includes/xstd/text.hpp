@@ -516,14 +516,19 @@ namespace xstd
 		// Declare digit parser.
 		//
 		T value = 0;
-		auto parse_digit = [ hex = ( base == 16 ) ] ( char c )
+		auto parse_digit = [ hex = ( base == 16 ) ] ( char c ) -> std::optional<int>
 		{
+			if ( '0' <= c && c <= '9' )
+				return c - '0';
+
 			if ( hex )
 			{
-				if ( c >= 'a' ) return 10 + ( c - 'a' );
-				if ( c >= 'A' ) return 10 + ( c - 'A' );
+				c |= 0x20;
+				if ( 'a' <= c && c <= 'f' )
+					return 0xA + ( c - 'a' );
 			}
-			return c - '0';
+
+			return std::nullopt;
 		};
 
 		// Parse the body.
@@ -539,7 +544,10 @@ namespace xstd
 					T mantissa = 0;
 					while ( !view.empty() )
 					{
-						mantissa += parse_digit( view.back() );
+						auto v = parse_digit( view.back() );
+						if ( !v ) [[unlikely]]
+							break;
+						mantissa += *v;
 						mantissa /= base;
 						view.remove_suffix( 1 );
 					}
@@ -547,11 +555,13 @@ namespace xstd
 				}
 				break;
 			}
-			else if ( view.front() == ' ' )
+
+			auto v = parse_digit( view.front() );
+			if ( !v ) [[unlikely]]
 				break;
 
 			value *= base;
-			value += parse_digit( view.front() );
+			value += *v;
 			view.remove_prefix( 1 );
 		}
 		return value * sign;
