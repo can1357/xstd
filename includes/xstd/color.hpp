@@ -12,19 +12,8 @@ namespace xstd
 		static constexpr float pi = ( float ) 3.14159265358979323846;
 		inline constexpr float fmodcx( float a, float b ) 
 		{
-			if ( std::is_constant_evaluated() )
-			{
-				b = b < 0 ? -b : +b;
-				while ( a < ( -b ) )
-					a += b;
-				while ( a > b )
-					a -= b;
-				return a;
-			}
-			else
-			{
-				return fmodf( a, b );
-			}
+			float m = 1.0f / b;
+			return a - int32_t( a * m ) * b;
 		}
 		inline constexpr float normalize_angle_pos( float rad ) 
 		{

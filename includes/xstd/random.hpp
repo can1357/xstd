@@ -77,10 +77,10 @@ namespace xstd
 		constexpr bitcnt_t exponent_bits = Same<F, float> ? 8   : 11;
 		constexpr uint32_t exponent_0 =    uint32_t( fill_bits( exponent_bits - 1 ) - 2 ); // 2^-2, max at 0.499999.
 		
-		// Find the Lowest bit set, 0 requires 1 bit to be set '0', 1 requires
-		// 2 bits to be set '0' so each increment has 1/2'th the chance of being
-		// returned than the other one which leads to equal distribution between
-		// exponential levels.
+		// Find the lowest bit set, 0 requires 1 bit to be set to '0', 1 requires 
+		// 2 bits to be set to '0', each increment has half the chance of being 
+		// returned compared to the previous one which leads to equal distribution 
+		// between exponential levels.
 		//
 		constexpr bitcnt_t exponent_seed_bits = std::min<size_t>( 31, sizeof( S ) * 8 - ( mantissa_bits + 1 ) );
 		uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_seed_bits ) );
