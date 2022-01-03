@@ -88,31 +88,42 @@ namespace xstd::math
 		if ( v > vmax ) v = vmax;
 		return v;
 	}
+	template<typename... Tx>
+	inline constexpr float fmin( float a, float b, float c, Tx... rest )
+	{
+		return fmin( fmin( a, b ), c, rest... );
+	}
+	template<typename... Tx>
+	inline constexpr float fmax( float a, float b, float c, Tx... rest )
+	{
+		return fmax( fmax( a, b ), c, rest... );
+	}
 
 	// Define vector types.
 	//
-#define ADD_OPERATORS(type)																													       \
-	inline constexpr type operator+( const type& o ) const noexcept { return from_xvec( to_xvec() + o.to_xvec() ); }		  \
-	inline constexpr type operator+( float f ) const noexcept { return from_xvec( to_xvec() + f ); }							  \
-	inline constexpr type& operator+=( const type& o ) noexcept { return *this = from_xvec( to_xvec() + o.to_xvec() ); }	  \
-	inline constexpr type& operator+=( float f ) noexcept { return *this = from_xvec( to_xvec() + f ); }						  \
-	inline friend constexpr type operator+( float f, const type& o ) noexcept { return from_xvec( o.to_xvec() + f ); }	  \
-	inline constexpr type operator*( const type& o ) const noexcept { return from_xvec( to_xvec() * o.to_xvec() ); }		  \
-	inline constexpr type operator*( float f ) const noexcept { return from_xvec( to_xvec() * f ); }							  \
-	inline constexpr type& operator*=( const type& o ) noexcept { return *this = from_xvec( to_xvec() * o.to_xvec() ); }	  \
-	inline constexpr type& operator*=( float f ) noexcept { return *this = from_xvec( to_xvec() * f ); }						  \
-	inline friend constexpr type operator*( float f, const type& o ) noexcept { return from_xvec( o.to_xvec() * f ); }	  \
-	inline constexpr type operator-( const type& o ) const noexcept { return from_xvec( to_xvec() - o.to_xvec() ); }		  \
-	inline constexpr type operator-( float f ) const noexcept { return from_xvec( to_xvec() - f ); }							  \
-	inline constexpr type& operator-=( const type& o ) noexcept { return *this = from_xvec( to_xvec() - o.to_xvec() ); }	  \
-	inline constexpr type& operator-=( float f ) noexcept { return *this = from_xvec( to_xvec() - f ); }						  \
-	inline constexpr type operator/( const type& o ) const noexcept { return from_xvec( to_xvec() / o.to_xvec() ); }		  \
-	inline constexpr type operator/( float f ) const noexcept { return from_xvec( to_xvec() / f ); }							  \
-	inline constexpr type& operator/=( const type& o ) noexcept { return *this = from_xvec( to_xvec() / o.to_xvec() ); }	  \
-	inline constexpr type& operator/=( float f ) noexcept { return *this = from_xvec( to_xvec() / f ); }						  \
-	inline constexpr type operator-() const noexcept { return from_xvec( -to_xvec() ); };											  \
-	inline constexpr auto operator<=>( const type& ) const noexcept = default;															  \
-	inline constexpr float length_sq() const noexcept { auto v = to_xvec(); return vec::reduce_add( v * v ); }		        \
+#define ADD_OPERATORS(type)																													              \
+	inline constexpr type operator+( const type& o ) const noexcept { return from_xvec( to_xvec() + o.to_xvec() ); }		        \
+	inline constexpr type operator+( float f ) const noexcept { return from_xvec( to_xvec() + f ); }							        \
+	inline constexpr type& operator+=( const type& o ) noexcept { return *this = from_xvec( to_xvec() + o.to_xvec() ); }	        \
+	inline constexpr type& operator+=( float f ) noexcept { return *this = from_xvec( to_xvec() + f ); }						        \
+	inline friend constexpr type operator+( float f, const type& o ) noexcept { return from_xvec( o.to_xvec() + f ); }	        \
+	inline constexpr type operator*( const type& o ) const noexcept { return from_xvec( to_xvec() * o.to_xvec() ); }		        \
+	inline constexpr type operator*( float f ) const noexcept { return from_xvec( to_xvec() * f ); }							        \
+	inline constexpr type& operator*=( const type& o ) noexcept { return *this = from_xvec( to_xvec() * o.to_xvec() ); }	        \
+	inline constexpr type& operator*=( float f ) noexcept { return *this = from_xvec( to_xvec() * f ); }						        \
+	inline friend constexpr type operator*( float f, const type& o ) noexcept { return from_xvec( o.to_xvec() * f ); }	        \
+	inline friend constexpr type operator/( float f, const type& o ) noexcept { return from_xvec( fill( f ) / o.to_xvec() ); }	  \
+	inline constexpr type operator-( const type& o ) const noexcept { return from_xvec( to_xvec() - o.to_xvec() ); }		        \
+	inline constexpr type operator-( float f ) const noexcept { return from_xvec( to_xvec() - f ); }							        \
+	inline constexpr type& operator-=( const type& o ) noexcept { return *this = from_xvec( to_xvec() - o.to_xvec() ); }	        \
+	inline constexpr type& operator-=( float f ) noexcept { return *this = from_xvec( to_xvec() - f ); }						        \
+	inline constexpr type operator/( const type& o ) const noexcept { return from_xvec( to_xvec() / o.to_xvec() ); }		        \
+	inline constexpr type operator/( float f ) const noexcept { return from_xvec( to_xvec() / f ); }							        \
+	inline constexpr type& operator/=( const type& o ) noexcept { return *this = from_xvec( to_xvec() / o.to_xvec() ); }	        \
+	inline constexpr type& operator/=( float f ) noexcept { return *this = from_xvec( to_xvec() / f ); }						        \
+	inline constexpr type operator-() const noexcept { return from_xvec( -to_xvec() ); };											        \
+	inline constexpr auto operator<=>( const type& ) const noexcept = default;															        \
+	inline constexpr float length_sq() const noexcept { auto v = to_xvec(); return vec::reduce_add( v * v ); }		              \
 	inline float length() const noexcept { return fsqrt( length_sq() ); }
 				
 	struct vec2
@@ -122,6 +133,7 @@ namespace xstd::math
 
 		// Define xvector conversion.
 		//
+		inline static constexpr vec2 fill( float x ) { return { x, x }; }
 		inline static constexpr vec2 from_xvec( xvec<float, 2> o ) { return vec2{ o[ 0 ],o[ 1 ] }; }
 		inline constexpr xvec<float, 2> to_xvec() const noexcept { return { x, y }; }
 
@@ -147,6 +159,7 @@ namespace xstd::math
 
 		// Define xvector conversion.
 		//
+		inline static constexpr vec3 fill( float x ) { return { x, x, x }; }
 		inline static constexpr vec3 from_xvec( xvec<float, 3> o ) { return vec3{ o[ 0 ],o[ 1 ],o[ 2 ] }; }
 		inline constexpr xvec<float, 3> to_xvec() const noexcept { return { x, y, z }; }
 
@@ -175,6 +188,7 @@ namespace xstd::math
 
 		// Define xvector conversion.
 		//
+		inline static constexpr vec4 fill( float x ) { return { x, x, x, x }; }
 		inline static constexpr vec4 from_xvec( xvec<float, 4> o ) { return vec4{ o[ 0 ],o[ 1 ],o[ 2 ],o[ 3 ] }; }
 		inline constexpr xvec<float, 4> to_xvec() const noexcept { return { x, y, z, w }; }
 
