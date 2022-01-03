@@ -229,6 +229,16 @@ namespace xstd::math
 	{
 		return V::from_xvec( vec::min( v1.to_xvec(), v2.to_xvec() ) );
 	}
+	template<typename V, typename... Tx>
+	inline constexpr V vec_max( const V& v1, const V& v2, const V& v3, Tx&&... rest )
+	{
+		return vec_max( vec_max( v1, v2 ), v3, std::forward<Tx>( rest )... );
+	}
+	template<typename V, typename... Tx>
+	inline constexpr V vec_min( const V& v1, const V& v2, const V& v3, Tx&&... rest )
+	{
+		return vec_min( vec_min( v1, v2 ), v3, std::forward<Tx>( rest )... );
+	}
 
 	inline constexpr vec3 cross( const vec3& v1, const vec3& v2 ) 
 	{
