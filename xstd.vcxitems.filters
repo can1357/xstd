@@ -277,6 +277,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\math.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\plf_colony.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">
