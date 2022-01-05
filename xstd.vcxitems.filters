@@ -265,9 +265,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\image_view.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp">
-      <Filter>Misc</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\algorithm.hpp">
       <Filter>Misc</Filter>
     </ClInclude>
@@ -279,6 +276,12 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\plf_colony.hpp">
       <Filter>Containers</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\object_pool.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\numeric_range.hpp">
+      <Filter>Numeric</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

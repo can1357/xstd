@@ -148,7 +148,7 @@ namespace xstd
 	//
 	template<typename T, size_t N, bool do_reserve,
 		typename allocator_t = stack_buffered_allocator<typename T::value_type>,
-		typename container_t = impl::swap_allocator_t<T, allocator_t>>
+		typename container_t = swap_allocator_t<T, allocator_t>>
 	struct stack_buffered_container : public container_t
 	{
 		// Append 0x20 bytes for DEBUG binaries to compensate for std::_Container_proxy;
