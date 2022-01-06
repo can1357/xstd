@@ -80,6 +80,11 @@ namespace xstd
 		{
 			return { pop(), Dx{} };
 		}
+		FORCE_INLINE std::unique_ptr<T, Dx> pop_all_unique()
+		{
+			atomic_slist null = {};
+			return { exchange( null ), Dx{} };
+		}
 
 		// Non-atomic properties.
 		//
