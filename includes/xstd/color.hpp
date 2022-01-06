@@ -29,6 +29,7 @@ namespace xstd
 		//
 		monochrome,
 		grayscale,
+		grayscale_alpha,
 
 		// RGB
 		//
@@ -71,6 +72,17 @@ namespace xstd
 		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
 	};
 	using grayscale_t = color<color_model::grayscale>;
+	
+	template<>
+	struct color<color_model::grayscale_alpha>
+	{
+		uint8_t lightness;
+		uint8_t alpha;
+
+		template<color_model dst>
+		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+	};
+	using grayscale_alpha_t = color<color_model::grayscale_alpha>;
 
 	template<>
 	struct color<color_model::rgb>
@@ -157,6 +169,11 @@ namespace xstd
 		return { src.lightness, src.lightness, src.lightness, 255 };
 	}
 	template<>
+	FORCE_INLINE constexpr argb_t to_argb<color_model::grayscale_alpha>( const grayscale_alpha_t& src )
+	{
+		return { src.lightness, src.lightness, src.lightness, src.alpha };
+	}
+	template<>
 	FORCE_INLINE constexpr argb_t to_argb<color_model::rgb>( const rgb_t& src )
 	{
 		return { src.b, src.g, src.r, 255 };
@@ -222,6 +239,12 @@ namespace xstd
 	{
 		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
 		return { x };
+	}
+	template<>
+	FORCE_INLINE constexpr grayscale_alpha_t from_argb<color_model::grayscale_alpha>( const argb_t& src )
+	{
+		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
+		return { x, src.a };
 	}
 	template<>
 	FORCE_INLINE constexpr rgb_t from_argb<color_model::rgb>( const argb_t& src )
