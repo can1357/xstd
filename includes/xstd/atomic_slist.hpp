@@ -5,13 +5,7 @@
 
 namespace xstd
 {
-	namespace impl
-	{
-		template<typename T>
-		concept SlistViable = requires( T* x ) { x = x->next; };
-	};
-
-	template<impl::SlistViable T, typename Dx = std::default_delete<T>>
+	template<typename T, typename Dx = std::default_delete<T>>
 	struct atomic_slist
 	{
 		struct alignas( 16 ) versioned_pointer
@@ -81,6 +75,10 @@ namespace xstd
 					break;
 			}
 			return curr_head.pointer;
+		}
+		FORCE_INLINE std::unique_ptr<T, Dx> pop_unique()
+		{
+			return { pop(), Dx{} };
 		}
 
 		// Non-atomic properties.

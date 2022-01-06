@@ -172,6 +172,15 @@ namespace xstd
 		}
 	};
 
+	// Implemened pooled tag that overrides operator new for object.
+	//
+	template<typename T>
+	struct pooled
+	{
+		void* operator new( size_t ) { return default_pool<T>.allocate(); }
+		void operator delete( void* p ) { return default_pool<T>.deallocate( p ); }
+	};
+
 	// Unique-ptr interface for pool allocators.
 	//
 	struct default_pool_deleter
