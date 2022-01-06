@@ -194,4 +194,14 @@ namespace xstd
 	{
 		return { pool.emplace<T>( std::forward<Tx>( args )... ), pool_deleter<object_pool<T>>{ pool } };
 	}
+	template<typename T, typename... Tx>
+	inline std::unique_ptr<T, default_pool_deleter> make_unique_from_pool_for_overwrite( Tx&&... args )
+	{
+		return { ( T* ) default_pool<T>.allocate(), default_pool_deleter{} };
+	}
+	template<typename T, typename... Tx>
+	inline std::unique_ptr<T, pool_deleter<object_pool<T>>> make_unique_from_pool_for_overwrite( object_pool<T>& pool, Tx&&... args )
+	{
+		return { ( T* ) pool.allocate(), pool_deleter<object_pool<T>>{ pool } };
+	}
 };
