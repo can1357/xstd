@@ -291,19 +291,17 @@ namespace xstd::math
 	//
 	struct matrix4x4
 	{
-		std::array<std::array<float, 4>, 4> m = {};
+		std::array<vec4, 4> m = { vec4{} };
 
 		// Identity matrix.
 		//
-		inline static constexpr matrix4x4 identity() noexcept 
-		{
-			matrix4x4 result = {};
-			result[ 0 ][ 0 ] = 1.0f;
-			result[ 1 ][ 1 ] = 1.0f;
-			result[ 2 ][ 2 ] = 1.0f;
-			result[ 3 ][ 3 ] = 1.0f;
-			return result;
-		}
+		inline static constexpr std::array<vec4, 4> identity_value = {
+			vec4{ 1, 0, 0, 0 },
+			vec4{ 0, 1, 0, 0 },
+			vec4{ 0, 0, 1, 0 },
+			vec4{ 0, 0, 0, 1 }
+		};
+		inline static constexpr matrix4x4 identity() noexcept  { return { identity_value }; }
 
 		// Matrix mulitplication.
 		//
@@ -323,12 +321,11 @@ namespace xstd::math
 		//
 		FORCE_INLINE inline constexpr vec4 operator*( const vec4& v ) const noexcept
 		{
-			return {
-				m[ 0 ][ 0 ] * v.x + m[ 1 ][ 0 ] * v.y + m[ 2 ][ 0 ] * v.z + m[ 3 ][ 0 ] * v.w,
-				m[ 0 ][ 1 ] * v.x + m[ 1 ][ 1 ] * v.y + m[ 2 ][ 1 ] * v.z + m[ 3 ][ 1 ] * v.w,
-				m[ 0 ][ 2 ] * v.x + m[ 1 ][ 2 ] * v.y + m[ 2 ][ 2 ] * v.z + m[ 3 ][ 2 ] * v.w,
-				m[ 0 ][ 3 ] * v.x + m[ 1 ][ 3 ] * v.y + m[ 2 ][ 3 ] * v.z + m[ 3 ][ 3 ] * v.w
-			};
+			auto vx = m[ 0 ] * v.x;
+			auto vy = m[ 1 ] * v.y;
+			auto vz = m[ 2 ] * v.z;
+			auto vw = m[ 3 ] * v.w;
+			return vx + vy + vz + vw;
 		}
 		FORCE_INLINE inline constexpr vec3 operator*( const vec3& v ) const noexcept
 		{
@@ -338,8 +335,8 @@ namespace xstd::math
 
 		// Forward indexing.
 		//
-		inline constexpr std::array<float, 4>& operator[]( size_t n ) noexcept { return m[ n ]; }
-		inline constexpr const std::array<float, 4>& operator[]( size_t n ) const noexcept { return m[ n ]; }
+		inline constexpr vec4& operator[]( size_t n ) noexcept { return m[ n ]; }
+		inline constexpr const vec4& operator[]( size_t n ) const noexcept { return m[ n ]; }
 
 		// Default comparison.
 		//
