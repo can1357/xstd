@@ -143,8 +143,8 @@ namespace xstd::math
 			inline static constexpr vec2_t<T> from_xvec( xvec<T, 3> o ) { return vec2_t<T>{ o[ 0 ], o[ 1 ] }; }
 			inline constexpr xvec<T, 3> to_xvec() const noexcept { return { x, y }; }
 
-			inline T& operator[]( size_t n ) { return *( &x )[ n ]; }
-			inline T operator[]( size_t n ) const { return *( &x )[ n ]; }
+			inline T& operator[]( size_t n ) { return ( &x )[ n ]; }
+			inline T operator[]( size_t n ) const { return ( &x )[ n ]; }
 			inline constexpr size_t size() const { return 2; }
 
 			ADD_OPERATORS( T, vec2_t<T> );
@@ -167,8 +167,8 @@ namespace xstd::math
 			inline static constexpr vec3_t<T> from_xvec( xvec<T, 3> o ) { return vec3_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ] }; }
 			inline constexpr xvec<T, 3> to_xvec() const noexcept { return { x, y, z }; }
 
-			inline T& operator[]( size_t n ) { return *( &x )[ n ]; }
-			inline T operator[]( size_t n ) const { return *( &x )[ n ]; }
+			inline T& operator[]( size_t n ) { return ( &x )[ n ]; }
+			inline T operator[]( size_t n ) const { return ( &x )[ n ]; }
 			inline constexpr size_t size() const { return 3; }
 
 			ADD_OPERATORS( T, vec3_t<T> );
@@ -194,8 +194,8 @@ namespace xstd::math
 			inline static constexpr vec4_t<T> from_xvec( xvec<T, 4> o ) { return vec4_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ],o[ 3 ] }; }
 			inline constexpr xvec<T, 4> to_xvec() const noexcept { return { x, y, z, w }; }
 
-			inline T& operator[]( size_t n ) { return *( &x )[ n ]; }
-			inline T operator[]( size_t n ) const { return *( &x )[ n ]; }
+			inline T& operator[]( size_t n ) { return ( &x )[ n ]; }
+			inline T operator[]( size_t n ) const { return ( &x )[ n ]; }
 			inline constexpr size_t size() const { return 4; }
 
 			ADD_OPERATORS( T, vec4_t<T> );
