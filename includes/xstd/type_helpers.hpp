@@ -838,6 +838,32 @@ namespace xstd
 		return ( const std::array<uint8_t, sizeof( T )>& ) src;
 	}
 
+	// Conversion from C array to std::array by casting references.
+	//
+	namespace impl
+	{
+		template<typename T>
+		struct convert_array
+		{
+			using type = T;
+		};
+		template<typename T, size_t N>
+		struct convert_array<T[N]>
+		{
+			using type = std::array<typename convert_array<T>::type, N>;
+		};
+		template<typename T, size_t N>
+		struct convert_array<const T[N]>
+		{
+			using type = const std::array<typename convert_array<T>::type, N>;
+		};
+	};
+	template<typename T, size_t N>
+	FORCE_INLINE inline auto& as_array( T( &value )[ N ] )
+	{
+		return ( typename impl::convert_array<T[ N ]>::type& ) value[ 0 ];
+	}
+
 	// Constant-lenght accelerated routines.
 	//
 	namespace impl
