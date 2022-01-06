@@ -31,7 +31,7 @@
 		#define PLF_MOVE_SEMANTICS_SUPPORT
 		#define PLF_STATIC_ASSERT(check, message) static_assert(check, message)
 	#else
-		#define PLF_STATIC_ASSERT(check, message) assert(check)
+		#define PLF_STATIC_ASSERT(check, message) dassert(check)
 	#endif
 	#if _MSC_VER >= 1700
 		#define PLF_TYPE_TRAITS_SUPPORT
@@ -67,7 +67,7 @@
 			#define PLF_VARIADICS_SUPPORT
 			#define PLF_STATIC_ASSERT(check, message) static_assert(check, message)
 		#else
-			#define PLF_STATIC_ASSERT(check, message) assert(check)
+			#define PLF_STATIC_ASSERT(check, message) dassert(check)
 		#endif
 		#if (__GNUC__ == 4 && __GNUC_MINOR__ >= 4) || __GNUC__ > 4 // 4.3 and below do not support initializer lists
 			#define PLF_INITIALIZER_LIST_SUPPORT
@@ -109,7 +109,7 @@
 			#if __has_feature(cxx_static_assert)
 				#define PLF_STATIC_ASSERT(check, message) static_assert(check, message)
 			#else
-				#define PLF_STATIC_ASSERT(check, message) assert(check)
+				#define PLF_STATIC_ASSERT(check, message) dassert(check)
 			#endif
 			#if __has_feature(cxx_variadic_templates) && !defined(_LIBCPP_HAS_NO_VARIADICS)
 				#define PLF_VARIADICS_SUPPORT
@@ -124,7 +124,7 @@
 			#define PLF_VARIADICS_SUPPORT
 			#define PLF_STATIC_ASSERT(check, message) static_assert(check, message)
 		#else
-			#define PLF_STATIC_ASSERT(check, message) assert(check)
+			#define PLF_STATIC_ASSERT(check, message) dassert(check)
 		#endif
 		#if __GLIBCXX__ >= 20090421
 			#define PLF_INITIALIZER_LIST_SUPPORT
@@ -145,7 +145,7 @@
 			#define PLF_IS_ALWAYS_EQUAL_SUPPORT
 		#endif
 	#elif defined(_LIBCPP_CXX03_LANG) || defined(_LIBCPP_HAS_NO_RVALUE_REFERENCES) // Special case for checking C++11 support with libCPP
-		#define PLF_STATIC_ASSERT(check, message) assert(check)
+		#define PLF_STATIC_ASSERT(check, message) dassert(check)
 		#define PLF_NOEXCEPT throw()
 		#if !defined(_LIBCPP_HAS_NO_VARIADICS)
 			#define PLF_VARIADICS_SUPPORT
@@ -173,7 +173,7 @@
 	#endif
 #else
 	#define PLF_FORCE_INLINE
-	#define PLF_STATIC_ASSERT(check, message) assert(check)
+	#define PLF_STATIC_ASSERT(check, message) dassert(check)
 	#define PLF_NOEXCEPT throw()
 	#define PLF_CONSTEXPR
 #endif
@@ -214,13 +214,13 @@
 
 
 #include <algorithm> // std::fill_n, std::sort, lexicographical_compare
-#include <cassert>	// assert
 #include <cstring>	// memset, memcpy, size_t
 #include <limits>  // std::numeric_limits
 #include <memory> // std::allocator
 #include <iterator> // std::bidirectional_iterator_tag, iterator_traits, make_move_iterator, std::distance for range insert
 #include <stdexcept> // std::length_error
 
+#include "assert.hpp"
 
 #ifdef PLF_TYPE_TRAITS_SUPPORT
 	#include <cstddef> // offsetof, used in blank()
@@ -505,7 +505,7 @@ public:
 			// Move assignment - only really necessary if the allocator uses non-standard ie. "smart" pointers
 			inline colony_iterator & operator = (colony_iterator &&source) PLF_NOEXCEPT
 			{
-				assert(&source != this);
+				dassert(&source != this);
 				group_pointer = std::move(source.group_pointer);
 				element_pointer = std::move(source.element_pointer);
 				skipfield_pointer = std::move(source.skipfield_pointer);
@@ -573,7 +573,7 @@ public:
 		colony_iterator & operator ++ ()
 #endif
 		{
-			assert(group_pointer != NULL); // covers uninitialised colony_iterator
+			dassert(group_pointer != NULL); // covers uninitialised colony_iterator
 			skipfield_type skip = *(++skipfield_pointer);
 
 			if ((element_pointer += static_cast<size_type>(skip) + 1u) == group_pointer->last_endpoint && group_pointer->next_group != NULL) // ie. beyond end of current memory block. Second condition allows iterator to reach end(), which may be 1 past end of block, if block has been fully used and another block is not allocated
@@ -603,7 +603,7 @@ public:
 
 		colony_iterator & operator -- ()
 		{
-			assert(group_pointer != NULL);
+			dassert(group_pointer != NULL);
 
 			if (element_pointer != group_pointer->elements) // ie. not already at beginning of group
 			{
@@ -729,7 +729,7 @@ public:
 
 		void advance(difference_type distance) // Cannot be noexcept due to the possibility of an uninitialized iterator
 		{
-			assert(group_pointer != NULL); // covers uninitialized colony_iterator && empty group
+			dassert(group_pointer != NULL); // covers uninitialized colony_iterator && empty group
 
 			// Now, run code based on the nature of the distance type - negative, positive or zero:
 			if (distance > 0) // ie. +=
@@ -748,7 +748,7 @@ public:
 
 				// Note: incrementing element_pointer is avoided until necessary to avoid needless calculations
 
-				assert(!(element_pointer == group_pointer->last_endpoint && group_pointer->next_group == NULL)); // Check that we're not already at end()
+				dassert(!(element_pointer == group_pointer->last_endpoint && group_pointer->next_group == NULL)); // Check that we're not already at end()
 
 				// Special case for initial element pointer and initial group (we don't know how far into the group the element pointer is)
 				if (element_pointer != group_pointer->elements + *(group_pointer->skipfield)) // ie. != first non-erased element in group
@@ -862,7 +862,7 @@ public:
 			else if (distance < 0) // for negative change
 			{
 				// Code logic is very similar to += above
-				assert(!((element_pointer == group_pointer->elements + *(group_pointer->skipfield)) && group_pointer->previous_group == NULL)); // check that we're not already at begin()
+				dassert(!((element_pointer == group_pointer->elements + *(group_pointer->skipfield)) && group_pointer->previous_group == NULL)); // check that we're not already at begin()
 				distance = -distance;
 
 				// Special case for initial element pointer and initial group (we don't know how far into the group the element pointer is)
@@ -977,7 +977,7 @@ public:
 			// In the initial and final groups, manual incrementation must be used to calculate distance, if there have been no prior erasures in those groups.
 			// If there are no prior erasures in either of those groups, we can use pointer arithmetic to calculate the distances for those groups.
 
-			assert(!(group_pointer == NULL) && !(last.group_pointer == NULL));  // Check that they are initialized
+			dassert(!(group_pointer == NULL) && !(last.group_pointer == NULL));  // Check that they are initialized
 
 			if (last.element_pointer == element_pointer)
 			{
@@ -1143,7 +1143,7 @@ public:
 			// move assignment
 			inline colony_reverse_iterator& operator = (colony_reverse_iterator &&source) PLF_NOEXCEPT
 			{
-				assert(&source != this);
+				dassert(&source != this);
 				it = std::move(source.it);
 				return *this;
 			}
@@ -1207,7 +1207,7 @@ public:
 			colony::aligned_pointer_type &element_pointer = it.element_pointer;
 			colony::skipfield_pointer_type &skipfield_pointer = it.skipfield_pointer;
 
-			assert(group_pointer != NULL);
+			dassert(group_pointer != NULL);
 
 			if (element_pointer != group_pointer->elements) // ie. not already at beginning of group
 			{
@@ -1399,11 +1399,11 @@ public:
 			aligned_pointer_type &element_pointer = it.element_pointer;
 			skipfield_pointer_type &skipfield_pointer = it.skipfield_pointer;
 
-			assert(element_pointer != NULL);
+			dassert(element_pointer != NULL);
 
 			if (distance > 0)
 			{
-				assert(!(element_pointer == group_pointer->elements - 1 && group_pointer->previous_group == NULL)); // Check that we're not already at rend()
+				dassert(!(element_pointer == group_pointer->elements - 1 && group_pointer->previous_group == NULL)); // Check that we're not already at rend()
 				// Special case for initial element pointer and initial group (we don't know how far into the group the element pointer is)
 				// Since a reverse_iterator cannot == last_endpoint (ie. before rbegin()) we don't need to check for that like with iterator
 				if (group_pointer->free_list_head == std::numeric_limits<skipfield_type>::max())
@@ -1498,7 +1498,7 @@ public:
 			}
 			else if (distance < 0)
 			{
-				assert(!((element_pointer == (group_pointer->last_endpoint - 1) - *(group_pointer->skipfield + (group_pointer->last_endpoint - group_pointer->elements) - 1)) && group_pointer->next_group == NULL)); // Check that we're not already at rbegin()
+				dassert(!((element_pointer == (group_pointer->last_endpoint - 1) - *(group_pointer->skipfield + (group_pointer->last_endpoint - group_pointer->elements) - 1)) && group_pointer->next_group == NULL)); // Check that we're not already at rbegin()
 
 				if (element_pointer != group_pointer->elements + *(group_pointer->skipfield)) // ie. != first non-erased element in group
 				{
@@ -1842,7 +1842,7 @@ public:
 			tuple_allocator_pair(source.tuple_allocator_pair.min_group_capacity),
 			group_allocator_pair(source.group_allocator_pair.max_group_capacity)
 		{
-			assert(&source != this);
+			dassert(&source != this);
 			source.blank();
 		}
 
@@ -1861,7 +1861,7 @@ public:
 			tuple_allocator_pair(source.tuple_allocator_pair.min_group_capacity),
 			group_allocator_pair(source.group_allocator_pair.max_group_capacity)
 		{
-			assert(&source != this);
+			dassert(&source != this);
 			source.blank();
 		}
 	#endif
@@ -3177,10 +3177,10 @@ public:
 	// must return iterator to subsequent non-erased element (or end()), in case the group containing the element which the iterator points to becomes empty after the erasure, and is thereafter removed from the colony chain, making the current iterator invalid and unusable in a ++ operation:
 	iterator erase(const const_iterator it) // if uninitialized/invalid iterator supplied, function could generate an exception
 	{
-		assert(total_size != 0);
-		assert(it.group_pointer != NULL); // ie. not uninitialized iterator
-		assert(it.element_pointer != it.group_pointer->last_endpoint); // ie. != end()
-		assert(*(it.skipfield_pointer) == 0); // ie. element pointed to by iterator has not been erased previously
+		dassert(total_size != 0);
+		dassert(it.group_pointer != NULL); // ie. not uninitialized iterator
+		dassert(it.element_pointer != it.group_pointer->last_endpoint); // ie. != end()
+		dassert(*(it.skipfield_pointer) == 0); // ie. element pointed to by iterator has not been erased previously
 
 		#ifdef PLF_TYPE_TRAITS_SUPPORT
 			if PLF_CONSTEXPR (!std::is_trivially_destructible<element_type>::value) // This if-statement should be removed by the compiler on resolution of element_type. For some optimizing compilers this step won't be necessary (for MSVC 2013 it makes a difference)
@@ -3386,7 +3386,7 @@ public:
 
 	iterator erase(const const_iterator iterator1, const const_iterator iterator2)	// if uninitialized/invalid iterators supplied, function could generate an exception. If iterator1 > iterator2, behaviour is undefined.
 	{
-		assert(iterator1 <= iterator2);
+		dassert(iterator1 <= iterator2);
 
 		const_iterator current = iterator1;
 
@@ -4086,7 +4086,7 @@ public:
 
 	inline colony & operator = (const colony &source)
 	{
-		assert(&source != this);
+		dassert(&source != this);
 		range_assign(source.begin_iterator, source.total_size);
 		return *this;
 	}
@@ -4097,7 +4097,7 @@ public:
 		// Move assignment
 		colony & operator = (colony &&source) PLF_NOEXCEPT_MOVE_ASSIGN(allocator_type)
 		{
-			assert(&source != this);
+			dassert(&source != this);
 			destroy_all_data();
 
 			#ifdef PLF_TYPE_TRAITS_SUPPORT
@@ -4336,7 +4336,7 @@ public:
 		// Then link the destination's groups to the source's groups and nullify the source.
 		// If the source has more unused memory spaces in the back group than the destination, swap them before processing to reduce the number of locations added to a free list and also subsequent jumps during iteration.
 
-		assert(&source != this);
+		dassert(&source != this);
 
 		if (source.total_size == 0)
 		{
@@ -4660,7 +4660,7 @@ public:
 
 	void swap(colony &source) PLF_NOEXCEPT_SWAP(allocator_type)
 	{
-		assert(&source != this);
+		dassert(&source != this);
 
 		#ifdef PLF_TYPE_TRAITS_SUPPORT
 			if PLF_CONSTEXPR (std::is_trivial<group_pointer_type>::value && std::is_trivial<aligned_pointer_type>::value && std::is_trivial<skipfield_pointer_type>::value) // if all pointer types are trivial we can just copy using memcpy - avoids constructors/destructors etc and is faster
