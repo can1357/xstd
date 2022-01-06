@@ -106,7 +106,10 @@ namespace xstd
 		{
 			T* p = head.pointer;
 			while ( p )
-				Dx{}( std::exchange( p, p->next ) );
+			{
+				T* next = std::exchange( p->next, nullptr );
+				Dx{}( std::exchange( p, next ) );
+			}
 		}
 	};
 };
