@@ -101,110 +101,120 @@ namespace xstd::math
 
 	// Define vector types.
 	//
-#define ADD_OPERATORS(type)																													                          \
+#define ADD_OPERATORS(prim, type)																													                    \
 	inline constexpr type operator+( const type& o ) const noexcept { return from_xvec( to_xvec() + o.to_xvec() ); }		                    \
-	inline constexpr type operator+( float f ) const noexcept { return from_xvec( to_xvec() + f ); }							                    \
+	inline constexpr type operator+( prim f ) const noexcept { return from_xvec( to_xvec() + f ); }							                       \
 	inline constexpr type& operator+=( const type& o ) noexcept { return *this = from_xvec( to_xvec() + o.to_xvec() ); }	                    \
-	inline constexpr type& operator+=( float f ) noexcept { return *this = from_xvec( to_xvec() + f ); }						                    \
-	inline friend constexpr type operator+( float f, const type& o ) noexcept { return from_xvec( o.to_xvec() + f ); }	                    \
+	inline constexpr type& operator+=( prim f ) noexcept { return *this = from_xvec( to_xvec() + f ); }						                    \
+	inline friend constexpr type operator+( prim f, const type& o ) noexcept { return from_xvec( o.to_xvec() + f ); }	                       \
 	inline constexpr type operator*( const type& o ) const noexcept { return from_xvec( to_xvec() * o.to_xvec() ); }		                    \
-	inline constexpr type operator*( float f ) const noexcept { return from_xvec( to_xvec() * f ); }							                    \
+	inline constexpr type operator*( prim f ) const noexcept { return from_xvec( to_xvec() * f ); }							                       \
 	inline constexpr type& operator*=( const type& o ) noexcept { return *this = from_xvec( to_xvec() * o.to_xvec() ); }	                    \
-	inline constexpr type& operator*=( float f ) noexcept { return *this = from_xvec( to_xvec() * f ); }						                    \
-	inline friend constexpr type operator*( float f, const type& o ) noexcept { return from_xvec( o.to_xvec() * f ); }	                    \
-	inline friend constexpr type operator/( float f, const type& o ) noexcept { return from_xvec( fill( f ).to_xvec() / o.to_xvec() ); }	  \
+	inline constexpr type& operator*=( prim f ) noexcept { return *this = from_xvec( to_xvec() * f ); }						                    \
+	inline friend constexpr type operator*( prim f, const type& o ) noexcept { return from_xvec( o.to_xvec() * f ); }	                       \
+	inline friend constexpr type operator/( prim f, const type& o ) noexcept { return from_xvec( fill( f ).to_xvec() / o.to_xvec() ); }	     \
 	inline constexpr type operator-( const type& o ) const noexcept { return from_xvec( to_xvec() - o.to_xvec() ); }		                    \
-	inline constexpr type operator-( float f ) const noexcept { return from_xvec( to_xvec() - f ); }							                    \
+	inline constexpr type operator-( prim f ) const noexcept { return from_xvec( to_xvec() - f ); }							                       \
 	inline constexpr type& operator-=( const type& o ) noexcept { return *this = from_xvec( to_xvec() - o.to_xvec() ); }	                    \
-	inline constexpr type& operator-=( float f ) noexcept { return *this = from_xvec( to_xvec() - f ); }						                    \
+	inline constexpr type& operator-=( prim f ) noexcept { return *this = from_xvec( to_xvec() - f ); }						                    \
 	inline constexpr type operator/( const type& o ) const noexcept { return from_xvec( to_xvec() / o.to_xvec() ); }		                    \
-	inline constexpr type operator/( float f ) const noexcept { return from_xvec( to_xvec() / f ); }							                    \
+	inline constexpr type operator/( prim f ) const noexcept { return from_xvec( to_xvec() / f ); }							                       \
 	inline constexpr type& operator/=( const type& o ) noexcept { return *this = from_xvec( to_xvec() / o.to_xvec() ); }	                    \
-	inline constexpr type& operator/=( float f ) noexcept { return *this = from_xvec( to_xvec() / f ); }						                    \
+	inline constexpr type& operator/=( prim f ) noexcept { return *this = from_xvec( to_xvec() / f ); }						                    \
 	inline constexpr type operator-() const noexcept { return from_xvec( -to_xvec() ); };											                    \
 	inline constexpr auto operator<=>( const type& ) const noexcept = default;															                    \
-	inline constexpr float length_sq() const noexcept { auto v = to_xvec(); return vec::reduce_add( v * v ); }		                          \
+	inline constexpr prim length_sq() const noexcept { auto v = to_xvec(); return vec::reduce_add( v * v ); }		                          \
 	inline float length() const noexcept { return fsqrt( length_sq() ); }
-				
-	struct vec2
+		
+
+	// Vector types.
+	//
+	namespace impl
 	{
-		float x = 0;
-		float y = 0;
+		template<typename T>
+		struct vec2_t
+		{
+			T x = 0;
+			T y = 0;
 
-		// Define xvector conversion.
-		//
-		inline static constexpr vec2 fill( float x ) { return { x, x }; }
-		inline static constexpr vec2 from_xvec( xvec<float, 2> o ) { return vec2{ o[ 0 ],o[ 1 ] }; }
-		inline constexpr xvec<float, 2> to_xvec() const noexcept { return { x, y }; }
+			template<typename R>
+			inline constexpr vec2_t<R> cast() const { return { R( x ), R( y ) }; }
 
-		// Add operators.
-		//
-		ADD_OPERATORS( vec2 );
+			inline static constexpr vec2_t<T> from_xvec( xvec<T, 3> o ) { return vec2_t<T>{ o[ 0 ], o[ 1 ] }; }
+			inline constexpr xvec<T, 3> to_xvec() const noexcept { return { x, y }; }
 
-		// String conversion and serialization.
-		//
-		inline auto tie() { return std::tie( x, y ); }
-		inline std::string to_string() const noexcept { return fmt::str( "(%f, %f)", x, y ); }
+			inline T& operator[]( size_t n ) { return *( &x )[ n ]; }
+			inline T operator[]( size_t n ) const { return *( &x )[ n ]; }
+			inline constexpr size_t size() const { return 2; }
+
+			ADD_OPERATORS( T, vec2_t<T> );
+			inline static constexpr vec2_t<T> fill( T x ) { return { x, x }; }
+			inline auto tie() { return std::tie( x, y ); }
+			inline std::string to_string() const noexcept { return fmt::as_string( x, y ); }
+		};
+		template<typename T>
+		struct vec3_t
+		{
+			T x = 0;
+			T y = 0;
+			T z = 0;
+
+			template<typename R>
+			inline constexpr vec3_t<R> cast() const { return { R( x ), R( y ), R( z ) }; }
+
+			inline static constexpr vec3_t<T> from( const vec2_t<T>& v, T z = 0 ) { return { v.x, v.y, z }; }
+
+			inline static constexpr vec3_t<T> from_xvec( xvec<T, 3> o ) { return vec3_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ] }; }
+			inline constexpr xvec<T, 3> to_xvec() const noexcept { return { x, y, z }; }
+
+			inline T& operator[]( size_t n ) { return *( &x )[ n ]; }
+			inline T operator[]( size_t n ) const { return *( &x )[ n ]; }
+			inline constexpr size_t size() const { return 3; }
+
+			ADD_OPERATORS( T, vec3_t<T> );
+			inline static constexpr vec3_t<T> fill( T x ) { return { x, x, x }; }
+			inline constexpr vec2_t<T> xy() const noexcept { return { x, y }; }
+			inline auto tie() { return std::tie( x, y, z ); }
+			inline std::string to_string() const noexcept { return fmt::as_string( x, y, z ); }
+		};
+		template<typename T>
+		struct vec4_t
+		{
+			T x = 0;
+			T y = 0;
+			T z = 0;
+			T w = 0;
+
+			template<typename R>
+			inline constexpr vec4_t<R> cast() const { return { R( x ), R( y ), R( z ), R( w ) }; }
+
+			inline static constexpr vec4_t<T> from( const vec2_t<T>& v, T z = 0, T w = 1 ) { return { v.x, v.y, z, w }; }
+			inline static constexpr vec4_t<T> from( const vec3_t<T>& v, T w = 1 ) { return { v.x, v.y, v.z, w }; }
+
+			inline static constexpr vec4_t<T> from_xvec( xvec<T, 4> o ) { return vec4_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ],o[ 3 ] }; }
+			inline constexpr xvec<T, 4> to_xvec() const noexcept { return { x, y, z, w }; }
+
+			inline T& operator[]( size_t n ) { return *( &x )[ n ]; }
+			inline T operator[]( size_t n ) const { return *( &x )[ n ]; }
+			inline constexpr size_t size() const { return 4; }
+
+			ADD_OPERATORS( T, vec4_t<T> );
+			inline static constexpr vec4_t<T> fill( T x ) { return { x, x, x, x }; }
+			inline constexpr vec2_t<T> xy() const noexcept { return { x, y }; }
+			inline constexpr vec3_t<T> xyz() const noexcept { return { x, y, z }; }
+			inline auto tie() { return std::tie( x, y, z, w ); }
+			inline std::string to_string() const noexcept { return fmt::as_string( x, y, z, w ); }
+		};
 	};
-	struct vec3
-	{
-		float x = 0;
-		float y = 0;
-		float z = 0;
 
-		// Extension helper.
-		//
-		inline static constexpr vec3 from( const vec2& v, float z = 0 ) { return { v.x, v.y, z }; }
-		inline constexpr vec2 xy() const noexcept { return { x, y }; }
-
-		// Define xvector conversion.
-		//
-		inline static constexpr vec3 fill( float x ) { return { x, x, x }; }
-		inline static constexpr vec3 from_xvec( xvec<float, 3> o ) { return vec3{ o[ 0 ],o[ 1 ],o[ 2 ] }; }
-		inline constexpr xvec<float, 3> to_xvec() const noexcept { return { x, y, z }; }
-
-		// Add operators.
-		//
-		ADD_OPERATORS( vec3 );
-
-		// String conversion and serialization.
-		//
-		inline auto tie() { return std::tie( x, y, z ); }
-		inline std::string to_string() const noexcept { return fmt::str( "(%f, %f, %f)", x, y, z ); }
-	};
-	struct vec4
-	{
-		float x = 0;
-		float y = 0;
-		float z = 0;
-		float w = 0;
-
-		// Extension helper.
-		//
-		inline static constexpr vec4 from( const vec2& v, float z = 0, float w = 1 ) { return { v.x, v.y, z, w }; }
-		inline static constexpr vec4 from( const vec3& v, float w = 1 ) { return { v.x, v.y, v.z, w }; }
-		inline constexpr vec2 xy() const noexcept { return { x, y }; }
-		inline constexpr vec3 xyz() const noexcept { return { x, y, z }; }
-
-		// Define xvector conversion.
-		//
-		inline static constexpr vec4 fill( float x ) { return { x, x, x, x }; }
-		inline static constexpr vec4 from_xvec( xvec<float, 4> o ) { return vec4{ o[ 0 ],o[ 1 ],o[ 2 ],o[ 3 ] }; }
-		inline constexpr xvec<float, 4> to_xvec() const noexcept { return { x, y, z, w }; }
-
-		// Add operators.
-		//
-		ADD_OPERATORS( vec4 );
-
-		// String conversion and serialization.
-		//
-		inline auto tie() { return std::tie( x, y, z, w ); }
-		inline std::string to_string() const noexcept { return fmt::str( "(%f, %f, %f, %f)", x, y, z, w ); }
-	};
+	using ivec2 =      impl::vec2_t<int32_t>;
+	using ivec3 =      impl::vec3_t<int32_t>;
+	using ivec4 =      impl::vec4_t<int32_t>;
+	using vec2 =       impl::vec2_t<float>;
+	using vec3 =       impl::vec3_t<float>;
+	using vec4 =       impl::vec4_t<float>;
 	using quaternion = vec4;
 
-	template<typename T>
-	concept Vector = std::is_same_v<vec2, T> || std::is_same_v<vec3, T> || std::is_same_v<vec4, T>;
 #undef ADD_OPERATORS
 
 	// Extended vector helpers.
