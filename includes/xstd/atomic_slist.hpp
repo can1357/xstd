@@ -76,15 +76,19 @@ namespace xstd
 			}
 			return curr_head.pointer;
 		}
-		FORCE_INLINE std::unique_ptr<T, Dx> pop_unique()
+		FORCE_INLINE T* pop_all()
 		{
-			return { pop(), Dx{} };
+			versioned_pointer curr_head = head;
+			while ( curr_head.pointer != nullptr )
+			{
+				versioned_pointer new_head = { nullptr, curr_head.version + 1, 0 };
+				if ( cmpxchg_head( curr_head, new_head ) )
+					break;
+			}
+			return curr_head.pointer;
 		}
-		FORCE_INLINE std::unique_ptr<T, Dx> pop_all_unique()
-		{
-			atomic_slist null = {};
-			return { exchange( null ), Dx{} };
-		}
+		FORCE_INLINE std::unique_ptr<T, Dx> pop_unique() { return { pop(), Dx{} }; }
+		FORCE_INLINE std::unique_ptr<T, Dx> pop_all_unique() { return { pop_all(), Dx{} }; }
 
 		// Non-atomic properties.
 		//
