@@ -121,7 +121,7 @@ namespace xstd
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_SCHEDULER( func, arg, size_t( tick_count ), nullptr );
 #else
-		std::thread( [ fn = std::forward<T>( fn ), delay ]()
+		std::thread( [ fn = std::forward<T>( fn ), delay ]() mutable
 		{
 			std::this_thread::sleep_for( delay );
 			fn();
@@ -145,7 +145,7 @@ namespace xstd
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_SCHEDULER( func, arg, 0, evt );
 #else
-		std::thread( [ fn = std::forward<T>( fn ), evt ]()
+		std::thread( [ fn = std::forward<T>( fn ), evt ]() mutable
 		{
 			event_primitive::wait_from_handle( evt );
 			fn();
@@ -167,7 +167,7 @@ namespace xstd
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
 		XSTD_CHORE_SCHEDULER( func, arg, size_t( tick_count ), evt );
 #else
-		std::thread( [ fn = std::forward<T>( fn ), evt, timeout ]()
+		std::thread( [ fn = std::forward<T>( fn ), evt, timeout ]() mutable
 		{
 			( void ) event_primitive::wait_from_handle( evt, timeout / 1ms );
 			fn();
