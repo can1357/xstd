@@ -450,7 +450,7 @@ namespace xstd
 			return T{ deserialize<typename T::value_type>( ctx ) };
 		}
 	};
-	template<Iterable T> requires ( DefaultSerialized<T> && !Trivial<T> )
+	template<Iterable T> requires ( DefaultSerialized<T> && !Trivial<T> && !StdArray<T> )
 	struct serializer<T>
 	{
 		static void apply( serialization& ctx, const T& value )
@@ -462,25 +462,16 @@ namespace xstd
 		static T reflect( serialization& ctx )
 		{
 			size_t cnt = ctx.read_idx();
-			if constexpr ( StdArray<T> )
-			{
-				return make_constant_series<std::tuple_size_v<T>>( [ & ] <auto V> ( const_tag<V> _ )
-				{
-					return deserialize<iterable_val_t<T>>( ctx );
-				} );
-			}
-			else
-			{
-				std::vector<iterable_val_t<T>> entries;
-				entries.reserve( cnt );
-				for ( size_t n = 0; n != cnt; n++ )
-					entries.emplace_back( deserialize<iterable_val_t<T>>( ctx ) );
+
+			std::vector<iterable_val_t<T>> entries;
+			entries.reserve( cnt );
+			for ( size_t n = 0; n != cnt; n++ )
+				entries.emplace_back( deserialize<iterable_val_t<T>>( ctx ) );
 	
-				if constexpr ( Same<T, std::vector<iterable_val_t<T>>> )
-					return entries;
-				else
-					return T{ std::make_move_iterator( entries.begin() ), std::make_move_iterator( entries.end() ) };
-			}
+			if constexpr ( Same<T, std::vector<iterable_val_t<T>>> )
+				return entries;
+			else
+				return T{ std::make_move_iterator( entries.begin() ), std::make_move_iterator( entries.end() ) };
 		}
 	};
 	template<Tuple T>
@@ -488,26 +479,32 @@ namespace xstd
 	{
 		static void apply( serialization& ctx, const T& value )
 		{
-			make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+			if constexpr ( std::tuple_size_v<T> != 0 )
 			{
-				serialize( ctx, std::get<N>( value ) );
-			} );
+				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+				{
+					serialize( ctx, std::get<N>( value ) );
+				} );
+			}
 		}
 		static T reflect( serialization& ctx )
 		{
-			if constexpr ( is_specialization_v<std::pair, T> )
+			if constexpr ( std::tuple_size_v<T> != 0 )
 			{
-				return make_tuple_series<std::tuple_size_v<T>, std::pair>( [ & ] <auto N> ( const_tag<N> )
+				if constexpr ( is_specialization_v<std::pair, T> )
 				{
-					return deserialize<std::tuple_element_t<N, T>>( ctx );
-				} );
-			}
-			else
-			{
-				return make_tuple_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+					return make_tuple_series<std::tuple_size_v<T>, std::pair>( [ & ] <auto N> ( const_tag<N> )
+					{
+						return deserialize<std::tuple_element_t<N, T>>( ctx );
+					} );
+				}
+				else
 				{
-					return deserialize<std::tuple_element_t<N, T>>( ctx );
-				} );
+					return make_tuple_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+					{
+						return deserialize<std::tuple_element_t<N, T>>( ctx );
+					} );
+				}
 			}
 		}
 	};
@@ -754,20 +751,26 @@ namespace xstd
 		static void apply( serialization& ctx, const O& value )
 		{
 			auto tied = const_cast< O& >( value ).tie();
-			make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+			if constexpr ( std::tuple_size_v<T> != 0 )
 			{
-				serialize( ctx, std::get<N>( tied ) );
-			} );
+				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+				{
+					serialize( ctx, std::get<N>( tied ) );
+				} );
+			}
 		}
 		static O reflect( serialization& ctx )
 		{
 			O value = {};
 			auto tied = value.tie();
-			make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+			if constexpr ( std::tuple_size_v<T> != 0 )
 			{
-				auto& value = std::get<N>( tied );
-				value = deserialize<std::remove_reference_t<decltype( value )>>( ctx );
-			} );
+				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
+				{
+					auto& value = std::get<N>( tied );
+					value = deserialize<std::remove_reference_t<decltype( value )>>( ctx );
+				} );
+			}
 			return value;
 		}
 	};
