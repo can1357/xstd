@@ -65,7 +65,7 @@ namespace xstd
 			async_task get_return_object() { return {}; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			suspend_never final_suspend() noexcept { return {}; }
-			void unhandled_exception() {}
+			XSTDC_UNHANDLED_RETHROW;
 			void return_void() {}
 		};
 		async_task() {}

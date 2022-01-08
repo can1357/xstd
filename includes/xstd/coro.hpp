@@ -19,6 +19,12 @@
 		struct coroutine_traits;
 	};
 #endif
+	
+#if XSTD_NO_EXCEPTIONS
+	#define XSTDC_UNHANDLED_RETHROW void unhandled_exception() {}
+#else
+	#define XSTDC_UNHANDLED_RETHROW void unhandled_exception() { std::rethrow_exception( std::current_exception() ); }
+#endif
 
 namespace xstd
 {

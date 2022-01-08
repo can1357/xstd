@@ -51,7 +51,7 @@ namespace xstd
 			task<T, S> get_return_object() { return *this; }
 			suspend_always initial_suspend() noexcept { return {}; }
 			final_awaitable final_suspend() noexcept { return {}; }
-			void unhandled_exception() {}
+			XSTDC_UNHANDLED_RETHROW;
 			
 			template<typename V> 
 			void return_value( V&& v ) 
@@ -154,7 +154,7 @@ namespace xstd
 			inline task<void, S> get_return_object() { return *this; }
 			inline suspend_always initial_suspend() noexcept { return {}; }
 			inline final_awaitable final_suspend() noexcept { return {}; }
-			inline void unhandled_exception() {}
+			XSTDC_UNHANDLED_RETHROW;
 			
 			inline void return_void() 
 			{

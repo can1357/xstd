@@ -75,7 +75,7 @@ namespace xstd
 				return { false };
 			}
 			void return_void() {}
-			void unhandled_exception() {}
+			XSTDC_UNHANDLED_RETHROW;
 		};
 
 		// Returns whether or not the generator is done producing values.

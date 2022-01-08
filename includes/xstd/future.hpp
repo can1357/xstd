@@ -876,8 +876,8 @@ namespace xstd
 			future<T, S> get_return_object() { return { std::in_place_t{}, &pr }; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			impl::promise_finalizing_awaitable final_suspend() noexcept { return {}; }
-			void unhandled_exception() {}
-			
+			XSTDC_UNHANDLED_RETHROW;
+
 			template<typename V> 
 			void return_value( V&& v )
 			{
@@ -933,7 +933,7 @@ namespace xstd
 			future<void, S> get_return_object() { return { std::in_place_t{}, &pr }; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			impl::promise_finalizing_awaitable final_suspend() noexcept { return {}; }
-			void unhandled_exception() {}
+			XSTDC_UNHANDLED_RETHROW;
 			
 			void return_void() { pr.resolve_unchecked(); }
 

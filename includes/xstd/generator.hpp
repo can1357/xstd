@@ -38,7 +38,7 @@ namespace xstd
 			suspend_always initial_suspend() { return {}; }
 			yield_awaitable final_suspend() noexcept { return {}; }
 			void return_void() {}
-			void unhandled_exception() {}
+			XSTDC_UNHANDLED_RETHROW;
 		};
 
 		struct iterator
