@@ -593,18 +593,36 @@ namespace xstd
 			return result;
 		}
 	};
-	template<Trivial T, size_t N> requires ( !Pointer<T> )
+	template<typename T, size_t N>
 	struct serializer<std::array<T, N>>
 	{
 		static void apply( serialization& ctx, const std::array<T, N>& value )
 		{
-			ctx.write( value.data(), N * sizeof( T ) );
+			if constexpr ( Trivial<T> && !Pointer<T> )
+			{
+				ctx.write( value.data(), N * sizeof( T ) );
+			}
+			else
+			{
+				for ( size_t i = 0; i != N; i++ )
+					ctx.write<T>( value[ i ] );
+			}
 		}
 		static std::array<T, N> reflect( serialization& ctx )
 		{
-			std::array<T, N> result;
-			ctx.read( result.data(), N * sizeof( T ) );
-			return result;
+			std::aligned_storage_t<sizeof( std::array<T, N> ), alignof( std::array<T, N> )> tmp;
+			auto& result = ( std::array<T, N>& ) tmp;
+
+			if constexpr ( Trivial<T> && !Pointer<T> )
+			{
+				ctx.read( result.data(), N * sizeof( T ) );
+			}
+			else
+			{
+				for ( size_t i = 0; i != N; i++ )
+					new ( &result[ i ] ) T( ctx.read<T>() );
+			}
+			return std::move( result );
 		}
 	};
 	template<typename T>
