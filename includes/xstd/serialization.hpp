@@ -210,13 +210,13 @@ namespace xstd
 		// Fields used during serialization.
 		//
 		std::vector<uint8_t> output_stream;
-		std::unordered_map<xstd::any_ptr, pointer_record, xstd::hasher<>> pointers;
+		std::optional<std::unordered_map<xstd::any_ptr, pointer_record, xstd::hasher<>>> pointers;
 
 		// Fields used during deserialization.
 		//
 		const uint8_t* input_start = nullptr;
 		std::span<const uint8_t> input_stream;
-		std::unordered_map<size_t, rpointer_record, xstd::hasher<>> rpointers;
+		std::optional<std::unordered_map<size_t, rpointer_record, xstd::hasher<>>> rpointers;
 
 		// Constructed from an optional byte array.
 		//
@@ -292,12 +292,13 @@ namespace xstd
 		{
 			if ( !value )
 				return write_idx( 0 );
+			if ( !pointers ) pointers.emplace();
 
-			auto& rec = pointers[ value ];
+			auto& rec = ( *pointers )[ value ];
 			rec.is_backed |= owning;
 			if ( !rec.index )
 			{
-				rec.index = pointers.size();
+				rec.index = pointers->size();
 				rec.output_stream = std::exchange( output_stream, {} );
 				serialize( *this, *value );
 				std::swap( rec.output_stream, output_stream );
@@ -310,7 +311,7 @@ namespace xstd
 			size_t index = read_idx();
 			if ( !index ) return nullptr;
 
-			auto& rec = rpointers.at( index );
+			auto& rec = rpointers->at( index );
 			if ( !rec.is_lifted )
 			{
 				auto result = std::unique_ptr<T>( std::allocator<T>{}.allocate( 1 ) );
@@ -328,7 +329,7 @@ namespace xstd
 			size_t index = read_idx();
 			if ( !index ) return nullptr;
 
-			auto& rec = rpointers.at( index );
+			auto& rec = rpointers->at( index );
 			if ( !rec.is_lifted )
 			{
 				rec.deserialized = std::shared_ptr<T>( std::allocator<T>{}.allocate( 1 ) );
@@ -346,7 +347,7 @@ namespace xstd
 			size_t index = read_idx();
 			if ( !index ) return nullptr;
 
-			auto& rec = rpointers.at( index );
+			auto& rec = rpointers->at( index );
 			if ( !rec.is_lifted )
 			{
 				auto* ref = std::allocator<impl::ref_store<T>>{}.allocate( 1 );
@@ -382,15 +383,18 @@ namespace xstd
 		std::vector<uint8_t> write_pointer_table() const
 		{
 			serialization sx = {};
-			for ( auto& [ptr, rec] : pointers )
+			if ( pointers )
 			{
-				if ( !rec.is_backed )
-					throw_fmt( XSTD_ESTR( "Dangling pointer serialized!" ) );
-				if ( !rec.index )
-					throw_fmt( XSTD_ESTR( "Invalid pointer table." ) );
-				sx.write_idx( rec.index );
-				sx.write_idx( rec.output_stream.size() );
-				sx.write( rec.output_stream.data(), rec.output_stream.size() );
+				for ( auto& [ptr, rec] : *pointers )
+				{
+					if ( !rec.is_backed )
+						throw_fmt( XSTD_ESTR( "Dangling pointer serialized!" ) );
+					if ( !rec.index )
+						throw_fmt( XSTD_ESTR( "Invalid pointer table." ) );
+					sx.write_idx( rec.index );
+					sx.write_idx( rec.output_stream.size() );
+					sx.write( rec.output_stream.data(), rec.output_stream.size() );
+				}
 			}
 			sx.write_idx( 0 );
 			return std::move( sx.output_stream );
@@ -403,7 +407,8 @@ namespace xstd
 				if ( !idx )
 					break;
 
-				auto [it, inserted] = rpointers.emplace( idx, rpointer_record{} );
+				if ( !rpointers ) rpointers.emplace();
+				auto [it, inserted] = rpointers->emplace( idx, rpointer_record{} );
 				if ( !inserted )
 					throw_fmt( XSTD_ESTR( "Invalid pointer table." ) );
 
@@ -790,7 +795,7 @@ namespace xstd
 		}
 		else
 		{
-			if ( !pointers.empty() )
+			if ( pointers && !pointers->empty() )
 				throw_fmt( XSTD_ESTR( "Writing a serialization with a pointer table without headers." ) );
 		}
 		return result;
@@ -806,7 +811,7 @@ namespace xstd
 		}
 		else
 		{
-			if ( !pointers.empty() )
+			if ( pointers && !pointers->empty() )
 				throw_fmt( XSTD_ESTR( "Writing a serialization with a pointer table without headers." ) );
 		}
 		return std::move( output_stream );
