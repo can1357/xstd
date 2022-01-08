@@ -821,13 +821,17 @@ namespace xstd
 		{
 			inline bool await_ready() noexcept { return false; }
 			template<typename P>
-			inline coroutine_handle<> await_suspend( coroutine_handle<P> hnd ) noexcept
+			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<P> hnd ) noexcept
 			{
 				auto& pr = hnd.promise().pr;
-				auto c = pr.signal();
+#if CLANG_COMPILER && DEBUG_BUILD
+				register void* c asm( "r12" ) = pr.signal().address(); // Force the compiler not to store the next coro in frame!
+#else
+				void* c = pr.signal().address();
+#endif
 				hnd.destroy(); // Will not destroy the promise or delete it.
 				pr.dec_ref( true );
-				return c;
+				return coroutine_handle<>::from_address( c );
 			}
 			inline void await_resume() const noexcept {}
 		};
