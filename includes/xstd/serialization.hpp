@@ -593,13 +593,11 @@ namespace xstd
 	{
 		static void apply( serialization& ctx, const std::array<T, N>& value )
 		{
-			ctx.write_idx( N );
 			ctx.write( value.data(), N * sizeof( T ) );
 		}
 		static std::array<T, N> reflect( serialization& ctx )
 		{
 			std::array<T, N> result;
-			ctx.read_idx();
 			ctx.read( result.data(), N * sizeof( T ) );
 			return result;
 		}
