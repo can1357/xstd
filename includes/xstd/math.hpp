@@ -25,6 +25,8 @@ namespace xstd::math
 	inline float _fcopysign( float m, float s ) { return copysignf( m, s ); }
 	inline float _fabs( float x ) { return fabsf( x ); }
 	inline float _ffloor( float x ) { return floorf( x ); }
+	inline float _fceil( float x ) { return ceilf( x ); }
+	inline float _fround( float x ) { return roundf( x ); }
 #else
 	float fsqrt( float x ) asm( "llvm.sqrt.f32" );
 	float fsin( float x ) asm( "llvm.sin.f32" );
@@ -32,6 +34,8 @@ namespace xstd::math
 	float _fcopysign( float m, float s ) asm( "llvm.copysign.f32" );
 	float _fabs( float x ) asm( "llvm.fabs.f32" );
 	float _ffloor( float x ) asm( "llvm.floor.f32" );
+	float _fceil( float x ) asm( "llvm.ceil.f32" );
+	float _fround( float x ) asm( "llvm.round.f32" );
 #endif
 	inline constexpr float fabs( float a )
 	{
@@ -49,16 +53,32 @@ namespace xstd::math
 		if ( s < 0 ) m = -m;
 		return m;
 	}
-	inline constexpr float ffloor( float a )
+	inline constexpr float ffloor( float x )
 	{
 		if ( !std::is_constant_evaluated() )
-			return _ffloor( a );
-		return float( int64_t( a ) );
+			return _ffloor( x );
+		float d = x - int64_t( x );
+		if ( d != 0 ) d = -1;
+		return int64_t( x + d );
+	}
+	inline constexpr float fceil( float x )
+	{
+		if ( !std::is_constant_evaluated() )
+			return _fceil( x );
+		float d = x - int64_t( x );
+		if ( d != 0 ) d = +1;
+		return int64_t( x + d );
+	}
+	inline constexpr float fround( float x )
+	{
+		if ( !std::is_constant_evaluated() )
+			return _fround( x );
+		return float( int64_t( x + fcopysign( 0.5f, x ) ) );
 	}
 	inline constexpr float fmod( float x, float y )
 	{
 		float m = 1.0f / y;
-		return x - ffloor( x * m ) * y;
+		return x - float( int64_t( x * m ) ) * y;
 	}
 
 	// Implement sincos since NT CRT does not include it.
@@ -125,7 +145,6 @@ namespace xstd::math
 	inline constexpr auto operator<=>( const type& ) const noexcept = default;															                    \
 	inline constexpr prim length_sq() const noexcept { auto v = to_xvec(); return vec::reduce_add( v * v ); }		                          \
 	inline float length() const noexcept { return fsqrt( length_sq() ); }
-		
 
 	// Vector types.
 	//
@@ -214,8 +233,24 @@ namespace xstd::math
 	using vec3 =       impl::vec3_t<float>;
 	using vec4 =       impl::vec4_t<float>;
 	using quaternion = vec4;
-
 #undef ADD_OPERATORS
+
+	// Implement certain float funcs for vectors as well.
+	//
+	inline constexpr vec4 vec_abs( const vec4& vec ) { return { fabs( vec.x ), fabs( vec.y ), fabs( vec.z ), fabs( vec.w ) }; }
+	inline constexpr vec4 vec_ceil( const vec4& vec ) { return { fceil( vec.x ), fceil( vec.y ), fceil( vec.z ), fceil( vec.w ) }; }
+	inline constexpr vec4 vec_floor( const vec4& vec ) { return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ), ffloor( vec.w ) }; }
+	inline constexpr vec4 vec_round( const vec4& vec ) { return { fround( vec.x ), fround( vec.y ), fround( vec.z ), fround( vec.w ) }; }
+
+	inline constexpr vec3 vec_abs( const vec3& vec ) { return { fabs( vec.x ), fabs( vec.y ), fabs( vec.z ) }; }
+	inline constexpr vec3 vec_ceil( const vec3& vec ) { return { fceil( vec.x ), fceil( vec.y ), fceil( vec.z ) }; }
+	inline constexpr vec3 vec_floor( const vec3& vec ) { return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ) }; }
+	inline constexpr vec3 vec_round( const vec3& vec ) { return { fround( vec.x ), fround( vec.y ), fround( vec.z ) }; }
+
+	inline constexpr vec2 vec_abs( const vec2& vec ) { return { fabs( vec.x ), fabs( vec.y ) }; }
+	inline constexpr vec2 vec_ceil( const vec2& vec ) { return { fceil( vec.x ), fceil( vec.y ) }; }
+	inline constexpr vec2 vec_floor( const vec2& vec ) { return { ffloor( vec.x ), ffloor( vec.y ) }; }
+	inline constexpr vec2 vec_round( const vec2& vec ) { return { fround( vec.x ), fround( vec.y ) }; }
 
 	// Extended vector helpers.
 	//
