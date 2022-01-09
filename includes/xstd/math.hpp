@@ -164,7 +164,7 @@ namespace xstd::math
 
 			inline T& operator[]( size_t n ) { return ( &x )[ n ]; }
 			inline T operator[]( size_t n ) const { return ( &x )[ n ]; }
-			inline constexpr size_t size() const { return 2; }
+			inline constexpr size_t count() const { return 2; }
 
 			ADD_OPERATORS( T, vec2_t<T> );
 			inline static constexpr vec2_t<T> fill( T x ) { return { x, x }; }
@@ -188,7 +188,7 @@ namespace xstd::math
 
 			inline T& operator[]( size_t n ) { return ( &x )[ n ]; }
 			inline T operator[]( size_t n ) const { return ( &x )[ n ]; }
-			inline constexpr size_t size() const { return 3; }
+			inline constexpr size_t count() const { return 3; }
 
 			ADD_OPERATORS( T, vec3_t<T> );
 			inline static constexpr vec3_t<T> fill( T x ) { return { x, x, x }; }
@@ -215,7 +215,7 @@ namespace xstd::math
 
 			inline T& operator[]( size_t n ) { return ( &x )[ n ]; }
 			inline T operator[]( size_t n ) const { return ( &x )[ n ]; }
-			inline constexpr size_t size() const { return 4; }
+			inline constexpr size_t count() const { return 4; }
 
 			ADD_OPERATORS( T, vec4_t<T> );
 			inline static constexpr vec4_t<T> fill( T x ) { return { x, x, x, x }; }
