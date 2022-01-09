@@ -59,7 +59,7 @@ namespace xstd::gzip
 		buffer.resize( buffer.size() - stream.avail_out );
 		if ( ( buffer.capacity() - buffer.size() ) >= 4_kb )
 			buffer.shrink_to_fit();
-		res.status.clear();
+		res.status.reset();
 		return res;
 	}
 	template<ContiguousIterable T>
@@ -105,7 +105,7 @@ namespace xstd::gzip
 		buffer.resize( buffer.size() - stream.avail_out );
 		if ( ( buffer.capacity() - buffer.size() ) >= 4_kb )
 			buffer.shrink_to_fit();
-		res.status.clear();
+		res.status.reset();
 		return res;
 	}
 	template<ContiguousIterable T>
