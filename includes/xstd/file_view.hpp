@@ -40,7 +40,7 @@ namespace xstd::file
 	};
 #endif
 
-	template<Trivial T = uint8_t>
+	template<TriviallyCopyable T = uint8_t>
 	struct view
 	{
 		// Region details.
@@ -116,7 +116,7 @@ namespace xstd::file
 		}
 	};
 
-	template<Trivial T = uint8_t>
+	template<TriviallyCopyable T = uint8_t>
 	static inline io_result<view<T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
 	{
 		// Get file size and validate it.

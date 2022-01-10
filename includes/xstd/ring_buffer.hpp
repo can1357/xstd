@@ -89,10 +89,25 @@ namespace xstd
 				std::destroy_at( slot );
 			return *std::construct_at( slot, std::forward<Tx>( args )... );
 		}
+		void push_back( T&& value ) { emplace_back<T>( std::move( value ) ); }
+		void push_back( const T& value ) { emplace_back( value ); }
 
 		// Gets the number of entries we can read.
 		//
 		size_t size() const { return std::min<size_t>( push_count, N ); }
+
+		// Usual observers.
+		// - Note: the range is unordered!
+		//
+		bool empty() const { return push_count == 0; }
+		constexpr size_t capacity() const { return N; }
+
+		T* data() { return ( T* ) buffer.data(); }
+		T* begin() { return data(); }
+		T* end() { return data() + size(); }
+		const T* data() const { return ( T* ) buffer.data(); }
+		const T* begin() const { return data(); }
+		const T* end() const { return data() + size(); }
 		
 		// References an entry in the buffer. 
 		//  0 = last entry, 1 = previous entry and so on.
@@ -111,7 +126,7 @@ namespace xstd
 
 	// Same as above but simpler and constexpr for trivial types.
 	//
-	template<Trivial T, size_t N>
+	template<TriviallyCopyable T, size_t N>
 	struct ring_buffer<T, N>
 	{
 		// Underlying buffer and the push counter.
@@ -149,13 +164,28 @@ namespace xstd
 		{
 			size_t id = push_count++;
 			T& slot = *( T* ) &buffer[ id % N ];
-			slot = T{ std::forward<Tx>( args )... };
+			slot = T( std::forward<Tx>( args )... );
 			return slot;
 		}
+		constexpr void push_back( T&& value ) { emplace_back<T>( std::move( value ) ); }
+		constexpr void push_back( const T& value ) { emplace_back( value ); }
 
 		// Gets the number of entries we can read.
 		//
 		constexpr size_t size() const { return std::min<size_t>( push_count, N ); }
+
+		// Usual observers.
+		// - Note: the range is unordered!
+		//
+		constexpr bool empty() const { return push_count == 0; }
+		constexpr size_t capacity() const { return N; }
+
+		constexpr T* data() { return buffer.data(); }
+		constexpr T* begin() { return data(); }
+		constexpr T* end() { return data() + size(); }
+		constexpr const T* data() const { return buffer.data(); }
+		constexpr const T* begin() const { return data(); }
+		constexpr const T* end() const { return data() + size(); }
 		
 		// References an entry in the buffer. 
 		//  0 = last entry, 1 = previous entry and so on.

@@ -100,9 +100,9 @@ namespace xstd
 			{
 				combine_hash( out, value );
 			}
-			// If trivial type:
+			// If builtin type:
 			//
-			else if constexpr ( Trivial<T> || Pointer<T> || Same<T, any_ptr> || ( Integral<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) ) || Enum<T> )
+			else if constexpr ( Pointer<T> || Same<T, any_ptr> || ( Integral<T> && ( sizeof( T ) == 8 || sizeof( T ) == 4 ) ) || Enum<T> )
 			{
 				out.add_bytes( value );
 			}
@@ -111,6 +111,12 @@ namespace xstd
 			else if constexpr ( StdHashable<T> )
 			{
 				combine_hash( out, std::hash<T>{}( value ) );
+			}
+			// If trivial type:
+			//
+			else if constexpr ( TriviallyCopyable<T> )
+			{
+				out.add_bytes( value );
 			}
 			else
 			{

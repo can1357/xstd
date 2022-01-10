@@ -43,7 +43,7 @@ namespace xstd::file
 {
 	// Binary I/O.
 	//
-	template<Trivial T = uint8_t>
+	template<TriviallyCopyable T = uint8_t>
 	static io_result<std::vector<T>> read_raw( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
 	{
 		// Try to open file as binary for read.
