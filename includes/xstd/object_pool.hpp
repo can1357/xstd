@@ -201,7 +201,7 @@ namespace xstd
 	template<typename T, typename... Tx>
 	inline std::unique_ptr<T, pool_deleter<object_pool<T>>> make_unique_from_pool( object_pool<T>& pool, Tx&&... args )
 	{
-		return { pool.emplace<T>( std::forward<Tx>( args )... ), pool_deleter<object_pool<T>>{ pool } };
+		return { pool.template emplace<T>( std::forward<Tx>( args )... ), pool_deleter<object_pool<T>>{ pool } };
 	}
 	template<typename T, typename... Tx>
 	inline std::unique_ptr<T, default_pool_deleter> make_unique_from_pool_for_overwrite( Tx&&... args )

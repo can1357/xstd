@@ -12,9 +12,9 @@ namespace xstd::math
 	// Math constants.
 	//
 	static constexpr float pi =      ( float ) 3.14159265358979323846;
-	static constexpr float flt_eps = FLT_EPSILON;
-	static constexpr float flt_min = FLT_MIN;
-	static constexpr float flt_max = FLT_MAX;
+	static constexpr float flt_eps = __FLT_EPSILON__;
+	static constexpr float flt_min = __FLT_MIN__;
+	static constexpr float flt_max = __FLT_MAX__;
 
 	// Fast floating point intrinsics.
 	//

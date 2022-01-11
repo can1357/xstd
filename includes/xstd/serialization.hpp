@@ -541,18 +541,18 @@ namespace xstd
 		{
 			if ( value.has_value() )
 			{
-				serialize<int8_t>( ctx, 1 );
-				serialize( ctx, value.value() );
+				ctx.write<int8_t>( 1 );
+				ctx.write<T>( value.value() );
 			}
 			else
 			{
-				serialize<int8_t>( ctx, 0 );
+				ctx.write<int8_t>( 0 );
 			}
 		}
 		static T reflect( serialization& ctx )
 		{
-			if ( deserialize<int8_t>( ctx ) )
-				return T{ deserialize<typename T::value_type>( ctx ) };
+			if ( ctx.read<int8_t>() )
+				return T{ ctx.read<typename T::value_type>() };
 			else
 				return std::nullopt;
 		}

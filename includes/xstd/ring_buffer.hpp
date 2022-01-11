@@ -53,8 +53,8 @@ namespace xstd
 
 			// Swap entries upto b's length.
 			//
-			T* a_0 = ( T* ) &a->buffer[ n ];
-			T* b_0 = ( T* ) &b->buffer[ n ];
+			T* a_0 = ( T* ) &a->buffer[ 0 ];
+			T* b_0 = ( T* ) &b->buffer[ 0 ];
 			size_t a_n = a->size();
 			size_t b_n = b->size();
 			std::swap_ranges( a_0, a_0 + b_n, b_0 );

@@ -124,7 +124,18 @@ namespace xstd
 	template<DefaultConstructible CidGetter>
 	struct basic_recursive_spinlock
 	{
-		FORCE_INLINE static uint32_t get_cid() { return 1 + bit_cast<uint32_t>( CidGetter{}() ); }
+		FORCE_INLINE static uint32_t get_cid() 
+		{ 
+			auto cid = CidGetter{}();
+			if constexpr ( sizeof( cid ) == 4 )
+				return 1 + ( uint32_t ) bit_cast<uint32_t>( cid );
+			else if constexpr ( sizeof( cid ) == 2 )
+				return 1 + ( uint32_t ) bit_cast<uint16_t>( cid );
+			else if constexpr ( sizeof( cid ) == 1 )
+				return 1 + ( uint32_t ) bit_cast<uint8_t>( cid );
+			else
+				return 1 + *( const uint32_t* ) &cid;
+		}
 		FORCE_INLINE static uint64_t combine( uint32_t owner, uint32_t depth ) { return owner | ( uint64_t( depth ) << 32 ); }
 		FORCE_INLINE static std::pair<uint32_t, uint32_t> split( uint64_t value ) { return { uint32_t( value ), uint32_t( value >> 32 ) }; }
 

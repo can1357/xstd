@@ -243,7 +243,7 @@ namespace xstd::fmt
 		{ 
 			if constexpr ( sizeof...( Tx ) == 0 )
 			{
-				return as_string( std::monostate{} );
+				return as_string();
 			}
 			else
 			{
