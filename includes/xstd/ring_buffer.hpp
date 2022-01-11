@@ -9,7 +9,7 @@ namespace xstd
 	// Implements a ring buffer that can store a history of T upto N times and starts
 	// overwriting entries after that.
 	//
-	template<typename T, size_t N = 0>
+	template<typename T, size_t N>
 	struct ring_buffer
 	{
 		using storage_t = std::aligned_storage_t<sizeof( T ), alignof( T )>;
