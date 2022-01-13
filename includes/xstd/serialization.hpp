@@ -424,7 +424,7 @@ namespace xstd
 
 	// Implement it for trivials, atomics, iterables, tuples, variants, hash type and optionals.
 	//
-	template<Trivial T> requires DefaultSerialized<T>
+	template<Trivial T> requires ( DefaultSerialized<T> && !Integral<T> )
 	struct serializer<T>
 	{
 		static void apply( serialization& ctx, const T& value )
@@ -435,6 +435,62 @@ namespace xstd
 		{
 			std::remove_const_t<T> value;
 			ctx.read( &value, sizeof( T ) );
+			return value;
+		}
+	};
+	template<Unsigned T>
+	struct serializer<T>
+	{
+		static void apply( serialization& ctx, T value )
+		{
+			if constexpr( sizeof( T ) == 1 )
+				ctx.write( &value, sizeof( T ) );
+			else
+				ctx.write_idx( value );
+		}
+		static T reflect( serialization& ctx )
+		{
+			std::remove_const_t<T> value;
+			if constexpr ( sizeof( T ) == 1 )
+				ctx.read( &value, sizeof( T ) );
+			else
+				value = ( std::remove_const_t<T> ) ctx.read_idx();
+			return value;
+		}
+	};
+	template<Signed T>
+	struct serializer<T>
+	{
+		using U = convert_uint_t<T>;
+
+		static void apply( serialization& ctx, T value )
+		{
+			if constexpr ( sizeof( T ) == 1 )
+			{
+				ctx.write( &value, sizeof( T ) );
+			}
+			else
+			{
+				U pvalue;
+				if ( value >= 0 ) pvalue = U( value ) << 1;
+				else              pvalue = ( U( -value ) << 1 ) | 1;
+				ctx.write_idx( pvalue );
+			}
+		}
+		static T reflect( serialization& ctx )
+		{
+			std::remove_const_t<T> value;
+			if constexpr ( sizeof( T ) == 1 )
+			{
+				ctx.read( &value, sizeof( T ) );
+			}
+			else
+			{
+				U pvalue = ( U ) ctx.read_idx();
+				value = T( pvalue >> 1 );
+				if ( pvalue & 1 ) 
+					value = -value;
+			}
 			return value;
 		}
 	};
