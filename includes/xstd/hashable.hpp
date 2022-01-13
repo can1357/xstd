@@ -106,17 +106,17 @@ namespace xstd
 			{
 				out.add_bytes( value );
 			}
-			// If hashable using std::hash<>, redirect.
-			//
-			else if constexpr ( StdHashable<T> )
-			{
-				combine_hash( out, std::hash<T>{}( value ) );
-			}
 			// If trivial type:
 			//
 			else if constexpr ( TriviallyCopyable<T> )
 			{
 				out.add_bytes( value );
+			}
+			// If hashable using std::hash<>, redirect.
+			//
+			else if constexpr ( StdHashable<T> )
+			{
+				out.add_bytes( std::hash<T>{}( value ) );
 			}
 			else
 			{

@@ -438,31 +438,9 @@ namespace xstd
 			return value;
 		}
 	};
-	template<Unsigned T>
+	template<Integral T>
 	struct serializer<T>
 	{
-		static void apply( serialization& ctx, T value )
-		{
-			if constexpr( sizeof( T ) == 1 )
-				ctx.write( &value, sizeof( T ) );
-			else
-				ctx.write_idx( value );
-		}
-		static T reflect( serialization& ctx )
-		{
-			std::remove_const_t<T> value;
-			if constexpr ( sizeof( T ) == 1 )
-				ctx.read( &value, sizeof( T ) );
-			else
-				value = ( std::remove_const_t<T> ) ctx.read_idx();
-			return value;
-		}
-	};
-	template<Signed T>
-	struct serializer<T>
-	{
-		using U = convert_uint_t<T>;
-
 		static void apply( serialization& ctx, T value )
 		{
 			if constexpr ( sizeof( T ) == 1 )
@@ -471,27 +449,42 @@ namespace xstd
 			}
 			else
 			{
-				U pvalue;
-				if ( value >= 0 ) pvalue = U( value ) << 1;
-				else              pvalue = ( U( -value ) << 1 ) | 1;
+				size_t pvalue;
+				if constexpr ( Signed<T> )
+				{
+					if ( value >= 0 ) pvalue = ( size_t( value )  << 1 );
+					else              pvalue = ( size_t( -value ) << 1 ) | 1;
+				}
+				else
+				{
+					pvalue = ( size_t ) value;
+				}
 				ctx.write_idx( pvalue );
 			}
 		}
 		static T reflect( serialization& ctx )
 		{
-			std::remove_const_t<T> value;
 			if constexpr ( sizeof( T ) == 1 )
 			{
+				std::remove_const_t<T> value;
 				ctx.read( &value, sizeof( T ) );
+				return value;
 			}
 			else
 			{
-				U pvalue = ( U ) ctx.read_idx();
-				value = T( pvalue >> 1 );
-				if ( pvalue & 1 ) 
-					value = -value;
+				size_t pvalue = ctx.read_idx();
+				if constexpr ( Signed<T> )
+				{
+					if ( pvalue & 1 )
+						return -( std::remove_const_t<T> )( pvalue >> 1 );
+					else
+						return ( std::remove_const_t<T> )( pvalue >> 1 );
+				}
+				else
+				{
+					return ( std::remove_const_t<T> ) pvalue;
+				}
 			}
-			return value;
 		}
 	};
 	template<Atomic T>
