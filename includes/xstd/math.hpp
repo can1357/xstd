@@ -12,6 +12,7 @@ namespace xstd::math
 	// Math constants.
 	//
 	static constexpr float pi =      ( float ) 3.14159265358979323846;
+	static constexpr float e =       ( float ) 2.71828182845904523536;
 	static constexpr float flt_eps = __FLT_EPSILON__;
 	static constexpr float flt_min = __FLT_MIN__;
 	static constexpr float flt_max = __FLT_MAX__;
@@ -318,8 +319,7 @@ namespace xstd::math
 	}
 	inline constexpr quaternion inverse( const quaternion& q )
 	{
-		float norm = fmax( flt_min, q.length_sq() );
-		return { -q.x / norm, -q.y / norm, -q.z / norm, q.w / norm, };
+		return { -q.x, -q.y, -q.z, q.w, };
 	}
 
 	// Define matrix type.
@@ -545,6 +545,22 @@ namespace xstd::math
 		out[ 2 ][ 3 ] = 0.0f;
 		out[ 3 ][ 3 ] = 1.0f;
 		return out;
+	}
+
+	// Combining rotations.
+	//
+	inline quaternion rotate_by( const quaternion& q2, const quaternion& q1 ) 
+	{
+		return {
+			 q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
+			-q1.x * q2.z + q1.y * q2.w + q1.z * q2.x + q1.w * q2.y,
+			 q1.x * q2.y - q1.y * q2.x + q1.z * q2.w + q1.w * q2.z,
+			-q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
+		};
+	}
+	inline matrix4x4 rotate_by( const matrix4x4& m1, const matrix4x4& m2 )
+	{
+		return m1 * m2;
 	}
 
 	// Rotating a vector.
