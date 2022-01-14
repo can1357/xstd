@@ -328,6 +328,31 @@ namespace xstd::math
 	{
 		std::array<vec4, 4> m = { vec4{} };
 
+		// Default construction.
+		//
+		constexpr matrix4x4() = default;
+
+		// Construction by 4 vectors.
+		//
+		constexpr matrix4x4( vec4 a, vec4 b, vec4 c, vec4 d ) : m{ a, b, c, d } {}
+		
+		// Construction by all values.
+		//
+		constexpr matrix4x4( float _00, float _01, float _02, float _03,
+									float _10, float _11, float _12, float _13,
+									float _20, float _21, float _22, float _23,
+									float _30, float _31, float _32, float _33 ) : m{ 
+			vec4{ _00, _01, _02, _03 },
+			vec4{ _10, _11, _12, _13 },
+			vec4{ _20, _21, _22, _23 },
+			vec4{ _30, _31, _32, _33 }
+		} {}
+
+		// Default copy.
+		//
+		constexpr matrix4x4( const matrix4x4& ) = default;
+		constexpr matrix4x4& operator=( const matrix4x4& ) = default;
+
 		// Identity matrix.
 		//
 		inline static constexpr std::array<vec4, 4> identity_value = {
@@ -336,7 +361,7 @@ namespace xstd::math
 			vec4{ 0, 0, 1, 0 },
 			vec4{ 0, 0, 0, 1 }
 		};
-		inline static constexpr matrix4x4 identity() noexcept  { return { identity_value }; }
+		inline static constexpr matrix4x4 identity() noexcept { return { identity_value[ 0 ], identity_value[ 1 ], identity_value[ 2 ], identity_value[ 3 ] }; }
 
 		// Matrix mulitplication.
 		//
