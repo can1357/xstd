@@ -143,6 +143,7 @@ namespace xstd::math
 	inline constexpr type& operator/=( const type& o ) noexcept { return *this = from_xvec( to_xvec() / o.to_xvec() ); }	                    \
 	inline constexpr type& operator/=( prim f ) noexcept { return *this = from_xvec( to_xvec() / f ); }						                    \
 	inline constexpr type operator-() const noexcept { return from_xvec( -to_xvec() ); };											                    \
+	inline constexpr type operator+() const noexcept { return *this; };											                                      \
 	inline constexpr auto operator<=>( const type& ) const noexcept = default;															                    \
 	inline constexpr prim length_sq() const noexcept { auto v = to_xvec(); return vec::reduce_add( v * v ); }		                          \
 	inline float length() const noexcept { return fsqrt( length_sq() ); }
