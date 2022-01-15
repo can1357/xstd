@@ -320,7 +320,7 @@ namespace xstd::math
 	}
 	inline constexpr quaternion inverse( const quaternion& q )
 	{
-		return { -q.x, -q.y, -q.z, q.w, };
+		return { -q.x, -q.y, -q.z, q.w };
 	}
 
 	// Define matrix type.
@@ -499,7 +499,7 @@ namespace xstd::math
 	{
 		float sinr_cosp = 2.0f * ( q.w * q.x + q.y * q.z );
 		float cosr_cosp = 1.0f - 2.0f * ( q.x * q.x + q.y * q.y );
-		float sinp = 2.0f * ( q.w * q.y - q.z * q.x );
+		float sinp =      2.0f * ( q.w * q.y - q.z * q.x );
 		float siny_cosp = 2.0f * ( q.w * q.z + q.x * q.y );
 		float cosy_cosp = 1.0f - 2.0f * ( q.y * q.y + q.z * q.z );
 		return {
@@ -550,7 +550,7 @@ namespace xstd::math
 
 	// Combining rotations.
 	//
-	inline quaternion rotate_by( const quaternion& q2, const quaternion& q1 ) 
+	inline constexpr quaternion rotate_by( const quaternion& q2, const quaternion& q1 ) 
 	{
 		return {
 			 q1.x * q2.w + q1.y * q2.z - q1.z * q2.y + q1.w * q2.x,
@@ -559,16 +559,16 @@ namespace xstd::math
 			-q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
 		};
 	}
-	inline matrix4x4 rotate_by( const matrix4x4& m1, const matrix4x4& m2 )
+	inline constexpr matrix4x4 rotate_by( const matrix4x4& m1, const matrix4x4& m2 )
 	{
 		return m1 * m2;
 	}
 
 	// Rotating a vector.
 	//
-	inline vec3 rotate_by( const vec3& v, const matrix4x4& m ) { return m * v; }
-	inline vec4 rotate_by( const vec4& v, const matrix4x4& m ) { return m * v; }
-	inline vec3 rotate_by( const vec3& v, const quaternion& q )
+	inline constexpr vec3 rotate_by( const vec3& v, const matrix4x4& m ) { return m * v; }
+	inline constexpr vec4 rotate_by( const vec4& v, const matrix4x4& m ) { return m * v; }
+	inline constexpr vec3 rotate_by( const vec3& v, const quaternion& q )
 	{
 		vec3 u{ q.x, q.y, q.z };
 		return 
@@ -675,13 +675,12 @@ namespace xstd::math
 	// View helpers.
 	//
 	template<bool LeftHanded = true>
-	inline matrix4x4 look_at( const vec3& eye, const vec3& at, vec3 up )
+	inline matrix4x4 look_at( vec3 eye, vec3 dir, vec3 up )
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 
-		vec3 vec = normalize( at - eye );
-		vec3 right = cross( up, vec );
-		up = cross( vec, right );
+		vec3 right = cross( up, dir );
+		up = cross( dir, right );
 		right = normalize( right );
 		up = normalize( up );
 
@@ -694,10 +693,10 @@ namespace xstd::math
 		out[ 1 ][ 1 ] = up.y;
 		out[ 2 ][ 1 ] = up.z;
 		out[ 3 ][ 1 ] = -dot( up, eye );
-		out[ 0 ][ 2 ] = m * vec.x;
-		out[ 1 ][ 2 ] = m * vec.y;
-		out[ 2 ][ 2 ] = m * vec.z;
-		out[ 3 ][ 2 ] = m * -dot( vec, eye );
+		out[ 0 ][ 2 ] = m * dir.x;
+		out[ 1 ][ 2 ] = m * dir.y;
+		out[ 2 ][ 2 ] = m * dir.z;
+		out[ 3 ][ 2 ] = m * -dot( dir, eye );
 		out[ 0 ][ 3 ] = 0.0f;
 		out[ 1 ][ 3 ] = 0.0f;
 		out[ 2 ][ 3 ] = 0.0f;
