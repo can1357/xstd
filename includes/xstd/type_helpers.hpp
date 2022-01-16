@@ -282,6 +282,27 @@ namespace xstd
 		inline constexpr operator std::wstring_view() const { return get(); }
 	};
 
+	// Float literal for template argument.
+	//
+	struct float_literal
+	{
+		float value;
+		constexpr float_literal( float value ) : value( value ) {}
+
+		// Decay to float.
+		//
+		inline constexpr operator float() const { return value; }
+	};
+	struct double_literal
+	{
+		double value;
+		constexpr double_literal( double value ) : value( value ) {}
+
+		// Decay to float.
+		//
+		inline constexpr operator double() const { return value; }
+	};
+
 	// Function literal.
 	//
 	namespace impl
@@ -1122,7 +1143,7 @@ namespace xstd
 	// Gets the type at the given offset.
 	//
 	template<typename T = void>
-	FORCE_INLINE inline auto ptr_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
+	CONST_FN FORCE_INLINE inline auto ptr_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
 		if constexpr( Void<T> )
 			return any_ptr( base + off );
@@ -1130,14 +1151,14 @@ namespace xstd
 			return carry_const( base, ( T* ) ( base + off ) ); 
 	}
 	template<typename T>
-	FORCE_INLINE inline auto& ref_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
+	CONST_FN FORCE_INLINE inline auto& ref_at( any_ptr base, ptrdiff_t off = 0 ) noexcept
 	{ 
 		return *ptr_at<T>(base, off); 
 	}
 
 	// Byte distance between two pointers.
 	//
-	FORCE_INLINE inline constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
+	CONST_FN FORCE_INLINE inline constexpr int64_t distance( any_ptr src, any_ptr dst ) noexcept { return dst - src; }
 
 	// Wrapper around assume aligned builtin.
 	//
