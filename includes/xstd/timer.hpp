@@ -2,6 +2,7 @@
 #include "type_helpers.hpp"
 #include "time.hpp"
 #include "event.hpp"
+#include "chore.hpp"
 
 namespace xstd
 {

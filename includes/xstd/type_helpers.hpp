@@ -1,4 +1,5 @@
 #pragma once
+#include "intrinsics.hpp"
 #include <type_traits>
 #include <optional>
 #include <stdint.h>
@@ -16,7 +17,6 @@
 #include <string_view>
 #include <ranges>
 #include <initializer_list>
-#include "intrinsics.hpp"
 
 // [Configuration]
 // XSTD_VECTOR_EXT: Enables compiler support for vector extensions.
