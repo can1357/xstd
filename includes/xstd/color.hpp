@@ -17,7 +17,11 @@ namespace xstd
 		}
 		inline constexpr float normalize_angle_pos( float rad ) 
 		{
-			return fmodcx( rad, pi );
+			float x = fmodcx( rad, 2 * pi );
+			if ( x < 0 )
+				return ( 2 * pi ) - x;
+			else
+				return x;
 		}
 	};
 
