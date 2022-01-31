@@ -305,5 +305,5 @@ namespace xstd
 	// Declare conversions between color models.
 	//
 	template<color_model dst, color_model src>
-	FORCE_INLINE static constexpr color<dst> cast_color( const color<src>& s ) { return from_argb<dst>( to_argb<src>( s ) ); }
+	FORCE_INLINE inline constexpr color<dst> cast_color( const color<src>& s ) { return from_argb<dst>( to_argb<src>( s ) ); }
 };
