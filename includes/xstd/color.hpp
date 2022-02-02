@@ -306,4 +306,21 @@ namespace xstd
 	//
 	template<color_model dst, color_model src>
 	FORCE_INLINE inline constexpr color<dst> cast_color( const color<src>& s ) { return from_argb<dst>( to_argb<src>( s ) ); }
+	
+	// Helpers to create darker / lighter colors.
+	//
+	template<typename T>
+	FORCE_INLINE inline constexpr T lighten_color( T color, float perc )
+	{
+		ahsv_t hcol = ahsv_t( color );
+		hcol.s = std::clamp<float>( hcol.s - perc, 0, 1 );
+		return T( hcol );
+	}
+	template<typename T>
+	FORCE_INLINE inline constexpr T darken_color( T color, float perc )
+	{
+		ahsv_t hcol = ahsv_t( color );
+		hcol.v = std::clamp<float>( hcol.v - perc, 0, 1 );
+		return T( hcol );
+	}
 };
