@@ -21887,7 +21887,7 @@ namespace ia32
 		    vpinsrd $3,     %%edx, %0, %0
 		    mov     %%r8,   %%rbx
 		)" : "=x" ( result ), "+a" ( leaf ), "+c" ( subleaf ) :: "rdx", "r8" );
-		*( v4d_u* ) out = result;
+		xstd::store_misaligned<v4d_u>( out, result );
 	}
 #pragma clang diagnostic pop
 	
