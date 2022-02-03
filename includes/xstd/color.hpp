@@ -312,15 +312,34 @@ namespace xstd
 	template<typename T>
 	FORCE_INLINE inline constexpr T lighten_color( T color, float perc )
 	{
-		ahsv_t hcol = ahsv_t( color );
-		hcol.s = std::clamp<float>( hcol.s - perc, 0, 1 );
-		return T( hcol );
+		argb_t rcol = argb_t( color );
+
+		float fr = ( float ) rcol.r;
+		float fg = ( float ) rcol.g;
+		float fb = ( float ) rcol.b;
+
+		// Effectively lower HSV.S.
+		//
+		float fmax = std::max<float>( { fr, fg, fb } );
+		fr = fmax - ( ( fmax - fr ) * ( 1.0f - perc ) );
+		fg = fmax - ( ( fmax - fg ) * ( 1.0f - perc ) );
+		fb = fmax - ( ( fmax - fb ) * ( 1.0f - perc ) );
+
+		rcol.r = ( uint8_t ) fr;
+		rcol.g = ( uint8_t ) fg;
+		rcol.b = ( uint8_t ) fb;
+		return T( rcol );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr T darken_color( T color, float perc )
 	{
-		ahsv_t hcol = ahsv_t( color );
-		hcol.v = std::clamp<float>( hcol.v - perc, 0, 1 );
-		return T( hcol );
+		argb_t rcol = argb_t( color );
+
+		// Effectively lower HSV.V.
+		//
+		rcol.r = uint8_t( rcol.r * ( 1.0f - perc ) );
+		rcol.g = uint8_t( rcol.g * ( 1.0f - perc ) );
+		rcol.b = uint8_t( rcol.b * ( 1.0f - perc ) );
+		return T( rcol );
 	}
 };
