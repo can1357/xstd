@@ -17,6 +17,7 @@
 // 	misrepresented as being the original software.
 // 3. This notice may not be removed or altered from any source distribution.
 
+#include <xstd/intrinsics.hpp>
 
 #ifndef PLF_COLONY_H
 #define PLF_COLONY_H
@@ -1677,10 +1678,12 @@ private:
 
 	inline void check_capacities_conformance(plf::colony_limits capacities) const
 	{
+#if !XSTD_NO_EXCEPTIONS
 		if (capacities.min < 2 || capacities.min > capacities.max || capacities.max > std::numeric_limits<skipfield_type>::max())
 		{
 			throw std::length_error("Supplied memory block capacities outside of allowable ranges");
 		}
+#endif
 	}
 
 
@@ -2060,6 +2063,13 @@ private:
 	{
 		group_pointer_type const new_group = PLF_ALLOCATE(group_allocator_type, group_allocator_pair, 1, 0);
 
+#if XSTD_NO_EXCEPTIONS
+#ifdef PLF_VARIADICS_SUPPORT
+		PLF_CONSTRUCT( group_allocator_type, group_allocator_pair, new_group, elements_per_group, previous );
+#else
+		PLF_CONSTRUCT( group_allocator_type, group_allocator_pair, new_group, group( elements_per_group, previous ) );
+#endif
+#else
 		try
 		{
 			#ifdef PLF_VARIADICS_SUPPORT
@@ -2073,7 +2083,7 @@ private:
 			PLF_DEALLOCATE(group_allocator_type, group_allocator_pair, new_group, 1);
 			throw;
 		}
-
+#endif
 		return new_group;
 	}
 
@@ -2214,6 +2224,11 @@ public:
 				{
 					const iterator return_iterator = end_iterator; /* Make copy for return before modifying end_iterator */
 
+#if XSTD_NO_EXCEPTIONS
+					PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer++ ), element );
+					end_iterator.group_pointer->last_endpoint = end_iterator.element_pointer;
+#else
+
 					#ifdef PLF_TYPE_TRAITS_SUPPORT
 						if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 						{ // For no good reason this compiles to ridiculously faster code under GCC 5-9 in raw small struct tests with large N:
@@ -2226,6 +2241,7 @@ public:
 						PLF_CONSTRUCT(allocator_type, *this, reinterpret_cast<pointer>(end_iterator.element_pointer), element);
 						end_iterator.group_pointer->last_endpoint = ++end_iterator.element_pointer; // Shift the addition to the second operation, avoiding a try-catch block if an exception is thrown during construction
 					}
+#endif
 
 					++(end_iterator.group_pointer->size);
 					++end_iterator.skipfield_pointer;
@@ -2241,6 +2257,9 @@ public:
 					const skipfield_type new_group_size = (total_size < static_cast<size_type>(group_allocator_pair.max_group_capacity)) ? static_cast<skipfield_type>(total_size) : group_allocator_pair.max_group_capacity;
 					next_group = allocate_new_group(new_group_size, end_iterator.group_pointer);
 
+#if XSTD_NO_EXCEPTIONS
+					PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( next_group->elements ), element );
+#else
 					#ifdef PLF_TYPE_TRAITS_SUPPORT
 						if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 						{
@@ -2259,6 +2278,7 @@ public:
 							throw;
 						}
 					}
+#endif
 
 					total_capacity += new_group_size;
 				}
@@ -2294,6 +2314,9 @@ public:
 		{
 			initialize(tuple_allocator_pair.min_group_capacity);
 
+#if XSTD_NO_EXCEPTIONS
+			PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer++ ), element );
+#else
 			#ifdef PLF_TYPE_TRAITS_SUPPORT
 				if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 				{
@@ -2312,6 +2335,7 @@ public:
 					throw;
 				}
 			}
+#endif
 
 			++end_iterator.skipfield_pointer;
 			total_size = 1;
@@ -2332,6 +2356,9 @@ public:
 					{
 						const iterator return_iterator = end_iterator;
 
+#if XSTD_NO_EXCEPTIONS
+						PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer++ ), std::move( element ) );
+#else
 						#ifdef PLF_TYPE_TRAITS_SUPPORT
 							if PLF_CONSTEXPR (std::is_nothrow_move_constructible<element_type>::value)
 							{
@@ -2344,6 +2371,7 @@ public:
 							PLF_CONSTRUCT(allocator_type, *this, reinterpret_cast<pointer>(end_iterator.element_pointer), std::move(element));
 							end_iterator.group_pointer->last_endpoint = ++end_iterator.element_pointer;
 						}
+#endif
 
 						++(end_iterator.group_pointer->size);
 						++end_iterator.skipfield_pointer;
@@ -2359,6 +2387,9 @@ public:
 						const skipfield_type new_group_size = (total_size < static_cast<size_type>(group_allocator_pair.max_group_capacity)) ? static_cast<skipfield_type>(total_size) : group_allocator_pair.max_group_capacity;
 						next_group = allocate_new_group(new_group_size, end_iterator.group_pointer);
 
+#if XSTD_NO_EXCEPTIONS
+						PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( next_group->elements ), std::move( element ) );
+#else
 						#ifdef PLF_TYPE_TRAITS_SUPPORT
 							if PLF_CONSTEXPR (std::is_nothrow_move_constructible<element_type>::value)
 							{
@@ -2377,6 +2408,7 @@ public:
 								throw;
 							}
 						}
+#endif
 
 						total_capacity += new_group_size;
 					}
@@ -2411,6 +2443,9 @@ public:
 			{
 				initialize(tuple_allocator_pair.min_group_capacity);
 
+#if XSTD_NO_EXCEPTIONS
+				PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer++ ), std::move( element ) );
+#else
 				#ifdef PLF_TYPE_TRAITS_SUPPORT
 					if PLF_CONSTEXPR (std::is_nothrow_move_constructible<element_type>::value)
 					{
@@ -2429,6 +2464,7 @@ public:
 						throw;
 					}
 				}
+#endif
 
 				++end_iterator.skipfield_pointer;
 				total_size = 1;
@@ -2451,6 +2487,10 @@ public:
 					{
 						const iterator return_iterator = end_iterator;
 
+#if XSTD_NO_EXCEPTIONS
+						PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer++ ), std::forward<arguments>( parameters ) ... );
+						end_iterator.group_pointer->last_endpoint = end_iterator.element_pointer;
+#else
 						#ifdef PLF_TYPE_TRAITS_SUPPORT
 							if PLF_CONSTEXPR (std::is_nothrow_constructible<element_type>::value)
 							{
@@ -2463,6 +2503,7 @@ public:
 							PLF_CONSTRUCT(allocator_type, *this, reinterpret_cast<pointer>(end_iterator.element_pointer), std::forward<arguments>(parameters) ...);
 							end_iterator.group_pointer->last_endpoint = ++end_iterator.element_pointer;
 						}
+#endif
 
 						++(end_iterator.group_pointer->size);
 						++end_iterator.skipfield_pointer;
@@ -2478,6 +2519,9 @@ public:
 						const skipfield_type new_group_size = (total_size < static_cast<size_type>(group_allocator_pair.max_group_capacity)) ? static_cast<skipfield_type>(total_size) : group_allocator_pair.max_group_capacity;
 						next_group = allocate_new_group(new_group_size, end_iterator.group_pointer);
 
+#if XSTD_NO_EXCEPTIONS
+						PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( next_group->elements ), std::forward<arguments>( parameters ) ... );
+#else
 						#ifdef PLF_TYPE_TRAITS_SUPPORT
 							if PLF_CONSTEXPR (std::is_nothrow_constructible<element_type>::value)
 							{
@@ -2496,6 +2540,7 @@ public:
 								throw;
 							}
 						}
+#endif
 
 						total_capacity += new_group_size;
 					}
@@ -2530,6 +2575,9 @@ public:
 			{
 				initialize(tuple_allocator_pair.min_group_capacity);
 
+#if XSTD_NO_EXCEPTIONS
+				PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer++ ), std::forward<arguments>( parameters ) ... );
+#else
 				#ifdef PLF_TYPE_TRAITS_SUPPORT
 					if PLF_CONSTEXPR (std::is_nothrow_constructible<element_type, arguments ...>::value)
 					{
@@ -2548,6 +2596,7 @@ public:
 						throw;
 					}
 				}
+#endif
 
 				++end_iterator.skipfield_pointer;
 				total_size = 1;
@@ -2564,6 +2613,8 @@ private:
 	// For catch blocks in fill() and range_fill()
 	void recover_from_partial_fill()
 	{
+#if XSTD_NO_EXCEPTIONS
+#else
 		#ifdef PLF_TYPE_TRAITS_SUPPORT // try to ensure this code will not be generated if this function is not called in fill() or range_fill()
 			if PLF_CONSTEXPR (!std::is_nothrow_copy_constructible<element_type>::value)
 		#endif
@@ -2576,12 +2627,41 @@ private:
 			unused_groups_head = end_iterator.group_pointer->next_group;
 			end_iterator.group_pointer->next_group = NULL;
 		}
+#endif
 	}
 
 
 
 	void fill(const element_type &element, const skipfield_type size)
 	{
+#if XSTD_NO_EXCEPTIONS
+		if PLF_CONSTEXPR( std::is_trivially_copyable<element_type>::value && std::is_trivially_copy_constructible<element_type>::value ) // ie. we can get away with using the cheaper fill_n here if there is no chance of an exception being thrown:
+		{
+#ifdef PLF_ALIGNMENT_SUPPORT
+			if PLF_CONSTEXPR( sizeof( aligned_element_type ) != sizeof( element_type ) )
+			{
+				alignas ( alignof( aligned_element_type ) ) element_type aligned_copy = element; // to avoid potentially violating memory boundaries in line below, create an initial copy object of same (but aligned) type
+				std::fill_n( end_iterator.element_pointer, size, *( reinterpret_cast< aligned_pointer_type >( &aligned_copy ) ) );
+			}
+			else
+#endif
+			{
+				std::fill_n( reinterpret_cast< pointer >( end_iterator.element_pointer ), size, element );
+			}
+
+			end_iterator.element_pointer += size;
+		}
+		else // If at least nothrow_constructible, can remove the large block of 'catch' code below
+		{
+			const aligned_pointer_type fill_end = end_iterator.element_pointer + size;
+
+			do
+			{
+				PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer ), element );
+			}
+			while ( ++end_iterator.element_pointer != fill_end );
+		}
+#else
 		#ifdef PLF_TYPE_TRAITS_SUPPORT
 			if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 			{
@@ -2629,6 +2709,7 @@ private:
 				}
 			} while (++end_iterator.element_pointer != fill_end);
 		}
+#endif
 
 		total_size += size;
 	}
@@ -2638,6 +2719,8 @@ private:
 	// For catch blocks in range_fill_skipblock and fill_skipblock
 	void recover_from_partial_skipblock_fill(aligned_pointer_type const location, const aligned_pointer_type current_location, skipfield_pointer_type const skipfield_pointer, const skipfield_type prev_free_list_node)
 	{
+#if XSTD_NO_EXCEPTIONS
+#else
 		#ifdef PLF_TYPE_TRAITS_SUPPORT // try to ensure this code will not be generated if this function is not called in fill_skipblock or range_fill_skipblock
 			if PLF_CONSTEXPR (!std::is_nothrow_copy_constructible<element_type>::value)
 		#endif
@@ -2660,12 +2743,38 @@ private:
 				*(reinterpret_cast<skipfield_pointer_type>(groups_with_erasures_list_head->elements + prev_free_list_node) + 1) = new_skipblock_head_index;
 			}
 		}
+#endif
 	}
 
 
 
 	void fill_skipblock(const element_type &element, aligned_pointer_type const location, skipfield_pointer_type const skipfield_pointer, const skipfield_type size)
 	{
+#if XSTD_NO_EXCEPTIONS
+		if PLF_CONSTEXPR( std::is_trivially_copyable<element_type>::value && std::is_trivially_copy_constructible<element_type>::value )
+		{
+#ifdef PLF_ALIGNMENT_SUPPORT
+			if PLF_CONSTEXPR( sizeof( aligned_element_type ) != sizeof( element_type ) )
+			{
+				alignas ( alignof( aligned_element_type ) ) element_type aligned_copy = element;
+				std::fill_n( location, size, *( reinterpret_cast< aligned_pointer_type >( &aligned_copy ) ) );
+			}
+			else
+#endif
+			{
+				std::fill_n( reinterpret_cast< pointer >( location ), size, element );
+			}
+		}
+		else
+		{
+			const aligned_pointer_type fill_end = location + size;
+
+			for ( aligned_pointer_type current_location = location; current_location != fill_end; ++current_location )
+			{
+				PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( current_location ), element );
+			}
+		}
+#else
 		#ifdef PLF_TYPE_TRAITS_SUPPORT
 			if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 			{
@@ -2712,6 +2821,7 @@ private:
 				}
 			}
 		}
+#endif
 
 		std::memset(skipfield_pointer, 0, size * sizeof(skipfield_type)); // reset skipfield nodes within skipblock to 0
 		groups_with_erasures_list_head->size = static_cast<skipfield_type>(groups_with_erasures_list_head->size + size);
@@ -2861,6 +2971,15 @@ private:
 	template <class iterator_type>
 	iterator_type range_fill(iterator_type it, const skipfield_type size)
 	{
+#if XSTD_NO_EXCEPTIONS
+		const aligned_pointer_type fill_end = end_iterator.element_pointer + size;
+
+		do
+		{
+			PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( end_iterator.element_pointer ), *it++ );
+		}
+		while ( ++end_iterator.element_pointer != fill_end );
+#else
 		#ifdef PLF_TYPE_TRAITS_SUPPORT
 			if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 			{
@@ -2889,6 +3008,7 @@ private:
 				}
 			} while (++end_iterator.element_pointer != fill_end);
 		}
+#endif
 
 		total_size += size;
 		return it;
@@ -2901,6 +3021,12 @@ private:
 	{
 		const aligned_pointer_type fill_end = location + size;
 
+#if XSTD_NO_EXCEPTIONS
+		for ( aligned_pointer_type current_location = location; current_location != fill_end; ++current_location )
+		{
+			PLF_CONSTRUCT( allocator_type, *this, reinterpret_cast< pointer >( current_location ), *it++ );
+		}
+#else
 		#ifdef PLF_TYPE_TRAITS_SUPPORT
 			if PLF_CONSTEXPR (std::is_nothrow_copy_constructible<element_type>::value)
 			{
@@ -2927,6 +3053,7 @@ private:
 				}
 			}
 		}
+#endif
 
 		std::memset(skipfield_pointer, 0, size * sizeof(skipfield_type)); // reset skipfield nodes within skipblock to 0
 		groups_with_erasures_list_head->size = static_cast<skipfield_type>(groups_with_erasures_list_head->size + size);
@@ -4027,6 +4154,7 @@ public:
 		{
 			if (current->capacity < tuple_allocator_pair.min_group_capacity || current->capacity > group_allocator_pair.max_group_capacity)
 			{
+#if !XSTD_NO_EXCEPTIONS
 				#ifdef PLF_TYPE_TRAITS_SUPPORT // If type is non-copyable/movable, cannot be consolidated, throw exception:
 					if PLF_CONSTEXPR (!(std::is_copy_constructible<element_type>::value || std::is_move_constructible<element_type>::value))
 					{
@@ -4034,6 +4162,7 @@ public:
 					}
 					else
 				#endif
+#endif
 				{
 					consolidate();
 				}
@@ -4208,10 +4337,12 @@ public:
 			return;
 		}
 
+#if !XSTD_NO_EXCEPTIONS
 		if (new_capacity > max_size())
 		{
 			throw std::length_error("Capacity requested via reserve() greater than maximum size returned by block_limits()");
 		}
+#endif
 
 		new_capacity -= total_capacity;
 
@@ -4258,17 +4389,21 @@ public:
 
 		while (number_of_max_groups != 0)
 		{
+#if XSTD_NO_EXCEPTIONS
+			current_group->next_group = allocate_new_group( group_allocator_pair.max_group_capacity, current_group );
+#else
 			try
 			{
-				current_group->next_group = allocate_new_group(group_allocator_pair.max_group_capacity, current_group);
+				current_group->next_group = allocate_new_group( group_allocator_pair.max_group_capacity, current_group );
 			}
-			catch (...)
+			catch ( ... )
 			{
-				deallocate_group(current_group->next_group);
+				deallocate_group( current_group->next_group );
 				current_group->next_group = unused_groups_head;
 				unused_groups_head = first_unused_group;
 				throw;
 			}
+#endif
 
 			current_group = current_group->next_group;
 			total_capacity += group_allocator_pair.max_group_capacity;
@@ -4368,7 +4503,9 @@ public:
 			{
 				if (current_group->capacity < tuple_allocator_pair.min_group_capacity || current_group->capacity > group_allocator_pair.max_group_capacity)
 				{
+#if !XSTD_NO_EXCEPTIONS
 					throw std::length_error("A source memory block capacity is outside of the destination's minimum or maximum memory block capacity limits - please change either the source or the destination's min/max block capacity limits using reshape() before calling splice() in this case");
+#endif
 				}
 			}
 		}
