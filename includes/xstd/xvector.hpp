@@ -186,8 +186,8 @@ namespace xstd
 		{
 			xvec& ref;
 			const size_t n;
-			constexpr operator T() const noexcept { return ref.at( n ); }
-			constexpr mut_proxy& operator=( T v ) noexcept { ref.set( n, v ); return *this; }
+			FORCE_INLINE constexpr operator T() const noexcept { return ref.at( n ); }
+			FORCE_INLINE constexpr mut_proxy& operator=( T v ) noexcept { ref.set( n, v ); return *this; }
 		};
 		FORCE_INLINE constexpr T operator[]( size_t n ) const noexcept { return at( n ); }
 		FORCE_INLINE constexpr mut_proxy operator[]( size_t n ) noexcept { return { *this, n }; }
