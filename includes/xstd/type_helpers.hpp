@@ -1652,6 +1652,12 @@ namespace xstd
 
 		using Allocator =    typename Container::allocator_type;
 		using TmpContainer = swap_allocator_t<Container, uninitialized_allocator<Allocator>>;
+
+		if ( ref.capacity() < length ) [[unlikely]]
+			ref.reserve( length );
+
+		size_t cap = ref.capacity();
+		assume( cap >= length );
 		return ( ( TmpContainer& ) ref ).resize( length );
 	}
 	template<typename Container>
