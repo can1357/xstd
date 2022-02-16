@@ -197,7 +197,7 @@ namespace xstd::impl
 		inline static constexpr guid value = [ ] ()
 		{
 			constexpr char str[] = { chars... };
-			return guid{ std::string_view{ str, str + sizeof...( chars ) } };
+			return guid::from( std::string_view{ str, str + sizeof...( chars ) } );
 		}( );
 	};
 };
