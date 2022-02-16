@@ -43,6 +43,76 @@ namespace xstd
 		template<typename T>
 		static _CONSTEVAL guid constant( const T& obj ) { return guid{ obj }; }
 
+		// Constructs a GUID from string.
+		// - Must be string_length.
+		//
+		template<typename C>
+		static constexpr guid from( std::basic_string_view<C> str )
+		{
+			auto read = [ & ] <typename T> ( type_tag<T>, size_t offset ) FORCE_INLINE -> T
+			{
+				constexpr size_t nibbles = sizeof( T ) * 2;
+				T value = 0;
+				for ( size_t i = 0; i != nibbles; i++ )
+				{
+					char c = ( char ) str[ offset + nibbles - 1 - i ];
+					if ( c < 'A' ) c = ( c - '0' );
+					else           c = ( ( c | 0x20 ) - 'a' ) + 0xA;
+					value |= T( uint8_t( c ) ) << ( i * 4 );
+				}
+				return value;
+			};
+
+			uint64_t low = read( type_tag<uint32_t>{}, 0 );
+			low |= uint64_t( read( type_tag<uint16_t>{}, 9 ) ) << 32;
+			low |= uint64_t( read( type_tag<uint16_t>{}, 14 ) ) << 48;
+
+			uint64_t high = bswap( read( type_tag<uint16_t>{}, 19 ) );
+			high |= uint64_t( bswap( read( type_tag<uint16_t>{}, 24 ) ) ) << 16;
+			high |= uint64_t( bswap( read( type_tag<uint32_t>{}, 28 ) ) ) << 32;
+			return { low, high };
+		}
+		template<typename C> static constexpr guid from( const std::basic_string<C>& str ) { return from( std::basic_string_view<C>{ str } ); }
+		template<typename C> static constexpr guid from( const C* str ) { return from( std::basic_string_view<C>{ str } ); }
+
+		// Validates a guid string.
+		//
+		template<typename C>
+		static constexpr bool validate( std::basic_string_view<C> str )
+		{
+			if ( str.size() != string_length )
+				return false;
+
+			auto validate_hex_range = [ & ] ( size_t a, size_t b ) FORCE_INLINE
+			{
+				for ( size_t i = a; i != b; i++ )
+				{
+					if ( '0' <= str[ i ] && str[ i ] <= '9' )
+						continue;
+					if ( 'a' <= str[ i ] && str[ i ] <= 'f' )
+						continue;
+					if ( 'A' <= str[ i ] && str[ i ] <= 'F' )
+						continue;
+					return false;
+				}
+				return true;
+			};
+
+			char valid = 1;
+			valid &= validate_hex_range( 0, 8 );
+			valid &= validate_hex_range( 9, 13 );
+			valid &= validate_hex_range( 14, 18 );
+			valid &= validate_hex_range( 19, 23 );
+			valid &= validate_hex_range( 24, 36 );
+			valid &= str[ 8 ] == '-';
+			valid &= str[ 13 ] == '-';
+			valid &= str[ 18 ] == '-';
+			valid &= str[ 23 ] == '-';
+			return valid;
+		}
+		template<typename C> static constexpr bool validate( const std::basic_string<C>& str ) { return validate( std::basic_string_view<C>{ str } ); }
+		template<typename C> static constexpr bool validate( const C* str ) { return validate( std::basic_string_view<C>{ str } ); }
+
 		// Default copy/move.
 		//
 		constexpr guid( guid&& ) noexcept = default;
@@ -111,3 +181,29 @@ namespace xstd
 		constexpr bool operator<( const guid& o ) const { return  o.high > high || ( o.high == high && o.low > low ); }
 	};
 };
+// GUID literals.
+// 
+#if !GNU_COMPILER || defined(__INTELLISENSE__)
+inline constexpr xstd::guid operator ""_guid( const char* str, size_t n )
+{
+	return xstd::guid::from( std::string_view{ str, str + n } );
+}
+#else
+namespace xstd::impl
+{
+	template<char... chars>
+	struct const_guid
+	{
+		inline static constexpr guid value = [ ] ()
+		{
+			constexpr char str[] = { chars... };
+			return guid{ std::string_view{ str, str + sizeof...( chars ) } };
+		}( );
+	};
+};
+template<typename T, T... chars>
+constexpr const xstd::guid& operator""_guid()
+{
+	return xstd::impl::const_guid<( ( char ) chars )...>::value;
+}
+#endif
