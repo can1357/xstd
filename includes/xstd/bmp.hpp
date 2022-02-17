@@ -114,40 +114,60 @@ namespace xstd
 		}
 	}
 
+	// BMP writer implementation.
+	//
+	namespace impl
+	{
+		template<xstd::image_orientation O, color_model Dst, typename Src>
+		inline std::vector<uint8_t> write_bmp( const Src* __restrict src, size_t width, size_t height )
+		{
+			// Calculate and reserve the memory for output.
+			//
+			size_t raw_img_size = width * height * sizeof( color<Dst> );
+			std::vector<uint8_t> out = xstd::make_uninitialized_vector<uint8_t>( sizeof( bmp_header_t ) + raw_img_size );
+
+			// Write the base BMP header.
+			//
+			bmp_header_t* hdr = ( bmp_header_t* ) out.data();
+			hdr->signature = bmp_signature;
+			hdr->file_size = out.size();
+			hdr->reserved = 0;
+			hdr->offset_image = sizeof( bmp_header_t );
+
+			// Write the DIB header.
+			//
+			hdr->dib.header_size = sizeof( dib_header_t );
+			hdr->dib.width = narrow_cast< int32_t >( width );
+			hdr->dib.height = O == xstd::image_orientation::top_down ? -narrow_cast< int32_t >( height ) : narrow_cast< int32_t >( height );
+			hdr->dib.planes = 1;
+			hdr->dib.bits_per_pixel = sizeof( color<Dst> ) * 8;
+			hdr->dib.compression = 0;
+			hdr->dib.size_image = raw_img_size;
+			hdr->dib.len_color_table = 0;
+			hdr->dib.num_color_table_important = 0;
+
+			// Write the image itself.
+			//
+			auto* dst = ( color<Dst>* )( hdr + 1 );
+			for ( size_t i = 0; i != ( width * height ); i++ )
+				dst[ i ] = src[ i ];
+			return out;
+		}
+	};
+
 	// Given an image view, writes it as a BMP file.
 	//
 	template<color_model C, image_orientation O>
 	inline std::vector<uint8_t> write_bmp( const basic_image_view<C, O>& img ) 
 	{
-		// Calculate and reserve the memory for output.
-		//
-		std::vector<uint8_t> out;
-		size_t raw_img_size = img.size() * sizeof( color<C> );
-		out.resize( sizeof( bmp_header_t ) + raw_img_size );
+		return impl::write_bmp<O, C>( img.source, img.width(), img.height() );
+	}
 
-		// Write the base BMP header.
-		//
-		bmp_header_t* hdr = ( bmp_header_t* ) out.data();
-		hdr->signature = bmp_signature;
-		hdr->file_size = out.size();
-		hdr->reserved = 0;
-		hdr->offset_image = sizeof( bmp_header_t );
-
-		// Write the DIB header.
-		//
-		hdr->dib.header_size = sizeof( dib_header_t );
-		hdr->dib.width = narrow_cast< int32_t >( img.width() );
-		hdr->dib.height = O == xstd::image_orientation::top_down ? -narrow_cast< int32_t >( img.height() ) : narrow_cast< int32_t >( img.height() );
-		hdr->dib.planes = 1;
-		hdr->dib.bits_per_pixel = sizeof( color<C> ) * 8;
-		hdr->dib.compression = 0;
-		hdr->dib.size_image = raw_img_size;
-		hdr->dib.len_color_table = 0;
-		hdr->dib.num_color_table_important = 0;
-
-		// Write the image itself.
-		//
-		memcpy( hdr + 1, img.source, raw_img_size );
-		return out;
+	// Given a raw buffer of any color type, writes it as a BMP file.
+	//
+	template<xstd::image_orientation O, color_model As = color_model::argb, typename Color>
+	inline std::vector<uint8_t> write_bmp( const Color* col, size_t width, size_t height )
+	{
+		return impl::write_bmp<O, As, Color>( col, width, height );
 	}
 };
