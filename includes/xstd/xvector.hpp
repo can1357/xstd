@@ -4,6 +4,7 @@
 #include <bit>
 #include <array>
 #include <span>
+#include "bitwise.hpp"
 
 // [Configuration]
 // XSTD_SIMD_WIDTH: Defines the default SIMD length for xstd::max_vec_t.
@@ -557,10 +558,21 @@ namespace xstd
 			{
 				return bmask();
 			}
+			else if constexpr ( sizeof( T ) == 2 )
+			{
+				return bit_pext<uint64_t>( bmask(), 0xAAAAAAAAAAAAAAAAull );
+			}
+			else if constexpr ( sizeof( T ) == 4 )
+			{
+				return bit_pext<uint64_t>( bmask(), 0x8888888888888888ull );
+			}
+			else if constexpr ( sizeof( T ) == 8 )
+			{
+				return bit_pext<uint64_t>( bmask(), 0x8080808080808080ull );
+			}
 			else
 			{
-				auto rotated = ( *this ) >> ( ( sizeof( T ) - 1 ) * 8 );
-				return ( rotated.template cast<char>() ).bmask();
+				static_assert( sizeof( T ) == -1, "Invalid size for mask()" );
 			}
 		}
 
