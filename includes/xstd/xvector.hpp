@@ -514,9 +514,9 @@ namespace xstd
 #if AMD64_TARGET
 #if MS_COMPILER
 				if constexpr ( ByteLength == 16 )
-					return ( bool ) _mm_movemask_epi8( bit_cast< __m128i >( byte_vec._nat ) );
+					return ( uint32_t ) _mm_movemask_epi8( bit_cast< __m128i >( byte_vec._nat ) );
 				else if constexpr ( ByteLength == 32 )
-					return ( bool ) _mm256_movemask_epi8( bit_cast< __m256i >( byte_vec._nat ) );
+					return ( uint32_t ) _mm256_movemask_epi8( bit_cast< __m256i >( byte_vec._nat ) );
 #else
 #if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
 				if constexpr ( ByteLength == 16 )
@@ -564,11 +564,55 @@ namespace xstd
 			}
 			else if constexpr ( sizeof( T ) == 4 )
 			{
-				return bit_pext<uint64_t>( bmask(), 0x8888888888888888ull );
+				// Handle hardware accelerated sizes.
+				//
+				if ( !std::is_constant_evaluated() )
+				{
+#if AMD64_TARGET
+#if MS_COMPILER
+					if constexpr ( ByteLength == 16 )
+						return ( uint32_t ) _mm_movemask_ps( bit_cast< __m128 >( _nat ) );
+					else if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) _mm256_movemask_ps( bit_cast< __m256 >( _nat ) );
+#else
+#if __has_ia32_vector_builtin( __builtin_ia32_movmskps )
+					if constexpr ( ByteLength == 16 )
+						return ( uint32_t ) __builtin_ia32_movmskps( _nat );
+#endif
+#if __has_ia32_vector_builtin( __builtin_ia32_movmskps256 )
+					if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) __builtin_ia32_movmskps256( _nat );
+#endif
+#endif
+#endif
+				}
+				return ( uint32_t ) bit_pext<uint64_t>( bmask(), 0x8888888888888888ull );
 			}
 			else if constexpr ( sizeof( T ) == 8 )
 			{
-				return bit_pext<uint64_t>( bmask(), 0x8080808080808080ull );
+				// Handle hardware accelerated sizes.
+				//
+				if ( !std::is_constant_evaluated() )
+				{
+#if AMD64_TARGET
+#if MS_COMPILER
+					if constexpr ( ByteLength == 16 )
+						return ( uint32_t ) _mm_movemask_pd( bit_cast< __m128d >( _nat ) );
+					else if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) _mm256_movemask_pd( bit_cast< __m256d >( _nat ) );
+#else
+#if __has_ia32_vector_builtin( __builtin_ia32_movmskpd )
+					if constexpr ( ByteLength == 16 )
+						return ( uint32_t ) __builtin_ia32_movmskpd( _nat );
+#endif
+#if __has_ia32_vector_builtin( __builtin_ia32_movmskpd256 )
+					if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) __builtin_ia32_movmskpd256( _nat );
+#endif
+#endif
+#endif
+				}
+				return ( uint32_t ) bit_pext<uint64_t>( bmask(), 0x8080808080808080ull );
 			}
 			else
 			{
