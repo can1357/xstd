@@ -34,7 +34,7 @@
 #include <atomic>
 #include <array>
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_ESTR: Easy to override macro to control any error strings emitted into binary, must return a C string.
 //
 #ifndef XSTD_ESTR
@@ -202,7 +202,7 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 #define ixstrcat(x,y)  x##y
 #define xstrcat(x,y)   ixstrcat(x,y)
 
-// Determine RTTI support.
+// Determine RTTI and exception support.
 //
 #if defined(_CPPRTTI)
 	#define HAS_RTTI	_CPPRTTI
@@ -214,6 +214,24 @@ inline static constexpr bool has_ms_extensions() { return HAS_MS_EXTENSIONS; }
 	#define HAS_RTTI	0
 #endif
 inline static constexpr bool cxx_has_rtti() { return HAS_RTTI; }
+
+#if (defined(_HAS_EXCEPTIONS)&&!_HAS_EXCEPTIONS) || (defined(__cpp_exceptions)&&!__cpp_exceptions)
+	#define HAS_CXX_EH 0
+#else
+	#define HAS_CXX_EH 1
+#endif
+inline static constexpr bool cxx_has_eh() { return HAS_CXX_EH; }
+
+// [[Configuration]]
+// XSTD_NO_EXCEPTIONS: If set, exceptions will resolve into error instead.
+//
+#ifndef XSTD_NO_EXCEPTIONS
+	#if HAS_CXX_EH
+		#define XSTD_NO_EXCEPTIONS 0
+	#else
+		#define XSTD_NO_EXCEPTIONS 1
+	#endif
+#endif
 
 // Declare common attributes.
 //
@@ -401,7 +419,7 @@ FORCE_INLINE constexpr static void yield_cpu()
 }
 
 // Define task priority.
-// [Configuration] 
+// [[Configuration]] 
 //  - XSTD_HAS_TASK_PRIORITY: If set enables task priority, by default set if kernel target.
 using task_priority_t = uintptr_t;
 #ifndef XSTD_HAS_TASK_PRIORITY

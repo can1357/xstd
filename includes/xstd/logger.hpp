@@ -12,7 +12,7 @@
 #include "time.hpp"
 #include "intrinsics.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_CON_THREAD_LOCAL: If set, will use a mutex to protect the writes into console.
 // XSTD_CON_ENFORCE_MODE_WINDOWS: If set, will enforce the command-line to output UTF8 on Windows platform.
 // XSTD_CON_NO_COLORS: If set, disables colors.

@@ -18,7 +18,7 @@
 #include <ranges>
 #include <initializer_list>
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_VECTOR_EXT: Enables compiler support for vector extensions.
 //
 #ifndef XSTD_VECTOR_EXT

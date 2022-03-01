@@ -23,7 +23,7 @@
 #include "small_vector.hpp"
 #include "hexdump.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // Macro wrapping ANSI escape codes, can be replaced by '#define ANSI_ESCAPE(...)' in legacy Windows to disable colors completely.
 //
 #ifndef ANSI_ESCAPE

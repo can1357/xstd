@@ -8,7 +8,7 @@
 #include "type_helpers.hpp"
 #include "algorithm.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_DEFAULT_CLOCK: Changes the default high-accuracy clock.
 #ifndef XSTD_DEFAULT_CLOCK
 	#define XSTD_DEFAULT_CLOCK std::chrono::high_resolution_clock

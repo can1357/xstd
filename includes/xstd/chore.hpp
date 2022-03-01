@@ -5,7 +5,7 @@
 #include "event.hpp"
 #include <thread>
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_CHORE_SCHEDULER: If set, chore will pass OS a callback to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER

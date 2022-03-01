@@ -10,7 +10,7 @@
 #include "shared.hpp"
 #include "ref_counted.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_DEFAULT_HASHER: If set, changes the type of default hash_t.
 //
 #ifndef XSTD_DEFAULT_HASHER

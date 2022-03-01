@@ -5,9 +5,8 @@
 #include "intrinsics.hpp"
 #include "logger.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_ASSERT_MESSAGE: Sets the assert failure message.
-// XSTD_NO_EXCEPTIONS: If set, exceptions will resolve into error instead.
 // XSTD_ASSERT_LEVEL: Declares assert level, valid values are:
 //  - 2: Both dassert and fassert will be evaluated. Debug mode default.
 //  - 1: Only fassert will be evaluated. Release mode default. 
@@ -18,9 +17,6 @@
 #endif
 #ifndef XSTD_ASSERT_NO_TRACE
 	#define XSTD_ASSERT_NO_TRACE !DEBUG_BUILD
-#endif
-#ifndef XSTD_NO_EXCEPTIONS
-	#define XSTD_NO_EXCEPTIONS 0
 #endif
 #ifndef XSTD_ASSERT_LEVEL
 	#if DEBUG_BUILD

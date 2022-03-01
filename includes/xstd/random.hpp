@@ -6,7 +6,7 @@
 #include <iterator>
 #include "bitwise.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_RANDOM_FIXED_SEED: If set, uses it as a fixed seed for the random number generator
 // XSTD_RANDOM_THREAD_LOCAL: If set, will use the thread local qualifier for the random number generator.
 //

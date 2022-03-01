@@ -5,7 +5,7 @@
 #include <math.h>
 #include <array>
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_MATH_USE_XVEC: If set, enables acceleration of vector math using compiler support for vector extensions.
 //
 #ifndef XSTD_MATH_USE_XVEC

@@ -6,7 +6,7 @@
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the std::future<> waits.
 //
 #ifndef XSTD_OS_EVENT_PRIMITIVE

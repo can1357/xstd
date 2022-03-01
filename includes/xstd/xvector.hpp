@@ -6,7 +6,7 @@
 #include <span>
 #include "bitwise.hpp"
 
-// [Configuration]
+// [[Configuration]]
 // XSTD_SIMD_WIDTH: Defines the default SIMD length for xstd::max_vec_t.
 //
 #ifndef XSTD_SIMD_WIDTH
