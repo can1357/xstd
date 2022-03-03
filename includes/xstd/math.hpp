@@ -562,13 +562,22 @@ namespace xstd::math
 		//
 		FORCE_INLINE inline constexpr matrix4x4 operator*( const matrix4x4& other ) const noexcept
 		{
-			matrix4x4 out;
-			#pragma unroll
-			for ( size_t i = 0; i != 4; i++ )
-				#pragma unroll
-				for ( size_t j = 0; j != 4; j++ )
-					out.m[ i ][ j ] = m[ i ][ 0 ] * other.m[ 0 ][ j ] + m[ i ][ 1 ] * other.m[ 1 ][ j ] + m[ i ][ 2 ] * other.m[ 2 ][ j ] + m[ i ][ 3 ] * other.m[ 3 ][ j ];
-			return out;
+			const vec4 o0 = other.m[ 0 ];
+			const vec4 o1 = other.m[ 1 ];
+			const vec4 o2 = other.m[ 2 ];
+			const vec4 o3 = other.m[ 3 ];
+
+			vec4 s0 = m[ 0 ];
+			vec4 s1 = m[ 1 ];
+			vec4 s2 = m[ 2 ];
+			vec4 s3 = m[ 3 ];
+
+			s0 = s0[ 0 ] * o0 + s0[ 1 ] * o1 + s0[ 2 ] * o2 + s0[ 3 ] * o3;
+			s1 = s1[ 0 ] * o0 + s1[ 1 ] * o1 + s1[ 2 ] * o2 + s1[ 3 ] * o3;
+			s2 = s2[ 0 ] * o0 + s2[ 1 ] * o1 + s2[ 2 ] * o2 + s2[ 3 ] * o3;
+			s3 = s3[ 0 ] * o0 + s3[ 1 ] * o1 + s3[ 2 ] * o2 + s3[ 3 ] * o3;
+			
+			return { s0, s1, s2, s3 };
 		}
 		FORCE_INLINE inline constexpr matrix4x4& operator*=( const matrix4x4& other ) noexcept { m = ( *this * other ).m; return *this; }
 
