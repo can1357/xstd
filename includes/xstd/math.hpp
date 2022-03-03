@@ -7,6 +7,7 @@
 
 // [[Configuration]]
 // XSTD_MATH_USE_XVEC: If set, enables acceleration of vector math using compiler support for vector extensions.
+// XSTD_MATH_USE_X86INTRIN: If set, enabled optimization using intrinsics if not constexpr.
 //
 #ifndef XSTD_MATH_USE_XVEC
 	#if XSTD_VECTOR_EXT
@@ -15,11 +16,61 @@
 		#define XSTD_MATH_USE_XVEC 0
 	#endif
 #endif
+#ifndef XSTD_MATH_USE_X86INTRIN
+	#if AMD64_TARGET && CLANG_COMPILER
+		#define XSTD_MATH_USE_X86INTRIN 1
+	#else
+		#define XSTD_MATH_USE_X86INTRIN 0
+	#endif
+#endif
+#if XSTD_MATH_USE_X86INTRIN
+	#include <immintrin.h>
+	#include <fmaintrin.h>
+#endif
 
 // Defines useful math primitives.
 //
 namespace xstd::math
 {
+	// Intrinsics helpers.
+	//
+#if XSTD_MATH_USE_X86INTRIN
+	namespace impl
+	{
+		FORCE_INLINE static void load_vector( const void* _src, __m128& q )
+		{
+			auto src = ( const float* ) _src;
+			q = _mm_loadu_ps( src );
+		}
+		FORCE_INLINE static void store_vector( void* _dst, const __m128& q )
+		{
+			auto dst = ( float* ) _dst;
+			_mm_storeu_ps( dst, q );
+		}
+		FORCE_INLINE static void load_matrix( const void* _src, __m256& v01, __m256& v23 )
+		{
+			auto src = ( const float* ) _src;
+			v01 = _mm256_loadu_ps( src );
+			v23 = _mm256_loadu_ps( src + 8 );
+		}
+		FORCE_INLINE static void store_matrix( void* _dst, const __m256& v01, const __m256& v23 )
+		{
+			auto dst = ( float* ) _dst;
+			_mm256_storeu_ps( dst , v01 );
+			_mm256_storeu_ps( dst + 8, v23 );
+		}
+		FORCE_INLINE static void tranpose_inplace( __m256& v01, __m256& v23 )
+		{
+			__v8si mask{ 0, 4, 2, 6, 1, 5, 3, 7 };
+			__m256 q01 = _mm256_permutevar8x32_ps( v01, ( __m256i ) mask );
+			__m256 q23 = _mm256_permutevar8x32_ps( v23, ( __m256i ) mask );
+			v01 = _mm256_unpacklo_pd( ( __m256d )q01, ( __m256d ) q23 );
+			v23 = _mm256_unpackhi_pd( ( __m256d )q01, ( __m256d )q23 );
+		}
+	};
+#endif
+
+
 	// Math constants.
 	//
 	static constexpr float pi =      ( float ) 3.14159265358979323846;
@@ -562,22 +613,40 @@ namespace xstd::math
 		//
 		FORCE_INLINE inline constexpr matrix4x4 operator*( const matrix4x4& other ) const noexcept
 		{
-			const vec4 o0 = other.m[ 0 ];
-			const vec4 o1 = other.m[ 1 ];
-			const vec4 o2 = other.m[ 2 ];
-			const vec4 o3 = other.m[ 3 ];
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() )
+			{
+				matrix4x4 result;
 
-			vec4 s0 = m[ 0 ];
-			vec4 s1 = m[ 1 ];
-			vec4 s2 = m[ 2 ];
-			vec4 s3 = m[ 3 ];
+				__m256 v01, v23, q01, q23;
+				impl::load_matrix( &m, v01, v23 );
+				impl::load_matrix( &other.m, q01, q23 );
+				impl::tranpose_inplace( q01, q23 );
 
-			s0 = s0[ 0 ] * o0 + s0[ 1 ] * o1 + s0[ 2 ] * o2 + s0[ 3 ] * o3;
-			s1 = s1[ 0 ] * o0 + s1[ 1 ] * o1 + s1[ 2 ] * o2 + s1[ 3 ] * o3;
-			s2 = s2[ 0 ] * o0 + s2[ 1 ] * o1 + s2[ 2 ] * o2 + s2[ 3 ] * o3;
-			s3 = s3[ 0 ] * o0 + s3[ 1 ] * o1 + s3[ 2 ] * o2 + s3[ 3 ] * o3;
-			
-			return { s0, s1, s2, s3 };
+				__m256 vxx = _mm256_permute2f128_ps( q01, q01, 0b0000'0000 );
+				__m256 vyy = _mm256_permute2f128_ps( q01, q01, 0b0001'0001 );
+				__m256 vzz = _mm256_permute2f128_ps( q23, q23, 0b0000'0000 );
+				__m256 vww = _mm256_permute2f128_ps( q23, q23, 0b0001'0001 );
+
+				__m256 r01 = _mm256_dp_ps( v01, vxx, 0b11110001 );
+				__m256 r23 = _mm256_dp_ps( v23, vxx, 0b11110001 );
+				r01 = _mm256_xor_ps( r01, _mm256_dp_ps( v01, vyy, 0b11110010 ) );
+				r23 = _mm256_xor_ps( r23, _mm256_dp_ps( v23, vyy, 0b11110010 ) );
+				r01 = _mm256_xor_ps( r01, _mm256_dp_ps( v01, vzz, 0b11110100 ) );
+				r23 = _mm256_xor_ps( r23, _mm256_dp_ps( v23, vzz, 0b11110100 ) );
+				r01 = _mm256_xor_ps( r01, _mm256_dp_ps( v01, vww, 0b11111000 ) );
+				r23 = _mm256_xor_ps( r23, _mm256_dp_ps( v23, vww, 0b11111000 ) );
+
+				impl::store_matrix( &result, r01, r23 );
+				return result;
+			}
+#endif
+			matrix4x4 result = *this;
+			result.m[ 0 ] = other * result.m[ 0 ];
+			result.m[ 1 ] = other * result.m[ 1 ];
+			result.m[ 2 ] = other * result.m[ 2 ];
+			result.m[ 3 ] = other * result.m[ 3 ];
+			return result;
 		}
 		FORCE_INLINE inline constexpr matrix4x4& operator*=( const matrix4x4& other ) noexcept { m = ( *this * other ).m; return *this; }
 
@@ -585,6 +654,31 @@ namespace xstd::math
 		//
 		FORCE_INLINE inline constexpr vec4 operator*( const vec4& v ) const noexcept
 		{
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() )
+			{
+				vec4 result;
+
+				__m128 vx = _mm_broadcast_ss( &v.x );
+				__m128 vy = _mm_broadcast_ss( &v.y );
+				__m128 vz = _mm_broadcast_ss( &v.z );
+				__m128 vw = _mm_broadcast_ss( &v.w );
+
+				__m256 vxy, vzw;
+				vxy = _mm256_insertf128_ps( vxy, vx, 0 );
+				vxy = _mm256_insertf128_ps( vxy, vy, 1 );
+				vzw = _mm256_insertf128_ps( vzw, vz, 0 );
+				vzw = _mm256_insertf128_ps( vzw, vw, 1 );
+
+				__m256 vrlh = _mm256_mul_ps( vxy, _mm256_loadu_ps( ( const float* ) &m[ 0 ] ) );
+				vrlh = _mm256_fmadd_ps( vzw, _mm256_loadu_ps( ( const float* ) &m[ 2 ] ), vrlh );
+
+				auto vrl = _mm256_extractf128_ps( vrlh, 0 );
+				auto vrh = _mm256_extractf128_ps( vrlh, 1 );
+				impl::store_vector( &result, _mm_add_ps( vrl, vrh ) );
+				return result;
+			}
+#endif
 			auto vx = m[ 0 ] * v.x;
 			auto vy = m[ 1 ] * v.y;
 			auto vz = m[ 2 ] * v.z;
@@ -612,6 +706,16 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr matrix4x4 transpose( const matrix4x4& m ) 
 	{
 		matrix4x4 out;
+#if XSTD_MATH_USE_X86INTRIN
+		if ( !std::is_constant_evaluated() )
+		{
+			__m256 v01, v23;
+			impl::load_matrix( &m, v01, v23 );
+			impl::tranpose_inplace( v01, v23 );
+			impl::store_matrix( &out, v01, v23 );
+			return out;
+		}
+#endif
 		for ( size_t i = 0; i != 4; i++ )
 			for ( size_t j = 0; j != 4; j++ )
 				out[ i ][ j ] = m[ j ][ i ];
