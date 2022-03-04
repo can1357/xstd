@@ -26,6 +26,7 @@
 #if XSTD_MATH_USE_X86INTRIN
 	#include <immintrin.h>
 	#include <fmaintrin.h>
+	#include <smmintrin.h>
 #endif
 
 // Defines useful math primitives.
@@ -181,6 +182,46 @@ namespace xstd::math
 	{
 		return fmax( fmax( a, b ), c, rest... );
 	}
+
+	// Common vector operations with accceleration.
+	//
+	template<typename V>
+	FORCE_INLINE inline constexpr float dot( const V& v1, const V& v2 )
+	{
+#if XSTD_MATH_USE_X86INTRIN
+		if ( !std::is_constant_evaluated() )
+		{
+			if constexpr ( Same<typename V::element_type, float> && V::Length == 4 )
+			{
+				__m128 q1, q2;
+				impl::load_vector( &v1, q1 );
+				impl::load_vector( &v2, q2 );
+				q1 = _mm_dp_ps( q1, q2, 0b1111'0001 );
+				return q1[ 0 ];
+			}
+			else if constexpr ( Same<typename V::element_type, float> && V::Length == 3 )
+			{
+				__m128 q1, q2;
+				impl::load_vector( &v1, q1 ); // Assumes .w is readable!
+				impl::load_vector( &v2, q2 ); // Assumes .w is readable!
+				q1 = _mm_dp_ps( q1, q2, 0b0111'0001 );
+				return q1[ 0 ];
+			}
+		}
+#endif
+		return ( v1 * v2 ).reduce_add();
+	}
+	template<typename V>
+	FORCE_INLINE inline V normalize( const V& vec )
+	{
+		return vec / fsqrt( fmax( flt_eps, vec.length_sq() ) );
+	}
+	template<typename V>
+	FORCE_INLINE inline constexpr V lerp( const V& v1, const V& v2, float s )
+	{
+		return v1 + ( v2 - v1 ) * s;
+	}
+
 	// Define vector types.
 	//
 	namespace impl
@@ -188,6 +229,9 @@ namespace xstd::math
 		template<typename T>
 		struct vec2_t
 		{
+			using element_type = T;
+			static constexpr size_t Length = 2;
+
 			T x = 0;
 			T y = 0;
 
@@ -275,12 +319,15 @@ namespace xstd::math
 			FORCE_INLINE inline constexpr vec2_t& operator/=( const vec2_t& o ) noexcept { *this = ( *this / o ); return *this; }
 			FORCE_INLINE inline constexpr vec2_t operator+() const noexcept { return *this; };
 			FORCE_INLINE inline constexpr auto operator<=>( const vec2_t& ) const noexcept = default;
-			FORCE_INLINE inline constexpr T length_sq() const noexcept { return ( *this * *this ).reduce_add(); }
+			FORCE_INLINE inline constexpr T length_sq() const noexcept { return dot( *this, *this ); }
 			FORCE_INLINE inline float length() const noexcept { return fsqrt( length_sq() ); }
 		};
 		template<typename T>
 		struct vec3_t
 		{
+			using element_type = T;
+			static constexpr size_t Length = 3;
+
 			T x = 0;
 			T y = 0;
 			T z = 0;
@@ -374,12 +421,15 @@ namespace xstd::math
 			FORCE_INLINE inline constexpr vec3_t& operator/=( const vec3_t& o ) noexcept { *this = ( *this / o ); return *this; }
 			FORCE_INLINE inline constexpr vec3_t operator+() const noexcept { return *this; };
 			FORCE_INLINE inline constexpr auto operator<=>( const vec3_t& ) const noexcept = default;
-			FORCE_INLINE inline constexpr T length_sq() const noexcept { return ( *this * *this ).reduce_add(); }
+			FORCE_INLINE inline constexpr T length_sq() const noexcept { return dot( *this, *this ); }
 			FORCE_INLINE inline float length() const noexcept { return fsqrt( length_sq() ); }
 		};
 		template<typename T>
 		struct vec4_t
 		{
+			using element_type = T;
+			static constexpr size_t Length = 4;
+
 			T x = 0;
 			T y = 0;
 			T z = 0;
@@ -478,7 +528,7 @@ namespace xstd::math
 			FORCE_INLINE inline constexpr vec4_t& operator/=( const vec4_t& o ) noexcept { *this = ( *this / o ); return *this; }
 			FORCE_INLINE inline constexpr vec4_t operator+() const noexcept { return *this; };
 			FORCE_INLINE inline constexpr auto operator<=>( const vec4_t& ) const noexcept = default;
-			FORCE_INLINE inline constexpr T length_sq() const noexcept { return ( *this * *this ).reduce_add(); }
+			FORCE_INLINE inline constexpr T length_sq() const noexcept { return dot( *this, *this ); }
 			FORCE_INLINE inline float length() const noexcept { return fsqrt( length_sq() ); }
 		};
 	};
@@ -511,21 +561,6 @@ namespace xstd::math
 	// Extended vector helpers.
 	//
 	template<typename V>
-	FORCE_INLINE inline V normalize( const V& vec ) 
-	{
-		return vec / fsqrt( fmax( flt_eps, vec.length_sq() ) );
-	}
-	template<typename V>
-	FORCE_INLINE inline constexpr float dot( const V& v1, const V& v2 )
-	{
-		return ( v1 * v2 ).reduce_add();
-	}
-	template<typename V>
-	FORCE_INLINE inline constexpr V lerp( const V& v1, const V& v2, float s )
-	{
-		return v1 + ( v2 - v1 ) * s;
-	}
-	template<typename V>
 	FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2 )
 	{
 		return v1.max_element( v2 );
@@ -545,7 +580,6 @@ namespace xstd::math
 	{
 		return vec_min( vec_min( v1, v2 ), v3, std::forward<Tx>( rest )... );
 	}
-
 	FORCE_INLINE inline constexpr vec3 cross( const vec3& v1, const vec3& v2 ) 
 	{
 		return {
