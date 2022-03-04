@@ -1634,18 +1634,7 @@ namespace xstd
 	// Optimized helpers for STL containers.
 	//
 	template<typename Container>
-	FORCE_INLINE inline constexpr Container make_uninitialized_container( size_t length )
-	{
-		if ( std::is_constant_evaluated() )
-			return Container( length );
-
-		using Allocator =    typename Container::allocator_type;
-		using TmpContainer = swap_allocator_t<Container, uninitialized_allocator<Allocator>>;
-		TmpContainer result( length );
-		return std::move( ( Container& ) result );
-	}
-	template<typename Container>
-	FORCE_INLINE inline constexpr decltype( auto ) uninitialized_resize( Container& ref, size_t length )
+	FORCE_INLINE inline constexpr void uninitialized_resize( Container& ref, size_t length )
 	{
 		if ( std::is_constant_evaluated() )
 			return ref.resize( length );
@@ -1658,10 +1647,10 @@ namespace xstd
 
 		size_t cap = ref.capacity();
 		assume( cap >= length );
-		return ( ( TmpContainer& ) ref ).resize( length );
+		( ( TmpContainer& ) ref ).resize( length );
 	}
 	template<typename Container>
-	FORCE_INLINE inline constexpr decltype( auto ) shrink_resize( Container& ref, size_t length )
+	FORCE_INLINE inline constexpr void shrink_resize( Container& ref, size_t length )
 	{
 		if ( std::is_constant_evaluated() )
 			return ref.resize( length );
@@ -1672,12 +1661,17 @@ namespace xstd
 		
 		size_t prev_length = nref.size();
 		assume( prev_length >= length );
-		return nref.resize( length );
+		nref.resize( length );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr std::vector<T> make_uninitialized_vector( size_t length )
 	{
-		return make_uninitialized_container<std::vector<T>>( length );
+		if ( std::is_constant_evaluated() )
+			return std::vector<T>( length );
+
+		std::vector<T> result = {};
+		uninitialized_resize( result, length );
+		return result;
 	}
 };
 
