@@ -775,37 +775,43 @@ namespace xstd::math
 				m[ 3 ][ 0 ], m[ 3 ][ 1 ], m[ 3 ][ 2 ], m[ 3 ][ 3 ]
 			);
 		}
-	};
 
-	// Extended matrix helpers.
-	//
-	FORCE_INLINE inline constexpr matrix4x4 transpose( const matrix4x4& m ) 
-	{
-		matrix4x4 out;
-#if XSTD_MATH_USE_X86INTRIN
-		if ( !std::is_constant_evaluated() )
+		// Transpose.
+		//
+		FORCE_INLINE inline constexpr matrix4x4 transpose() const noexcept
 		{
-			__m256 v01, v23;
-			impl::load_matrix( &m, v01, v23 );
-			impl::tranpose_inplace( v01, v23 );
-			impl::store_matrix( &out, v01, v23 );
+			matrix4x4 out;
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() )
+			{
+				__m256 v01, v23;
+				impl::load_matrix( &m, v01, v23 );
+				impl::tranpose_inplace( v01, v23 );
+				impl::store_matrix( &out, v01, v23 );
+				return out;
+			}
+#endif
+			for ( size_t i = 0; i != 4; i++ )
+				for ( size_t j = 0; j != 4; j++ )
+					out[ i ][ j ] = m[ j ][ i ];
 			return out;
 		}
-#endif
-		for ( size_t i = 0; i != 4; i++ )
-			for ( size_t j = 0; j != 4; j++ )
-				out[ i ][ j ] = m[ j ][ i ];
-		return out;
-	}
-	FORCE_INLINE inline constexpr float determinant( const matrix4x4& m ) 
-	{
-		vec4 minor = cross( 
-			vec4{ m[ 0 ][ 0 ], m[ 1 ][ 0 ], m[ 2 ][ 0 ], m[ 3 ][ 0 ] }, 
-			vec4{ m[ 0 ][ 1 ], m[ 1 ][ 1 ], m[ 2 ][ 1 ], m[ 3 ][ 1 ] },
-			vec4{ m[ 0 ][ 2 ], m[ 1 ][ 2 ], m[ 2 ][ 2 ], m[ 3 ][ 2 ] }
-		);
-		return -( m[ 0 ][ 3 ] * minor.x + m[ 1 ][ 3 ] * minor.y + m[ 2 ][ 3 ] * minor.z + m[ 3 ][ 3 ] * minor.w );
-	}
+
+		// Determinant.
+		//
+		FORCE_INLINE inline constexpr float determinant() const noexcept
+		{
+			vec4 minor = cross(
+				vec4{ m[ 0 ][ 0 ], m[ 1 ][ 0 ], m[ 2 ][ 0 ], m[ 3 ][ 0 ] },
+				vec4{ m[ 0 ][ 1 ], m[ 1 ][ 1 ], m[ 2 ][ 1 ], m[ 3 ][ 1 ] },
+				vec4{ m[ 0 ][ 2 ], m[ 1 ][ 2 ], m[ 2 ][ 2 ], m[ 3 ][ 2 ] }
+			);
+			return -( m[ 0 ][ 3 ] * minor.x + m[ 1 ][ 3 ] * minor.y + m[ 2 ][ 3 ] * minor.z + m[ 3 ][ 3 ] * minor.w );
+		}
+	};
+
+	// Matrix inversion.
+	//
 	inline constexpr matrix4x4 inverse( const matrix4x4& m, float& det )
 	{
 		float t[ 3 ] = {};
