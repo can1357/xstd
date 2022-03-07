@@ -725,6 +725,34 @@ namespace xstd::math
 			return { res.x, res.y, res.z };
 		}
 
+		// Scale by scalar.
+		//
+		FORCE_INLINE inline constexpr matrix4x4 operator*( float v ) const noexcept
+		{
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() )
+			{
+				__m256 f = _mm256_broadcast_ss( &v );
+				
+				__m256 a, b;
+				impl::load_matrix( &m, a, b );
+				
+				a = _mm256_mul_ps( a, f );
+				b = _mm256_mul_ps( b, f );
+
+				matrix4x4 result;
+				impl::store_matrix( &result, a, b );
+				return result;
+			}
+#endif
+
+			matrix4x4 result;
+			for ( size_t i = 0; i != 4; i++ )
+				result[ i ] = m[ i ] * v;
+			return result;
+		}
+		FORCE_INLINE inline constexpr matrix4x4& operator*=( float v ) noexcept { m = ( *this * v ).m; return *this; }
+
 		// Forward indexing.
 		//
 		FORCE_INLINE inline constexpr vec4& operator[]( size_t n ) noexcept { return m[ n ]; }
