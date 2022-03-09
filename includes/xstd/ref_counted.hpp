@@ -54,7 +54,7 @@ namespace xstd
 			if ( auto p = std::exchange( ptr, new_ptr ) )
 			{
 				if ( !--p->ref_count ) [[unlikely]]
-					cold_call( [ = ] { std::destroy_at( p ); } );
+					std::destroy_at( p );
 			}
 		}
 		store_type* release() { return std::exchange( ptr, nullptr ); }
