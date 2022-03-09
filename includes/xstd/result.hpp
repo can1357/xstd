@@ -265,7 +265,7 @@ namespace xstd
 		constexpr bool success() const { return traits::is_success( status ); }
 		constexpr bool fail() const { return !traits::is_success( status ); }
 		constexpr explicit operator bool() const { return success(); }
-		auto message() const
+		NO_INLINE auto message() const
 		{
 			if constexpr ( StringConvertible<Status> )
 				return fmt::as_string( status );
@@ -275,7 +275,7 @@ namespace xstd
 		constexpr void assert() const
 		{
 			if ( !success() ) [[unlikely]]
-				xstd::cold_call( [ & ] { throw_fmt( XSTD_ESTR( "Accessing failed result with: %s" ), message() ); } );
+				throw_fmt( XSTD_ESTR( "Accessing failed result: %s" ), message() );
 		}
 	
 		// String conversion.
