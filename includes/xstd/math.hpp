@@ -91,6 +91,7 @@ namespace xstd::math
 	inline float _ffloor( float x ) { return floorf( x ); }
 	inline float _fceil( float x ) { return ceilf( x ); }
 	inline float _fround( float x ) { return roundf( x ); }
+	inline float _ftrunc( float x ) { return truncf( x ); }
 #else
 	float fsqrt( float x ) asm( "llvm.sqrt.f32" );
 	float fsin( float x ) asm( "llvm.sin.f32" );
@@ -100,6 +101,7 @@ namespace xstd::math
 	float _ffloor( float x ) asm( "llvm.floor.f32" );
 	float _fceil( float x ) asm( "llvm.ceil.f32" );
 	float _fround( float x ) asm( "llvm.round.f32" );
+	float _ftrunc( float x ) asm( "llvm.trunc.f32" );
 #endif
 	FORCE_INLINE inline constexpr float fabs( float a )
 	{
@@ -139,10 +141,16 @@ namespace xstd::math
 			return _fround( x );
 		return float( int64_t( x + fcopysign( 0.5f, x ) ) );
 	}
+	FORCE_INLINE inline constexpr float ftrunc( float x )
+	{
+		if ( !std::is_constant_evaluated() )
+			return _ftrunc( x );
+		return float( int64_t( x ) );
+	}
 	FORCE_INLINE inline constexpr float fmod( float x, float y )
 	{
 		float m = 1.0f / y;
-		return x - float( int64_t( x * m ) ) * y;
+		return x - ftrunc( x * m ) * y;
 	}
 
 	// Implement sincos since NT CRT does not include it.
@@ -150,7 +158,12 @@ namespace xstd::math
 	FORCE_INLINE inline std::pair<float, float> fsincos( float x ) 
 	{
 		float c = fcos( x );
-		float s = fsin( x );
+
+		float s = fsqrt( 1 - c * c );
+		x *= ( 1.0f / ( 2 * pi ) );
+		x = x - ftrunc( x );
+		x = ( x * ( 0.5f - fabsf( x ) ) );
+		s = fcopysign( s, x );
 		return { s, c };
 	}
 
@@ -698,10 +711,9 @@ namespace xstd::math
 				__m128 vz = _mm_broadcast_ss( &v.z );
 				__m128 vw = _mm_broadcast_ss( &v.w );
 
-				__m256 vxy, vzw;
-				vxy = _mm256_insertf128_ps( vxy, vx, 0 );
+				__m256 vxy = _mm256_castps128_ps256( vx );
 				vxy = _mm256_insertf128_ps( vxy, vy, 1 );
-				vzw = _mm256_insertf128_ps( vzw, vz, 0 );
+				__m256 vzw = _mm256_castps128_ps256( vz );
 				vzw = _mm256_insertf128_ps( vzw, vw, 1 );
 
 				__m256 vrlh = _mm256_mul_ps( vxy, _mm256_loadu_ps( ( const float* ) &m[ 0 ] ) );
@@ -724,6 +736,36 @@ namespace xstd::math
 			vec4 res = *this * vec4{ v.x, v.y, v.z, 1 };
 			return { res.x, res.y, res.z };
 		}
+
+		// Offset by scalar.
+		//
+		FORCE_INLINE inline constexpr matrix4x4 operator+( float v ) const noexcept
+		{
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() )
+			{
+				__m256 f = _mm256_broadcast_ss( &v );
+				
+				__m256 a, b;
+				impl::load_matrix( &m, a, b );
+				
+				a = _mm256_add_ps( a, f );
+				b = _mm256_add_ps( b, f );
+
+				matrix4x4 result;
+				impl::store_matrix( &result, a, b );
+				return result;
+			}
+#endif
+
+			matrix4x4 result;
+			for ( size_t i = 0; i != 4; i++ )
+				result[ i ] = m[ i ] + v;
+			return result;
+		}
+		FORCE_INLINE inline constexpr matrix4x4 operator-( float v ) const noexcept { return *this + ( -v ); }
+		FORCE_INLINE inline constexpr matrix4x4& operator-=( float v ) noexcept { m = ( *this - v ).m; return *this; }
+		FORCE_INLINE inline constexpr matrix4x4& operator+=( float v ) noexcept { m = ( *this + v ).m; return *this; }
 
 		// Scale by scalar.
 		//
@@ -751,7 +793,14 @@ namespace xstd::math
 				result[ i ] = m[ i ] * v;
 			return result;
 		}
+		FORCE_INLINE inline constexpr matrix4x4 operator/( float v ) const noexcept { return *this * ( 1.0f / v ); }
+		FORCE_INLINE inline constexpr matrix4x4& operator/=( float v ) noexcept { m = ( *this / v ).m; return *this; }
 		FORCE_INLINE inline constexpr matrix4x4& operator*=( float v ) noexcept { m = ( *this * v ).m; return *this; }
+
+		// Unaries.
+		//
+		FORCE_INLINE inline constexpr matrix4x4 operator-() const noexcept { return *this * -1.0f; }
+		FORCE_INLINE inline constexpr matrix4x4 operator+() const noexcept { return *this; }
 
 		// Forward indexing.
 		//
@@ -765,10 +814,10 @@ namespace xstd::math
 		FORCE_INLINE inline std::string to_string() const noexcept 
 		{ 
 			return fmt::str(
-				"| %-10f, %-10f, %-10f, %-10f |\n"
-				"| %-10f, %-10f, %-10f, %-10f |\n"
-				"| %-10f, %-10f, %-10f, %-10f |\n"
-				"| %-10f, %-10f, %-10f, %-10f |",
+				"| %-10f %-10f %-10f %-10f |\n"
+				"| %-10f %-10f %-10f %-10f |\n"
+				"| %-10f %-10f %-10f %-10f |\n"
+				"| %-10f %-10f %-10f %-10f |",
 				m[ 0 ][ 0 ], m[ 0 ][ 1 ], m[ 0 ][ 2 ], m[ 0 ][ 3 ],
 				m[ 1 ][ 0 ], m[ 1 ][ 1 ], m[ 1 ][ 2 ], m[ 1 ][ 3 ],
 				m[ 2 ][ 0 ], m[ 2 ][ 1 ], m[ 2 ][ 2 ], m[ 2 ][ 3 ],
