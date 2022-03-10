@@ -1265,14 +1265,12 @@ namespace xstd::math
 		return out;
 	}
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline matrix4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
+	FORCE_INLINE inline constexpr matrix4x4 perspective_tan_fov_xy( float tfx, float tfy, float zn, float zf )
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 		matrix4x4 out = matrix4x4::identity();
-
-		float t = tanf( fov / 2.0f );
-		out[ 0 ][ 0 ] = 1.0f / ( aspect * t );
-		out[ 1 ][ 1 ] = 1.0f / t;
+		out[ 0 ][ 0 ] = 1.0f / tfx;
+		out[ 1 ][ 1 ] = 1.0f / tfy;
 		out[ 2 ][ 2 ] = m * zf / ( zf - zn );
 		out[ 2 ][ 3 ] = m * 1.0f;
 		out[ 3 ][ 2 ] = ( zf * zn ) / ( zn - zf );
@@ -1282,17 +1280,14 @@ namespace xstd::math
 	template<bool LeftHanded = true>
 	FORCE_INLINE inline matrix4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
 	{
-		constexpr float m = LeftHanded ? 1 : -1;
-		matrix4x4 out = matrix4x4::identity();
-
 		float t = tanf( fov / 2.0f );
-		out[ 0 ][ 0 ] = 1.0f / t;
-		out[ 1 ][ 1 ] = 1.0f / ( aspect * t );
-		out[ 2 ][ 2 ] = m * zf / ( zf - zn );
-		out[ 2 ][ 3 ] = m * 1.0f;
-		out[ 3 ][ 2 ] = ( zf * zn ) / ( zn - zf );
-		out[ 3 ][ 3 ] = 0.0f;
-		return out;
+		return perspective_tan_fov_xy<LeftHanded>( t, aspect * t, zn, zf );
+	}
+	template<bool LeftHanded = true>
+	FORCE_INLINE inline matrix4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
+	{
+		float t = tanf( fov / 2.0f );
+		return perspective_tan_fov_xy<LeftHanded>( aspect * t, t, zn, zf );
 	}
 };
 inline constexpr float operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
