@@ -1156,8 +1156,18 @@ namespace xstd::math
 	//
 	FORCE_INLINE inline matrix4x4 direction_to_matrix( const vec3& direction )
 	{
-		vec3 up_vec =    cross( up, direction );
-		vec3 right_vec = cross( direction, up_vec );
+		vec3 up_vec, right_vec;
+
+		if ( ( direction.x * direction.x + direction.y * direction.y ) > 2 * flt_eps )
+		{
+			up_vec =    cross( up, direction );
+			right_vec = cross( direction, up_vec );
+		}
+		else
+		{
+			up_vec =    {  0, 1, 0 };
+			right_vec = { -1, 0, 0 };
+		}
 
 		matrix4x4 result = {
 			vec4::from( direction, 0 ),
