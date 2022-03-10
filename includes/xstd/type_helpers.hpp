@@ -1599,55 +1599,12 @@ namespace xstd
 	template<typename T, typename A>
 	using swap_allocator_t = typename swap_allocator<T, A>::type;
 
-	// Uninitialized allocator.
-	//
-	template <typename A>
-	struct uninitialized_allocator : A
-	{
-		using Traits = std::allocator_traits<A>;
-		template<typename U>
-		struct rebind { using other = uninitialized_allocator<typename Traits::template rebind_alloc<U>>; };
-
-		using A::A;
-		using A::operator=;
-
-		template <typename U, typename... Tx>                    
-		FORCE_INLINE inline constexpr void construct( U*, Tx&&... ) {}
-	};
-
-	// Disabled allocator.
-	//
-	template <typename A>
-	struct disabled_allocator : A
-	{
-		using Traits = std::allocator_traits<A>;
-		using Pointer = typename Traits::pointer;
-		template<typename U>
-		struct rebind { using other = disabled_allocator<typename Traits::template rebind_alloc<U>>; };
-
-		using A::A;
-		using A::operator=;
-
-		FORCE_INLINE inline Pointer allocate( size_t, void* = 0 ) { unreachable(); return Pointer{ nullptr }; }
-	};
-
 	// Optimized helpers for STL containers.
 	//
-	template<typename Container>
-	FORCE_INLINE inline constexpr void uninitialized_resize( Container& ref, size_t length )
+	template<typename T>
+	FORCE_INLINE inline constexpr void uninitialized_resize( std::vector<T>& ref, size_t length )
 	{
-		if ( std::is_constant_evaluated() )
-			return ref.resize( length );
-
-		using Allocator =    typename Container::allocator_type;
-		using TmpContainer = swap_allocator_t<Container, uninitialized_allocator<Allocator>>;
-
-		if ( ref.capacity() < length ) [[unlikely]]
-			ref.reserve( length );
-
-		size_t cap = ref.capacity();
-		assume( cap >= length );
-		( ( TmpContainer& ) ref ).resize( length );
+		ref.resize( length );
 	}
 	template<typename Container>
 	FORCE_INLINE inline constexpr void shrink_resize( Container& ref, size_t length )
@@ -1655,20 +1612,13 @@ namespace xstd
 		if ( std::is_constant_evaluated() )
 			return ref.resize( length );
 		
-		using Allocator =    typename Container::allocator_type;
-		using TmpContainer = swap_allocator_t<Container, disabled_allocator<Allocator>>;
-		TmpContainer& nref = ( TmpContainer& ) ref;
-		
-		size_t prev_length = nref.size();
+		size_t prev_length = ref.size();
 		assume( prev_length >= length );
-		nref.resize( length );
+		ref.resize( length );
 	}
 	template<typename T>
 	FORCE_INLINE inline constexpr std::vector<T> make_uninitialized_vector( size_t length )
 	{
-		if ( std::is_constant_evaluated() )
-			return std::vector<T>( length );
-
 		std::vector<T> result = {};
 		uninitialized_resize( result, length );
 		return result;
