@@ -950,36 +950,35 @@ namespace xstd::math
 	}
 
 	// Rotation around an axis.
+	// - Axis must be normalized.
 	//
 	FORCE_INLINE inline quaternion rotate_q( float theta, const vec3& axis )
 	{
-		vec3 a = normalize( axis );
 		auto [s, c] = fsincos( theta / 2 );
 		return {
-			s * a.x,
-			s * a.y,
-			s * a.z,
+			s * axis.x,
+			s * axis.y,
+			s * axis.z,
 			c
 		};
 	}
 	FORCE_INLINE inline matrix4x4 rotate_v( float theta, const vec3& axis )
 	{
-		vec3 a = normalize( axis );
 		auto [sangle, cangle] = fsincos( theta );
 		float cdiff = 1.0f - cangle;
 
 		matrix4x4 out;
-		out[ 0 ][ 0 ] = cdiff * a.x * a.x + cangle;
-		out[ 1 ][ 0 ] = cdiff * a.x * a.y - sangle * a.z;
-		out[ 2 ][ 0 ] = cdiff * a.x * a.z + sangle * a.y;
+		out[ 0 ][ 0 ] = cdiff * axis.x * axis.x + cangle;
+		out[ 1 ][ 0 ] = cdiff * axis.x * axis.y - sangle * axis.z;
+		out[ 2 ][ 0 ] = cdiff * axis.x * axis.z + sangle * axis.y;
 		out[ 3 ][ 0 ] = 0.0f;
-		out[ 0 ][ 1 ] = cdiff * a.y * a.x + sangle * a.z;
-		out[ 1 ][ 1 ] = cdiff * a.y * a.y + cangle;
-		out[ 2 ][ 1 ] = cdiff * a.y * a.z - sangle * a.x;
+		out[ 0 ][ 1 ] = cdiff * axis.y * axis.x + sangle * axis.z;
+		out[ 1 ][ 1 ] = cdiff * axis.y * axis.y + cangle;
+		out[ 2 ][ 1 ] = cdiff * axis.y * axis.z - sangle * axis.x;
 		out[ 3 ][ 1 ] = 0.0f;
-		out[ 0 ][ 2 ] = cdiff * a.z * a.x - sangle * a.y;
-		out[ 1 ][ 2 ] = cdiff * a.z * a.y + sangle * a.x;
-		out[ 2 ][ 2 ] = cdiff * a.z * a.z + cangle;
+		out[ 0 ][ 2 ] = cdiff * axis.z * axis.x - sangle * axis.y;
+		out[ 1 ][ 2 ] = cdiff * axis.z * axis.y + sangle * axis.x;
+		out[ 2 ][ 2 ] = cdiff * axis.z * axis.z + cangle;
 		out[ 3 ][ 2 ] = 0.0f;
 		out[ 0 ][ 3 ] = 0.0f;
 		out[ 1 ][ 3 ] = 0.0f;
