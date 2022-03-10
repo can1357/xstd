@@ -1226,21 +1226,51 @@ namespace xstd::math
 	//
 	FORCE_INLINE inline matrix4x4 euler_to_matrix( const vec3& rot )
 	{
-		auto m0 = rotate_v( rot.z, forward );
-		auto m1 = rotate_v( rot.x, right );
-		auto m2 = rotate_v( rot.y, up );
-		return rotate_by( rotate_by( m0, m1 ), m2 );
+		auto [spitch, cpitch] = fsincos( rot.x );
+		auto [syaw,   cyaw] =   fsincos( rot.y );
+		auto [sroll,  croll] =  fsincos( rot.z );
+
+		matrix4x4 out = {};
+		out[ 0 ][ 0 ] = cpitch * cyaw;
+		out[ 0 ][ 1 ] = cpitch * syaw;
+		out[ 0 ][ 2 ] = -spitch;
+		out[ 0 ][ 3 ] = 0.0f;
+		out[ 1 ][ 0 ] = sroll * spitch * cyaw - croll * syaw;
+		out[ 1 ][ 1 ] = sroll * spitch * syaw + croll * cyaw;
+		out[ 1 ][ 2 ] = sroll * cpitch;
+		out[ 1 ][ 3 ] = 0.0f;
+		out[ 2 ][ 0 ] = croll * spitch * cyaw + sroll * syaw;
+		out[ 2 ][ 1 ] = croll * spitch * syaw - sroll * cyaw;
+		out[ 2 ][ 2 ] = croll * cpitch;
+		out[ 2 ][ 3 ] = 0.0f;
+		out[ 3 ][ 0 ] = 0.0f;
+		out[ 3 ][ 1 ] = 0.0f;
+		out[ 3 ][ 2 ] = 0.0f;
+		out[ 3 ][ 3 ] = 1.0f;
+		return out;
 	}
 	FORCE_INLINE inline quaternion euler_to_quaternion( const vec3& rot )
 	{
-		auto q0 = rotate_q( rot.z, forward );
-		auto q1 = rotate_q( rot.x, right );
-		auto q2 = rotate_q( rot.y, up );
-		return rotate_by( rotate_by( q0, q1 ), q2 );
+		auto [spitch, cpitch] = fsincos( rot.x * 0.5f );
+		auto [syaw,   cyaw] =   fsincos( rot.y * 0.5f );
+		auto [sroll,  croll] =  fsincos( rot.z * 0.5f );
+
+		return {
+			cyaw * cpitch * sroll - syaw * spitch * croll,
+			syaw * cpitch * sroll + cyaw * spitch * croll,
+			syaw * cpitch * croll - cyaw * spitch * sroll,
+			cyaw * cpitch * croll + syaw * spitch * sroll
+		};
 	}
 	FORCE_INLINE inline vec3 euler_to_direction( const vec3& rot )
 	{
-		return matrix_to_direction( euler_to_matrix( rot ) );
+		auto [spitch, cpitch] = fsincos( rot.x );
+		auto [syaw,   cyaw] =   fsincos( rot.y );
+		return {
+			cpitch * cyaw,
+			cpitch * syaw,
+			-spitch
+		};
 	}
 
 	// View helpers.
