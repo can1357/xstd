@@ -367,7 +367,7 @@ namespace xstd::math
 				}
 				return ( &x )[ n ];
 			}
-			FORCE_INLINE inline constexpr T operator[]( size_t n ) const
+			FORCE_INLINE inline constexpr const T& operator[]( size_t n ) const
 			{
 				if ( std::is_constant_evaluated() )
 				{
@@ -472,7 +472,7 @@ namespace xstd::math
 				}
 				return ( &x )[ n ];
 			}
-			FORCE_INLINE inline constexpr T operator[]( size_t n ) const
+			FORCE_INLINE inline constexpr const T& operator[]( size_t n ) const
 			{
 				if ( std::is_constant_evaluated() )
 				{
@@ -806,6 +806,8 @@ namespace xstd::math
 		//
 		FORCE_INLINE inline constexpr vec4& operator[]( size_t n ) noexcept { return m[ n ]; }
 		FORCE_INLINE inline constexpr const vec4& operator[]( size_t n ) const noexcept { return m[ n ]; }
+		FORCE_INLINE inline constexpr float& operator()( size_t i, size_t j ) noexcept { return m[ i ][ j ]; }
+		FORCE_INLINE inline constexpr const float& operator()( size_t i, size_t j ) const noexcept { return m[ i ][ j ]; }
 
 		// Hashing, serialization, comparison and string conversion.
 		//
