@@ -561,21 +561,21 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr vec4 vec_floor( const vec4& vec ) { return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ), ffloor( vec.w ) }; }
 	FORCE_INLINE inline constexpr vec4 vec_round( const vec4& vec ) { return { fround( vec.x ), fround( vec.y ), fround( vec.z ), fround( vec.w ) }; }
 	FORCE_INLINE inline constexpr vec4 vec_trunc( const vec4& vec ) { return { ftrunc( vec.x ), ftrunc( vec.y ), ftrunc( vec.z ), ftrunc( vec.w ) }; }
-	FORCE_INLINE inline constexpr vec4 vec_sqrt( const vec4& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
+	FORCE_INLINE inline vec4 vec_sqrt( const vec4& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
 
 	FORCE_INLINE inline constexpr vec3 vec_abs( const vec3& vec ) { return { fabs( vec.x ), fabs( vec.y ), fabs( vec.z ) }; }
 	FORCE_INLINE inline constexpr vec3 vec_ceil( const vec3& vec ) { return { fceil( vec.x ), fceil( vec.y ), fceil( vec.z ) }; }
 	FORCE_INLINE inline constexpr vec3 vec_floor( const vec3& vec ) { return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ) }; }
 	FORCE_INLINE inline constexpr vec3 vec_round( const vec3& vec ) { return { fround( vec.x ), fround( vec.y ), fround( vec.z ) }; }
 	FORCE_INLINE inline constexpr vec3 vec_trunc( const vec3& vec ) { return { ftrunc( vec.x ), ftrunc( vec.y ), ftrunc( vec.z ) }; }
-	FORCE_INLINE inline constexpr vec3 vec_sqrt( const vec3& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ) }; }
+	FORCE_INLINE inline vec3 vec_sqrt( const vec3& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ) }; }
 
 	FORCE_INLINE inline constexpr vec2 vec_abs( const vec2& vec ) { return { fabs( vec.x ), fabs( vec.y ) }; }
 	FORCE_INLINE inline constexpr vec2 vec_ceil( const vec2& vec ) { return { fceil( vec.x ), fceil( vec.y ) }; }
 	FORCE_INLINE inline constexpr vec2 vec_floor( const vec2& vec ) { return { ffloor( vec.x ), ffloor( vec.y ) }; }
 	FORCE_INLINE inline constexpr vec2 vec_round( const vec2& vec ) { return { fround( vec.x ), fround( vec.y ) }; }
 	FORCE_INLINE inline constexpr vec2 vec_trunc( const vec2& vec ) { return { ftrunc( vec.x ), ftrunc( vec.y ) }; }
-	FORCE_INLINE inline constexpr vec2 vec_sqrt( const vec2& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
+	FORCE_INLINE inline vec2 vec_sqrt( const vec2& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
 
 	// Extended vector helpers.
 	//
@@ -933,18 +933,14 @@ namespace xstd::math
 	{
 		return mat[ 3 ].xyz();
 	}
-	FORCE_INLINE inline constexpr vec3 matrix_to_direction( const matrix4x4& mat )
-	{
-		return normalize( mat[ 0 ].xyz() );
-	}
-	FORCE_INLINE inline constexpr vec3 matrix_to_scale( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_scale( const matrix4x4& mat )
 	{
 		return { mat[ 0 ].xyz().length(), mat[ 1 ].xyz().length(), mat[ 2 ].xyz().length() };
 	}
 
 	// Normalizes a matrix to have no scale.
 	//
-	FORCE_INLINE inline constexpr matrix4x4 matrix_normalize( matrix4x4 mat )
+	FORCE_INLINE inline matrix4x4 matrix_normalize( matrix4x4 mat )
 	{
 		vec4 scales = 1.0f / vec_sqrt( vec4{ mat[ 0 ].length_sq(), mat[ 1 ].length_sq(), mat[ 2 ].length_sq(), 1.0f } );
 		mat[ 0 ] *= scales[ 0 ];
@@ -1021,67 +1017,6 @@ namespace xstd::math
 			cross( u, v ) * 2.0f * q.w;
 	}
 
-	// Changing the rotation types.
-	//
-	FORCE_INLINE inline quaternion quaternion_rotation( const matrix4x4& rot )
-	{
-		float trace = rot[ 0 ][ 0 ] + rot[ 1 ][ 1 ] + rot[ 2 ][ 2 ] + 1.0f;
-		if ( trace > 1.0f )
-		{
-			float s = 2.0f * fsqrt( trace );
-			return {
-				( rot[ 1 ][ 2 ] - rot[ 2 ][ 1 ] ) / s,
-				( rot[ 2 ][ 0 ] - rot[ 0 ][ 2 ] ) / s,
-				( rot[ 0 ][ 1 ] - rot[ 1 ][ 0 ] ) / s,
-				0.25f * s
-			};
-		}
-		else if ( rot[ 0 ][ 0 ] > rot[ 1 ][ 1 ] && rot[ 0 ][ 0 ] > rot[ 2 ][ 2 ] )
-		{
-			float s = 2.0f * fsqrt( 1.0f + rot[ 0 ][ 0 ] - rot[ 1 ][ 1 ] - rot[ 2 ][ 2 ] );
-			return {
-				0.25f * s,
-				( rot[ 0 ][ 1 ] + rot[ 1 ][ 0 ] ) / s,
-				( rot[ 0 ][ 2 ] + rot[ 2 ][ 0 ] ) / s,
-				( rot[ 1 ][ 2 ] - rot[ 2 ][ 1 ] ) / s,
-			};
-		}
-		else if ( rot[ 1 ][ 1 ] > rot[ 2 ][ 2 ] )
-		{
-			float s = 2.0f * fsqrt( 1.0f + rot[ 1 ][ 1 ] - rot[ 0 ][ 0 ] - rot[ 2 ][ 2 ] );
-			return {
-				( rot[ 0 ][ 1 ] + rot[ 1 ][ 0 ] ) / s,
-				0.25f * s,
-				( rot[ 1 ][ 2 ] + rot[ 2 ][ 1 ] ) / s,
-				( rot[ 2 ][ 0 ] - rot[ 0 ][ 2 ] ) / s,
-			};
-		}
-		else
-		{
-			float s = 2.0f * fsqrt( 1.0f + rot[ 2 ][ 2 ] - rot[ 0 ][ 0 ] - rot[ 1 ][ 1 ] );
-			return {
-				( rot[ 0 ][ 2 ] + rot[ 2 ][ 0 ] ) / s,
-				( rot[ 1 ][ 2 ] + rot[ 2 ][ 1 ] ) / s,
-				0.25f * s,
-				( rot[ 0 ][ 1 ] - rot[ 1 ][ 0 ] ) / s,
-			};
-		}
-	}
-	FORCE_INLINE inline constexpr matrix4x4 matrix_rotation( const quaternion& rot )
-	{
-		matrix4x4 out = matrix4x4::identity();
-		out[ 0 ][ 0 ] = 1.0f - 2.0f * ( rot.y * rot.y + rot.z * rot.z );
-		out[ 0 ][ 1 ] = 2.0f * ( rot.x * rot.y + rot.z * rot.w );
-		out[ 0 ][ 2 ] = 2.0f * ( rot.x * rot.z - rot.y * rot.w );
-		out[ 1 ][ 0 ] = 2.0f * ( rot.x * rot.y - rot.z * rot.w );
-		out[ 1 ][ 1 ] = 1.0f - 2.0f * ( rot.x * rot.x + rot.z * rot.z );
-		out[ 1 ][ 2 ] = 2.0f * ( rot.y * rot.z + rot.x * rot.w );
-		out[ 2 ][ 0 ] = 2.0f * ( rot.x * rot.z + rot.y * rot.w );
-		out[ 2 ][ 1 ] = 2.0f * ( rot.y * rot.z - rot.x * rot.w );
-		out[ 2 ][ 2 ] = 1.0f - 2.0f * ( rot.x * rot.x + rot.y * rot.y );
-		return out;
-	}
-
 	// Translation and scaling matrices.
 	//
 	FORCE_INLINE inline constexpr matrix4x4 matrix_translation( const vec3& p )
@@ -1126,7 +1061,7 @@ namespace xstd::math
 	inline constexpr vec3 right =   { 0, 1, 0 };
 	inline constexpr vec3 forward = { 1, 0, 0 };
 
-	// Rotation Matrix -> (Pitch, Yaw, Roll).
+	// Matrix to Euler/Quaternion/Direction.
 	//
 	FORCE_INLINE inline vec3 matrix_to_euler( const matrix4x4& mat )
 	{
@@ -1156,21 +1091,86 @@ namespace xstd::math
 		}
 		return res;
 	}
+	FORCE_INLINE inline quaternion matrix_to_quaternion( const matrix4x4& mat )
+	{
+		float trace = mat( 0, 0 ) + mat( 1, 1 ) + mat( 2, 2 ) + 1.0f;
+		if ( trace > 1.0f )
+		{
+			float s = 2.0f * fsqrt( trace );
+			return {
+				( mat( 1, 2 ) - mat( 2, 1 ) ) / s,
+				( mat( 2, 0 ) - mat( 0, 2 ) ) / s,
+				( mat( 0, 1 ) - mat( 1, 0 ) ) / s,
+				0.25f * s
+			};
+		}
+		else if ( mat( 0, 0 ) > mat( 1, 1 ) && mat( 0, 0 ) > mat( 2, 2 ) )
+		{
+			float s = 2.0f * fsqrt( 1.0f + mat( 0, 0 ) - mat( 1, 1 ) - mat( 2, 2 ) );
+			return {
+				0.25f * s,
+				( mat( 0, 1 ) + mat( 1, 0 ) ) / s,
+				( mat( 0, 2 ) + mat( 2, 0 ) ) / s,
+				( mat( 1, 2 ) - mat( 2, 1 ) ) / s,
+			};
+		}
+		else if ( mat( 1, 1 ) > mat( 2, 2 ) )
+		{
+			float s = 2.0f * fsqrt( 1.0f + mat( 1, 1 ) - mat( 0, 0 ) - mat( 2, 2 ) );
+			return {
+				( mat( 0, 1 ) + mat( 1, 0 ) ) / s,
+				0.25f * s,
+				( mat( 1, 2 ) + mat( 2, 1 ) ) / s,
+				( mat( 2, 0 ) - mat( 0, 2 ) ) / s,
+			};
+		}
+		else
+		{
+			float s = 2.0f * fsqrt( 1.0f + mat( 2, 2 ) - mat( 0, 0 ) - mat( 1, 1 ) );
+			return {
+				( mat( 0, 2 ) + mat( 2, 0 ) ) / s,
+				( mat( 1, 2 ) + mat( 2, 1 ) ) / s,
+				0.25f * s,
+				( mat( 0, 1 ) - mat( 1, 0 ) ) / s,
+			};
+		}
+	}
+	FORCE_INLINE inline vec3 matrix_to_direction( const matrix4x4& mat )
+	{
+		return normalize( mat[ 0 ].xyz() );
+	}
 
-	// Direction -> (Pitch, Yaw, Roll).
+	// Direction to Euler/Quaternion/Matrix.
 	//
+	FORCE_INLINE inline matrix4x4 direction_to_matrix( const vec3& direction )
+	{
+		vec3 up_vec =    cross( up, direction );
+		vec3 right_vec = cross( direction, up_vec );
+
+		matrix4x4 result = {
+			vec4::from( direction, 0 ),
+			vec4::from( up_vec,    0 ),
+			vec4::from( right_vec, 0 ),
+			vec4{ 0, 0, 0,         1 },
+		};
+		return matrix_normalize( result );
+	}
 	FORCE_INLINE inline vec3 direction_to_euler( const vec3& direction )
 	{
 		return vec3{ -asinf( direction.z / direction.length() ), atan2f( direction.y, direction.x ), 0 };
 	}
+	FORCE_INLINE inline quaternion direction_to_quaternion( const vec3& direction )
+	{
+		return matrix_to_quaternion( direction_to_matrix( direction ) );
+	}
 
-	// Quaternion -> (Pitch, Yaw, Roll).
+	// Quaternion to Euler/Matrix/Direction.
 	//
 	FORCE_INLINE inline vec3 quaternion_to_euler( const quaternion& q )
 	{
 		float sinr_cosp = 2.0f * ( q.w * q.x + q.y * q.z );
 		float cosr_cosp = 1.0f - 2.0f * ( q.x * q.x + q.y * q.y );
-		float sinp =      2.0f * ( q.w * q.y - q.z * q.x );
+		float sinp = 2.0f * ( q.w * q.y - q.z * q.x );
 		float siny_cosp = 2.0f * ( q.w * q.z + q.x * q.y );
 		float cosy_cosp = 1.0f - 2.0f * ( q.y * q.y + q.z * q.z );
 		return {
@@ -1179,8 +1179,28 @@ namespace xstd::math
 			atan2f( sinr_cosp, cosr_cosp )
 		};
 	}
+	FORCE_INLINE inline constexpr matrix4x4 quaternion_to_matrix( const quaternion& rot )
+	{
+		matrix4x4 out = {};
+		out[ 0 ][ 0 ] = 1.0f - 2.0f * ( rot.y * rot.y + rot.z * rot.z );
+		out[ 0 ][ 1 ] = 2.0f * ( rot.x * rot.y + rot.z * rot.w );
+		out[ 0 ][ 2 ] = 2.0f * ( rot.x * rot.z - rot.y * rot.w );
+		out[ 1 ][ 0 ] = 2.0f * ( rot.x * rot.y - rot.z * rot.w );
+		out[ 1 ][ 1 ] = 1.0f - 2.0f * ( rot.x * rot.x + rot.z * rot.z );
+		out[ 1 ][ 2 ] = 2.0f * ( rot.y * rot.z + rot.x * rot.w );
+		out[ 2 ][ 0 ] = 2.0f * ( rot.x * rot.z + rot.y * rot.w );
+		out[ 2 ][ 1 ] = 2.0f * ( rot.y * rot.z - rot.x * rot.w );
+		out[ 2 ][ 2 ] = 1.0f - 2.0f * ( rot.x * rot.x + rot.y * rot.y );
+		out[ 3 ][ 3 ] = 1.0f;
+		return out;
+	}
+	FORCE_INLINE inline vec3 quaternion_to_direction( const quaternion& q )
+	{
+		return rotate_by( forward, q );
+	}
 
-	// (Pitch, Yaw, Roll) -> Rotation Matrix.
+
+	// Euler to Matrix/Quaternion/Direction.
 	//
 	FORCE_INLINE inline matrix4x4 euler_to_matrix( const vec3& rot )
 	{
@@ -1189,9 +1209,6 @@ namespace xstd::math
 		auto m2 = rotate_v( rot.y, up );
 		return rotate_by( rotate_by( m0, m1 ), m2 );
 	}
-
-	// (Pitch, Yaw, Roll) -> Quaternion.
-	//
 	FORCE_INLINE inline quaternion euler_to_quaternion( const vec3& rot )
 	{
 		auto q0 = rotate_q( rot.z, forward );
@@ -1199,9 +1216,6 @@ namespace xstd::math
 		auto q2 = rotate_q( rot.y, up );
 		return rotate_by( rotate_by( q0, q1 ), q2 );
 	}
-
-	// (Pitch, Yaw, Roll) -> Direction.
-	//
 	FORCE_INLINE inline vec3 euler_to_direction( const vec3& rot )
 	{
 		return matrix_to_direction( euler_to_matrix( rot ) );
