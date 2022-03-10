@@ -937,6 +937,18 @@ namespace xstd::math
 	{
 		return { mat[ 0 ].xyz().length(), mat[ 1 ].xyz().length(), mat[ 2 ].xyz().length() };
 	}
+	FORCE_INLINE inline vec3 matrix_to_forward( const matrix4x4& mat )
+	{
+		return normalize( mat[ 0 ].xyz() );
+	}
+	FORCE_INLINE inline vec3 matrix_to_right( const matrix4x4& mat )
+	{
+		return normalize( mat[ 1 ].xyz() );
+	}
+	FORCE_INLINE inline vec3 matrix_to_up( const matrix4x4& mat )
+	{
+		return normalize( mat[ 2 ].xyz() );
+	}
 
 	// Normalizes a matrix to have no scale.
 	//
@@ -1137,7 +1149,7 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline vec3 matrix_to_direction( const matrix4x4& mat )
 	{
-		return normalize( mat[ 0 ].xyz() );
+		return matrix_to_forward( mat );
 	}
 
 	// Direction to Euler/Quaternion/Matrix.
