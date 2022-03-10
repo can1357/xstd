@@ -946,7 +946,7 @@ namespace xstd::math
 	//
 	FORCE_INLINE inline constexpr matrix4x4 matrix_normalize( matrix4x4 mat )
 	{
-		vec4 scales = 1.0f / vec_sqrt( { mat[ 0 ].length_sq(), mat[ 1 ].length_sq(), mat[ 2 ].length_sq(), 1.0f } );
+		vec4 scales = 1.0f / vec_sqrt( vec4{ mat[ 0 ].length_sq(), mat[ 1 ].length_sq(), mat[ 2 ].length_sq(), 1.0f } );
 		mat[ 0 ] *= scales[ 0 ];
 		mat[ 1 ] *= scales[ 1 ];
 		mat[ 2 ] *= scales[ 2 ];
