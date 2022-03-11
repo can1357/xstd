@@ -603,6 +603,20 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline constexpr vec3 cross( const vec3& v1, const vec3& v2 ) 
 	{
+#if XSTD_MATH_USE_X86INTRIN
+		if ( !std::is_constant_evaluated() )
+		{
+			__m128 q1, q2;
+			impl::load_vector( &v1, q1 );
+			impl::load_vector( &v2, q2 );
+			
+			__m128 r = _mm_sub_ps(
+				_mm_mul_ps( q1, __builtin_shufflevector( q2, q2, 1, 2, 0, 3 ) ),
+				_mm_mul_ps( q2, __builtin_shufflevector( q1, q1, 1, 2, 0, 3 ) )
+			);
+			return impl::store_vector<vec4>( __builtin_shufflevector( r, r, 1, 2, 0, 3 ) ).xyz();
+		}
+#endif
 		return {
 			v1.y * v2.z - v1.z * v2.y,
 			v1.z * v2.x - v1.x * v2.z,
