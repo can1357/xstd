@@ -250,10 +250,6 @@ namespace xstd::math
 			template<typename R>
 			FORCE_INLINE inline constexpr vec2_t<R> cast() const { return { R( x ), R( y ) }; }
 
-			template<typename X>
-			FORCE_INLINE inline static constexpr vec2_t<T> from_xvec( X o ) { return vec2_t<T>{ o[ 0 ], o[ 1 ] }; }
-			FORCE_INLINE inline constexpr xvec<T, 2> to_xvec() const noexcept { return { x, y }; }
-
 			FORCE_INLINE inline constexpr T& operator[]( size_t n )
 			{
 				if ( std::is_constant_evaluated() )
@@ -286,24 +282,6 @@ namespace xstd::math
 			FORCE_INLINE inline auto tie() { return std::tie( x, y ); }
 			FORCE_INLINE inline std::string to_string() const noexcept { return fmt::as_string( x, y ); }
 
-#if XSTD_MATH_USE_XVEC
-			FORCE_INLINE inline constexpr vec2_t operator+( T f ) const noexcept { return from_xvec( to_xvec() + f ); }
-			FORCE_INLINE inline constexpr vec2_t operator-( T f ) const noexcept { return from_xvec( to_xvec() - f ); }
-			FORCE_INLINE inline constexpr vec2_t operator*( T f ) const noexcept { return from_xvec( to_xvec() * f ); }
-			FORCE_INLINE inline constexpr vec2_t operator/( T f ) const noexcept { return from_xvec( to_xvec() / f ); }
-			FORCE_INLINE inline constexpr vec2_t operator+( const vec2_t& o ) const noexcept { return from_xvec( to_xvec() + o.to_xvec() ); }
-			FORCE_INLINE inline constexpr vec2_t operator-( const vec2_t& o ) const noexcept { return from_xvec( to_xvec() - o.to_xvec() ); }
-			FORCE_INLINE inline constexpr vec2_t operator*( const vec2_t& o ) const noexcept { return from_xvec( to_xvec() * o.to_xvec() ); }
-			FORCE_INLINE inline constexpr vec2_t operator/( const vec2_t& o ) const noexcept { return from_xvec( to_xvec() / o.to_xvec() ); }
-			FORCE_INLINE inline friend constexpr vec2_t operator+( T f, const vec2_t& o ) noexcept { return from_xvec( o.to_xvec() + f ); }
-			FORCE_INLINE inline friend constexpr vec2_t operator-( T f, const vec2_t& o ) noexcept { return from_xvec( -o.to_xvec() + f ); }
-			FORCE_INLINE inline friend constexpr vec2_t operator*( T f, const vec2_t& o ) noexcept { return from_xvec( o.to_xvec() * f ); }
-			FORCE_INLINE inline friend constexpr vec2_t operator/( T f, const vec2_t& o ) noexcept { return from_xvec( fill( f ).to_xvec() / o.to_xvec() ); }
-			FORCE_INLINE inline constexpr vec2_t operator-() const noexcept { return from_xvec( -to_xvec() ); };
-			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return vec::reduce_add( to_xvec() ); }
-			FORCE_INLINE inline constexpr vec2_t min_element( const vec2_t& o ) const noexcept { return from_xvec( vec::min( to_xvec(), o.to_xvec() ) ); }
-			FORCE_INLINE inline constexpr vec2_t max_element( const vec2_t& o ) const noexcept { return from_xvec( vec::max( to_xvec(), o.to_xvec() ) ); }
-#else
 			FORCE_INLINE inline constexpr vec2_t operator+( T f ) const noexcept { return { x + f, y + f }; }
 			FORCE_INLINE inline constexpr vec2_t operator-( T f ) const noexcept { return { x - f, y - f }; }
 			FORCE_INLINE inline constexpr vec2_t operator*( T f ) const noexcept { return { x * f, y * f }; }
@@ -320,7 +298,6 @@ namespace xstd::math
 			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return x + y; }
 			FORCE_INLINE inline constexpr vec2_t min_element( const vec2_t& o ) const noexcept { return { math::fmin( x, o.x ), math::fmin( y, o.y ) }; }
 			FORCE_INLINE inline constexpr vec2_t max_element( const vec2_t& o ) const noexcept { return { math::fmax( x, o.x ), math::fmax( y, o.y ) }; }
-#endif
 
 			FORCE_INLINE inline constexpr vec2_t& operator+=( T f ) noexcept { *this = ( *this + f ); return *this; }
 			FORCE_INLINE inline constexpr vec2_t& operator-=( T f ) noexcept { *this = ( *this - f ); return *this; }
