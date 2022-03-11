@@ -620,6 +620,17 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline constexpr quaternion inverse( const quaternion& q )
 	{
+#if XSTD_MATH_USE_X86INTRIN
+		if ( !std::is_constant_evaluated() && !xstd::is_consteval( q ) )
+		{
+			__m128 a;
+			impl::load_vector( &q, a );
+
+			__v4su c{ 0x80000000, 0x80000000, 0x80000000, 0x00000000 };
+			a = _mm_xor_ps( a, ( __m128 ) c );
+			return impl::store_vector<vec4>( a );
+		}
+#endif
 		return { -q.x, -q.y, -q.z, q.w };
 	}
 
@@ -807,7 +818,23 @@ namespace xstd::math
 
 		// Unaries.
 		//
-		FORCE_INLINE inline constexpr matrix4x4 operator-() const noexcept { return *this * -1.0f; }
+		FORCE_INLINE inline constexpr matrix4x4 operator-() const noexcept 
+		{
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
+			{
+				__m256 a, b;
+				impl::load_matrix( &m, a, b );
+
+				
+				__v8su c{ 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
+				a = _mm256_xor_ps( a, ( __m256 ) c );
+				b = _mm256_xor_ps( b, ( __m256 ) c );
+				return impl::store_matrix<matrix4x4>( a, b );
+			}
+#endif
+			return *this * -1.0f; 
+		}
 		FORCE_INLINE inline constexpr matrix4x4 operator+() const noexcept { return *this; }
 
 		// Forward indexing.
