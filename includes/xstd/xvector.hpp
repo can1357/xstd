@@ -167,7 +167,7 @@ namespace xstd
 			if ( !std::is_constant_evaluated() )
 				return xvec( std::in_place_t{}, native_vector<T, N>( value ) );
 #endif
-			return xvec{} | value;
+			return xvec{} + value;
 		}
 
 		// Indexing.
