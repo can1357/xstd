@@ -107,7 +107,6 @@ namespace xstd::math
 	{
 		if ( !std::is_constant_evaluated() )
 			return _fabs( a );
-
 		if ( a < 0 ) a = -a;
 		return a;
 	}
@@ -251,8 +250,9 @@ namespace xstd::math
 			template<typename R>
 			FORCE_INLINE inline constexpr vec2_t<R> cast() const { return { R( x ), R( y ) }; }
 
-			FORCE_INLINE inline static constexpr vec2_t<T> from_xvec( xvec<T, 3> o ) { return vec2_t<T>{ o[ 0 ], o[ 1 ] }; }
-			FORCE_INLINE inline constexpr xvec<T, 3> to_xvec() const noexcept { return { x, y }; }
+			template<typename X>
+			FORCE_INLINE inline static constexpr vec2_t<T> from_xvec( X o ) { return vec2_t<T>{ o[ 0 ], o[ 1 ] }; }
+			FORCE_INLINE inline constexpr xvec<T, 2> to_xvec() const noexcept { return { x, y }; }
 
 			FORCE_INLINE inline constexpr T& operator[]( size_t n )
 			{
@@ -350,7 +350,8 @@ namespace xstd::math
 
 			FORCE_INLINE inline static constexpr vec3_t<T> from( const vec2_t<T>& v, T z = 0 ) { return { v.x, v.y, z }; }
 
-			FORCE_INLINE inline static constexpr vec3_t<T> from_xvec( xvec<T, 3> o ) { return vec3_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ] }; }
+			template<typename X>
+			FORCE_INLINE inline static constexpr vec3_t<T> from_xvec( X o ) { return vec3_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ] }; }
 			FORCE_INLINE inline constexpr xvec<T, 3> to_xvec() const noexcept { return { x, y, z }; }
 
 			FORCE_INLINE inline constexpr T& operator[]( size_t n )
@@ -454,7 +455,8 @@ namespace xstd::math
 			FORCE_INLINE inline static constexpr vec4_t<T> from( const vec2_t<T>& v, T z = 0, T w = 1 ) { return { v.x, v.y, z, w }; }
 			FORCE_INLINE inline static constexpr vec4_t<T> from( const vec3_t<T>& v, T w = 1 ) { return { v.x, v.y, v.z, w }; }
 
-			FORCE_INLINE inline static constexpr vec4_t<T> from_xvec( xvec<T, 4> o ) { return vec4_t<T>{ o[ 0 ],o[ 1 ],o[ 2 ],o[ 3 ] }; }
+			template<typename X>
+			FORCE_INLINE inline static constexpr vec4_t<T> from_xvec( X o ) { return vec4_t<T>{ o[ 0 ], o[ 1 ], o[ 2 ], o[ 3 ] }; }
 			FORCE_INLINE inline constexpr xvec<T, 4> to_xvec() const noexcept { return { x, y, z, w }; }
 
 			FORCE_INLINE inline constexpr T& operator[]( size_t n )
