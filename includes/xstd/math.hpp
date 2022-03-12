@@ -187,13 +187,13 @@ namespace xstd::math
 #if XSTD_MATH_USE_X86INTRIN
 		if ( !std::is_constant_evaluated() )
 		{
-			if constexpr ( Same<typename V::element_type, float> && V::Length == 4 )
+			if constexpr ( Same<typename V::value_type, float> && V::Length == 4 )
 			{
 				__m128 q1 = v1.to_xvec()._nat;
 				__m128 q2 = v2.to_xvec()._nat;
 				return (_mm_dp_ps(q1, q2, 0b1111'0001))[0];
 			}
-			else if constexpr ( Same<typename V::element_type, float> && V::Length == 3 )
+			else if constexpr ( Same<typename V::value_type, float> && V::Length == 3 )
 			{
 				__m128 q1 = v1.to_xvec()._nat;
 				__m128 q2 = v2.to_xvec()._nat;
@@ -221,7 +221,8 @@ namespace xstd::math
 		template<typename T>
 		struct vec2_t
 		{
-			using element_type = T;
+			using key_type = size_t;
+			using value_type = T;
 			static constexpr size_t Length = 2;
 
 			T x = 0;
@@ -241,7 +242,7 @@ namespace xstd::math
 						case 1:  return y;
 					}
 				}
-				return ( &x )[ n ]; 
+				return ( &x )[ n & 1 ];
 			}
 			FORCE_INLINE inline constexpr T operator[]( size_t n ) const
 			{
@@ -254,7 +255,7 @@ namespace xstd::math
 						case 1:  return y;
 					}
 				}
-				return ( &x )[ n ]; 
+				return ( &x )[ n & 1 ]; 
 			}
 			FORCE_INLINE inline constexpr size_t count() const { return 2; }
 
@@ -295,7 +296,8 @@ namespace xstd::math
 		template<typename T>
 		struct vec3_t
 		{
-			using element_type = T;
+			using key_type = size_t;
+			using value_type = T;
 			static constexpr size_t Length = 3;
 
 			T x = 0;
@@ -336,7 +338,7 @@ namespace xstd::math
 						case 2:  return z;
 					}
 				}
-				return ( &x )[ n ];
+				return ( &x )[ n % 3 ];
 			}
 			FORCE_INLINE inline constexpr const T& operator[]( size_t n ) const
 			{
@@ -350,7 +352,7 @@ namespace xstd::math
 						case 2:  return z;
 					}
 				}
-				return ( &x )[ n ];
+				return ( &x )[ n % 3 ];
 			}
 			FORCE_INLINE inline constexpr size_t count() const { return 3; }
 
@@ -392,7 +394,8 @@ namespace xstd::math
 		template<typename T>
 		struct vec4_t
 		{
-			using element_type = T;
+			using key_type = size_t;
+			using value_type = T;
 			static constexpr size_t Length = 4;
 
 			T x = 0;
@@ -443,7 +446,7 @@ namespace xstd::math
 						case 3:  return w;
 					}
 				}
-				return ( &x )[ n ];
+				return ( &x )[ n & 3 ];
 			}
 			FORCE_INLINE inline constexpr const T& operator[]( size_t n ) const
 			{
@@ -458,7 +461,7 @@ namespace xstd::math
 						case 3:  return w;
 					}
 				}
-				return ( &x )[ n ];
+				return ( &x )[ n & 3 ];
 			}
 			FORCE_INLINE inline constexpr size_t count() const { return 4; }
 
@@ -584,7 +587,8 @@ namespace xstd::math
 	//
 	struct matrix4x4
 	{
-		using element_type = vec4;
+		using key_type =   size_t;
+		using value_type = vec4;
 
 		std::array<vec4, 4> m = { vec4{} };
 
@@ -772,10 +776,10 @@ namespace xstd::math
 
 		// Forward indexing.
 		//
-		FORCE_INLINE inline constexpr vec4& operator[]( size_t n ) noexcept { return m[ n ]; }
-		FORCE_INLINE inline constexpr const vec4& operator[]( size_t n ) const noexcept { return m[ n ]; }
-		FORCE_INLINE inline constexpr float& operator()( size_t i, size_t j ) noexcept { return m[ i ][ j ]; }
-		FORCE_INLINE inline constexpr const float& operator()( size_t i, size_t j ) const noexcept { return m[ i ][ j ]; }
+		FORCE_INLINE inline constexpr vec4& operator[]( size_t n ) noexcept { return m[ n & 3 ]; }
+		FORCE_INLINE inline constexpr const vec4& operator[]( size_t n ) const noexcept { return m[ n & 3 ]; }
+		FORCE_INLINE inline constexpr float& operator()( size_t i, size_t j ) noexcept { return m[ i & 3 ][ j & 3 ]; }
+		FORCE_INLINE inline constexpr const float& operator()( size_t i, size_t j ) const noexcept { return m[ i & 3 ][ j & 3 ]; }
 
 		// Hashing, serialization, comparison and string conversion.
 		//
