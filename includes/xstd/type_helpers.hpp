@@ -1604,6 +1604,29 @@ namespace xstd
 	template<typename T>
 	FORCE_INLINE inline constexpr void uninitialized_resize( std::vector<T>& ref, size_t length )
 	{
+		if ( !std::is_constant_evaluated() )
+		{
+#if USING_MS_STL
+			if constexpr ( !Same<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) )
+			{
+				auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) ref;
+				size_t capacity = vec._Myend - vec._Myfirst;
+				if ( capacity >= length )
+				{
+					vec._Mylast = vec._Myfirst + length;
+				}
+				else
+				{
+					size_t new_capacity = std::max( length, capacity + ( capacity >> 1 ) );
+					T* buffer = ( T* ) realloc( vec._Myfirst, new_capacity * sizeof( T ) );
+					vec._Myfirst = buffer;
+					vec._Mylast =  buffer + length;
+					vec._Myend =   buffer + new_capacity;
+				}
+				return;
+			}
+#endif
+		}
 		ref.resize( length );
 	}
 	template<typename Container>
@@ -1619,8 +1642,22 @@ namespace xstd
 	template<typename T>
 	FORCE_INLINE inline constexpr std::vector<T> make_uninitialized_vector( size_t length )
 	{
+		if ( !std::is_constant_evaluated() )
+		{
+#if USING_MS_STL
+			if constexpr ( !Same<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) )
+			{
+				std::vector<T> result = {};
+				auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) result;
+				vec._Myfirst = ( T* ) malloc( length * sizeof( T ) );
+				vec._Mylast  = vec._Myfirst + length;
+				vec._Myend =   vec._Myfirst + length;
+				return result;
+			}
+#endif
+		}
 		std::vector<T> result = {};
-		uninitialized_resize( result, length );
+		result.resize( length );
 		return result;
 	}
 };
