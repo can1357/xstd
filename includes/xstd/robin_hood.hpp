@@ -2555,10 +2555,30 @@ using unordered_set = detail::Table<sizeof(Key) <= sizeof(size_t) * 6 &&
                                         std::is_nothrow_move_assignable<Key>::value,
                                     MaxLoadFactor100, Key, void, Hash, KeyEqual>;
 
+
+	template<size_t N, typename A, typename B>
+	inline constexpr auto& get( pair<A, B>& pair )
+	{
+		if constexpr ( N == 0 ) return pair.first;
+		else                    return pair.second;
+	}
+	template<size_t N, typename A, typename B>
+	inline constexpr auto& get( const pair<A, B>& pair )
+	{
+		if constexpr ( N == 0 ) return pair.first;
+		else                    return pair.second;
+	}
 } // namespace robin_hood
 
 namespace std
 {
+	template<typename A, typename B>
+	struct tuple_size<robin_hood::pair<A, B>> : integral_constant<size_t, 2> {};
+	template<typename A, typename B>
+	struct tuple_element<0, robin_hood::pair<A, B>> { using type = A; };
+	template<typename A, typename B>
+	struct tuple_element<1, robin_hood::pair<A, B>> { using type = B; };
+
 	template<bool IsFlat, size_t MaxLoadFactor100, typename Key, typename T, typename Hash,
 		typename KeyEqual, typename Pred>
 	size_t erase_if( robin_hood::detail::Table<IsFlat, MaxLoadFactor100, Key, T, Hash, KeyEqual>& cont, Pred&& pred )
