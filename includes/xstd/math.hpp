@@ -646,12 +646,12 @@ namespace xstd::math
 
 				__m256 r01 = _mm256_dp_ps( v01, vxx, 0b11110001 );
 				__m256 r23 = _mm256_dp_ps( v23, vxx, 0b11110001 );
-				r01 = _mm256_xor_ps( r01, _mm256_dp_ps( v01, vyy, 0b11110010 ) );
-				r23 = _mm256_xor_ps( r23, _mm256_dp_ps( v23, vyy, 0b11110010 ) );
-				r01 = _mm256_xor_ps( r01, _mm256_dp_ps( v01, vzz, 0b11110100 ) );
-				r23 = _mm256_xor_ps( r23, _mm256_dp_ps( v23, vzz, 0b11110100 ) );
-				r01 = _mm256_xor_ps( r01, _mm256_dp_ps( v01, vww, 0b11111000 ) );
-				r23 = _mm256_xor_ps( r23, _mm256_dp_ps( v23, vww, 0b11111000 ) );
+				r01 = _mm256_or_ps( r01, _mm256_dp_ps( v01, vyy, 0b11110010 ) );
+				r23 = _mm256_or_ps( r23, _mm256_dp_ps( v23, vyy, 0b11110010 ) );
+				r01 = _mm256_or_ps( r01, _mm256_dp_ps( v01, vzz, 0b11110100 ) );
+				r23 = _mm256_or_ps( r23, _mm256_dp_ps( v23, vzz, 0b11110100 ) );
+				r01 = _mm256_or_ps( r01, _mm256_dp_ps( v01, vww, 0b11111000 ) );
+				r23 = _mm256_or_ps( r23, _mm256_dp_ps( v23, vww, 0b11111000 ) );
 				return impl::store_matrix<matrix4x4>( r01, r23 );
 			}
 #endif
