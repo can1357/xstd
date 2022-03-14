@@ -1606,7 +1606,7 @@ namespace xstd
 	{
 		if ( !std::is_constant_evaluated() )
 		{
-#if USING_MS_STL
+#if USING_MS_STL && defined(__XSTD_NO_BIG_ALLOC_SENTINEL)
 			if constexpr ( !Same<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) )
 			{
 				auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) ref;
@@ -1644,7 +1644,7 @@ namespace xstd
 	{
 		if ( !std::is_constant_evaluated() )
 		{
-#if USING_MS_STL
+#if USING_MS_STL && defined(__XSTD_NO_BIG_ALLOC_SENTINEL)
 			if constexpr ( !Same<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) )
 			{
 				std::vector<T> result = {};
