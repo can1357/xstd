@@ -1298,6 +1298,67 @@ namespace xstd::math
 		float t = tanf( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( aspect * t, t, zn, zf );
 	}
+
+	// Factorial, fast power and binomial helpers for beizer implementation.
+	//
+	inline constexpr size_t factorial( size_t i ) 
+	{
+		size_t r = 1;
+		for ( size_t it = 2; it <= i; it++ )
+			r *= it;
+		return r;
+	}
+	template<size_t I, typename V>
+	FORCE_INLINE inline constexpr V const_pow( V value )
+	{
+		if constexpr ( I == 0 )
+			return 1;
+		else if constexpr ( I == 1 )
+			return value;
+		else if constexpr ( ( I & 1 ) != 0 )
+			return const_pow<I - 1>( value ) * value;
+		V tmp = const_pow<I / 2>( value );
+		return tmp * tmp;
+	}
+	template<size_t N, size_t I>
+	inline constexpr float binomial_coefficient_v = float( factorial( N ) ) / float( factorial( I ) * factorial( N - I ) );
+
+	// Implement the beizer calculation.
+	//
+	namespace impl
+	{
+		template<size_t N, typename Vec, typename... Vx>
+		FORCE_INLINE inline constexpr Vec beizer_helper( const Vec& tv, const Vec& td, const Vec& pi, const Vx&... px ) 
+		{
+			constexpr size_t I = N - sizeof...( Vx );
+			Vec acc = binomial_coefficient_v<N, I> *tv * pi;
+			if constexpr ( I == N )
+				return acc;
+			else
+				return acc + beizer_helper<N>( tv * td, td, px... );
+		}
+	};
+	template<typename V, typename... Vx>
+	FORCE_INLINE inline constexpr V beizer( float t, const V& p1, const Vx&... px )
+	{
+		float ti = const_pow<sizeof...( Vx )>( 1 - t );
+		float ts = t / ( 1 - t );
+		return impl::beizer_helper<sizeof...( Vx )>( V::fill( ti ), V::fill( ts ), p1, px... );
+	}
+	template<typename It1, typename It2>
+	FORCE_INLINE inline constexpr auto beizer_rec( float t, It1&& begin, It2&& end )
+	{
+		using V = decltype( *begin );
+
+		size_t len = std::distance( begin, end );
+		switch ( len )
+		{
+			case 0:  return V{};
+			case 1:  return *begin;
+			case 2:  return beizer( t, *begin, *std::next( begin ) );
+			default: return beizer( t, beizer_rec( t, begin, std::prev( end ) ), beizer_rec( t, std::next( begin ), end ) );
+		}
+	}
 };
 inline constexpr float operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
 inline constexpr float operator""_deg( unsigned long long int deg ) { return xstd::math::to_rad( deg ); }
