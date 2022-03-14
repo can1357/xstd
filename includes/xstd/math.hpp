@@ -1230,6 +1230,18 @@ namespace xstd::math
 		};
 	}
 
+	// Fast transformation matrix.
+	//
+	FORCE_INLINE inline constexpr matrix4x4 matrix_transformation( const quaternion& rot, const vec3& scale, const vec3& translation )
+	{
+		auto mat = quaternion_to_matrix( rot );
+		mat[ 0 ] *= scale.x;
+		mat[ 1 ] *= scale.y;
+		mat[ 2 ] *= scale.z;
+		mat[ 3 ] += vec4::from( translation, 0 );
+		return mat;
+	}
+
 	// View helpers.
 	//
 	template<bool LeftHanded = true>
