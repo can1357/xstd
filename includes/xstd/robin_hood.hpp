@@ -33,7 +33,7 @@
 #ifndef ROBIN_HOOD_H_INCLUDED
 #define ROBIN_HOOD_H_INCLUDED
 
-#include <xstd/intrinsics.hpp>
+#include <xstd/type_helpers.hpp>
 
 // see https://semver.org/
 #define ROBIN_HOOD_VERSION_MAJOR 3  // for incompatible API changes
@@ -796,6 +796,12 @@ template <class T>
 struct hash<T*> {
     size_t operator()(T* ptr) const noexcept {
         return hash_int(reinterpret_cast<detail::SizeT>(ptr));
+    }
+};
+template <>
+struct hash<xstd::any_ptr> {
+    size_t operator()(xstd::any_ptr ptr) const noexcept {
+        return hash_int( ptr );
     }
 };
 
