@@ -33,6 +33,8 @@
 #ifndef ROBIN_HOOD_H_INCLUDED
 #define ROBIN_HOOD_H_INCLUDED
 
+#include <xstd/intrinsics.hpp>
+
 // see https://semver.org/
 #define ROBIN_HOOD_VERSION_MAJOR 3  // for incompatible API changes
 #define ROBIN_HOOD_VERSION_MINOR 11 // for adding functionality in a backwards-compatible manner
@@ -126,7 +128,7 @@ static Counts& counts() {
 #endif
 
 // exceptions
-#if !defined(__cpp_exceptions) && !defined(__EXCEPTIONS) && !defined(_CPPUNWIND)
+#if XSTD_NO_EXCEPTIONS
 #    define ROBIN_HOOD_PRIVATE_DEFINITION_HAS_EXCEPTIONS() 0
 #else
 #    define ROBIN_HOOD_PRIVATE_DEFINITION_HAS_EXCEPTIONS() 1
@@ -339,7 +341,11 @@ template <typename E, typename... Args>
 }
 #else
     void doThrow(Args&&... ROBIN_HOOD_UNUSED(args) /*unused*/) {
-    abort();
+#if __has_builtin(__builtin_unreachable)
+	__builtin_unreachable();
+#else
+	abort();
+#endif
 }
 #endif
 
@@ -2252,7 +2258,11 @@ private:
 #if ROBIN_HOOD(HAS_EXCEPTIONS)
         throw std::overflow_error("robin_hood::map overflow");
 #else
-        abort();
+#if __has_builtin(__builtin_unreachable)
+		 __builtin_unreachable();
+#else
+		 abort();
+#endif
 #endif
     }
 
@@ -2541,4 +2551,21 @@ using unordered_set = detail::Table<sizeof(Key) <= sizeof(size_t) * 6 &&
 
 } // namespace robin_hood
 
+namespace std
+{
+	template<bool IsFlat, size_t MaxLoadFactor100, typename Key, typename T, typename Hash,
+		typename KeyEqual, typename Pred>
+	size_t erase_if( robin_hood::detail::Table<IsFlat, MaxLoadFactor100, Key, T, Hash, KeyEqual>& cont, Pred&& pred )
+	{
+		size_t count = 0;
+		for ( auto it = cont.begin(); it != cont.end() )
+		{
+			if ( pred( *it ) )
+				it = cont.erase( it ), count++;
+			else
+				++it;
+		}
+		return count;
+	}
+};
 #endif
