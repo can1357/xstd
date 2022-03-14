@@ -4,7 +4,7 @@
 #include <tuple>
 #include <span>
 #include <optional>
-#include <unordered_map>
+#include "robin_hood.hpp"
 #include "assert.hpp"
 #include "type_helpers.hpp"
 #include "logger.hpp"
@@ -210,13 +210,13 @@ namespace xstd
 		// Fields used during serialization.
 		//
 		std::vector<uint8_t> output_stream;
-		std::optional<std::unordered_map<xstd::any_ptr, pointer_record, xstd::hasher<>>> pointers;
+		std::optional<robin_hood::unordered_map<xstd::any_ptr, pointer_record>> pointers;
 
 		// Fields used during deserialization.
 		//
 		const uint8_t* input_start = nullptr;
 		std::span<const uint8_t> input_stream;
-		std::optional<std::unordered_map<size_t, rpointer_record, xstd::hasher<>>> rpointers;
+		std::optional<robin_hood::unordered_map<size_t, rpointer_record>> rpointers;
 
 		// Constructed from an optional byte array.
 		//
