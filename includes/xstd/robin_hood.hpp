@@ -2558,7 +2558,7 @@ namespace std
 	size_t erase_if( robin_hood::detail::Table<IsFlat, MaxLoadFactor100, Key, T, Hash, KeyEqual>& cont, Pred&& pred )
 	{
 		size_t count = 0;
-		for ( auto it = cont.begin(); it != cont.end() )
+		for ( auto it = cont.begin(); it != cont.end(); )
 		{
 			if ( pred( *it ) )
 				it = cont.erase( it ), count++;
