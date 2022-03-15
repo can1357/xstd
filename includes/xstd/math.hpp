@@ -1394,13 +1394,13 @@ namespace xstd::math
 		return out;
 	}
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline matrix4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
+	FORCE_INLINE inline constexpr matrix4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
 	{
 		float t = ftan( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( t, aspect * t, zn, zf );
 	}
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline matrix4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
+	FORCE_INLINE inline constexpr matrix4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
 	{
 		float t = ftan( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( aspect * t, t, zn, zf );
