@@ -231,6 +231,18 @@ namespace xstd::math
 			template<typename R>
 			FORCE_INLINE inline constexpr vec2_t<R> cast() const { return { R( x ), R( y ) }; }
 
+			FORCE_INLINE inline static constexpr vec2_t<T> from_xvec( xvec<T, 4> o )
+			{
+				if ( std::is_constant_evaluated() )
+					return vec2_t<T>{ o[ 0 ], o[ 1 ] };
+				else
+					return *( const vec2_t<T>* ) & o;
+			}
+			FORCE_INLINE inline constexpr xvec<T, 4> to_xvec() const noexcept
+			{
+				return { x, y, 0, 0 };
+			}
+
 			FORCE_INLINE inline constexpr T& operator[]( size_t n )
 			{
 				if ( std::is_constant_evaluated() )
@@ -312,7 +324,12 @@ namespace xstd::math
 				return vec3_t<R>::from_xvec( to_xvec().template cast<R>() );
 			}
 
-			FORCE_INLINE inline static constexpr vec3_t<T> from( const vec2_t<T>& v, T z = 0 ) { return { v.x, v.y, z }; }
+			FORCE_INLINE inline static constexpr vec3_t<T> from( const vec2_t<T>& v, T z = 0 ) 
+			{
+				if ( std::is_constant_evaluated() )
+					return { v.x, v.y, z };
+				return from_xvec( v.to_xvec().template shuffle<0, 1, 4, -1>( xvec<T, 4>{ w } ) );
+			}
 
 			FORCE_INLINE inline static constexpr vec3_t<T> from_xvec( xvec<T, 4> o )
 			{
@@ -411,7 +428,12 @@ namespace xstd::math
 				return vec4_t<R>::from_xvec( to_xvec().template cast<R>() );
 			}
 
-			FORCE_INLINE inline static constexpr vec4_t<T> from( const vec2_t<T>& v, T z = 0, T w = 1 ) { return { v.x, v.y, z, w }; }
+			FORCE_INLINE inline static constexpr vec4_t<T> from( const vec2_t<T>& v, T z = 0, T w = 1 ) 
+			{
+				if ( std::is_constant_evaluated() )
+					return { v.x, v.y, z, w };
+				return from_xvec( v.to_xvec().template shuffle<0, 1, 4, 5>( xvec<T, 4>{ z, w } ) );
+			}
 			FORCE_INLINE inline static constexpr vec4_t<T> from( const vec3_t<T>& v, T w = 1 ) 
 			{
 				if ( std::is_constant_evaluated() )
