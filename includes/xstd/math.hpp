@@ -7,7 +7,11 @@
 
 // [[Configuration]]
 // XSTD_MATH_USE_X86INTRIN: If set, enabled optimization using intrinsics if not constexpr.
+// XSTD_MATH_USE_POLYSINCOS: If set, uses sin/cos approximations instead of libc.
 //
+#ifndef XSTD_MATH_USE_POLYSINCOS
+	#define XSTD_MATH_USE_POLYSINCOS 1
+#endif
 #ifndef XSTD_MATH_USE_X86INTRIN
 	#if AMD64_TARGET && CLANG_COMPILER
 		#define XSTD_MATH_USE_X86INTRIN 1
@@ -68,8 +72,8 @@ namespace xstd::math
 	//
 #if !defined(CLANG_COMPILER) || defined(__INTELLISENSE__)
 	inline float fsqrt( float x ) { return sqrtf( x ); }
-	inline float fsin( float x ) { return sinf( x ); }
-	inline float fcos( float x ) { return cosf( x ); }
+	inline float _fsin( float x ) { return sinf( x ); }
+	inline float _fcos( float x ) { return cosf( x ); }
 	inline float _fcopysign( float m, float s ) { return copysignf( m, s ); }
 	inline float _fabs( float x ) { return fabsf( x ); }
 	inline float _ffloor( float x ) { return floorf( x ); }
@@ -78,8 +82,8 @@ namespace xstd::math
 	inline float _ftrunc( float x ) { return truncf( x ); }
 #else
 	float fsqrt( float x ) asm( "llvm.sqrt.f32" );
-	float fsin( float x ) asm( "llvm.sin.f32" );
-	float fcos( float x ) asm( "llvm.cos.f32" );
+	float _fsin( float x ) asm( "llvm.sin.f32" );
+	float _fcos( float x ) asm( "llvm.cos.f32" );
 	float _fcopysign( float m, float s ) asm( "llvm.copysign.f32" );
 	float _fabs( float x ) asm( "llvm.fabs.f32" );
 	float _ffloor( float x ) asm( "llvm.floor.f32" );
@@ -135,19 +139,86 @@ namespace xstd::math
 		float m = 1.0f / y;
 		return x - ftrunc( x * m ) * y;
 	}
-
-	// Implement sincos since NT CRT does not include it.
-	//
-	FORCE_INLINE inline std::pair<float, float> fsincos( float x ) 
+	FORCE_INLINE inline constexpr float foddsgn( float x ) 
 	{
-		float c = fcos( x );
+		return 1 - ( x - ftrunc( x / 2 ) * 2 ) * 2;
+	}
+	FORCE_INLINE inline constexpr float fxorsgn( float x, float y )
+	{
+		return bit_cast< float >( bit_cast< int32_t >( x ) ^ bit_cast< int32_t >( y ) );
+	}
+	
+	// Implement fast polynomial approximations of sin and cos.
+	//
+	namespace impl
+	{
+		// [0, 1/2 pi]
+		// - https://gist.github.com/publik-void/067f7f2fef32dbe5c27d6e215f824c91#file-sin-cos-approximations-gist-adoc
+		FORCE_INLINE inline constexpr float fsin_poly_hpi( float x1 )
+		{
+			float x2 = x1 * x1;
+			// Degree 11, E(X) = 1.92e-11
+			return x1 * ( 0.99999999997884898600402426033768998 + x2 * ( -0.166666666088260696413164261885310067 + x2 * ( 0.00833333072055773645376566203656709979 + x2 * ( -0.000198408328232619552901560108010257242 + x2 * ( 2.75239710746326498401791551303359689e-6 - 2.3868346521031027639830001794722295e-8 * x2 ) ) ) ) );
+		}
+		FORCE_INLINE inline constexpr float fcos_poly_hpi( float x1 )
+		{
+			float x2 = x1 * x1;
+			// Degree 12, E(X) = 3.35e-12
+			return 0.99999999999664497762294088303450344 + x2 * ( -0.499999999904093446864749737540127153 + x2 * ( 0.0416666661919898461055893453767336909 + x2 * ( -0.00138888797032770920681384355560203468 + x2 * ( 0.0000248007136556145113256051130495176344 + x2 * ( -2.75135611164571371141959208910569516e-7 + 1.97644182995841772799444848310451781e-9 * x2 ) ) ) ) );;
+		}
+		FORCE_INLINE inline constexpr std::pair<float, float> fsincos_poly( float x )
+		{
+			// [0, inf]
+			float a = fabs( x );
 
+			// [0, pi]
+			float n = ftrunc( a / pi );
+			float v = a - n * pi;
+
+			// [0, pi/2]
+			if ( v > ( pi / 2 ) )
+				v = pi - v;
+			return {
+				fcopysign( fsin_poly_hpi( v ), fxorsgn( x, foddsgn( n ) ) ),
+				fcopysign( fcos_poly_hpi( v ), foddsgn( ftrunc( ( a + pi / 2 ) / pi ) ) )
+			};
+		}
+	};
+	FORCE_INLINE inline constexpr float fsin( float x )
+	{
+		if ( std::is_constant_evaluated() )
+			return impl::fsincos_poly( x ).first;
+#if XSTD_MATH_USE_POLYSINCOS
+		return impl::fsincos_poly( x ).first;
+#else
+		return _fsin( x );
+#endif
+	}
+	FORCE_INLINE inline constexpr float fcos( float x )
+	{
+		if ( std::is_constant_evaluated() )
+			return impl::fsincos_poly( x ).second;
+#if XSTD_MATH_USE_POLYSINCOS
+		return impl::fsincos_poly( x ).second;
+#else
+		return _fcos( x );
+#endif
+	}
+	FORCE_INLINE inline constexpr std::pair<float, float> fsincos( float x )
+	{
+		if ( std::is_constant_evaluated() )
+			return impl::fsincos_poly( x );
+#if XSTD_MATH_USE_POLYSINCOS
+		return impl::fsincos_poly( x );
+#else
+		float c = fcos( x );
 		float s = fsqrt( 1 - c * c );
 		x *= ( 1.0f / ( 2 * pi ) );
 		x = x - ftrunc( x );
 		x = ( x * ( 0.5f - fabsf( x ) ) );
 		s = fcopysign( s, x );
 		return { s, c };
+#endif
 	}
 
 	// Implement non-referencing min/max/clamp.
@@ -951,7 +1022,7 @@ namespace xstd::math
 	// Rotation around an axis.
 	// - Axis must be normalized.
 	//
-	FORCE_INLINE inline quaternion rotate_q( float theta, const vec3& axis )
+	FORCE_INLINE inline constexpr quaternion rotate_q( float theta, const vec3& axis )
 	{
 		auto [s, c] = fsincos( theta / 2 );
 		return {
@@ -961,7 +1032,7 @@ namespace xstd::math
 			c
 		};
 	}
-	FORCE_INLINE inline matrix4x4 rotate_v( float theta, const vec3& axis )
+	FORCE_INLINE inline constexpr matrix4x4 rotate_v( float theta, const vec3& axis )
 	{
 		auto [sangle, cangle] = fsincos( theta );
 		float cdiff = 1.0f - cangle;
@@ -1211,7 +1282,7 @@ namespace xstd::math
 		out[ 3 ][ 3 ] = 1.0f;
 		return out;
 	}
-	FORCE_INLINE inline vec3 quaternion_to_direction( const quaternion& q )
+	FORCE_INLINE inline constexpr vec3 quaternion_to_direction( const quaternion& q )
 	{
 		return rotate_by( forward, q );
 	}
@@ -1219,7 +1290,7 @@ namespace xstd::math
 
 	// Euler to Matrix/Quaternion/Direction.
 	//
-	FORCE_INLINE inline matrix4x4 euler_to_matrix( const vec3& rot )
+	FORCE_INLINE inline constexpr matrix4x4 euler_to_matrix( const vec3& rot )
 	{
 		auto [spitch, cpitch] = fsincos( rot.x );
 		auto [syaw,   cyaw] =   fsincos( rot.y );
@@ -1244,7 +1315,7 @@ namespace xstd::math
 		out[ 3 ][ 3 ] = 1.0f;
 		return out;
 	}
-	FORCE_INLINE inline quaternion euler_to_quaternion( const vec3& rot )
+	FORCE_INLINE inline constexpr quaternion euler_to_quaternion( const vec3& rot )
 	{
 		auto [spitch, cpitch] = fsincos( rot.x * 0.5f );
 		auto [syaw,   cyaw] =   fsincos( rot.y * 0.5f );
@@ -1257,7 +1328,7 @@ namespace xstd::math
 			cyaw * cpitch * croll + syaw * spitch * sroll
 		};
 	}
-	FORCE_INLINE inline vec3 euler_to_direction( const vec3& rot )
+	FORCE_INLINE inline constexpr vec3 euler_to_direction( const vec3& rot )
 	{
 		auto [spitch, cpitch] = fsincos( rot.x );
 		auto [syaw,   cyaw] =   fsincos( rot.y );
