@@ -186,31 +186,30 @@ namespace xstd::math
 	};
 	FORCE_INLINE inline constexpr float fsin( float x )
 	{
-		if ( std::is_constant_evaluated() )
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
 			return impl::fsincos_poly( x ).first;
-#if XSTD_MATH_USE_POLYSINCOS
-		return impl::fsincos_poly( x ).first;
-#else
 		return _fsin( x );
-#endif
 	}
 	FORCE_INLINE inline constexpr float fcos( float x )
 	{
-		if ( std::is_constant_evaluated() )
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
 			return impl::fsincos_poly( x ).second;
-#if XSTD_MATH_USE_POLYSINCOS
-		return impl::fsincos_poly( x ).second;
-#else
 		return _fcos( x );
-#endif
+	}
+	FORCE_INLINE inline constexpr float ftan( float x )
+	{
+		if ( std::is_constant_evaluated() )
+		{
+			auto [s, c] = impl::fsincos_poly( x );
+			return s / c;
+		}
+		return tanf( x );
 	}
 	FORCE_INLINE inline constexpr std::pair<float, float> fsincos( float x )
 	{
-		if ( std::is_constant_evaluated() )
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
 			return impl::fsincos_poly( x );
-#if XSTD_MATH_USE_POLYSINCOS
-		return impl::fsincos_poly( x );
-#else
+
 		float c = fcos( x );
 		float s = fsqrt( 1 - c * c );
 		x *= ( 1.0f / ( 2 * pi ) );
@@ -218,7 +217,6 @@ namespace xstd::math
 		x = ( x * ( 0.5f - fabsf( x ) ) );
 		s = fcopysign( s, x );
 		return { s, c };
-#endif
 	}
 
 	// Implement non-referencing min/max/clamp.
@@ -1122,9 +1120,9 @@ namespace xstd::math
 		if ( dotv < 0.999f )
 		{
 			float theta = acosf( dotv );
-			float stheta = sinf( theta );
-			t2 = sinf( theta * t2 ) / stheta;
-			t =  sinf( theta * t )  / stheta;
+			float stheta = fsin( theta );
+			t2 = fsin( theta * t2 ) / stheta;
+			t =  fsin( theta * t )  / stheta;
 		}
 		return t2 * q1 + t * q2;
 	}
@@ -1398,13 +1396,13 @@ namespace xstd::math
 	template<bool LeftHanded = true>
 	FORCE_INLINE inline matrix4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
 	{
-		float t = tanf( fov / 2.0f );
+		float t = ftan( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( t, aspect * t, zn, zf );
 	}
 	template<bool LeftHanded = true>
 	FORCE_INLINE inline matrix4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
 	{
-		float t = tanf( fov / 2.0f );
+		float t = ftan( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( aspect * t, t, zn, zf );
 	}
 
