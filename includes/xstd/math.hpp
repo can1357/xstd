@@ -1014,10 +1014,26 @@ namespace xstd::math
 
 	// Spherical quaternion interpolation.
 	//
-	FORCE_INLINE inline constexpr quaternion quaternion_slerp( const quaternion& pq1, const quaternion& pq2, float t )
+	FORCE_INLINE inline constexpr quaternion quaternion_slerp( const quaternion& q1, const quaternion& q2, float t )
 	{
-		float epsilon = fcopysign( +1.0f, dot( pq1, pq2 ) );
-		return ( 1.0f - t ) * pq1 + epsilon * t * pq2;
+		float t2 = 1.0f - t;
+
+		// Compute dot, if negative flip the signs.
+		//
+		float dotv = dot( q1, q2 );
+		t = fcopysign( t, dotv );
+		dotv = fabs( dotv );
+
+		// If theta is numerically significant and will not result in division by zero:
+		//
+		if ( dotv < 0.999f )
+		{
+			float theta = acosf( dotv );
+			float stheta = sinf( theta );
+			t2 = sinf( theta * t2 ) / stheta;
+			t =  sinf( theta * t )  / stheta;
+		}
+		return t2 * q1 + t * q2;
 	}
 	// Define helpers for radian / degrees.
 	//
