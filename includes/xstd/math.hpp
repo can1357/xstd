@@ -141,7 +141,7 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline constexpr float foddsgn( float x ) 
 	{
-		return 1 - ( x - ftrunc( x / 2 ) * 2 ) * 2;
+		return flt_eps - ( x - ftrunc( x / 2 ) * 2 );
 	}
 	FORCE_INLINE inline constexpr float fxorsgn( float x, float y )
 	{
@@ -172,18 +172,18 @@ namespace xstd::math
 		FORCE_INLINE inline constexpr std::pair<float, float> fsincos_poly( float x )
 		{
 			// [0, inf]
-			float a = fabs( x );
+			float a = fabs( x ) / pi;
 
 			// [0, pi]
-			float n = ftrunc( a / pi );
-			float v = a - n * pi;
+			float n = ftrunc( a );
+			float v = a - n;
 
 			// [0, pi/2]
-			if ( v > ( pi / 2 ) )
-				v = pi - v;
+			if ( v > 0.5f )
+				v = 1.0f - v;
 			return {
-				fcopysign( fsin_poly_hpi( v ), fxorsgn( x, foddsgn( n ) ) ),
-				fcopysign( fcos_poly_hpi( v ), foddsgn( ftrunc( ( a + pi / 2 ) / pi ) ) )
+				fcopysign( fsin_poly_hpi( v * pi ), fxorsgn( x, foddsgn( n ) ) ),
+				fcopysign( fcos_poly_hpi( v * pi ), foddsgn( fround( a ) ) )
 			};
 		}
 	};
