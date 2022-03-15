@@ -145,7 +145,10 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline constexpr float fxorsgn( float x, float y )
 	{
-		return bit_cast< float >( bit_cast< int32_t >( x ) ^ bit_cast< int32_t >( y ) );
+		if ( std::is_constant_evaluated() )
+			return x * y;
+		else
+			return bit_cast< float >( bit_cast< int32_t >( x ) ^ bit_cast< int32_t >( y ) );
 	}
 	
 	// Implement fast polynomial approximations of sin and cos.
@@ -184,6 +187,7 @@ namespace xstd::math
 			};
 		}
 	};
+
 	FORCE_INLINE inline constexpr float fsin( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
