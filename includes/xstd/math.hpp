@@ -328,7 +328,7 @@ namespace xstd::math
 			{
 				if ( std::is_constant_evaluated() )
 					return { v.x, v.y, z };
-				return from_xvec( v.to_xvec().template shuffle<0, 1, 4, -1>( xvec<T, 4>{ w } ) );
+				return from_xvec( v.to_xvec().template shuffle<0, 1, 4, -1>( xvec<T, 4>{ z } ) );
 			}
 
 			FORCE_INLINE inline static constexpr vec3_t<T> from_xvec( xvec<T, 4> o )
