@@ -1473,7 +1473,7 @@ namespace xstd::math
 			accumulator += ti * point;
 			ti *= ts;
 			ti *= n - i;
-			ti /= i + 1;
+			ti /= ++i;
 		}
 		return accumulator;
 	}
