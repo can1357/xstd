@@ -141,12 +141,13 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline constexpr float foddsgn( float x ) 
 	{
-		return flt_eps - ( x - ftrunc( x / 2 ) * 2 );
+		x *= 0.5f;
+		return x - fceil( x );
 	}
 	FORCE_INLINE inline constexpr float fxorsgn( float x, float y )
 	{
 		if ( std::is_constant_evaluated() )
-			return x * y;
+			return ( ( x < 0 ) != ( y < 0 ) ) ? -1.0f : 1.0f;
 		else
 			return bit_cast< float >( bit_cast< int32_t >( x ) ^ bit_cast< int32_t >( y ) );
 	}
