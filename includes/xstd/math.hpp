@@ -677,7 +677,7 @@ namespace xstd::math
 
 	// Define matrix type.
 	//
-	struct matrix4x4
+	struct mat4x4
 	{
 		using key_type =   size_t;
 		using value_type = vec4;
@@ -686,15 +686,15 @@ namespace xstd::math
 
 		// Default construction.
 		//
-		constexpr matrix4x4() = default;
+		constexpr mat4x4() = default;
 
 		// Construction by 4 vectors.
 		//
-		FORCE_INLINE inline constexpr matrix4x4( vec4 a, vec4 b, vec4 c, vec4 d ) : m{ a, b, c, d } {}
+		FORCE_INLINE inline constexpr mat4x4( vec4 a, vec4 b, vec4 c, vec4 d ) : m{ a, b, c, d } {}
 		
 		// Construction by all values.
 		//
-		FORCE_INLINE inline constexpr matrix4x4( float _00, float _01, float _02, float _03,
+		FORCE_INLINE inline constexpr mat4x4( float _00, float _01, float _02, float _03,
 									float _10, float _11, float _12, float _13,
 									float _20, float _21, float _22, float _23,
 									float _30, float _31, float _32, float _33 ) : m{ 
@@ -706,8 +706,8 @@ namespace xstd::math
 
 		// Default copy.
 		//
-		constexpr matrix4x4( const matrix4x4& ) = default;
-		constexpr matrix4x4& operator=( const matrix4x4& ) = default;
+		constexpr mat4x4( const mat4x4& ) = default;
+		constexpr mat4x4& operator=( const mat4x4& ) = default;
 
 		// Identity matrix.
 		//
@@ -717,11 +717,11 @@ namespace xstd::math
 			vec4{ 0, 0, 1, 0 },
 			vec4{ 0, 0, 0, 1 }
 		};
-		FORCE_INLINE inline static constexpr matrix4x4 identity() noexcept { return { identity_value[ 0 ], identity_value[ 1 ], identity_value[ 2 ], identity_value[ 3 ] }; }
+		FORCE_INLINE inline static constexpr mat4x4 identity() noexcept { return { identity_value[ 0 ], identity_value[ 1 ], identity_value[ 2 ], identity_value[ 3 ] }; }
 
 		// Matrix mulitplication.
 		//
-		FORCE_INLINE inline constexpr matrix4x4 operator*( const matrix4x4& other ) const noexcept
+		FORCE_INLINE inline constexpr mat4x4 operator*( const mat4x4& other ) const noexcept
 		{
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
@@ -729,8 +729,8 @@ namespace xstd::math
 				__m256 v01, v23, q01, q23;
 				impl::load_matrix( m, v01, v23 );
 				impl::load_matrix( other.m, q01, q23 );
+#if __XSTD_USE_DPPS || !XSTD_VECTOR_EXT
 				impl::tranpose_inplace( q01, q23 );
-
 				__m256 vxx = _mm256_permute2f128_ps( q01, q01, 0b0000'0000 );
 				__m256 vyy = _mm256_permute2f128_ps( q01, q01, 0b0001'0001 );
 				__m256 vzz = _mm256_permute2f128_ps( q23, q23, 0b0000'0000 );
@@ -744,7 +744,42 @@ namespace xstd::math
 				r23 = _mm256_or_ps( r23, _mm256_dp_ps( v23, vzz, 0b11110100 ) );
 				r01 = _mm256_or_ps( r01, _mm256_dp_ps( v01, vww, 0b11111000 ) );
 				r23 = _mm256_or_ps( r23, _mm256_dp_ps( v23, vww, 0b11111000 ) );
-				return impl::store_matrix<matrix4x4>( r01, r23 );
+				return impl::store_matrix<mat4x4>( r01, r23 );
+#else
+	#define L0 0, 1, 0, 1,  4, 5, 4, 5 
+	#define L1 1, 0, 1, 0,  5, 4, 5, 4 
+	#define L2 2, 3, 2, 3,  6, 7, 6, 7
+	#define L3 3, 2, 3, 2,  7, 6, 7, 6
+	#define K0 0, 5, 2, 7,  0, 5, 2, 7
+	#define K1 4, 1, 6, 3,  4, 1, 6, 3
+	#define K2 0, 5, 2, 7,  0, 5, 2, 7
+	#define K3 4, 1, 6, 3,  4, 1, 6, 3
+				__m256 t0 = __builtin_shufflevector( v01, v01, L0 );
+				__m256 t1 = __builtin_shufflevector( v01, v01, L1 );
+				t0 *=       __builtin_shufflevector( q01, q01, K0 );
+				t0 += t1 *  __builtin_shufflevector( q01, q01, K1 );
+				__m256 t2 = __builtin_shufflevector( v01, v01, L2 );
+				__m256 t3 = __builtin_shufflevector( v01, v01, L3 );
+				t0 += t2 *  __builtin_shufflevector( q23, q23, K2 );
+				t0 += t3 *  __builtin_shufflevector( q23, q23, K3 );
+				__m256 t4 = __builtin_shufflevector( v23, v23, L0 );
+				__m256 t5 = __builtin_shufflevector( v23, v23, L1 );
+				t4 *=       __builtin_shufflevector( q01, q01, K0 );
+				t4 += t5 *  __builtin_shufflevector( q01, q01, K1 );
+				__m256 t6 = __builtin_shufflevector( v23, v23, L2 );
+				__m256 t7 = __builtin_shufflevector( v23, v23, L3 );
+				t4 += t6 *  __builtin_shufflevector( q23, q23, K2 );
+				t4 += t7 *  __builtin_shufflevector( q23, q23, K3 );
+				return impl::store_matrix<mat4x4>( t0, t4 );
+	#undef K0
+	#undef K1
+	#undef K2
+	#undef K3
+	#undef L0
+	#undef L1
+	#undef L2
+	#undef L3
+#endif
 			}
 #endif
 			return {
@@ -754,7 +789,7 @@ namespace xstd::math
 				other * m[ 3 ]
 			};
 		}
-		FORCE_INLINE inline constexpr matrix4x4& operator*=( const matrix4x4& other ) noexcept { *this = ( *this * other ); return *this; }
+		FORCE_INLINE inline constexpr mat4x4& operator*=( const mat4x4& other ) noexcept { *this = ( *this * other ); return *this; }
 
 		// Vector transformation.
 		//
@@ -763,15 +798,9 @@ namespace xstd::math
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
 			{
-				__m128 vx = _mm_broadcast_ss( &v.x );
-				__m128 vy = _mm_broadcast_ss( &v.y );
-				__m128 vz = _mm_broadcast_ss( &v.z );
-				__m128 vw = _mm_broadcast_ss( &v.w );
-
-				__m256 vxy = _mm256_castps128_ps256( vx );
-				vxy = _mm256_insertf128_ps( vxy, vy, 1 );
-				__m256 vzw = _mm256_castps128_ps256( vz );
-				vzw = _mm256_insertf128_ps( vzw, vw, 1 );
+				auto xyzw = v.to_xvec();
+				__m256 vxy = xyzw.template shuffle<0, 0, 0, 0, 1, 1, 1, 1>( xyzw )._nat;
+				__m256 vzw = xyzw.template shuffle<2, 2, 2, 2, 3, 3, 3, 3>( xyzw )._nat;
 
 				__m256 vrlh = _mm256_mul_ps( vxy, _mm256_loadu_ps( ( const float* ) &m[ 0 ] ) );
 				vrlh = _mm256_fmadd_ps( vzw, _mm256_loadu_ps( ( const float* ) &m[ 2 ] ), vrlh );
@@ -794,7 +823,7 @@ namespace xstd::math
 
 		// Offset by scalar.
 		//
-		FORCE_INLINE inline constexpr matrix4x4 operator+( float v ) const noexcept
+		FORCE_INLINE inline constexpr mat4x4 operator+( float v ) const noexcept
 		{
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
@@ -806,22 +835,22 @@ namespace xstd::math
 				
 				a = _mm256_add_ps( a, f );
 				b = _mm256_add_ps( b, f );
-				return impl::store_matrix<matrix4x4>( a, b );
+				return impl::store_matrix<mat4x4>( a, b );
 			}
 #endif
 
-			matrix4x4 result;
+			mat4x4 result;
 			for ( size_t i = 0; i != 4; i++ )
 				result[ i ] = m[ i ] + v;
 			return result;
 		}
-		FORCE_INLINE inline constexpr matrix4x4 operator-( float v ) const noexcept { return *this + ( -v ); }
-		FORCE_INLINE inline constexpr matrix4x4& operator-=( float v ) noexcept { *this = ( *this - v ); return *this; }
-		FORCE_INLINE inline constexpr matrix4x4& operator+=( float v ) noexcept { *this = ( *this + v ); return *this; }
+		FORCE_INLINE inline constexpr mat4x4 operator-( float v ) const noexcept { return *this + ( -v ); }
+		FORCE_INLINE inline constexpr mat4x4& operator-=( float v ) noexcept { *this = ( *this - v ); return *this; }
+		FORCE_INLINE inline constexpr mat4x4& operator+=( float v ) noexcept { *this = ( *this + v ); return *this; }
 
 		// Scale by scalar.
 		//
-		FORCE_INLINE inline constexpr matrix4x4 operator*( float v ) const noexcept
+		FORCE_INLINE inline constexpr mat4x4 operator*( float v ) const noexcept
 		{
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
@@ -833,22 +862,22 @@ namespace xstd::math
 				
 				a = _mm256_mul_ps( a, f );
 				b = _mm256_mul_ps( b, f );
-				return impl::store_matrix<matrix4x4>( a, b );
+				return impl::store_matrix<mat4x4>( a, b );
 			}
 #endif
 
-			matrix4x4 result;
+			mat4x4 result;
 			for ( size_t i = 0; i != 4; i++ )
 				result[ i ] = m[ i ] * v;
 			return result;
 		}
-		FORCE_INLINE inline constexpr matrix4x4 operator/( float v ) const noexcept { return *this * ( 1.0f / v ); }
-		FORCE_INLINE inline constexpr matrix4x4& operator/=( float v ) noexcept { *this = ( *this / v ); return *this; }
-		FORCE_INLINE inline constexpr matrix4x4& operator*=( float v ) noexcept { *this = ( *this * v ); return *this; }
+		FORCE_INLINE inline constexpr mat4x4 operator/( float v ) const noexcept { return *this * ( 1.0f / v ); }
+		FORCE_INLINE inline constexpr mat4x4& operator/=( float v ) noexcept { *this = ( *this / v ); return *this; }
+		FORCE_INLINE inline constexpr mat4x4& operator*=( float v ) noexcept { *this = ( *this * v ); return *this; }
 
 		// Unaries.
 		//
-		FORCE_INLINE inline constexpr matrix4x4 operator-() const noexcept 
+		FORCE_INLINE inline constexpr mat4x4 operator-() const noexcept 
 		{
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
@@ -859,12 +888,12 @@ namespace xstd::math
 				__v8su c{ 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 				a = _mm256_xor_ps( a, ( __m256 ) c );
 				b = _mm256_xor_ps( b, ( __m256 ) c );
-				return impl::store_matrix<matrix4x4>( a, b );
+				return impl::store_matrix<mat4x4>( a, b );
 			}
 #endif
 			return *this * -1.0f; 
 		}
-		FORCE_INLINE inline constexpr matrix4x4 operator+() const noexcept { return *this; }
+		FORCE_INLINE inline constexpr mat4x4 operator+() const noexcept { return *this; }
 
 		// Forward indexing.
 		//
@@ -875,7 +904,7 @@ namespace xstd::math
 
 		// Hashing, serialization, comparison and string conversion.
 		//
-		FORCE_INLINE inline constexpr auto operator<=>( const matrix4x4& ) const noexcept = default;
+		FORCE_INLINE inline constexpr auto operator<=>( const mat4x4& ) const noexcept = default;
 		FORCE_INLINE inline auto tie() { return std::tie( m ); }
 		FORCE_INLINE inline std::string to_string() const noexcept 
 		{ 
@@ -893,7 +922,7 @@ namespace xstd::math
 
 		// Transpose.
 		//
-		FORCE_INLINE inline constexpr matrix4x4 transpose() const noexcept
+		FORCE_INLINE inline constexpr mat4x4 transpose() const noexcept
 		{
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
@@ -901,10 +930,10 @@ namespace xstd::math
 				__m256 v01, v23;
 				impl::load_matrix( m, v01, v23 );
 				impl::tranpose_inplace( v01, v23 );
-				return impl::store_matrix<matrix4x4>( v01, v23 );
+				return impl::store_matrix<mat4x4>( v01, v23 );
 			}
 #endif
-			matrix4x4 out;
+			mat4x4 out;
 			for ( size_t i = 0; i != 4; i++ )
 				for ( size_t j = 0; j != 4; j++ )
 					out[ i ][ j ] = m[ j ][ i ];
@@ -926,10 +955,10 @@ namespace xstd::math
 
 	// Matrix inversion.
 	//
-	inline constexpr matrix4x4 inverse( const matrix4x4& m, float& det )
+	inline constexpr mat4x4 inverse( const mat4x4& m, float& det )
 	{
 		float t[ 3 ] = {};
-		matrix4x4 out = {};
+		mat4x4 out = {};
 
 		t[ 0 ] =          m[ 2 ][ 2 ] * m[ 3 ][ 3 ] - m[ 2 ][ 3 ] * m[ 3 ][ 2 ];
 		t[ 1 ] =          m[ 1 ][ 2 ] * m[ 3 ][ 3 ] - m[ 1 ][ 3 ] * m[ 3 ][ 2 ];
@@ -982,34 +1011,34 @@ namespace xstd::math
 		det = ( m[ 0 ][ 0 ] * out[ 0 ][ 0 ] + m[ 0 ][ 1 ] * out[ 1 ][ 0 ] + m[ 0 ][ 2 ] * out[ 2 ][ 0 ] + m[ 0 ][ 3 ] * out[ 3 ][ 0 ] );
 		return out / det;
 	}
-	FORCE_INLINE inline constexpr matrix4x4 inverse( const matrix4x4& m ) { float tmp = 0; return inverse( m, tmp ); }
+	FORCE_INLINE inline constexpr mat4x4 inverse( const mat4x4& m ) { float tmp = 0; return inverse( m, tmp ); }
 
 	// Matrix decomposition helpers.
 	//
-	FORCE_INLINE inline constexpr vec3 matrix_to_translation( const matrix4x4& mat )
+	FORCE_INLINE inline constexpr vec3 matrix_to_translation( const mat4x4& mat )
 	{
 		return mat[ 3 ].xyz();
 	}
-	FORCE_INLINE inline vec3 matrix_to_scale( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_scale( const mat4x4& mat )
 	{
 		return { mat[ 0 ].xyz().length(), mat[ 1 ].xyz().length(), mat[ 2 ].xyz().length() };
 	}
-	FORCE_INLINE inline vec3 matrix_to_forward( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_forward( const mat4x4& mat )
 	{
 		return normalize( mat[ 0 ].xyz() );
 	}
-	FORCE_INLINE inline vec3 matrix_to_right( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_right( const mat4x4& mat )
 	{
 		return normalize( mat[ 1 ].xyz() );
 	}
-	FORCE_INLINE inline vec3 matrix_to_up( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_up( const mat4x4& mat )
 	{
 		return normalize( mat[ 2 ].xyz() );
 	}
 
 	// Normalizes a matrix to have no scale.
 	//
-	FORCE_INLINE inline matrix4x4 matrix_normalize( matrix4x4 mat )
+	FORCE_INLINE inline mat4x4 matrix_normalize( mat4x4 mat )
 	{
 		vec4 scales = 1.0f / vec_sqrt( vec4{ mat[ 0 ].length_sq(), mat[ 1 ].length_sq(), mat[ 2 ].length_sq(), 0.0f } );
 		mat[ 0 ] *= scales[ 0 ];
@@ -1031,12 +1060,12 @@ namespace xstd::math
 			c
 		};
 	}
-	FORCE_INLINE inline constexpr matrix4x4 rotate_v( float theta, const vec3& axis )
+	FORCE_INLINE inline constexpr mat4x4 rotate_v( float theta, const vec3& axis )
 	{
 		auto [sangle, cangle] = fsincos( theta );
 		float cdiff = 1.0f - cangle;
 
-		matrix4x4 out;
+		mat4x4 out;
 		out[ 0 ][ 0 ] = cdiff * axis.x * axis.x + cangle;
 		out[ 1 ][ 0 ] = cdiff * axis.x * axis.y - sangle * axis.z;
 		out[ 2 ][ 0 ] = cdiff * axis.x * axis.z + sangle * axis.y;
@@ -1067,15 +1096,15 @@ namespace xstd::math
 			-q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w
 		};
 	}
-	FORCE_INLINE inline constexpr matrix4x4 rotate_by( const matrix4x4& m1, const matrix4x4& m2 )
+	FORCE_INLINE inline constexpr mat4x4 rotate_by( const mat4x4& m1, const mat4x4& m2 )
 	{
 		return m1 * m2;
 	}
 
 	// Rotating a vector.
 	//
-	FORCE_INLINE inline constexpr vec3 rotate_by( const vec3& v, const matrix4x4& m ) { return m * v; }
-	FORCE_INLINE inline constexpr vec4 rotate_by( const vec4& v, const matrix4x4& m ) { return m * v; }
+	FORCE_INLINE inline constexpr vec3 rotate_by( const vec3& v, const mat4x4& m ) { return m * v; }
+	FORCE_INLINE inline constexpr vec4 rotate_by( const vec4& v, const mat4x4& m ) { return m * v; }
 	FORCE_INLINE inline constexpr vec3 rotate_by( const vec3& v, const quaternion& q )
 	{
 		vec3 u{ q.x, q.y, q.z };
@@ -1087,17 +1116,17 @@ namespace xstd::math
 
 	// Translation and scaling matrices.
 	//
-	FORCE_INLINE inline constexpr matrix4x4 matrix_translation( const vec3& p )
+	FORCE_INLINE inline constexpr mat4x4 matrix_translation( const vec3& p )
 	{
-		matrix4x4 out = matrix4x4::identity();
+		mat4x4 out = mat4x4::identity();
 		out[ 3 ][ 0 ] = p.x;
 		out[ 3 ][ 1 ] = p.y;
 		out[ 3 ][ 2 ] = p.z;
 		return out;
 	}
-	FORCE_INLINE inline constexpr matrix4x4 matrix_scaling( const vec3& p )
+	FORCE_INLINE inline constexpr mat4x4 matrix_scaling( const vec3& p )
 	{
-		matrix4x4 out = matrix4x4::identity();
+		mat4x4 out = mat4x4::identity();
 		out[ 0 ][ 0 ] = p.x;
 		out[ 1 ][ 1 ] = p.y;
 		out[ 2 ][ 2 ] = p.z;
@@ -1142,7 +1171,7 @@ namespace xstd::math
 
 	// Matrix to Euler/Quaternion/Direction.
 	//
-	FORCE_INLINE inline vec3 matrix_to_euler( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_euler( const mat4x4& mat )
 	{
 		// Thanks to Eigen.
 		//
@@ -1170,7 +1199,7 @@ namespace xstd::math
 		}
 		return res;
 	}
-	FORCE_INLINE inline quaternion matrix_to_quaternion( const matrix4x4& mat )
+	FORCE_INLINE inline quaternion matrix_to_quaternion( const mat4x4& mat )
 	{
 		float trace = mat( 0, 0 ) + mat( 1, 1 ) + mat( 2, 2 ) + 1.0f;
 		if ( trace > 1.0f )
@@ -1214,14 +1243,14 @@ namespace xstd::math
 			};
 		}
 	}
-	FORCE_INLINE inline vec3 matrix_to_direction( const matrix4x4& mat )
+	FORCE_INLINE inline vec3 matrix_to_direction( const mat4x4& mat )
 	{
 		return matrix_to_forward( mat );
 	}
 
 	// Direction to Euler/Quaternion/Matrix.
 	//
-	FORCE_INLINE inline matrix4x4 direction_to_matrix( const vec3& direction )
+	FORCE_INLINE inline mat4x4 direction_to_matrix( const vec3& direction )
 	{
 		vec4 up_vec =    {  0, 1, 0, 0 };
 		vec4 right_vec = { -1, 0, 0, 0 };
@@ -1266,9 +1295,9 @@ namespace xstd::math
 			atan2f( sinr_cosp, cosr_cosp )
 		};
 	}
-	FORCE_INLINE inline constexpr matrix4x4 quaternion_to_matrix( const quaternion& rot )
+	FORCE_INLINE inline constexpr mat4x4 quaternion_to_matrix( const quaternion& rot )
 	{
-		matrix4x4 out = {};
+		mat4x4 out = {};
 		out[ 0 ][ 0 ] = 1.0f - 2.0f * ( rot.y * rot.y + rot.z * rot.z );
 		out[ 0 ][ 1 ] = 2.0f * ( rot.x * rot.y + rot.z * rot.w );
 		out[ 0 ][ 2 ] = 2.0f * ( rot.x * rot.z - rot.y * rot.w );
@@ -1289,13 +1318,13 @@ namespace xstd::math
 
 	// Euler to Matrix/Quaternion/Direction.
 	//
-	FORCE_INLINE inline constexpr matrix4x4 euler_to_matrix( const vec3& rot )
+	FORCE_INLINE inline constexpr mat4x4 euler_to_matrix( const vec3& rot )
 	{
 		auto [spitch, cpitch] = fsincos( rot.x );
 		auto [syaw,   cyaw] =   fsincos( rot.y );
 		auto [sroll,  croll] =  fsincos( rot.z );
 
-		matrix4x4 out = {};
+		mat4x4 out = {};
 		out[ 0 ][ 0 ] = cpitch * cyaw;
 		out[ 0 ][ 1 ] = cpitch * syaw;
 		out[ 0 ][ 2 ] = -spitch;
@@ -1340,7 +1369,7 @@ namespace xstd::math
 
 	// Fast transformation matrix.
 	//
-	FORCE_INLINE inline constexpr matrix4x4 matrix_transformation( const quaternion& rot, const vec3& scale, const vec3& translation )
+	FORCE_INLINE inline constexpr mat4x4 matrix_transformation( const quaternion& rot, const vec3& scale, const vec3& translation )
 	{
 		auto mat = quaternion_to_matrix( rot );
 		mat[ 0 ] *= scale.x;
@@ -1353,7 +1382,7 @@ namespace xstd::math
 	// View helpers.
 	//
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline matrix4x4 look_at( vec3 eye, vec3 dir, vec3 up )
+	FORCE_INLINE inline mat4x4 look_at( vec3 eye, vec3 dir, vec3 up )
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 
@@ -1362,7 +1391,7 @@ namespace xstd::math
 		right = normalize( right );
 		up = normalize( up );
 
-		matrix4x4 out = {};
+		mat4x4 out = {};
 		out[ 0 ][ 0 ] = m * right.x;
 		out[ 1 ][ 0 ] = m * right.y;
 		out[ 2 ][ 0 ] = m * right.z;
@@ -1382,10 +1411,10 @@ namespace xstd::math
 		return out;
 	}
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline constexpr matrix4x4 perspective_tan_fov_xy( float tfx, float tfy, float zn, float zf )
+	FORCE_INLINE inline constexpr mat4x4 perspective_tan_fov_xy( float tfx, float tfy, float zn, float zf )
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
-		matrix4x4 out = matrix4x4::identity();
+		mat4x4 out = mat4x4::identity();
 		out[ 0 ][ 0 ] = 1.0f / tfx;
 		out[ 1 ][ 1 ] = 1.0f / tfy;
 		out[ 2 ][ 2 ] = m * zf / ( zf - zn );
@@ -1395,13 +1424,13 @@ namespace xstd::math
 		return out;
 	}
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline constexpr matrix4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
+	FORCE_INLINE inline constexpr mat4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
 	{
 		float t = ftan( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( t, aspect * t, zn, zf );
 	}
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline constexpr matrix4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
+	FORCE_INLINE inline constexpr mat4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
 	{
 		float t = ftan( fov / 2.0f );
 		return perspective_tan_fov_xy<LeftHanded>( aspect * t, t, zn, zf );
@@ -1464,7 +1493,7 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr V beizer_dyn( float t, C&& container )
 	{
 		V accumulator = {};
-		float n = ( ( int ) std::size( container ) ) - 1;
+		float n = ( ( int ) std::size( container ) );
 		float i = 0;
 		float tx = 1;
 		float ti = 1 / ( 1 - t );
@@ -1473,8 +1502,8 @@ namespace xstd::math
 		{
 			accumulator += ti * point;
 			ti *= ts;
-			ti *= n - i;
 			ti /= ++i;
+			ti *= n - i;
 			tx *= ( 1 - t );
 		}
 		return accumulator * tx;
