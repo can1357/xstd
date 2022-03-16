@@ -91,14 +91,14 @@ namespace xstd::math
 	float _fround( float x ) asm( "llvm.round.f32" );
 	float _ftrunc( float x ) asm( "llvm.trunc.f32" );
 #endif
-	FORCE_INLINE inline constexpr float fabs( float a )
+	CONST_FN FORCE_INLINE inline constexpr float fabs( float a )
 	{
 		if ( !std::is_constant_evaluated() )
 			return _fabs( a );
 		if ( a < 0 ) a = -a;
 		return a;
 	}
-	FORCE_INLINE inline constexpr float fcopysign( float m, float s ) 
+	CONST_FN FORCE_INLINE inline constexpr float fcopysign( float m, float s )
 	{
 		if ( !std::is_constant_evaluated() )
 			return _fcopysign( m, s );
@@ -106,7 +106,7 @@ namespace xstd::math
 		if ( s < 0 ) m = -m;
 		return m;
 	}
-	FORCE_INLINE inline constexpr float ffloor( float x )
+	CONST_FN FORCE_INLINE inline constexpr float ffloor( float x )
 	{
 		if ( !std::is_constant_evaluated() )
 			return _ffloor( x );
@@ -114,7 +114,7 @@ namespace xstd::math
 		if ( d != 0 ) d = -1;
 		return int64_t( x + d );
 	}
-	FORCE_INLINE inline constexpr float fceil( float x )
+	CONST_FN FORCE_INLINE inline constexpr float fceil( float x )
 	{
 		if ( !std::is_constant_evaluated() )
 			return _fceil( x );
@@ -122,29 +122,29 @@ namespace xstd::math
 		if ( d != 0 ) d = +1;
 		return int64_t( x + d );
 	}
-	FORCE_INLINE inline constexpr float fround( float x )
+	CONST_FN FORCE_INLINE inline constexpr float fround( float x )
 	{
 		if ( !std::is_constant_evaluated() )
 			return _fround( x );
 		return float( int64_t( x + fcopysign( 0.5f, x ) ) );
 	}
-	FORCE_INLINE inline constexpr float ftrunc( float x )
+	CONST_FN FORCE_INLINE inline constexpr float ftrunc( float x )
 	{
 		if ( !std::is_constant_evaluated() )
 			return _ftrunc( x );
 		return float( int64_t( x ) );
 	}
-	FORCE_INLINE inline constexpr float fmod( float x, float y )
+	CONST_FN FORCE_INLINE inline constexpr float fmod( float x, float y )
 	{
 		float m = 1.0f / y;
 		return x - ftrunc( x * m ) * y;
 	}
-	FORCE_INLINE inline constexpr float foddsgn( float x ) 
+	CONST_FN FORCE_INLINE inline constexpr float foddsgn( float x )
 	{
 		x *= 0.5f;
 		return x - fceil( x );
 	}
-	FORCE_INLINE inline constexpr float fxorsgn( float x, float y )
+	CONST_FN FORCE_INLINE inline constexpr float fxorsgn( float x, float y )
 	{
 		if ( std::is_constant_evaluated() )
 			return ( ( x < 0 ) != ( y < 0 ) ) ? -1.0f : 1.0f;
@@ -158,19 +158,19 @@ namespace xstd::math
 	{
 		// [0, 1/2 pi]
 		// - https://gist.github.com/publik-void/067f7f2fef32dbe5c27d6e215f824c91#file-sin-cos-approximations-gist-adoc
-		FORCE_INLINE inline constexpr float fsin_poly_hpi( float x1 )
+		CONST_FN FORCE_INLINE inline constexpr float fsin_poly_hpi( float x1 )
 		{
 			float x2 = x1 * x1;
 			// Degree 11, E(X) = 1.92e-11
 			return x1 * ( 0.99999999997884898600402426033768998 + x2 * ( -0.166666666088260696413164261885310067 + x2 * ( 0.00833333072055773645376566203656709979 + x2 * ( -0.000198408328232619552901560108010257242 + x2 * ( 2.75239710746326498401791551303359689e-6 - 2.3868346521031027639830001794722295e-8 * x2 ) ) ) ) );
 		}
-		FORCE_INLINE inline constexpr float fcos_poly_hpi( float x1 )
+		CONST_FN FORCE_INLINE inline constexpr float fcos_poly_hpi( float x1 )
 		{
 			float x2 = x1 * x1;
 			// Degree 12, E(X) = 3.35e-12
 			return 0.99999999999664497762294088303450344 + x2 * ( -0.499999999904093446864749737540127153 + x2 * ( 0.0416666661919898461055893453767336909 + x2 * ( -0.00138888797032770920681384355560203468 + x2 * ( 0.0000248007136556145113256051130495176344 + x2 * ( -2.75135611164571371141959208910569516e-7 + 1.97644182995841772799444848310451781e-9 * x2 ) ) ) ) );
 		}
-		FORCE_INLINE inline constexpr std::pair<float, float> fsincos_poly( float x )
+		CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> fsincos_poly( float x )
 		{
 			// [0, inf]
 			float a = fabs( x ) / pi;
@@ -189,19 +189,19 @@ namespace xstd::math
 		}
 	};
 
-	FORCE_INLINE inline constexpr float fsin( float x )
+	CONST_FN FORCE_INLINE inline constexpr float fsin( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::fsincos_poly( x ).first;
 		return _fsin( x );
 	}
-	FORCE_INLINE inline constexpr float fcos( float x )
+	CONST_FN FORCE_INLINE inline constexpr float fcos( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::fsincos_poly( x ).second;
 		return _fcos( x );
 	}
-	FORCE_INLINE inline constexpr float ftan( float x )
+	CONST_FN FORCE_INLINE inline constexpr float ftan( float x )
 	{
 		if ( std::is_constant_evaluated() )
 		{
@@ -210,7 +210,7 @@ namespace xstd::math
 		}
 		return tanf( x );
 	}
-	FORCE_INLINE inline constexpr std::pair<float, float> fsincos( float x )
+	CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> fsincos( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::fsincos_poly( x );
@@ -222,29 +222,29 @@ namespace xstd::math
 
 	// Implement non-referencing min/max/clamp.
 	//
-	FORCE_INLINE inline constexpr float fmin( float a, float b )
+	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b )
 	{
 		if ( b < a ) a = b;
 		return a;
 	}
-	FORCE_INLINE inline constexpr float fmax( float a, float b )
+	CONST_FN FORCE_INLINE inline constexpr float fmax( float a, float b )
 	{
 		if ( a < b ) a = b;
 		return a;
 	}
-	FORCE_INLINE inline constexpr float fclamp( float v, float vmin, float vmax ) 
+	CONST_FN FORCE_INLINE inline constexpr float fclamp( float v, float vmin, float vmax )
 	{
 		if ( v < vmin ) v = vmin;
 		if ( v > vmax ) v = vmax;
 		return v;
 	}
 	template<typename... Tx>
-	FORCE_INLINE inline constexpr float fmin( float a, float b, float c, Tx... rest )
+	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b, float c, Tx... rest )
 	{
 		return fmin( fmin( a, b ), c, rest... );
 	}
 	template<typename... Tx>
-	FORCE_INLINE inline constexpr float fmax( float a, float b, float c, Tx... rest )
+	CONST_FN FORCE_INLINE inline constexpr float fmax( float a, float b, float c, Tx... rest )
 	{
 		return fmax( fmax( a, b ), c, rest... );
 	}
@@ -252,7 +252,7 @@ namespace xstd::math
 	// Common vector operations with accceleration.
 	//
 	template<typename V>
-	FORCE_INLINE inline constexpr float dot( const V& v1, const V& v2 )
+	CONST_FN FORCE_INLINE inline constexpr float dot( const V& v1, const V& v2 )
 	{
 #if XSTD_MATH_USE_X86INTRIN
 		if ( !std::is_constant_evaluated() )
@@ -274,12 +274,12 @@ namespace xstd::math
 		return ( v1 * v2 ).reduce_add();
 	}
 	template<typename V>
-	FORCE_INLINE inline V normalize( const V& vec )
+	PURE_FN FORCE_INLINE inline V normalize( const V& vec )
 	{
 		return vec / fsqrt( fmax( flt_eps, vec.length_sq() ) );
 	}
 	template<typename V>
-	FORCE_INLINE inline constexpr V lerp( const V& v1, const V& v2, float s )
+	CONST_FN FORCE_INLINE inline constexpr V lerp( const V& v1, const V& v2, float s )
 	{
 		return v1 + ( v2 - v1 ) * s;
 	}
@@ -1409,15 +1409,22 @@ namespace xstd::math
 
 	// Factorial, fast power and binomial helpers for beizer implementation.
 	//
-	inline constexpr size_t factorial( size_t i ) 
+	CONST_FN FORCE_INLINE inline constexpr float ffactorial( int i )
 	{
-		size_t r = 1;
-		for ( size_t it = 2; it <= i; it++ )
-			r *= it;
-		return r;
+		if ( std::is_constant_evaluated() || is_consteval( i ) )
+		{
+			int r = 1;
+			for ( int it = 2; it <= i; it++ )
+				r *= it;
+			return float( r );
+		}
+		else
+		{
+			return tgammaf( i + 1 );
+		}
 	}
-	template<size_t I, typename V>
-	FORCE_INLINE inline constexpr V const_pow( V value )
+	template<int I, typename V>
+	CONST_FN FORCE_INLINE inline constexpr V const_pow( V value )
 	{
 		if constexpr ( I == 0 )
 			return 1;
@@ -1428,22 +1435,22 @@ namespace xstd::math
 		V tmp = const_pow<I / 2>( value );
 		return tmp * tmp;
 	}
-	template<size_t N, size_t I>
-	inline constexpr float binomial_coefficient_v = float( factorial( N ) ) / float( factorial( I ) * factorial( N - I ) );
+	template<int N, int I>
+	inline constexpr float binomial_coefficient_v = ffactorial( N ) / ( ffactorial( I ) * ffactorial( N - I ) );
 
 	// Implement the beizer calculation.
 	//
 	namespace impl
 	{
-		template<size_t N, typename Vec, typename... Vx>
-		FORCE_INLINE inline constexpr Vec beizer_helper( const Vec& tv, const Vec& td, const Vec& pi, const Vx&... px ) 
+		template<int N, typename Vec, typename... Vx>
+		FORCE_INLINE inline constexpr Vec beizer_helper( const Vec& ti, const Vec& ts, const Vec& pi, const Vx&... px )
 		{
-			constexpr size_t I = N - sizeof...( Vx );
-			Vec acc = binomial_coefficient_v<N, I> *tv * pi;
+			constexpr int I = N - sizeof...( Vx );
+			Vec acc = binomial_coefficient_v<N, I> * ti * pi;
 			if constexpr ( I == N )
 				return acc;
 			else
-				return acc + beizer_helper<N>( tv * td, td, px... );
+				return acc + beizer_helper<N>( ti * ts, ts, px... );
 		}
 	};
 	template<typename V, typename... Vx>
@@ -1453,19 +1460,22 @@ namespace xstd::math
 		float ts = t / ( 1 - t );
 		return impl::beizer_helper<sizeof...( Vx )>( V::fill( ti ), V::fill( ts ), p1, px... );
 	}
-	template<typename It1, typename It2>
-	FORCE_INLINE inline constexpr auto beizer_rec( float t, It1&& begin, It2&& end )
+	template<typename V, typename C>
+	FORCE_INLINE inline constexpr V beizer_dyn( float t, C&& container )
 	{
-		using V = decltype( *begin );
-
-		size_t len = std::distance( begin, end );
-		switch ( len )
+		V accumulator = {};
+		int n = ( ( int ) std::size( container ) ) - 1;
+		int i = 0;
+		float ti = powf( 1 - t, n );
+		float ts = t / ( 1 - t );
+		for ( const V& point : container )
 		{
-			case 0:  return V{};
-			case 1:  return *begin;
-			case 2:  return beizer( t, *begin, *std::next( begin ) );
-			default: return beizer( t, beizer_rec( t, begin, std::prev( end ) ), beizer_rec( t, std::next( begin ), end ) );
+			accumulator += ti * point;
+			ti *= ts;
+			ti *= n - i;
+			ti /= i + 1;
 		}
+		return accumulator;
 	}
 };
 inline constexpr float operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
