@@ -1121,9 +1121,9 @@ namespace xstd::math
 		if ( dotv < 0.999f )
 		{
 			float theta = acosf( dotv );
-			float stheta = fsin( theta );
-			t2 = fsin( theta * t2 ) / stheta;
-			t =  fsin( theta * t )  / stheta;
+			float rstheta = 1.0f / fsin( theta );
+			t2 = fsin( theta * t2 ) * rstheta;
+			t =  fsin( theta * t )  * rstheta;
 		}
 		return t2 * q1 + t * q2;
 	}
@@ -1464,8 +1464,8 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr V beizer_dyn( float t, C&& container )
 	{
 		V accumulator = {};
-		int n = ( ( int ) std::size( container ) ) - 1;
-		int i = 0;
+		float n = ( ( int ) std::size( container ) ) - 1;
+		float i = 0;
 		float tx = 1;
 		float ti = 1 / ( 1 - t );
 		float ts = t * ti;
