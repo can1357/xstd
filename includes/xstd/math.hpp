@@ -1413,17 +1413,17 @@ namespace xstd::math
 	{
 		if ( std::is_constant_evaluated() || is_consteval( i ) )
 		{
-			int r = 1;
-			for ( int it = 2; it <= i; it++ )
-				r *= it;
-			return float( r );
+			if ( i >= 0 )
+			{
+				int r = 1;
+				for ( int it = 2; it <= i; it++ )
+					r *= it;
+				return float( r );
+			}
 		}
-		else
-		{
-			return tgammaf( i + 1 );
-		}
+		return tgammaf( i + 1 );
 	}
-	template<int I, typename V>
+	template<size_t I, typename V>
 	CONST_FN FORCE_INLINE inline constexpr V const_pow( V value )
 	{
 		if constexpr ( I == 0 )
@@ -1435,17 +1435,17 @@ namespace xstd::math
 		V tmp = const_pow<I / 2>( value );
 		return tmp * tmp;
 	}
-	template<int N, int I>
+	template<size_t N, size_t I>
 	inline constexpr float binomial_coefficient_v = ffactorial( N ) / ( ffactorial( I ) * ffactorial( N - I ) );
 
 	// Implement the beizer calculation.
 	//
 	namespace impl
 	{
-		template<int N, typename Vec, typename... Vx>
+		template<size_t N, typename Vec, typename... Vx>
 		FORCE_INLINE inline constexpr Vec beizer_helper( const Vec& ti, const Vec& ts, const Vec& pi, const Vx&... px )
 		{
-			constexpr int I = N - sizeof...( Vx );
+			constexpr size_t I = N - sizeof...( Vx );
 			Vec acc = binomial_coefficient_v<N, I> * ti * pi;
 			if constexpr ( I == N )
 				return acc;
@@ -1466,16 +1466,18 @@ namespace xstd::math
 		V accumulator = {};
 		int n = ( ( int ) std::size( container ) ) - 1;
 		int i = 0;
-		float ti = powf( 1 - t, n );
-		float ts = t / ( 1 - t );
+		float tx = 1;
+		float ti = 1 / ( 1 - t );
+		float ts = t * ti;
 		for ( const V& point : container )
 		{
 			accumulator += ti * point;
 			ti *= ts;
 			ti *= n - i;
 			ti /= ++i;
+			tx *= ( 1 - t );
 		}
-		return accumulator;
+		return accumulator * tx;
 	}
 };
 inline constexpr float operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
