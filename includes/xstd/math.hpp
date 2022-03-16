@@ -7,10 +7,10 @@
 
 // [[Configuration]]
 // XSTD_MATH_USE_X86INTRIN: If set, enabled optimization using intrinsics if not constexpr.
-// XSTD_MATH_USE_POLYSINCOS: If set, uses sin/cos approximations instead of libc.
+// XSTD_MATH_USE_POLY_TRIG: If set, uses sin/cos approximations instead of libc.
 //
-#ifndef XSTD_MATH_USE_POLYSINCOS
-	#define XSTD_MATH_USE_POLYSINCOS 1
+#ifndef XSTD_MATH_USE_POLY_TRIG
+	#define XSTD_MATH_USE_POLY_TRIG 1
 #endif
 #ifndef XSTD_MATH_USE_X86INTRIN
 	#if AMD64_TARGET && CLANG_COMPILER
@@ -168,7 +168,7 @@ namespace xstd::math
 		{
 			float x2 = x1 * x1;
 			// Degree 12, E(X) = 3.35e-12
-			return 0.99999999999664497762294088303450344 + x2 * ( -0.499999999904093446864749737540127153 + x2 * ( 0.0416666661919898461055893453767336909 + x2 * ( -0.00138888797032770920681384355560203468 + x2 * ( 0.0000248007136556145113256051130495176344 + x2 * ( -2.75135611164571371141959208910569516e-7 + 1.97644182995841772799444848310451781e-9 * x2 ) ) ) ) );;
+			return 0.99999999999664497762294088303450344 + x2 * ( -0.499999999904093446864749737540127153 + x2 * ( 0.0416666661919898461055893453767336909 + x2 * ( -0.00138888797032770920681384355560203468 + x2 * ( 0.0000248007136556145113256051130495176344 + x2 * ( -2.75135611164571371141959208910569516e-7 + 1.97644182995841772799444848310451781e-9 * x2 ) ) ) ) );
 		}
 		FORCE_INLINE inline constexpr std::pair<float, float> fsincos_poly( float x )
 		{
@@ -191,13 +191,13 @@ namespace xstd::math
 
 	FORCE_INLINE inline constexpr float fsin( float x )
 	{
-		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::fsincos_poly( x ).first;
 		return _fsin( x );
 	}
 	FORCE_INLINE inline constexpr float fcos( float x )
 	{
-		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::fsincos_poly( x ).second;
 		return _fcos( x );
 	}
@@ -212,15 +212,11 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline constexpr std::pair<float, float> fsincos( float x )
 	{
-		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLYSINCOS )
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::fsincos_poly( x );
 
-		float c = fcos( x );
-		float s = fsqrt( 1 - c * c );
-		x *= ( 1.0f / ( 2 * pi ) );
-		x = x - ftrunc( x );
-		x = ( x * ( 0.5f - fabsf( x ) ) );
-		s = fcopysign( s, x );
+		float s = fsin( x );
+		float c = fcopysign( fsqrt( 1 - s * s ), foddsgn( fround( fabs( x ) / pi ) ) );
 		return { s, c };
 	}
 
