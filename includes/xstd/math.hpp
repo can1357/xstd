@@ -1199,8 +1199,9 @@ namespace xstd::math
 		}
 		return res;
 	}
-	FORCE_INLINE inline quaternion matrix_to_quaternion( const mat4x4& mat )
+	FORCE_INLINE inline quaternion matrix_to_quaternion( const mat4x4& umat )
 	{
+		mat4x4 mat = matrix_normalize( umat );
 		float trace = mat( 0, 0 ) + mat( 1, 1 ) + mat( 2, 2 ) + 1.0f;
 		if ( trace > 1.0f )
 		{
@@ -1245,7 +1246,7 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline vec3 matrix_to_direction( const mat4x4& mat )
 	{
-		return matrix_to_forward( mat );
+		return normalize( matrix_to_forward( mat ) );
 	}
 
 	// Direction to Euler/Quaternion/Matrix.
@@ -1254,9 +1255,9 @@ namespace xstd::math
 	{
 		vec4 up_vec =    {  0, 1, 0, 0 };
 		vec4 right_vec = { -1, 0, 0, 0 };
-		vec4 dir_vec =    vec4::from( direction, 0 );
+		vec4 dir_vec =   normalize( vec4::from( direction, 0 ) );
 
-		if ( ( direction.x * direction.x + direction.y * direction.y ) > 2 * flt_eps )
+		if ( ( direction.x * direction.x + direction.y * direction.y ) > 1e-5f )
 		{
 			vec3 up_vec3 =    cross( up, direction );
 			vec3 right_vec3 = cross( direction, up_vec3 );
@@ -1265,7 +1266,7 @@ namespace xstd::math
 		}
 
 		return {
-			normalize( dir_vec ),
+			dir_vec,
 			normalize( up_vec ),
 			normalize( right_vec ),
 			vec4{ 0, 0, 0, 1 },
