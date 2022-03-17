@@ -484,17 +484,17 @@ namespace xstd
 	//  - _v version takes a reference to a string view and erases the relevant part.
 	//
 	template<typename T = uint64_t, typename C> requires ( Integral<T> || FloatingPoint<T> )
-	static constexpr T parse_number_v( std::basic_string_view<C>& view, int default_base = 10 )
+	inline constexpr T parse_number_v( std::basic_string_view<C>& view, int default_base = 10, T default_value = {} )
 	{
 		using I = std::conditional_t<Unsigned<T>, convert_int_t<T>, T>;
-		if ( view.empty() ) return 0;
+		if ( view.empty() ) return default_value;
 		
 		// Parse the sign.
 		//
-		I sign = +1;
+		bool sign = false;
 		if ( view.front() == '-' )
 		{
-			sign = -1;
+			sign = true;
 			view.remove_prefix( 1 );
 		}
 		else if ( view.front() == '+' )
@@ -505,7 +505,7 @@ namespace xstd
 		// Find out the mode.
 		//
 		int base = default_base;
-		if ( view.size() >= 2 )
+		if ( view.size() >= 2 && Integral<T> )
 		{
 			if ( view[ 0 ] == '0' && cxlower( view[ 1 ] ) == 'x' )
 				base = 16, view.remove_prefix( 2 );
@@ -516,7 +516,7 @@ namespace xstd
 		// Declare digit parser.
 		//
 		T value = 0;
-		auto parse_digit = [ hex = ( base == 16 ) ] ( char c ) -> std::optional<int>
+		auto parse_digit = [ hex = ( base == 16 ) ] ( char c ) FORCE_INLINE -> std::optional<int>
 		{
 			if ( '0' <= c && c <= '9' )
 				return c - '0';
@@ -542,14 +542,15 @@ namespace xstd
 					view.remove_prefix( 1 );
 
 					T mantissa = 0;
+					T mbase = 0.1f;
 					while ( !view.empty() )
 					{
-						auto v = parse_digit( view.back() );
+						auto v = parse_digit( view.front() );
 						if ( !v ) [[unlikely]]
 							break;
-						mantissa += *v;
-						mantissa /= base;
-						view.remove_suffix( 1 );
+						mantissa += mbase * *v;
+						mbase *= 0.1f;
+						view.remove_prefix( 1 );
 					}
 					value += mantissa;
 				}
@@ -564,13 +565,13 @@ namespace xstd
 			value += *v;
 			view.remove_prefix( 1 );
 		}
-		return value * sign;
+		return sign ? -value : value;
 	}
 	template<typename T = uint64_t, String S1 = std::string_view> requires ( Integral<T> || FloatingPoint<T> )
-	static constexpr T parse_number( S1&& str, int default_base = 10 )
+	inline constexpr T parse_number( S1&& str, int default_base = 10, T default_value = {} )
 	{
 		string_view_t<S1> view{ str };
-		return parse_number_v<T, string_unit_t<S1>>( view, default_base );
+		return parse_number_v<T, string_unit_t<S1>>( view, default_base, default_value );
 	}
 };
 
