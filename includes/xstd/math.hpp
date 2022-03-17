@@ -1459,10 +1459,12 @@ namespace xstd::math
 			return 1;
 		else if constexpr ( I == 1 )
 			return value;
-		else if constexpr ( ( I & 1 ) != 0 )
+		else if constexpr ( ( I % 3 ) == 0 )
+			return const_pow<I / 3>( value * value * value );
+		else if constexpr ( ( I % 2 ) == 0 )
+			return const_pow<I / 2>( value * value );
+		else
 			return const_pow<I - 1>( value ) * value;
-		V tmp = const_pow<I / 2>( value );
-		return tmp * tmp;
 	}
 	template<size_t N, size_t I>
 	inline constexpr float binomial_coefficient_v = ffactorial( N ) / ( ffactorial( I ) * ffactorial( N - I ) );
