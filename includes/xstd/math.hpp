@@ -816,9 +816,33 @@ namespace xstd::math
 			r += m[ 3 ] * v.w;
 			return r;
 		}
+		FORCE_INLINE inline constexpr vec4 apply_no_w( const vec4& v ) const noexcept
+		{
+#if XSTD_MATH_USE_X86INTRIN
+			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
+			{
+				auto one_filled = xvec<float, 4>::broadcast( 1.0f );
+				auto xyzw = v.to_xvec();
+				__m256 vxy = xyzw.template shuffle<0, 0, 0, 0, 1, 1, 1, 1>( xyzw )._nat;
+				__m256 vzw = xyzw.template shuffle<2, 2, 2, 2, 4, 4, 4, 4>( one_filled )._nat;
+
+				__m256 vrlh = _mm256_mul_ps( vxy, _mm256_loadu_ps( ( const float* ) &m[ 0 ] ) );
+				vrlh = _mm256_fmadd_ps( vzw, _mm256_loadu_ps( ( const float* ) &m[ 2 ] ), vrlh );
+
+				auto vrl = _mm256_extractf128_ps( vrlh, 0 );
+				auto vrh = _mm256_extractf128_ps( vrlh, 1 );
+				return vec4::from_xvec( xvec<float, 4>{ std::in_place_t{}, _mm_add_ps( vrl, vrh ) } );
+			}
+#endif
+			auto r = m[ 0 ] * v.x;
+			r += m[ 1 ] * v.y;
+			r += m[ 2 ] * v.z;
+			r += m[ 3 ];
+			return r;
+		}
 		FORCE_INLINE inline constexpr vec3 operator*( const vec3& v ) const noexcept
 		{
-			return ( *this * vec4::from( v, 1 ) ).xyz();
+			return apply_no_w( vec4::from_xvec( v.to_xvec() ) ).xyz();
 		}
 
 		// Offset by scalar.
