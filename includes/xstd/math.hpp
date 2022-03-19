@@ -821,10 +821,10 @@ namespace xstd::math
 #if XSTD_MATH_USE_X86INTRIN
 			if ( !std::is_constant_evaluated() && !xstd::is_consteval( *this ) )
 			{
-				auto one_filled = xvec<float, 4>::broadcast( 1.0f );
+				xvec<float, 4> one{ 1.0f };
 				auto xyzw = v.to_xvec();
 				__m256 vxy = xyzw.template shuffle<0, 0, 0, 0, 1, 1, 1, 1>( xyzw )._nat;
-				__m256 vzw = xyzw.template shuffle<2, 2, 2, 2, 4, 4, 4, 4>( one_filled )._nat;
+				__m256 vzw = xyzw.template shuffle<2, 2, 2, 2, 4, 4, 4, 4>( one )._nat;
 
 				__m256 vrlh = _mm256_mul_ps( vxy, _mm256_loadu_ps( ( const float* ) &m[ 0 ] ) );
 				vrlh = _mm256_fmadd_ps( vzw, _mm256_loadu_ps( ( const float* ) &m[ 2 ] ), vrlh );
