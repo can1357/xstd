@@ -1400,7 +1400,7 @@ namespace xstd::math
 		mat[ 0 ] *= scale.x;
 		mat[ 1 ] *= scale.y;
 		mat[ 2 ] *= scale.z;
-		mat[ 3 ] += vec4::from( translation, 0 );
+		mat[ 3 ] = vec4::from( translation, 1 );
 		return mat;
 	}
 
