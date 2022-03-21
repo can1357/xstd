@@ -1456,8 +1456,60 @@ namespace xstd::math
 		out[ 3 ][ 3 ] = 1.0f;
 		return out;
 	}
+
+
+	// 1->0 Depth, infinitely far.
+	//
 	template<bool LeftHanded = true>
-	FORCE_INLINE inline constexpr mat4x4 perspective_tan_fov_xy( float tfx, float tfy, float zn, float zf )
+	FORCE_INLINE inline constexpr mat4x4 perspective_projection_rz( float tfx, float tfy, float zn )
+	{
+		constexpr float m = LeftHanded ? 1 : -1;
+		mat4x4 out = mat4x4::identity();
+		out[ 0 ][ 0 ] = 1.0f / tfx;
+		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 2 ][ 2 ] = 0.0f;
+		out[ 2 ][ 3 ] = m * 1.0f;
+		out[ 3 ][ 2 ] = zn;
+		out[ 3 ][ 3 ] = 0.0f;
+		return out;
+	}
+
+	// 1->0 Depth, far clipped.
+	//
+	template<bool LeftHanded = true>
+	FORCE_INLINE inline constexpr mat4x4 perspective_projection_rz( float tfx, float tfy, float zn, float zf )
+	{
+		constexpr float m = LeftHanded ? 1 : -1;
+		mat4x4 out = mat4x4::identity();
+		out[ 0 ][ 0 ] = 1.0f / tfx;
+		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 2 ][ 2 ] = m * -zn / ( zf - zn );
+		out[ 2 ][ 3 ] = m * 1.0f;
+		out[ 3 ][ 2 ] = ( zf * zn ) / ( zf - zn );
+		out[ 3 ][ 3 ] = 0.0f;
+		return out;
+	}
+
+	// 0->1 Depth, infinitely far.
+	//
+	template<bool LeftHanded = true>
+	FORCE_INLINE inline constexpr mat4x4 perspective_projection( float tfx, float tfy, float zn )
+	{
+		constexpr float m = LeftHanded ? 1 : -1;
+		mat4x4 out = mat4x4::identity();
+		out[ 0 ][ 0 ] = 1.0f / tfx;
+		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 2 ][ 2 ] = m * 1.0f;
+		out[ 2 ][ 3 ] = m * 1.0f;
+		out[ 3 ][ 2 ] = -zn;
+		out[ 3 ][ 3 ] = 0.0f;
+		return out;
+	}
+
+	// 0->1 Depth, far clipped.
+	//
+	template<bool LeftHanded = true>
+	FORCE_INLINE inline constexpr mat4x4 perspective_projection( float tfx, float tfy, float zn, float zf )
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 		mat4x4 out = mat4x4::identity();
@@ -1465,21 +1517,9 @@ namespace xstd::math
 		out[ 1 ][ 1 ] = 1.0f / tfy;
 		out[ 2 ][ 2 ] = m * zf / ( zf - zn );
 		out[ 2 ][ 3 ] = m * 1.0f;
-		out[ 3 ][ 2 ] = ( zf * zn ) / ( zn - zf );
+		out[ 3 ][ 2 ] = -( zf * zn ) / ( zf - zn );
 		out[ 3 ][ 3 ] = 0.0f;
 		return out;
-	}
-	template<bool LeftHanded = true>
-	FORCE_INLINE inline constexpr mat4x4 perspective_fov_x( float fov, float aspect, float zn, float zf )
-	{
-		float t = ftan( fov / 2.0f );
-		return perspective_tan_fov_xy<LeftHanded>( t, aspect * t, zn, zf );
-	}
-	template<bool LeftHanded = true>
-	FORCE_INLINE inline constexpr mat4x4 perspective_fov_y( float fov, float aspect, float zn, float zf )
-	{
-		float t = ftan( fov / 2.0f );
-		return perspective_tan_fov_xy<LeftHanded>( aspect * t, t, zn, zf );
 	}
 
 	// Factorial, fast power and binomial helpers for beizer implementation.
