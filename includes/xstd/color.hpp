@@ -321,9 +321,9 @@ namespace xstd
 		// Effectively lower HSV.S.
 		//
 		float fmax = std::max<float>( { fr, fg, fb } );
-		fr = fmax - ( ( fmax - fr ) * ( 1.0f - perc ) );
-		fg = fmax - ( ( fmax - fg ) * ( 1.0f - perc ) );
-		fb = fmax - ( ( fmax - fb ) * ( 1.0f - perc ) );
+		fr = fr + ( fmax - fr ) * perc;
+		fg = fg + ( fmax - fg ) * perc;
+		fb = fb + ( fmax - fb ) * perc;
 
 		rcol.r = ( uint8_t ) fr;
 		rcol.g = ( uint8_t ) fg;
