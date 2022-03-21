@@ -141,6 +141,8 @@ namespace xstd::math
 	}
 	CONST_FN FORCE_INLINE inline constexpr float foddsgn( float x )
 	{
+		if ( std::is_constant_evaluated() )
+			return ( int64_t( x ) % 2 ) ? -1.0f : 1.0f;
 		x *= 0.5f;
 		return x - fceil( x );
 	}
@@ -160,12 +162,24 @@ namespace xstd::math
 		// - https://gist.github.com/publik-void/067f7f2fef32dbe5c27d6e215f824c91#file-sin-cos-approximations-gist-adoc
 		CONST_FN FORCE_INLINE inline constexpr float fsin_poly_hpi( float x1 )
 		{
+			if ( std::is_constant_evaluated() )
+			{
+				if ( ( x1 - 1e-4 ) <= 0 ) return 0.0f;
+				if ( ( x1 + 1e-4 ) >= ( pi / 2 ) ) return 1.0f;
+			}
+
 			float x2 = x1 * x1;
 			// Degree 11, E(X) = 1.92e-11
 			return x1 * ( 0.99999999997884898600402426033768998f + x2 * ( -0.166666666088260696413164261885310067f + x2 * ( 0.00833333072055773645376566203656709979f + x2 * ( -0.000198408328232619552901560108010257242f + x2 * ( 2.75239710746326498401791551303359689e-6f - 2.3868346521031027639830001794722295e-8f * x2 ) ) ) ) );
 		}
 		CONST_FN FORCE_INLINE inline constexpr float fcos_poly_hpi( float x1 )
 		{
+			if ( std::is_constant_evaluated() )
+			{
+				if ( ( x1 - 1e-4 ) <= 0 ) return 1.0f;
+				if ( ( x1 + 1e-4 ) >= ( pi / 2 ) ) return 0.0f;
+			}
+
 			float x2 = x1 * x1;
 			// Degree 12, E(X) = 3.35e-12
 			return 0.99999999999664497762294088303450344f + x2 * ( -0.499999999904093446864749737540127153f + x2 * ( 0.0416666661919898461055893453767336909f + x2 * ( -0.00138888797032770920681384355560203468f + x2 * ( 0.0000248007136556145113256051130495176344f + x2 * ( -2.75135611164571371141959208910569516e-7f + 1.97644182995841772799444848310451781e-9f * x2 ) ) ) ) );
@@ -1091,20 +1105,23 @@ namespace xstd::math
 
 		mat4x4 out;
 		out[ 0 ][ 0 ] = cdiff * axis.x * axis.x + cangle;
-		out[ 1 ][ 0 ] = cdiff * axis.x * axis.y - sangle * axis.z;
-		out[ 2 ][ 0 ] = cdiff * axis.x * axis.z + sangle * axis.y;
-		out[ 3 ][ 0 ] = 0.0f;
 		out[ 0 ][ 1 ] = cdiff * axis.y * axis.x + sangle * axis.z;
-		out[ 1 ][ 1 ] = cdiff * axis.y * axis.y + cangle;
-		out[ 2 ][ 1 ] = cdiff * axis.y * axis.z - sangle * axis.x;
-		out[ 3 ][ 1 ] = 0.0f;
 		out[ 0 ][ 2 ] = cdiff * axis.z * axis.x - sangle * axis.y;
-		out[ 1 ][ 2 ] = cdiff * axis.z * axis.y + sangle * axis.x;
-		out[ 2 ][ 2 ] = cdiff * axis.z * axis.z + cangle;
-		out[ 3 ][ 2 ] = 0.0f;
 		out[ 0 ][ 3 ] = 0.0f;
+
+		out[ 1 ][ 0 ] = cdiff * axis.x * axis.y - sangle * axis.z;
+		out[ 1 ][ 1 ] = cdiff * axis.y * axis.y + cangle;
+		out[ 1 ][ 2 ] = cdiff * axis.z * axis.y + sangle * axis.x;
 		out[ 1 ][ 3 ] = 0.0f;
+
+		out[ 2 ][ 0 ] = cdiff * axis.x * axis.z + sangle * axis.y;
+		out[ 2 ][ 1 ] = cdiff * axis.y * axis.z - sangle * axis.x;
+		out[ 2 ][ 2 ] = cdiff * axis.z * axis.z + cangle;
 		out[ 2 ][ 3 ] = 0.0f;
+
+		out[ 3 ][ 0 ] = 0.0f;
+		out[ 3 ][ 1 ] = 0.0f;
+		out[ 3 ][ 2 ] = 0.0f;
 		out[ 3 ][ 3 ] = 1.0f;
 		return out;
 	}
@@ -1131,11 +1148,8 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr vec4 rotate_by( const vec4& v, const mat4x4& m ) { return m * v; }
 	FORCE_INLINE inline constexpr vec3 rotate_by( const vec3& v, const quaternion& q )
 	{
-		vec3 u{ q.x, q.y, q.z };
-		return 
-			u * 2.0f * dot( u, v ) + 
-			v * ( q.w * q.w - dot( u, u ) ) + 
-			cross( u, v ) * 2.0f * q.w;
+		vec3 t = cross( q.xyz(), v ) * 2;
+		return v + t * q.w + cross( q.xyz(), t );
 	}
 
 	// Translation and scaling matrices.
