@@ -611,6 +611,13 @@ namespace xstd::math
 			FORCE_INLINE inline constexpr auto operator<=>( const vec4_t& ) const noexcept = default;
 			FORCE_INLINE inline constexpr T length_sq() const noexcept { return dot( *this, *this ); }
 			FORCE_INLINE inline float length() const noexcept { return fsqrt( length_sq() ); }
+
+			template<int A, int B, int C, int D>
+			FORCE_INLINE inline constexpr vec4_t shuffle( const vec4_t& o ) const noexcept { return from_xvec( to_xvec().template shuffle<A, B, C, D>( o.to_xvec() ) ); }
+			template<int A, int B, int C, int D>
+			FORCE_INLINE inline constexpr vec4_t shuffle( const vec3_t<T>& o ) const noexcept { return from_xvec( to_xvec().template shuffle<A, B, C, D>( o.to_xvec() ) ); }
+			template<int A, int B, int C, int D>
+			FORCE_INLINE inline constexpr vec4_t shuffle( const vec2_t<T>& o ) const noexcept { return from_xvec( to_xvec().template shuffle<A, B, C, D>( o.to_xvec() ) ); }
 		};
 	};
 
