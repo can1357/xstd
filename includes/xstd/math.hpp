@@ -1005,7 +1005,6 @@ namespace xstd::math
 	//
 	inline constexpr mat4x4 inverse( const mat4x4& m, float& det )
 	{
-
 #if XSTD_MATH_USE_X86INTRIN
 		if ( !std::is_constant_evaluated() && !is_consteval( m ) )
 		{
