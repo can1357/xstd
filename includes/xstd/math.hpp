@@ -35,7 +35,7 @@ namespace xstd::math
 	namespace impl
 	{
 		template<typename V>
-		FORCE_INLINE static void load_matrix( const std::array<V, 4>& src, __m256& v01, __m256& v23 )
+		FORCE_INLINE static void load_matrix( const V( &src )[ 4 ], __m256& v01, __m256& v23 )
 		{
 			v01 = _mm256_loadu_ps( &src[ 0 ][ 0 ] );
 			v23 = _mm256_loadu_ps( &src[ 2 ][ 0 ] );
@@ -306,7 +306,7 @@ namespace xstd::math
 	namespace impl
 	{
 		template<typename T>
-		struct vec2_t
+		struct TRIVIAL_ABI vec2_t
 		{
 			using key_type = size_t;
 			using value_type = T;
@@ -393,7 +393,7 @@ namespace xstd::math
 			FORCE_INLINE inline float length() const noexcept { return fsqrt( length_sq() ); }
 		};
 		template<typename T>
-		struct vec3_t
+		struct TRIVIAL_ABI vec3_t
 		{
 			using key_type = size_t;
 			using value_type = T;
@@ -496,7 +496,7 @@ namespace xstd::math
 			FORCE_INLINE inline float length() const noexcept { return fsqrt( length_sq() ); }
 		};
 		template<typename T>
-		struct vec4_t
+		struct TRIVIAL_ABI vec4_t
 		{
 			using key_type = size_t;
 			using value_type = T;
@@ -701,12 +701,12 @@ namespace xstd::math
 
 	// Define matrix type.
 	//
-	struct mat4x4
+	struct TRIVIAL_ABI mat4x4
 	{
 		using key_type =   size_t;
 		using value_type = vec4;
 
-		std::array<vec4, 4> m = { vec4{} };
+		vec4 m[ 4 ] = { vec4{} };
 
 		// Default construction.
 		//
