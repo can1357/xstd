@@ -153,6 +153,38 @@ namespace xstd::math
 		else
 			return bit_cast< float >( bit_cast< int32_t >( x ) ^ bit_cast< int32_t >( y ) );
 	}
+	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b )
+	{
+#if __has_builtin(__builtin_fminf)
+		if ( !std::is_constant_evaluated() )
+			return __builtin_fminf( a, b );
+#endif
+		if ( b < a ) a = b;
+		return a;
+	}
+	CONST_FN FORCE_INLINE inline constexpr float fmax( float a, float b )
+	{
+#if __has_builtin(__builtin_fminf)
+		if ( !std::is_constant_evaluated() )
+			return __builtin_fmaxf( a, b );
+#endif
+		if ( a < b ) a = b;
+		return a;
+	}
+	CONST_FN FORCE_INLINE inline constexpr float fclamp( float v, float vmin, float vmax )
+	{
+		return fmin( fmax( v, vmin ), vmax );
+	}
+	template<typename... Tx>
+	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b, float c, Tx... rest )
+	{
+		return fmin( fmin( a, b ), c, rest... );
+	}
+	template<typename... Tx>
+	CONST_FN FORCE_INLINE inline constexpr float fmax( float a, float b, float c, Tx... rest )
+	{
+		return fmax( fmax( a, b ), c, rest... );
+	}
 	
 	// Implement fast polynomial approximations of sin and cos.
 	//
@@ -232,35 +264,6 @@ namespace xstd::math
 		float s = fsin( x );
 		float c = fcopysign( fsqrt( 1 - s * s ), foddsgn( fround( fabs( x ) / pi ) ) );
 		return { s, c };
-	}
-
-	// Implement non-referencing min/max/clamp.
-	//
-	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b )
-	{
-		if ( b < a ) a = b;
-		return a;
-	}
-	CONST_FN FORCE_INLINE inline constexpr float fmax( float a, float b )
-	{
-		if ( a < b ) a = b;
-		return a;
-	}
-	CONST_FN FORCE_INLINE inline constexpr float fclamp( float v, float vmin, float vmax )
-	{
-		if ( v < vmin ) v = vmin;
-		if ( v > vmax ) v = vmax;
-		return v;
-	}
-	template<typename... Tx>
-	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b, float c, Tx... rest )
-	{
-		return fmin( fmin( a, b ), c, rest... );
-	}
-	template<typename... Tx>
-	CONST_FN FORCE_INLINE inline constexpr float fmax( float a, float b, float c, Tx... rest )
-	{
-		return fmax( fmax( a, b ), c, rest... );
 	}
 
 	// Common vector operations with accceleration.
