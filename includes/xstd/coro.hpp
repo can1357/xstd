@@ -264,7 +264,7 @@ namespace xstd
 
 // Clang requires coroutine_traits under std::experimental.
 //
-#if CLANG_COMPILER
+#if CLANG_COMPILER && __clang_major__ < 14
 namespace std::experimental 
 { 
 	template<typename Promise = void>
