@@ -191,7 +191,7 @@ namespace xstd
 
 #if CLANG_COMPILER
 	#ifndef __INTELLISENSE__
-		#define _intn(n) unsigned _ExtInt(n), _ExtInt(n)
+		#define _intn(n) unsigned _BitInt(n), _BitInt(n)
 	#else
 		#define _intn(n) uint32_t, int32_t
 	#endif

@@ -486,7 +486,6 @@ namespace xstd
 	template<typename T = uint64_t, typename C> requires ( Integral<T> || FloatingPoint<T> )
 	inline constexpr T parse_number_v( std::basic_string_view<C>& view, int default_base = 10, T default_value = {} )
 	{
-		using I = std::conditional_t<Unsigned<T>, convert_int_t<T>, T>;
 		if ( view.empty() ) return default_value;
 		
 		// Parse the sign.
