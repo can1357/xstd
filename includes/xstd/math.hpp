@@ -634,11 +634,46 @@ namespace xstd::math
 
 	// Implement certain float funcs for vectors as well.
 	//
-	FORCE_INLINE inline constexpr vec4 vec_abs( const vec4& vec ) { return { fabs( vec.x ), fabs( vec.y ), fabs( vec.z ), fabs( vec.w ) }; }
-	FORCE_INLINE inline constexpr vec4 vec_ceil( const vec4& vec ) { return { fceil( vec.x ), fceil( vec.y ), fceil( vec.z ), fceil( vec.w ) }; }
-	FORCE_INLINE inline constexpr vec4 vec_floor( const vec4& vec ) { return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ), ffloor( vec.w ) }; }
-	FORCE_INLINE inline constexpr vec4 vec_round( const vec4& vec ) { return { fround( vec.x ), fround( vec.y ), fround( vec.z ), fround( vec.w ) }; }
-	FORCE_INLINE inline constexpr vec4 vec_trunc( const vec4& vec ) { return { ftrunc( vec.x ), ftrunc( vec.y ), ftrunc( vec.z ), ftrunc( vec.w ) }; }
+	FORCE_INLINE inline constexpr vec4 vec_abs( const vec4& vec )
+	{
+#if __has_vector_builtin(__builtin_elementwise_abs)
+		if ( !std::is_constant_evaluated() )
+			return vec4::from_xvec( xvec<float, 4>{ std::in_place, __builtin_elementwise_abs( vec.to_xvec()._nat ) } );
+#endif
+		return { fabs( vec.x ), fabs( vec.y ), fabs( vec.z ), fabs( vec.w ) };
+	}
+	FORCE_INLINE inline constexpr vec4 vec_ceil( const vec4& vec )
+	{
+#if __has_vector_builtin(__builtin_elementwise_ceil)
+		if ( !std::is_constant_evaluated() )
+			return vec4::from_xvec( xvec<float, 4>{ std::in_place, __builtin_elementwise_ceil( vec.to_xvec()._nat ) } );
+#endif
+		return { fceil( vec.x ), fceil( vec.y ), fceil( vec.z ), fceil( vec.w ) };
+	}
+	FORCE_INLINE inline constexpr vec4 vec_floor( const vec4& vec )
+	{
+#if __has_vector_builtin(__builtin_elementwise_floor)
+		if ( !std::is_constant_evaluated() )
+			return vec4::from_xvec( xvec<float, 4>{ std::in_place, __builtin_elementwise_floor( vec.to_xvec()._nat ) } );
+#endif
+		return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ), ffloor( vec.w ) };
+	}
+	FORCE_INLINE inline constexpr vec4 vec_round( const vec4& vec )
+	{
+#if __has_vector_builtin(__builtin_elementwise_roundeven)
+		if ( !std::is_constant_evaluated() )
+			return vec4::from_xvec( xvec<float, 4>{ std::in_place, __builtin_elementwise_roundeven( vec.to_xvec()._nat ) } );
+#endif
+		return { fround( vec.x ), fround( vec.y ), fround( vec.z ), fround( vec.w ) };
+	}
+	FORCE_INLINE inline constexpr vec4 vec_trunc( const vec4& vec )
+	{
+#if __has_vector_builtin(__builtin_elementwise_trunc)
+		if ( !std::is_constant_evaluated() )
+			return vec4::from_xvec( xvec<float, 4>{ std::in_place, __builtin_elementwise_trunc( vec.to_xvec()._nat ) } );
+#endif
+		return { ftrunc( vec.x ), ftrunc( vec.y ), ftrunc( vec.z ), ftrunc( vec.w ) };
+	}
 	FORCE_INLINE inline vec4 vec_sqrt( const vec4& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
 
 	FORCE_INLINE inline constexpr vec3 vec_abs( const vec3& vec ) { return vec_abs( vec4::from( vec, 0 ) ).xyz(); }
