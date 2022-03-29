@@ -3,6 +3,7 @@
 #include "hashable.hpp"
 #include "utf.hpp"
 #include "xvector.hpp"
+#include "fnv.hpp"
 
 namespace xstd
 {

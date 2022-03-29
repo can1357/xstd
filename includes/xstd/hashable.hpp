@@ -5,7 +5,7 @@
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
 #include "formatting.hpp"
-#include "fnv64.hpp"
+#include "fnv.hpp"
 #include "crc.hpp"
 #include "shared.hpp"
 #include "ref_counted.hpp"
@@ -15,8 +15,7 @@
 //
 #ifndef XSTD_DEFAULT_HASHER
 	#if XSTD_HW_CRC32C
-		namespace xstd { using xcrc = typename xstd::crc32c::rebind<0x7b1faccd>::type; };
-		#define XSTD_DEFAULT_HASHER xstd::xcrc;
+		#define XSTD_DEFAULT_HASHER xstd::xcrc
 	#else
 		#define XSTD_DEFAULT_HASHER xstd::fnv64
 	#endif

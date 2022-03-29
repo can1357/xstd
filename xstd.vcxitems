@@ -51,7 +51,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\file.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\file_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\finally.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\formatting.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\function_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\guid.hpp" />

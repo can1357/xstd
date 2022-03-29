@@ -124,7 +124,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv64.hpp">
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fnv.hpp">
       <Filter>Algorithms</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp">

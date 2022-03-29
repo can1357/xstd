@@ -189,6 +189,10 @@ namespace xstd
 	using crc64 =    crc<uint64_t, int64_t, 0xD800000000000000, 0>;
 	using crc64xz =  crc<uint64_t, int64_t, 0xC96C5795D7870F42, 0>;
 
+	// Our implementation.
+	//
+	using xcrc =     typename xstd::crc32c::rebind<0x7b1faccd>::type;
+
 #if CLANG_COMPILER
 	#ifndef __INTELLISENSE__
 		#if __clang_major__ < 14
@@ -215,6 +219,6 @@ namespace std
 	template<typename U, typename I, U rpoly, U seed>
 	struct hash<xstd::crc<U, I, rpoly, seed>>
 	{
-		size_t operator()( const xstd::crc<U, I, rpoly, seed>& value ) const { return ( size_t ) value.as64(); }
+		constexpr size_t operator()( const xstd::crc<U, I, rpoly, seed>& value ) const { return ( size_t ) value.as64(); }
 	};
 };

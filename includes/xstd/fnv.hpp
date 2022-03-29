@@ -9,33 +9,32 @@
 
 namespace xstd
 {
-	// Defines a 64-bit hash type based on FNV-1.
+	// Defines a generic FNV-1A hasher.
 	//
-	struct fnv64
+	template<typename V, V Seed, V Prime>
+	struct fnv1a
 	{
-		// Magic constants for 64-bit FNV-1.
-		//
-		using value_type = uint64_t;
-		static constexpr uint64_t default_seed = { 0xCBF29CE484222325 };
-		static constexpr uint64_t prime =        { 0x00000100000001B3 };
+		using value_type = V;
+		static constexpr V default_seed = Seed;
+		static constexpr V prime =        Prime;
 
 		// Current value of the hash.
 		//
-		uint64_t value;
+		V value;
 
 		// Construct a new hash from an optional seed of 64-bit value.
 		//
-		constexpr fnv64( uint64_t seed64 = default_seed ) noexcept
-			: value{ seed64 } {}
+		constexpr fnv1a( uint64_t seed64 = default_seed ) noexcept
+			: value{ V( seed64 ) } {}
 
 		// Appends the given array of bytes into the hash value.
 		//
 		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
-			uint64_t tmp = value;
+			V tmp = value;
 			while( n-- )
 			{
-				tmp ^= ( uint64_t ) *data++;
+				tmp ^= ( V ) *data++;
 				tmp *= prime;
 			}
 			value = tmp;
@@ -61,16 +60,16 @@ namespace xstd
 		// Finalization of the hash.
 		//
 		constexpr void finalize() noexcept {}
-		constexpr uint64_t digest() const noexcept { return value; }
+		constexpr V digest() const noexcept { return value; }
 
 		// Explicit conversions.
 		//
-		constexpr uint64_t as64() const noexcept { return digest(); }
-		constexpr uint32_t as32() const noexcept { return digest() & 0xFFFFFFFF; }
+		constexpr uint64_t as64() const noexcept { return ( uint64_t ) digest(); }
+		constexpr uint32_t as32() const noexcept { return ( uint32_t ) digest(); }
 
 		// Implicit conversions.
 		//
-		constexpr operator uint64_t() const noexcept { return as64(); }
+		constexpr operator value_type() const noexcept { return digest(); }
 
 		// Conversion to human-readable format.
 		//
@@ -78,19 +77,24 @@ namespace xstd
 
 		// Basic comparison operators.
 		//
-		constexpr bool operator<( const fnv64& o ) const noexcept { return digest() < o.digest(); }
-		constexpr bool operator==( const fnv64& o ) const noexcept { return digest() == o.digest(); }
-		constexpr bool operator!=( const fnv64& o ) const noexcept { return digest() != o.digest(); }
+		constexpr bool operator<( const fnv1a& o ) const noexcept { return digest() < o.digest(); }
+		constexpr bool operator==( const fnv1a& o ) const noexcept { return digest() == o.digest(); }
+		constexpr bool operator!=( const fnv1a& o ) const noexcept { return digest() != o.digest(); }
 	};
+
+	// Define default FNV64 and FNV32 types.
+	//
+	using fnv64 = fnv1a<uint64_t, 0xCBF29CE484222325, 0x00000100000001B3>;
+	using fnv32 = fnv1a<uint32_t, 0x811C9DC5,         0x01000193>;
 };
 
 // Make it std::hashable.
 //
 namespace std
 {
-	template<>
-	struct hash<xstd::fnv64>
+	template<typename V, V Seed, V Prime>
+	struct hash<xstd::fnv1a<V, Seed, Prime>>
 	{
-		size_t operator()( const xstd::fnv64& value ) const { return ( size_t ) value.as64(); }
+		constexpr size_t operator()( const xstd::fnv1a<V, Seed, Prime>& value ) const { return ( size_t ) value.as64(); }
 	};
 };

@@ -234,6 +234,6 @@ namespace std
 	template<>
 	struct hash<xstd::sha1>
 	{
-		size_t operator()( const xstd::sha1& value ) const { return ( size_t ) value.as64(); }
+		constexpr size_t operator()( const xstd::sha1& value ) const { return ( size_t ) value.as64(); }
 	};
 };

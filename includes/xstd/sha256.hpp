@@ -249,6 +249,6 @@ namespace std
 	template<>
 	struct hash<xstd::sha256>
 	{
-		size_t operator()( const xstd::sha256& value ) const { return ( size_t ) value.as64(); }
+		constexpr size_t operator()( const xstd::sha256& value ) const { return ( size_t ) value.as64(); }
 	};
 };
