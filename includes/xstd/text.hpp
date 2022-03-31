@@ -230,14 +230,26 @@ namespace xstd
 	template<String S1, String S2>
 	FORCE_INLINE inline constexpr int xstrcmp( S1&& a, S2&& b )
 	{
+		// Take optimized path at libc, if same unit.
+		//
 		string_view_t<S1> av = { a };
+		if constexpr ( Same<string_unit_t<S1>, string_unit_t<S2>> )
+			return av.compare( b );
+
 		string_view_t<S2> bv = { b };
 		return utf_compare( av, bv );
 	}
 	template<String S1, String S2>
 	FORCE_INLINE inline constexpr bool xequals( S1&& a, S2&& b )
 	{
+		// Take optimized path at libc, if same unit.
+		//
 		string_view_t<S1> av = { a };
+		if constexpr ( Same<string_unit_t<S1>, string_unit_t<S2>> )
+			return av.compare( b ) == 0;
+	
+		// Take ascii path if relevant.
+		//
 		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
 			return av.size() == clen && impl::ceval_ascii_equals<true>( b, av.data() );
 
@@ -247,7 +259,14 @@ namespace xstd
 	template<String S1, String S2>
 	FORCE_INLINE inline constexpr size_t xfind( S1&& a, S2&& b )
 	{
+		// Take optimized path at libc, if same unit.
+		//
 		string_view_t<S1> av = { a };
+		if constexpr ( Same<string_unit_t<S1>, string_unit_t<S2>> )
+			return av.find( b );
+
+		// Take ascii path if relevant.
+		//
 		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
 		{
 			ptrdiff_t diff = av.length() - clen;
@@ -269,7 +288,14 @@ namespace xstd
 	template<String S1, String S2>
 	FORCE_INLINE inline constexpr bool xstarts_with( S1&& a, S2&& b )
 	{
+		// Take optimized path at libc, if same unit.
+		//
 		string_view_t<S1> av = { a };
+		if constexpr ( Same<string_unit_t<S1>, string_unit_t<S2>> )
+			return av.starts_with( b ) == 0;
+
+		// Take ascii path if relevant.
+		//
 		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
 		{
 			if ( av.length() < clen ) [[unlikely]]
@@ -289,7 +315,14 @@ namespace xstd
 	template<String S1, String S2>
 	FORCE_INLINE inline constexpr bool xends_with( S1&& a, S2&& b )
 	{
+		// Take optimized path at libc, if same unit.
+		//
 		string_view_t<S1> av = { a };
+		if constexpr ( Same<string_unit_t<S1>, string_unit_t<S2>> )
+			return av.ends_with( b ) == 0;
+
+		// Take ascii path if relevant.
+		//
 		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
 		{
 			if ( av.length() < clen ) [[unlikely]]
