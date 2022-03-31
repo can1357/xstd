@@ -1129,47 +1129,6 @@ namespace xstd::math
 		return mat;
 	}
 
-	// Rotation around an axis.
-	// - Axis must be normalized.
-	//
-	FORCE_INLINE inline constexpr quaternion rotate_q( float theta, const vec3& axis )
-	{
-		auto [s, c] = fsincos( theta / 2 );
-		return {
-			s * axis.x,
-			s * axis.y,
-			s * axis.z,
-			c
-		};
-	}
-	FORCE_INLINE inline constexpr mat4x4 rotate_v( float theta, const vec3& axis )
-	{
-		auto [sangle, cangle] = fsincos( theta );
-		float cdiff = 1.0f - cangle;
-
-		mat4x4 out;
-		out[ 0 ][ 0 ] = cdiff * axis.x * axis.x + cangle;
-		out[ 0 ][ 1 ] = cdiff * axis.y * axis.x + sangle * axis.z;
-		out[ 0 ][ 2 ] = cdiff * axis.z * axis.x - sangle * axis.y;
-		out[ 0 ][ 3 ] = 0.0f;
-
-		out[ 1 ][ 0 ] = cdiff * axis.x * axis.y - sangle * axis.z;
-		out[ 1 ][ 1 ] = cdiff * axis.y * axis.y + cangle;
-		out[ 1 ][ 2 ] = cdiff * axis.z * axis.y + sangle * axis.x;
-		out[ 1 ][ 3 ] = 0.0f;
-
-		out[ 2 ][ 0 ] = cdiff * axis.x * axis.z + sangle * axis.y;
-		out[ 2 ][ 1 ] = cdiff * axis.y * axis.z - sangle * axis.x;
-		out[ 2 ][ 2 ] = cdiff * axis.z * axis.z + cangle;
-		out[ 2 ][ 3 ] = 0.0f;
-
-		out[ 3 ][ 0 ] = 0.0f;
-		out[ 3 ][ 1 ] = 0.0f;
-		out[ 3 ][ 2 ] = 0.0f;
-		out[ 3 ][ 3 ] = 1.0f;
-		return out;
-	}
-
 	// Combining rotations.
 	//
 	FORCE_INLINE inline constexpr quaternion rotate_by( const quaternion& q2, const quaternion& q1 ) 
@@ -1398,7 +1357,6 @@ namespace xstd::math
 		return rotate_by( forward, q );
 	}
 
-
 	// Euler to Matrix/Quaternion/Direction.
 	//
 	FORCE_INLINE inline constexpr mat4x4 euler_to_matrix( const vec3& rot )
@@ -1448,6 +1406,46 @@ namespace xstd::math
 			cpitch * syaw,
 			-spitch
 		};
+	}
+	
+	// Angle-Axis helpers.
+	//
+	FORCE_INLINE inline constexpr quaternion angle_axis_to_quaternion( float theta, const vec3& axis )
+	{
+		auto [s, c] = fsincos( theta / 2 );
+		return {
+			s * axis.x,
+			s * axis.y,
+			s * axis.z,
+			c
+		};
+	}
+	FORCE_INLINE inline constexpr mat4x4 angle_axis_to_matrix( float theta, const vec3& axis )
+	{
+		auto [sangle, cangle] = fsincos( theta );
+		float cdiff = 1.0f - cangle;
+
+		mat4x4 out;
+		out[ 0 ][ 0 ] = cdiff * axis.x * axis.x + cangle;
+		out[ 0 ][ 1 ] = cdiff * axis.y * axis.x + sangle * axis.z;
+		out[ 0 ][ 2 ] = cdiff * axis.z * axis.x - sangle * axis.y;
+		out[ 0 ][ 3 ] = 0.0f;
+
+		out[ 1 ][ 0 ] = cdiff * axis.x * axis.y - sangle * axis.z;
+		out[ 1 ][ 1 ] = cdiff * axis.y * axis.y + cangle;
+		out[ 1 ][ 2 ] = cdiff * axis.z * axis.y + sangle * axis.x;
+		out[ 1 ][ 3 ] = 0.0f;
+
+		out[ 2 ][ 0 ] = cdiff * axis.x * axis.z + sangle * axis.y;
+		out[ 2 ][ 1 ] = cdiff * axis.y * axis.z - sangle * axis.x;
+		out[ 2 ][ 2 ] = cdiff * axis.z * axis.z + cangle;
+		out[ 2 ][ 3 ] = 0.0f;
+
+		out[ 3 ][ 0 ] = 0.0f;
+		out[ 3 ][ 1 ] = 0.0f;
+		out[ 3 ][ 2 ] = 0.0f;
+		out[ 3 ][ 3 ] = 1.0f;
+		return out;
 	}
 
 	// Fast transformation matrix.
