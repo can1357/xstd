@@ -271,7 +271,7 @@ namespace xstd::math
 	template<typename V>
 	CONST_FN FORCE_INLINE inline constexpr float dot( const V& v1, const V& v2 )
 	{
-#if XSTD_MATH_USE_X86INTRIN
+#if XSTD_MATH_USE_X86INTRIN && __XSTD_USE_DP
 		if ( !std::is_constant_evaluated() )
 		{
 			if constexpr ( Same<typename V::value_type, float> && V::Length == 4 )
@@ -293,7 +293,7 @@ namespace xstd::math
 	template<typename V>
 	PURE_FN FORCE_INLINE inline V normalize( const V& vec )
 	{
-		return vec / fsqrt( fmax( flt_eps, vec.length_sq() ) );
+		return vec * ( 1.0f / fsqrt( vec.length_sq() + flt_min ) );
 	}
 	template<typename V>
 	CONST_FN FORCE_INLINE inline constexpr V lerp( const V& v1, const V& v2, float s )
@@ -788,7 +788,7 @@ namespace xstd::math
 				__m256 v01, v23, q01, q23;
 				impl::load_matrix( m, v01, v23 );
 				impl::load_matrix( other.m, q01, q23 );
-#if __XSTD_USE_DPPS || !XSTD_VECTOR_EXT
+#if __XSTD_USE_DP || !XSTD_VECTOR_EXT
 				impl::tranpose_inplace( q01, q23 );
 				__m256 vxx = _mm256_permute2f128_ps( q01, q01, 0b0000'0000 );
 				__m256 vyy = _mm256_permute2f128_ps( q01, q01, 0b0001'0001 );
