@@ -1611,7 +1611,7 @@ namespace xstd
 			{
 				auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) ref;
 				size_t capacity = vec._Myend - vec._Myfirst;
-				if ( capacity >= length )
+				if ( capacity >= length ) [[likely]]
 				{
 					vec._Mylast = vec._Myfirst + length;
 				}

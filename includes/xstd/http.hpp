@@ -129,6 +129,14 @@ namespace xstd::http
 		}
 		return true;
 	}
+	inline bool skip_headers( std::string_view& input )
+	{
+		size_t i = input.find( "\r\n\r\n" );
+		if ( i == std::string::npos )
+			return false;
+		input.remove_prefix( i + 4 );
+		return true;
+	}
 
 	// Define the request header.
 	//
