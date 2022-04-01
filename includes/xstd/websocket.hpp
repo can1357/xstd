@@ -92,8 +92,10 @@ namespace xstd::ws
 	//
 	inline void masked_copy( uint8_t* __restrict dst, const uint8_t* __restrict src, size_t len, uint32_t key )
 	{
+		if ( !key )
+			return ( void ) memcpy( dst, src, len );
+		
 		size_t it = 0;
-
 #if XSTD_VECTOR_EXT
 		using vec = max_vec_t<uint32_t>;
 		if ( len >= sizeof( vec ) ) [[likely]]
@@ -185,11 +187,10 @@ namespace xstd::ws
 			key = rotr( key, 8 );
 		}
 	}
-
 	template<bool Vectorize>
 	inline void mask_buffer( uint8_t* __restrict buffer, size_t len, uint32_t key )
 	{
-		if ( !key ) [[unlikely]]
+		if ( !key )
 			return;
 		if ( Vectorize && len > 4 )
 			return masked_copy( buffer, buffer, len, key );
