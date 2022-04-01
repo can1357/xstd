@@ -10,6 +10,7 @@
 #include "type_helpers.hpp"
 #include "future.hpp"
 #include "coro.hpp"
+#include "time.hpp"
 
 // [[Configuration]]
 // XSTD_SOCKET_TASK_PRIORITY: Task priority set when acquiring TCP related locks.
@@ -56,6 +57,10 @@ namespace xstd::tcp
 		size_t last_tx_id = 0;
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
+
+		// Last packet receive timestamp.
+		//
+		std::optional<xstd::timestamp> last_recv = {};
 
 		// Packet processor state.
 		//
@@ -202,6 +207,7 @@ namespace xstd::tcp
 		void on_socket_receive( std::string_view segment )
 		{
 			if ( this->is_closed() ) return;
+			last_recv = time::now();
 
 			auto packet_parse = [ & ] ( std::string_view new_data ) -> size_t
 			{
