@@ -366,7 +366,7 @@ namespace xstd::ws
 			hdr.length = chunk_length;
 			hdr.mask_key =
 #if CLANG_COMPILER
-				( uint32_t ) __builtin_readcyclecounter();
+				1 | ( uint32_t ) __builtin_readcyclecounter();
 #else
 				xstd::make_random<uint32_t>( 1, UINT32_MAX );
 #endif
