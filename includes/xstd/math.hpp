@@ -64,9 +64,11 @@ namespace xstd::math
 	//
 	static constexpr float pi =      ( float ) 3.14159265358979323846;
 	static constexpr float e =       ( float ) 2.71828182845904523536;
-	static constexpr float flt_eps = __FLT_EPSILON__;
-	static constexpr float flt_min = __FLT_MIN__;
-	static constexpr float flt_max = __FLT_MAX__;
+	static constexpr float flt_eps = std::numeric_limits<float>::epsilon();
+	static constexpr float flt_min = (std::numeric_limits<float>::min)();
+	static constexpr float flt_max = (std::numeric_limits<float>::max)();
+	static constexpr float flt_nan = std::numeric_limits<float>::quiet_NaN();
+	static constexpr float flt_inf = std::numeric_limits<float>::infinity();
 
 	// Fast floating point intrinsics.
 	//
