@@ -204,6 +204,8 @@ namespace xstd
 			return owner.load( std::memory_order::relaxed ) != 0;
 		}
 	};
+	template<typename T>
+	recursive_spinlock( T )->recursive_spinlock<T>;
 
 	// Upgrade guard.
 	//
