@@ -293,7 +293,7 @@ namespace xstd::ws
 		buffer = it;
 		return 0;
 	}
-	inline size_t write( uint8_t* buffer, header& hdr )
+	inline size_t write( uint8_t* buffer, const header& hdr )
 	{
 		size_t length = 0;
 		auto write = [ & ] <typename T> ( const T& v )

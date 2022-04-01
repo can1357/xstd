@@ -58,10 +58,6 @@ namespace xstd::tcp
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> ack_queue;
 
-		// Last packet receive timestamp.
-		//
-		std::optional<xstd::timestamp> last_recv = {};
-
 		// Packet processor state.
 		//
 		packet_processor_state pp = {};
@@ -207,7 +203,6 @@ namespace xstd::tcp
 		void on_socket_receive( std::string_view segment )
 		{
 			if ( this->is_closed() ) return;
-			last_recv = time::now();
 
 			auto packet_parse = [ & ] ( std::string_view new_data ) -> size_t
 			{

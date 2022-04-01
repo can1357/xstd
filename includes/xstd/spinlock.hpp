@@ -121,8 +121,9 @@ namespace xstd
 
 	// Recursive spinlock.
 	//
-	template<DefaultConstructible CidGetter>
-	struct basic_recursive_spinlock
+	namespace impl { inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); }; };
+	template<DefaultConstructible CidGetter = decltype( impl::get_tid )>
+	struct recursive_spinlock
 	{
 		FORCE_INLINE static uint32_t get_cid() 
 		{ 
@@ -136,79 +137,73 @@ namespace xstd
 			else
 				return 1 + *( const uint32_t* ) &cid;
 		}
-		FORCE_INLINE static uint64_t combine( uint32_t owner, uint32_t depth ) { return owner | ( uint64_t( depth ) << 32 ); }
-		FORCE_INLINE static std::pair<uint32_t, uint32_t> split( uint64_t value ) { return { uint32_t( value ), uint32_t( value >> 32 ) }; }
 
 		// Current owner of the lock and the depth.
 		//
-		std::atomic<uint64_t> value = 0;
+		std::atomic<uint32_t> owner = 0;
+		uint32_t depth = 0;
 		
 		// Dummy constructor for template deduction.
 		//
-		FORCE_INLINE basic_recursive_spinlock( CidGetter ) {}
+		FORCE_INLINE recursive_spinlock( CidGetter ) {}
 
 		// Default constructor.
 		//
-		FORCE_INLINE basic_recursive_spinlock() {}
+		FORCE_INLINE recursive_spinlock() {}
 
 		// Implement the standard mutex interface.
 		//
 		FORCE_INLINE bool try_lock()
 		{
 			uint32_t cid = get_cid();
-			uint64_t expected = value.load( std::memory_order::relaxed );
-			while ( true )
-			{
-				auto [owner, depth] = split( expected );
-				if ( depth )
-				{
-					if ( owner != cid )
-						return false;
-					value.store( combine( cid, depth + 1 ), std::memory_order::relaxed );
-					return true;
-				}
-
-				expected = 0;
-				if ( value.compare_exchange_strong( expected, combine( cid, 1 ), std::memory_order::acquire ) )
-					return true;
-			}
+			uint32_t expected = 0;
+			if ( !owner.compare_exchange_strong( expected, cid ) && expected != cid )
+				return false;
+			++depth;
+			return true;
 		}
 		FORCE_INLINE void lock()
 		{
 			uint32_t cid = get_cid();
-			uint64_t expected = value.load( std::memory_order::relaxed );
-			auto [owner, depth] = split( expected );
-			if ( owner == cid && depth )
+
+			// If we're not recursing:
+			//
+			uint32_t expected = owner.load( std::memory_order::relaxed );
+			if ( expected != cid )
 			{
-				value.store( combine( cid, depth + 1 ), std::memory_order::relaxed );
-				return;
+				while ( true )
+				{
+					// Wait until there's no owner.
+					//
+					while ( expected != 0 )
+					{
+						yield_cpu();
+						expected = owner.load( std::memory_order::relaxed );
+					}
+
+					// If we could acquire, break.
+					//
+					if ( owner.compare_exchange_strong( expected, cid, std::memory_order::acquire ) )
+						break;
+				}
 			}
 
-			while ( true )
-			{
-				while ( expected != 0 )
-				{
-					yield_cpu();
-					expected = value.load( std::memory_order::relaxed );
-				}
-				if ( value.compare_exchange_strong( expected, combine( cid, 1 ), std::memory_order::acquire ) )
-					return;
-			}
+			// Increment depth and return.
+			//
+			++depth;
 		}
 		FORCE_INLINE void unlock()
 		{
-			auto [owner, depth] = split( value.load( std::memory_order::relaxed ) );
-			dassert( depth && owner == get_cid() );
-			--depth;
-			value.store( combine( depth ? owner : 0, depth ), std::memory_order::release );
+			// Decrement depth, if we are finally releasing, clear owner.
+			//
+			if ( !--depth )
+				owner.store( 0, std::memory_order::acquire );
 		}
 		FORCE_INLINE bool locked() const
 		{
-			return value.load( std::memory_order::relaxed ) != 0;
+			return owner.load( std::memory_order::relaxed ) != 0;
 		}
 	};
-	namespace impl { inline constexpr auto get_tid = [ ] () { return std::this_thread::get_id(); }; };
-	using recursive_spinlock = basic_recursive_spinlock<decltype(impl::get_tid)>;
 
 	// Upgrade guard.
 	//
