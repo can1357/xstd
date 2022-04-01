@@ -274,8 +274,6 @@ namespace xstd::ws
 			if ( !read( ( uint64_t& ) hdr.length ) )
 				return -1;
 			hdr.length = bswap( ( uint64_t& ) hdr.length );
-			if ( hdr.length > INT64_MAX )
-				return parser_status( 4 );
 		}
 
 		// Read the masking key if relevant.
@@ -472,9 +470,13 @@ namespace xstd::ws
 
 			// Wait for the body.
 			//
-			auto sstr = co_await socket.recv( hdr.length );
-			if ( sstr.empty() )
-				co_yield status_connection_reset;
+			std::string_view sstr;
+			if ( hdr.length )
+			{
+				sstr = co_await socket.recv( hdr.length );
+				if ( sstr.empty() )
+					co_yield status_connection_reset;
+			}
 
 			std::span<uint8_t> result_data = { ( uint8_t* ) sstr.data(), sstr.size() };
 			co_return std::pair{ hdr, result_data };
