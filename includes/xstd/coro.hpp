@@ -193,16 +193,16 @@ namespace xstd
 
 		// Null handle.
 		//
-		inline constexpr unique_coroutine() {}
-		inline constexpr unique_coroutine( std::nullptr_t ) {}
+		FORCE_INLINE inline constexpr unique_coroutine() {}
+		FORCE_INLINE inline constexpr unique_coroutine( std::nullptr_t ) {}
 
 		// Constructed by handle.
 		//
-		inline unique_coroutine( coroutine_handle<Pr> hnd ) : hnd{ hnd } {}
+		FORCE_INLINE inline unique_coroutine( coroutine_handle<Pr> hnd ) : hnd{ hnd } {}
 
 		// Constructed by promise.
 		//
-		inline unique_coroutine( Pr& p ) : hnd{ coroutine_handle<Pr>::from_promise( p ) } {}
+		FORCE_INLINE inline unique_coroutine( Pr& p ) : hnd{ coroutine_handle<Pr>::from_promise( p ) } {}
 
 		// No copy allowed.
 		//
@@ -211,30 +211,30 @@ namespace xstd
 
 		// Move by swap.
 		//
-		inline unique_coroutine( unique_coroutine&& o ) noexcept : hnd( o.release() ) {}
-		inline unique_coroutine& operator=( unique_coroutine&& o ) noexcept { std::swap( hnd, o.hnd ); return *this; }
+		FORCE_INLINE inline unique_coroutine( unique_coroutine&& o ) noexcept : hnd( o.release() ) {}
+		FORCE_INLINE inline unique_coroutine& operator=( unique_coroutine&& o ) noexcept { std::swap( hnd, o.hnd ); return *this; }
 
 		// Redirections.
 		//
-		inline void resume() const { hnd.resume(); }
-		inline bool done() const { return hnd.done(); }
-		inline Pr& promise() const { return hnd.promise(); }
-		inline void operator()() const { return resume(); }
-		inline operator coroutine_handle<Pr>() const { return hnd; }
+		FORCE_INLINE inline void resume() const { hnd.resume(); }
+		FORCE_INLINE inline bool done() const { return hnd.done(); }
+		FORCE_INLINE inline Pr& promise() const { return hnd.promise(); }
+		FORCE_INLINE inline void operator()() const { return resume(); }
+		FORCE_INLINE inline operator coroutine_handle<Pr>() const { return hnd; }
 
 		// Getter and validity check.
 		//
-		inline coroutine_handle<Pr> get() const { return hnd; }
-		inline explicit operator bool() const { return ( bool ) hnd; }
+		FORCE_INLINE inline coroutine_handle<Pr> get() const { return hnd; }
+		FORCE_INLINE inline explicit operator bool() const { return ( bool ) hnd; }
 
 		// Reset and release.
 		//
-		inline coroutine_handle<Pr> release() { return std::exchange( hnd, nullptr ); }
-		inline void reset() { if ( auto h = release() ) h.destroy(); }
+		FORCE_INLINE inline coroutine_handle<Pr> release() { return std::exchange( hnd, nullptr ); }
+		FORCE_INLINE inline void reset() { if ( auto h = release() ) h.destroy(); }
 
 		// Reset on destruction.
 		//
-		~unique_coroutine() { reset(); }
+		FORCE_INLINE ~unique_coroutine() { reset(); }
 	};
 	
 	// Helper to get the promise from a coroutine handle.

@@ -421,6 +421,11 @@ namespace xstd
 			}
 			return cnt;
 		}
+		void signal_async()
+		{
+			if ( auto h = signal(); h != noop_coroutine() )
+				xstd::chore( h );
+		}
 
 		// Resolution of the promise value.
 		//
@@ -467,6 +472,33 @@ namespace xstd
 				return false; 
 			emplace_unchecked( std::forward<Args>( args )... );
 			signal()();
+			return true;
+		}
+		template<typename... Args> 
+		bool reject_async( Args&&... args )  
+		{ 
+			if ( state.bit_set( impl::state_finished_bit ) )
+				return false; 
+			reject_unchecked( std::forward<Args>( args )... ); 
+			signal_async();
+			return true;
+		}
+		template<typename... Args> 
+		bool resolve_async( Args&&... args )
+		{
+			if ( state.bit_set( impl::state_finished_bit ) )
+				return false; 
+			resolve_unchecked( std::forward<Args>( args )... );
+			signal_async();
+			return true;
+		}
+		template<typename... Args> 
+		bool emplace_async( Args&&... args )
+		{
+			if ( state.bit_set( impl::state_finished_bit ) )
+				return false; 
+			emplace_unchecked( std::forward<Args>( args )... );
+			signal_async();
 			return true;
 		}
 
@@ -715,6 +747,21 @@ namespace xstd
 			return ptr->emplace( std::forward<Tx>( value )... );
 		}
 		template<typename... Tx>
+		inline bool resolve_async( Tx&&... value ) const requires Owner
+		{
+			return ptr->resolve_async( std::forward<Tx>( value )... );
+		}
+		template<typename... Tx>
+		inline bool reject_async( Tx&&... value ) const requires Owner
+		{
+			return ptr->reject_async( std::forward<Tx>( value )... );
+		}
+		template<typename... Tx>
+		inline bool emplace_async( Tx&&... value ) const requires Owner
+		{
+			return ptr->emplace_async( std::forward<Tx>( value )... );
+		}
+		template<typename... Tx>
 		inline void resolve_unchecked( Tx&&... value ) const requires Owner
 		{
 			ptr->resolve_unchecked( std::forward<Tx>( value )... );
@@ -732,6 +779,10 @@ namespace xstd
 		[[nodiscard]] inline coroutine_handle<> signal() const requires Owner 
 		{ 
 			return ptr->signal(); 
+		}
+		inline void signal_async() const requires Owner 
+		{ 
+			return ptr->signal_async();
 		}
 
 		// Hashing.
@@ -824,7 +875,7 @@ namespace xstd
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<P> hnd ) noexcept
 			{
 				auto& pr = hnd.promise().pr;
-#if CLANG_COMPILER && DEBUG_BUILD
+#if CLANG_COMPILER && DEBUG_BUILD && AMD64_TARGET
 				register void* c asm( "r12" ) = pr.signal().address(); // Force the compiler not to store the next coro in frame!
 #else
 				void* c = pr.signal().address();
