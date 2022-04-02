@@ -125,22 +125,24 @@ namespace xstd
 	template<DefaultConstructible CidGetter = decltype( impl::get_tid )>
 	struct recursive_spinlock
 	{
-		FORCE_INLINE static uint32_t get_cid() 
+		FORCE_INLINE static uint64_t get_cid()
 		{ 
 			auto cid = CidGetter{}();
+			if constexpr ( sizeof( cid ) == 8 )
+				return 1 + ( uint64_t ) bit_cast< uint64_t >( cid );
 			if constexpr ( sizeof( cid ) == 4 )
-				return 1 + ( uint32_t ) bit_cast<uint32_t>( cid );
+				return 1 + ( uint64_t ) bit_cast< uint32_t >( cid );
 			else if constexpr ( sizeof( cid ) == 2 )
-				return 1 + ( uint32_t ) bit_cast<uint16_t>( cid );
+				return 1 + ( uint64_t ) bit_cast< uint16_t >( cid );
 			else if constexpr ( sizeof( cid ) == 1 )
-				return 1 + ( uint32_t ) bit_cast<uint8_t>( cid );
+				return 1 + ( uint64_t ) bit_cast< uint8_t >( cid );
 			else
-				return 1 + *( const uint32_t* ) &cid;
+				static_assert( sizeof( cid ) == -1, "Invalid CID type." );
 		}
 
 		// Current owner of the lock and the depth.
 		//
-		std::atomic<uint32_t> owner = 0;
+		std::atomic<uint64_t> owner = 0;
 		uint32_t depth = 0;
 		
 		// Dummy constructor for template deduction.
@@ -155,8 +157,8 @@ namespace xstd
 		//
 		FORCE_INLINE bool try_lock()
 		{
-			uint32_t cid = get_cid();
-			uint32_t expected = 0;
+			uint64_t cid = get_cid();
+			uint64_t expected = 0;
 			if ( !owner.compare_exchange_strong( expected, cid ) && expected != cid )
 				return false;
 			++depth;
@@ -164,11 +166,11 @@ namespace xstd
 		}
 		FORCE_INLINE void lock()
 		{
-			uint32_t cid = get_cid();
+			uint64_t cid = get_cid();
 
 			// If we're not recursing:
 			//
-			uint32_t expected = owner.load( std::memory_order::relaxed );
+			uint64_t expected = owner.load( std::memory_order::relaxed );
 			if ( expected != cid )
 			{
 				while ( true )
@@ -197,7 +199,7 @@ namespace xstd
 			// Decrement depth, if we are finally releasing, clear owner.
 			//
 			if ( !--depth )
-				owner.store( 0, std::memory_order::acquire );
+				owner.store( 0, std::memory_order::release );
 		}
 		FORCE_INLINE bool locked() const
 		{
