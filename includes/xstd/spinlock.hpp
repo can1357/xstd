@@ -130,7 +130,7 @@ namespace xstd
 			auto cid = CidGetter{}();
 			if constexpr ( sizeof( cid ) == 8 )
 				return 1 + ( uint64_t ) bit_cast< uint64_t >( cid );
-			if constexpr ( sizeof( cid ) == 4 )
+			else if constexpr ( sizeof( cid ) == 4 )
 				return 1 + ( uint64_t ) bit_cast< uint32_t >( cid );
 			else if constexpr ( sizeof( cid ) == 2 )
 				return 1 + ( uint64_t ) bit_cast< uint16_t >( cid );
