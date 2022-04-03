@@ -102,12 +102,12 @@ namespace xstd
 
 		ref<T> add_ref() 
 		{  
-			fassert( _wptr );
+			dassert( _wptr );
 			return ref<T>{ _wptr }; 
 		}
 		ref<const T> add_ref() const 
 		{ 
-			fassert( _wptr );
+			dassert( _wptr );
 			return ref<const T>{ _wptr }; 
 		}
 	};

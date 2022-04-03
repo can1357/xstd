@@ -737,7 +737,7 @@ namespace xstd
 			return ptr->resolve( std::forward<Tx>( value )... );
 		}
 		template<typename... Tx>
-		inline bool reject( Tx&&... value ) const requires Owner
+		COLD bool reject( Tx&&... value ) const requires Owner
 		{
 			return ptr->reject( std::forward<Tx>( value )... );
 		}
@@ -752,7 +752,7 @@ namespace xstd
 			return ptr->resolve_async( std::forward<Tx>( value )... );
 		}
 		template<typename... Tx>
-		inline bool reject_async( Tx&&... value ) const requires Owner
+		COLD bool reject_async( Tx&&... value ) const requires Owner
 		{
 			return ptr->reject_async( std::forward<Tx>( value )... );
 		}

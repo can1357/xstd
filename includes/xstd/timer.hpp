@@ -42,8 +42,8 @@ namespace xstd
 					return;
 				}
 
-					// Execute the function.
-					//
+				// Execute the function.
+				//
 				functor();
 
 				// Schedule again.
@@ -112,8 +112,8 @@ namespace xstd
 		//
 		duration interval() const { return base->interval; }
 		void set_interval( duration interval )
-		{ 
-			base->interval = interval; 
+		{
+			base->interval = interval;
 			signal();
 		}
 
@@ -128,17 +128,17 @@ namespace xstd
 
 		// Releases the timer so that the destructor will not cancel it.
 		//
-		impl::timer_base* release() 
-		{ 
-			return std::exchange( base, nullptr ); 
+		impl::timer_base* release()
+		{
+			return std::exchange( base, nullptr );
 		}
 
 		// Destructor cancels the timer.
 		//
-		~timer() 
-		{ 
-			if ( valid() ) 
-				cancel(); 
+		~timer()
+		{
+			if ( valid() )
+				cancel();
 		}
 	};
 };
