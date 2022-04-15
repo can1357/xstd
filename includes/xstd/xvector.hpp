@@ -49,6 +49,12 @@ namespace xstd
 		template<typename T, auto N> T __vector_reduce_mul( native_vector<T, N> ) asm( "llvm.vector.reduce.mul" );
 		template<typename T, auto N> T __vector_reduce_fadd( T, native_vector<T, N> ) asm( "llvm.vector.reduce.fadd" );
 		template<typename T, auto N> T __vector_reduce_fmul( T, native_vector<T, N> ) asm( "llvm.vector.reduce.fmul" );
+		template<typename T, auto N> T __vector_reduce_umax( native_vector<T, N> ) asm( "llvm.vector.reduce.umax" );
+		template<typename T, auto N> T __vector_reduce_umin( native_vector<T, N> ) asm( "llvm.vector.reduce.umin" );
+		template<typename T, auto N> T __vector_reduce_smax( native_vector<T, N> ) asm( "llvm.vector.reduce.smax" );
+		template<typename T, auto N> T __vector_reduce_smin( native_vector<T, N> ) asm( "llvm.vector.reduce.smin" );
+		template<typename T, auto N> T __vector_reduce_fmax( native_vector<T, N> ) asm( "llvm.vector.reduce.fmax" );
+		template<typename T, auto N> T __vector_reduce_fmin( native_vector<T, N> ) asm( "llvm.vector.reduce.fmin" );
 #endif
 
 		// Comparison result helper.
@@ -843,6 +849,58 @@ namespace xstd
 			T result = vec[ 0 ];
 			for ( size_t i = 1; i != N; i++ )
 				result *= vec[ i ];
+			return result;
+		}
+
+		template<typename T, auto N>
+		FORCE_INLINE inline constexpr T reduce_max( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
+			{
+				if ( !std::is_constant_evaluated() )
+				{
+					if constexpr ( FloatingPoint<T> )
+						return impl::__vector_reduce_fmax<T, N>( vec._nat );
+					else if constexpr ( Signed<T> )
+						return impl::__vector_reduce_smax<T, N>( vec._nat );
+					else
+						return impl::__vector_reduce_umax<T, N>( vec._nat );
+				}
+			}
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+			{
+				T v = vec[ i ];
+				result = result < v ? v : result;
+			}
+			return result;
+		}
+
+		template<typename T, auto N>
+		FORCE_INLINE inline constexpr T reduce_min( xvec<T, N> vec )
+		{
+#if CLANG_COMPILER && !defined(__INTELLISENSE__)
+			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
+			{
+				if ( !std::is_constant_evaluated() )
+				{
+					if constexpr ( FloatingPoint<T> )
+						return impl::__vector_reduce_fmin<T, N>( vec._nat );
+					else if constexpr ( Signed<T> )
+						return impl::__vector_reduce_smin<T, N>( vec._nat );
+					else
+						return impl::__vector_reduce_umin<T, N>( vec._nat );
+				}
+			}
+#endif
+			T result = vec[ 0 ];
+			for ( size_t i = 1; i != N; i++ )
+			{
+				T v = vec[ i ];
+				result = v < result ? v : result;
+			}
 			return result;
 		}
 

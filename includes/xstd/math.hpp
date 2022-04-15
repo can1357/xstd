@@ -383,6 +383,9 @@ namespace xstd::math
 			FORCE_INLINE inline friend constexpr vec2_t operator/( T f, const vec2_t& o ) noexcept { return { f / o.x, f / o.y }; }
 			FORCE_INLINE inline constexpr vec2_t operator-() const noexcept { return { -x, -y }; };
 			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return x + y; }
+			FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return x * y; }
+			FORCE_INLINE inline constexpr T reduce_min() const noexcept { return x < y ? x : y; }
+			FORCE_INLINE inline constexpr T reduce_max() const noexcept { return y < x ? x : y; }
 			FORCE_INLINE inline constexpr vec2_t min_element( const vec2_t& o ) const noexcept { return { math::fmin( x, o.x ), math::fmin( y, o.y ) }; }
 			FORCE_INLINE inline constexpr vec2_t max_element( const vec2_t& o ) const noexcept { return { math::fmax( x, o.x ), math::fmax( y, o.y ) }; }
 
@@ -486,6 +489,9 @@ namespace xstd::math
 			FORCE_INLINE inline friend constexpr vec3_t operator/( T f, const vec3_t& o ) noexcept { return from_xvec( fill( f ).to_xvec() / o.to_xvec() ); }
 			FORCE_INLINE inline constexpr vec3_t operator-() const noexcept { return from_xvec( -to_xvec() ); }
 			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return vec::reduce_add( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return vec::reduce_mul( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_min() const noexcept { return vec::reduce_min( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_max() const noexcept { return vec::reduce_max( to_xvec() ); }
 			FORCE_INLINE inline constexpr vec3_t min_element( const vec3_t& o ) const noexcept { return from_xvec( vec::min( to_xvec(), o.to_xvec() ) ); }
 			FORCE_INLINE inline constexpr vec3_t max_element( const vec3_t& o ) const noexcept { return from_xvec( vec::max( to_xvec(), o.to_xvec() ) ); }
 
@@ -606,6 +612,9 @@ namespace xstd::math
 			FORCE_INLINE inline friend constexpr vec4_t operator/( T f, const vec4_t& o ) noexcept { return from_xvec( fill( f ).to_xvec() / o.to_xvec() ); }
 			FORCE_INLINE inline constexpr vec4_t operator-() const noexcept { return from_xvec( -to_xvec() ); }
 			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return vec::reduce_add( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return vec::reduce_mul( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_min() const noexcept { return vec::reduce_min( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_max() const noexcept { return vec::reduce_max( to_xvec() ); }
 			FORCE_INLINE inline constexpr vec4_t min_element( const vec4_t& o ) const noexcept { return from_xvec( vec::min( to_xvec(), o.to_xvec() ) ); }
 			FORCE_INLINE inline constexpr vec4_t max_element( const vec4_t& o ) const noexcept { return from_xvec( vec::max( to_xvec(), o.to_xvec() ) ); }
 
@@ -1642,6 +1651,25 @@ namespace xstd::math
 			tx *= ( 1 - t );
 		}
 		return accumulator * tx;
+	}
+
+	// Conversion to barycentric coordinates.
+	//
+	template<typename V>
+	FORCE_INLINE inline constexpr vec3 to_barycentric( const V& a, const V& b, const V& c, const V& p )
+	{
+		V v0 = b - a;
+		V v1 = c - a;
+		V v2 = p - a;
+		float d00 = dot( v0, v0 );
+		float d01 = dot( v0, v1 );
+		float d11 = dot( v1, v1 );
+		float d20 = dot( v2, v0 );
+		float d21 = dot( v2, v1 );
+		float rdenom = 1.0f / ( d00 * d11 - d01 * d01 );
+		float v = ( d11 * d20 - d01 * d21 ) * rdenom;
+		float w = ( d00 * d21 - d01 * d20 ) * rdenom;
+		return vec3{ 1 - ( v + w ), v, w };
 	}
 };
 inline constexpr float operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
