@@ -293,9 +293,14 @@ namespace xstd::math
 		return ( v1 * v2 ).reduce_add();
 	}
 	template<typename V>
-	PURE_FN FORCE_INLINE inline V normalize( const V& vec )
+	FORCE_INLINE inline constexpr V rcp( V v )
 	{
-		return vec * ( 1.0f / fsqrt( vec.length_sq() + flt_min ) );
+		return 1.0f / v;
+	}
+	template<typename V>
+	PURE_FN FORCE_INLINE inline V normalize( V vec )
+	{
+		return vec * rcp( fsqrt( vec.length_sq() + flt_min ) );
 	}
 	template<typename V>
 	CONST_FN FORCE_INLINE inline constexpr V lerp( const V& v1, const V& v2, float s )
@@ -961,7 +966,7 @@ namespace xstd::math
 				result[ i ] = m[ i ] * v;
 			return result;
 		}
-		FORCE_INLINE inline constexpr mat4x4 operator/( float v ) const noexcept { return *this * ( 1.0f / v ); }
+		FORCE_INLINE inline constexpr mat4x4 operator/( float v ) const noexcept { return *this * rcp( v ); }
 		FORCE_INLINE inline constexpr mat4x4& operator/=( float v ) noexcept { *this = ( *this / v ); return *this; }
 		FORCE_INLINE inline constexpr mat4x4& operator*=( float v ) noexcept { *this = ( *this * v ); return *this; }
 
@@ -1129,7 +1134,7 @@ namespace xstd::math
 	//
 	FORCE_INLINE inline mat4x4 matrix_normalize( mat4x4 mat )
 	{
-		vec4 scales = 1.0f / vec_sqrt( vec4{ mat[ 0 ].length_sq(), mat[ 1 ].length_sq(), mat[ 2 ].length_sq(), 0.0f } );
+		vec4 scales = rcp( vec_sqrt( vec4{ mat[ 0 ].length_sq(), mat[ 1 ].length_sq(), mat[ 2 ].length_sq(), 0.0f } ) );
 		mat[ 0 ] *= scales[ 0 ];
 		mat[ 1 ] *= scales[ 1 ];
 		mat[ 2 ] *= scales[ 2 ];
@@ -1198,7 +1203,7 @@ namespace xstd::math
 		if ( dotv < 0.999f )
 		{
 			float theta = acosf( dotv );
-			float rstheta = 1.0f / fsin( theta );
+			float rstheta = rcp( fsin( theta ) );
 			t2 = fsin( theta * t2 ) * rstheta;
 			t =  fsin( theta * t )  * rstheta;
 		}
@@ -1507,8 +1512,8 @@ namespace xstd::math
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 		mat4x4 out = mat4x4::identity();
-		out[ 0 ][ 0 ] = 1.0f / tfx;
-		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 0 ][ 0 ] = rcp( tfx );
+		out[ 1 ][ 1 ] = rcp( tfy );
 		out[ 2 ][ 2 ] = 0.0f;
 		out[ 2 ][ 3 ] = m * 1.0f;
 		out[ 3 ][ 2 ] = zn;
@@ -1523,8 +1528,8 @@ namespace xstd::math
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 		mat4x4 out = mat4x4::identity();
-		out[ 0 ][ 0 ] = 1.0f / tfx;
-		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 0 ][ 0 ] = rcp( tfx );
+		out[ 1 ][ 1 ] = rcp( tfy );
 		out[ 2 ][ 2 ] = m * -zn / ( zf - zn );
 		out[ 2 ][ 3 ] = m * 1.0f;
 		out[ 3 ][ 2 ] = ( zf * zn ) / ( zf - zn );
@@ -1539,8 +1544,8 @@ namespace xstd::math
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 		mat4x4 out = mat4x4::identity();
-		out[ 0 ][ 0 ] = 1.0f / tfx;
-		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 0 ][ 0 ] = rcp( tfx );
+		out[ 1 ][ 1 ] = rcp( tfy );
 		out[ 2 ][ 2 ] = m * 1.0f;
 		out[ 2 ][ 3 ] = m * 1.0f;
 		out[ 3 ][ 2 ] = -zn;
@@ -1555,8 +1560,8 @@ namespace xstd::math
 	{
 		constexpr float m = LeftHanded ? 1 : -1;
 		mat4x4 out = mat4x4::identity();
-		out[ 0 ][ 0 ] = 1.0f / tfx;
-		out[ 1 ][ 1 ] = 1.0f / tfy;
+		out[ 0 ][ 0 ] = rcp( tfx );
+		out[ 1 ][ 1 ] = rcp( tfy );
 		out[ 2 ][ 2 ] = m * zf / ( zf - zn );
 		out[ 2 ][ 3 ] = m * 1.0f;
 		out[ 3 ][ 2 ] = -( zf * zn ) / ( zf - zn );
@@ -1626,7 +1631,7 @@ namespace xstd::math
 		float n = ( ( int ) std::size( container ) );
 		float i = 0;
 		float tx = 1;
-		float ti = 1 / ( 1 - t );
+		float ti = rcp( 1 - t );
 		float ts = t * ti;
 		for ( const V& point : container )
 		{
