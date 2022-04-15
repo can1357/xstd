@@ -735,6 +735,11 @@ namespace xstd::math
 	{
 		return q * vec4{ -1, -1, -1, +1 };
 	}
+	template<typename V>
+	FORCE_INLINE inline constexpr V saturate( const V& v )
+	{
+		return vec_min( vec_max( v, V::fill( 0 ) ), V::fill( 1 ) );
+	}
 
 	// Define matrix type.
 	//
