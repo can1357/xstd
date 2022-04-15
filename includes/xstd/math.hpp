@@ -435,9 +435,9 @@ namespace xstd::math
 				else
 					return *( const vec3_t<T>* ) &o;
 			}
-			FORCE_INLINE inline constexpr xvec<T, 4> to_xvec() const noexcept 
+			FORCE_INLINE inline constexpr xvec<T, 4> to_xvec( T pad = 0 ) const noexcept 
 			{ 
-				return { x, y, z, 0 };
+				return { x, y, z, pad };
 			}
 
 			FORCE_INLINE inline constexpr T& operator[]( size_t n )
@@ -488,10 +488,10 @@ namespace xstd::math
 			FORCE_INLINE inline friend constexpr vec3_t operator*( T f, const vec3_t& o ) noexcept { return from_xvec( o.to_xvec() * f ); }
 			FORCE_INLINE inline friend constexpr vec3_t operator/( T f, const vec3_t& o ) noexcept { return from_xvec( fill( f ).to_xvec() / o.to_xvec() ); }
 			FORCE_INLINE inline constexpr vec3_t operator-() const noexcept { return from_xvec( -to_xvec() ); }
-			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return vec::reduce_add( to_xvec() ); }
-			FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return vec::reduce_mul( to_xvec() ); }
-			FORCE_INLINE inline constexpr T reduce_min() const noexcept { return vec::reduce_min( to_xvec() ); }
-			FORCE_INLINE inline constexpr T reduce_max() const noexcept { return vec::reduce_max( to_xvec() ); }
+			FORCE_INLINE inline constexpr T reduce_add() const noexcept { return vec::reduce_add( to_xvec( 0 ) ); }
+			FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return vec::reduce_mul( to_xvec( 1 ) ); }
+			FORCE_INLINE inline constexpr T reduce_min() const noexcept { return vec::reduce_min( to_xvec( z ) ); }
+			FORCE_INLINE inline constexpr T reduce_max() const noexcept { return vec::reduce_max( to_xvec( z ) ); }
 			FORCE_INLINE inline constexpr vec3_t min_element( const vec3_t& o ) const noexcept { return from_xvec( vec::min( to_xvec(), o.to_xvec() ) ); }
 			FORCE_INLINE inline constexpr vec3_t max_element( const vec3_t& o ) const noexcept { return from_xvec( vec::max( to_xvec(), o.to_xvec() ) ); }
 
