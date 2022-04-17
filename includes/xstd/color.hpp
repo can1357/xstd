@@ -19,7 +19,7 @@ namespace xstd
 		{
 			float x = fmodcx( rad, 2 * pi );
 			if ( x < 0 )
-				return ( 2 * pi ) - x;
+				return ( 2 * pi ) + x;
 			else
 				return x;
 		}
