@@ -1566,6 +1566,29 @@ namespace xstd::math
 		return mat;
 	}
 
+	// 2D helpers.
+	//
+	FORCE_INLINE inline constexpr mat4x4 euler_to_matrix( float rot )
+	{
+		auto [s, c] = fsincos( rot );
+		return {
+			 vec4{ c,  s, 0, 0 },
+			 vec4{ -s, c, 0, 0 },
+			 vec4{ 0,  0, 1, 0 },
+			 vec4{ 0,  0, 0, 1 }
+		};
+	}
+	FORCE_INLINE inline constexpr mat4x4 matrix_transformation( float rot, const vec2& scale, const vec2& translation )
+	{
+		auto [s, c] = fsincos( rot );
+		return {
+			 vec4{ c,  s, 0, 0 } * scale.x,
+			 vec4{ -s, c, 0, 0 } * scale.y,
+			 vec4{ 0,  0, 1, 0 },
+			 vec4::from( translation, 0, 1 )
+		};
+	}
+
 	// View helpers.
 	//
 	template<bool LeftHanded = true>
