@@ -1519,12 +1519,7 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr quaternion angle_axis_to_quaternion( float theta, const vec3& axis )
 	{
 		auto [s, c] = fsincos( theta * 0.5f );
-		return {
-			s * axis.x,
-			s * axis.y,
-			s * axis.z,
-			c
-		};
+		return vec4::from( s * axis, c );
 	}
 	FORCE_INLINE inline constexpr mat4x4 angle_axis_to_matrix( float theta, const vec3& axis )
 	{
