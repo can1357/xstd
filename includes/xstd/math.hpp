@@ -1719,7 +1719,7 @@ namespace xstd::math
 	namespace impl
 	{
 		template<size_t N, typename Vec, typename... Vx>
-		FORCE_INLINE inline constexpr Vec beizer_helper( const Vec& ti, const Vec& ts, const Vec& pi, const Vx&... px )
+		CONST_FN FORCE_INLINE inline constexpr Vec beizer_helper( const Vec& ti, const Vec& ts, const Vec& pi, const Vx&... px )
 		{
 			constexpr size_t I = N - sizeof...( Vx );
 			Vec acc = binomial_coefficient_v<N, I> * ti * pi;
@@ -1730,14 +1730,14 @@ namespace xstd::math
 		}
 	};
 	template<typename V, typename... Vx>
-	FORCE_INLINE inline constexpr V beizer( float t, const V& p1, const Vx&... px )
+	CONST_FN FORCE_INLINE inline constexpr V beizer( float t, const V& p1, const Vx&... px )
 	{
 		float ti = const_pow<sizeof...( Vx )>( 1 - t );
 		float ts = t / ( 1 - t );
 		return impl::beizer_helper<sizeof...( Vx )>( V::fill( ti ), V::fill( ts ), p1, px... );
 	}
 	template<typename V, typename C>
-	FORCE_INLINE inline constexpr V beizer_dyn( float t, C&& container )
+	CONST_FN FORCE_INLINE inline constexpr V beizer_dyn( float t, C&& container )
 	{
 		V accumulator = {};
 		float n = ( ( int ) std::size( container ) );
@@ -1756,10 +1756,37 @@ namespace xstd::math
 		return accumulator * tx;
 	}
 
+	// Catmull rom.
+	//
+	template<typename V>
+	CONST_FN FORCE_INLINE inline float catmull_rom_t( float t_prev, const V& p0, const V& p1, float a = 0.5f )
+	{
+		float length = ( p1 - p0 ).length_sq();
+		if ( xstd::is_consteval( a == 0.5f ) )
+			return t_prev + fsqrt( fsqrt( length ) );
+		else
+			return t_prev + powf( length, a * 0.5f );
+	}
+	template<typename V>
+	CONST_FN FORCE_INLINE inline V catmull_rom( float t, const V& p0, const V& p1, const V& p2, const V& p3, float a = 0.5f )
+	{
+		constexpr float t0 = 0;
+		float t1 = catmull_rom_t( t0, p0, p1, a );
+		float t2 = catmull_rom_t( t1, p1, p2, a );
+		float t3 = catmull_rom_t( t2, p2, p3, a );
+		t = lerp( t1, t2, t );
+		V a1 = ( t1 - t ) / ( t1 - t0 ) * p0 + ( t - t0 ) / ( t1 - t0 ) * p1;
+		V a2 = ( t2 - t ) / ( t2 - t1 ) * p1 + ( t - t1 ) / ( t2 - t1 ) * p2;
+		V a3 = ( t3 - t ) / ( t3 - t2 ) * p2 + ( t - t2 ) / ( t3 - t2 ) * p3;
+		V b1 = ( t2 - t ) / ( t2 - t0 ) * a1 + ( t - t0 ) / ( t2 - t0 ) * a2;
+		V b2 = ( t3 - t ) / ( t3 - t1 ) * a2 + ( t - t1 ) / ( t3 - t1 ) * a3;
+		return ( t2 - t ) / ( t2 - t1 ) * b1 + ( t - t1 ) / ( t2 - t1 ) * b2;
+	}
+
 	// Conversion to barycentric coordinates.
 	//
 	template<typename V>
-	FORCE_INLINE inline constexpr vec3 to_barycentric( const V& a, const V& b, const V& c, const V& p )
+	CONST_FN FORCE_INLINE inline constexpr vec3 to_barycentric( const V& a, const V& b, const V& c, const V& p )
 	{
 		V v0 = b - a;
 		V v1 = c - a;
