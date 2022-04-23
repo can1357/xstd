@@ -570,7 +570,7 @@ namespace xstd::math
 
 	// Implement certain float funcs for vectors as well.
 	//
-	FORCE_INLINE inline constexpr vec4 vec_abs( const vec4& vec )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_abs( const vec4& vec )
 	{
 #if __has_vector_builtin(__builtin_elementwise_abs)
 		if ( !std::is_constant_evaluated() )
@@ -578,7 +578,7 @@ namespace xstd::math
 #endif
 		return { fabs( vec.x ), fabs( vec.y ), fabs( vec.z ), fabs( vec.w ) };
 	}
-	FORCE_INLINE inline constexpr vec4 vec_ceil( const vec4& vec )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_ceil( const vec4& vec )
 	{
 #if __has_vector_builtin(__builtin_elementwise_ceil)
 		if ( !std::is_constant_evaluated() )
@@ -586,7 +586,7 @@ namespace xstd::math
 #endif
 		return { fceil( vec.x ), fceil( vec.y ), fceil( vec.z ), fceil( vec.w ) };
 	}
-	FORCE_INLINE inline constexpr vec4 vec_floor( const vec4& vec )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_floor( const vec4& vec )
 	{
 #if __has_vector_builtin(__builtin_elementwise_floor)
 		if ( !std::is_constant_evaluated() )
@@ -594,7 +594,7 @@ namespace xstd::math
 #endif
 		return { ffloor( vec.x ), ffloor( vec.y ), ffloor( vec.z ), ffloor( vec.w ) };
 	}
-	FORCE_INLINE inline constexpr vec4 vec_round( const vec4& vec )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_round( const vec4& vec )
 	{
 #if __has_vector_builtin(__builtin_elementwise_roundeven)
 		if ( !std::is_constant_evaluated() )
@@ -602,7 +602,7 @@ namespace xstd::math
 #endif
 		return { fround( vec.x ), fround( vec.y ), fround( vec.z ), fround( vec.w ) };
 	}
-	FORCE_INLINE inline constexpr vec4 vec_trunc( const vec4& vec )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_trunc( const vec4& vec )
 	{
 #if __has_vector_builtin(__builtin_elementwise_trunc)
 		if ( !std::is_constant_evaluated() )
@@ -610,19 +610,19 @@ namespace xstd::math
 #endif
 		return { ftrunc( vec.x ), ftrunc( vec.y ), ftrunc( vec.z ), ftrunc( vec.w ) };
 	}
-	FORCE_INLINE inline vec4 vec_sqrt( const vec4& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
-	FORCE_INLINE inline constexpr vec4 vec_oddsgn( vec4 x )
+	CONST_FN FORCE_INLINE inline vec4 vec_sqrt( const vec4& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_oddsgn( vec4 x )
 	{
 		x *= 0.5f;
 		return x - vec_ceil( x );
 	}
-	FORCE_INLINE inline constexpr vec4 vec_xorsgn( const vec4& a, const vec4& b )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_xorsgn( const vec4& a, const vec4& b )
 	{
 		if ( !std::is_constant_evaluated() )
 			return vec4::from_xvec( ( a.to_xvec().template reinterpret<uint32_t>() ^ b.to_xvec().template reinterpret<uint32_t>() ).template reinterpret<float>() );
 		return { fxorsgn( a.x, b.x ), fxorsgn( a.y, b.y ), fxorsgn( a.z, b.z ), fxorsgn( a.w, b.w ) };
 	}
-	FORCE_INLINE inline constexpr vec4 vec_copysign( const vec4& a, const vec4& b )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_copysign( const vec4& a, const vec4& b )
 	{
 		if ( !std::is_constant_evaluated() )
 		{
@@ -633,45 +633,55 @@ namespace xstd::math
 		return { fcopysign( a.x, b.x ), fcopysign( a.y, b.y ), fcopysign( a.z, b.z ), fcopysign( a.w, b.w ) };
 	}
 
-	FORCE_INLINE inline constexpr vec3 vec_abs( const vec3& vec ) { return vec_abs( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline constexpr vec3 vec_ceil( const vec3& vec ) { return vec_ceil( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline constexpr vec3 vec_floor( const vec3& vec ) { return vec_floor( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline constexpr vec3 vec_round( const vec3& vec ) { return vec_round( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline constexpr vec3 vec_trunc( const vec3& vec ) { return vec_trunc( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline vec3 vec_sqrt( const vec3& vec ) { return vec_sqrt( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline vec3 vec_oddsgn( const vec3& vec ) { return vec_oddsgn( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline vec3 vec_xorsgn( const vec3& a, const vec3& b ) { return vec_xorsgn( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
-	FORCE_INLINE inline vec3 vec_copysign( const vec3& a, const vec3& b ) { return vec_copysign( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_abs( const vec3& vec ) { return vec_abs( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_ceil( const vec3& vec ) { return vec_ceil( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_floor( const vec3& vec ) { return vec_floor( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_round( const vec3& vec ) { return vec_round( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_trunc( const vec3& vec ) { return vec_trunc( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 vec_sqrt( const vec3& vec ) { return vec_sqrt( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 vec_oddsgn( const vec3& vec ) { return vec_oddsgn( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 vec_xorsgn( const vec3& a, const vec3& b ) { return vec_xorsgn( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 vec_copysign( const vec3& a, const vec3& b ) { return vec_copysign( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
 
-	FORCE_INLINE inline constexpr vec2 vec_abs( const vec2& vec ) { return { fabs( vec.x ), fabs( vec.y ) }; }
-	FORCE_INLINE inline constexpr vec2 vec_ceil( const vec2& vec ) { return { fceil( vec.x ), fceil( vec.y ) }; }
-	FORCE_INLINE inline constexpr vec2 vec_floor( const vec2& vec ) { return { ffloor( vec.x ), ffloor( vec.y ) }; }
-	FORCE_INLINE inline constexpr vec2 vec_round( const vec2& vec ) { return { fround( vec.x ), fround( vec.y ) }; }
-	FORCE_INLINE inline constexpr vec2 vec_trunc( const vec2& vec ) { return { ftrunc( vec.x ), ftrunc( vec.y ) }; }
-	FORCE_INLINE inline vec2 vec_sqrt( const vec2& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
-	FORCE_INLINE inline vec2 vec_oddsgn( const vec2& vec ) { return { foddsgn( vec.x ), foddsgn( vec.y ) }; }
-	FORCE_INLINE inline vec2 vec_xorsgn( const vec2& a, const vec2& b ) { return { fxorsgn( a.x, b.x ), fxorsgn( a.y, b.y ) }; }
-	FORCE_INLINE inline vec2 vec_copysign( const vec2& a, const vec2& b ) { return { fcopysign( a.x, b.x ), fcopysign( a.y, b.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_abs( const vec2& vec ) { return { fabs( vec.x ), fabs( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_ceil( const vec2& vec ) { return { fceil( vec.x ), fceil( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_floor( const vec2& vec ) { return { ffloor( vec.x ), ffloor( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_round( const vec2& vec ) { return { fround( vec.x ), fround( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_trunc( const vec2& vec ) { return { ftrunc( vec.x ), ftrunc( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline vec2 vec_sqrt( const vec2& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline vec2 vec_oddsgn( const vec2& vec ) { return { foddsgn( vec.x ), foddsgn( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline vec2 vec_xorsgn( const vec2& a, const vec2& b ) { return { fxorsgn( a.x, b.x ), fxorsgn( a.y, b.y ) }; }
+	CONST_FN FORCE_INLINE inline vec2 vec_copysign( const vec2& a, const vec2& b ) { return { fcopysign( a.x, b.x ), fcopysign( a.y, b.y ) }; }
 
 	template<typename V>
-	FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2 )
+	CONST_FN FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2 )
 	{
 		return v1.max_element( v2 );
 	}
 	template<typename V>
-	FORCE_INLINE inline constexpr V vec_min( const V& v1, const V& v2 )
+	CONST_FN FORCE_INLINE inline constexpr V vec_min( const V& v1, const V& v2 )
 	{
 		return v1.min_element( v2 );
 	}
 	template<typename V, typename... Tx>
-	FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2, const V& v3, Tx&&... rest )
+	CONST_FN FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2, const V& v3, Tx&&... rest )
 	{
 		return vec_max( vec_max( v1, v2 ), v3, std::forward<Tx>( rest )... );
 	}
 	template<typename V, typename... Tx>
-	FORCE_INLINE inline constexpr V vec_min( const V& v1, const V& v2, const V& v3, Tx&&... rest )
+	CONST_FN FORCE_INLINE inline constexpr V vec_min( const V& v1, const V& v2, const V& v3, Tx&&... rest )
 	{
 		return vec_min( vec_min( v1, v2 ), v3, std::forward<Tx>( rest )... );
+	}
+	template<typename V>
+	CONST_FN FORCE_INLINE inline constexpr V vec_clamp( const V& v, const V& vmin, const V& vmax )
+	{
+		return vec_min( vec_max( v, vmin ), vmax );
+	}
+	template<typename V>
+	CONST_FN FORCE_INLINE inline constexpr V vec_clamp( const V& v, float vmin, float vmax )
+	{
+		return vec_clamp( v, V::fill( vmin ), V::fill( vmax ) );
 	}
 
 	// Extended vector helpers.
