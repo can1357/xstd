@@ -85,7 +85,7 @@ namespace xstd::math
 	inline float _ftrunc( float x ) { return truncf( x ); }
 #else
 	float fsqrt( float x ) asm( "llvm.sqrt.f32" );
-	float fpow( float x, float y ) asm( "llvm.sqrt.f32" );
+	float fpow( float x, float y ) asm( "llvm.pow.f32" );
 	float _fsin( float x ) asm( "llvm.sin.f32" );
 	float _fcos( float x ) asm( "llvm.cos.f32" );
 	float _fcopysign( float m, float s ) asm( "llvm.copysign.f32" );
