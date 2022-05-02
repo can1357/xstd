@@ -769,7 +769,7 @@ namespace xstd
 				result[ i ] = ( int32_t ) vec[ offsets[ i ] % 8 ];
 			return result;
 		}
-
+		
 		// Vector reduction.
 		//
 		template<typename T, auto N>

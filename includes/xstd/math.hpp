@@ -157,6 +157,10 @@ namespace xstd::math
 		else
 			return bit_cast< float >( bit_cast< int32_t >( x ) ^ bit_cast< int32_t >( y ) );
 	}
+	CONST_FN FORCE_INLINE inline constexpr float fifsgn( float x, float value )
+	{
+		return x < 0 ? value : 0;
+	}
 	CONST_FN FORCE_INLINE inline constexpr float fmin( float a, float b )
 	{
 #if __has_builtin(__builtin_fminf)
@@ -633,6 +637,16 @@ namespace xstd::math
 		}
 		return { fcopysign( a.x, b.x ), fcopysign( a.y, b.y ), fcopysign( a.z, b.z ), fcopysign( a.w, b.w ) };
 	}
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_ifsgn( const vec4& a, const vec4& b )
+	{
+		if ( !std::is_constant_evaluated() )
+		{
+			auto va = a.to_xvec().template reinterpret<uint32_t>();
+			auto vb = ( b.to_xvec() < 0 ).template cast<int32_t>();
+			return vec4::from_xvec( ( va & vb ).template reinterpret<float>() );
+		}
+		return { fifsgn( a.x, b.x ), fifsgn( a.y, b.y ), fifsgn( a.z, b.z ), fifsgn( a.w, b.w ) };
+	}
 	CONST_FN FORCE_INLINE inline vec4 vec_sqrt( const vec4& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
 	CONST_FN FORCE_INLINE inline vec4 vec_pow( const vec4& a, float x ) { return { fpow( a.x, x ), fpow( a.y, x ), fpow( a.z, x ), fpow( a.w, x ) }; }
 	CONST_FN FORCE_INLINE inline vec4 vec_pow( const vec4& a, const vec4& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ), fpow( a.w, b.w ) }; }
@@ -645,6 +659,7 @@ namespace xstd::math
 	CONST_FN FORCE_INLINE inline vec3 constexpr vec_oddsgn( const vec3& vec ) { return vec_oddsgn( vec4::from( vec, 0 ) ).xyz(); }
 	CONST_FN FORCE_INLINE inline vec3 constexpr vec_xorsgn( const vec3& a, const vec3& b ) { return vec_xorsgn( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
 	CONST_FN FORCE_INLINE inline vec3 constexpr vec_copysign( const vec3& a, const vec3& b ) { return vec_copysign( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 constexpr vec_ifsgn( const vec3& a, const vec3& b ) { return vec_ifsgn( vec4::from( a, 0 ), vec4::from( b, 0 ) ).xyz(); }
 	CONST_FN FORCE_INLINE inline vec3 vec_sqrt( const vec3& vec ) { return vec_sqrt( vec4::from( vec, 0 ) ).xyz(); }
 	CONST_FN FORCE_INLINE inline vec3 vec_pow( const vec3& a, float x ) { return { fpow( a.x, x ), fpow( a.y, x ), fpow( a.z, x ) }; }
 	CONST_FN FORCE_INLINE inline vec3 vec_pow( const vec3& a, const vec3& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ) }; }
@@ -657,6 +672,7 @@ namespace xstd::math
 	CONST_FN FORCE_INLINE inline constexpr vec2 vec_oddsgn( const vec2& vec ) { return { foddsgn( vec.x ), foddsgn( vec.y ) }; }
 	CONST_FN FORCE_INLINE inline constexpr vec2 vec_xorsgn( const vec2& a, const vec2& b ) { return { fxorsgn( a.x, b.x ), fxorsgn( a.y, b.y ) }; }
 	CONST_FN FORCE_INLINE inline constexpr vec2 vec_copysign( const vec2& a, const vec2& b ) { return { fcopysign( a.x, b.x ), fcopysign( a.y, b.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_ifsgn( const vec2& a, const vec2& b ) { return { fifsgn( a.x, b.x ), fifsgn( a.y, b.y ) }; }
 	CONST_FN FORCE_INLINE inline vec2 vec_sqrt( const vec2& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
 	CONST_FN FORCE_INLINE inline vec2 vec_pow( const vec2& a, float x ) { return { fpow( a.x, x ), fpow( a.y, x ) }; }
 	CONST_FN FORCE_INLINE inline vec2 vec_pow( const vec2& a, const vec2& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ) }; }
