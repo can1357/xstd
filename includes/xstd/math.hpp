@@ -1075,7 +1075,7 @@ namespace xstd::math
 		template<typename V>
 		CONST_FN FORCE_INLINE inline constexpr V facos_poly_pos_v( V x )
 		{
-			// Degree 12, E(X) = 3.35e-12
+			// Degree 7, E(X) = 2.33e-7
 			return acos_hpi + 
 				x * ( -0.2145988016f + 
 				x * ( +0.0889789874f + 
