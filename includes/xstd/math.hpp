@@ -1070,6 +1070,21 @@ namespace xstd::math
 				x2 * ( -2.75135611164571371141959208910569516e-7f + 
 				x2 * 1.97644182995841772799444848310451781e-9f ) ) ) ) );
 		}
+		
+		constexpr float acos_hpi = 1.5707963050;
+		template<typename V>
+		CONST_FN FORCE_INLINE inline constexpr V facos_poly_pos_v( V x )
+		{
+			// Degree 12, E(X) = 3.35e-12
+			return acos_hpi + 
+				x * ( -0.2145988016f + 
+				x * ( +0.0889789874f + 
+				x * ( -0.0501743046f + 
+				x * ( +0.0308918810f +
+				x * ( -0.0170881256f + 
+				x * ( +0.0066700901f + 
+				x * -0.0012624911f ) ) ) ) ) );
+		}
 
 		// Corrected scalar versions.
 		//
@@ -1091,6 +1106,29 @@ namespace xstd::math
 			}
 			return fcos_poly_hpi_v( x1 );
 		}
+		CONST_FN FORCE_INLINE inline constexpr float facos_poly_pos( float x1 )
+		{
+			if ( std::is_constant_evaluated() )
+			{
+				if ( ( x1 + 1e-4 ) >= 1 ) return acos_hpi;
+				if ( ( x1 - 1e-4 ) <= 0 ) return 0.0f;
+			}
+			return facos_poly_pos_v( x1 );
+		}
+
+		// Vector asin-acos.
+		//
+		CONST_FN FORCE_INLINE inline constexpr std::pair<vec4, vec4> asincos_poly( vec4 x )
+		{
+			// acos [0-1]
+			vec4 xa = vec_abs( x );
+			vec4 result = facos_poly_pos_v( xa ) * vec_sqrt( 1.0f - xa );
+
+			// fix sign
+			result = vec_copysign( result, x );
+			result += vec_ifsgn( x, vec4::fill( acos_hpi * 2 ) );
+			return { -( result - acos_hpi ), result };
+		}
 
 		// Vector sin-cos.
 		//
@@ -1109,6 +1147,20 @@ namespace xstd::math
 				vec_copysign( fsin_poly_hpi_v( v ), vec_xorsgn( x, vec_oddsgn( n ) ) ),
 				vec_copysign( fcos_poly_hpi_v( v ), vec_oddsgn( vec_round( a ) ) )
 			};
+		}
+
+		// Scalar asin-acos.
+		//
+		CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> asincos_poly( float x )
+		{
+			// acos [0-1]
+			float xa = fabs( x );
+			float result = facos_poly_pos( xa ) * sqrtf( 1.0f - xa );
+
+			// fix sign
+			result = fcopysign( result, x );
+			result += fifsgn( x, acos_hpi * 2 );
+			return { -( result - acos_hpi ), result };
 		}
 
 		// Scalar sin-cos.
@@ -1142,11 +1194,28 @@ namespace xstd::math
 			return impl::sincos_poly( x ).second;
 		return _fcos( x );
 	}
+	CONST_FN FORCE_INLINE inline constexpr float fasin( float x )
+	{
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
+			return impl::asincos_poly( x ).first;
+		return asinf( x );
+	}
+	CONST_FN FORCE_INLINE inline constexpr float facos( float x )
+	{
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
+			return impl::asincos_poly( x ).second;
+		return acosf( x );
+	}
+	CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> fasincos( float x )
+	{
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
+			return impl::asincos_poly( x );
+		return { asinf( x ), acosf( x ) };
+	}
 	CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> fsincos( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::sincos_poly( x );
-
 		float s = fsin( x );
 		float c = fcopysign( fsqrt( 1 - s * s ), foddsgn( fround( fabs( x ) / pi ) ) );
 		return { s, c };
@@ -1160,22 +1229,38 @@ namespace xstd::math
 		}
 		return tanf( x );
 	}
-	FORCE_INLINE inline constexpr vec4 vec_sin( const vec4& x )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_sin( const vec4& x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::sincos_poly( x ).first;
 		return { _fsin( x.x ), _fsin( x.y ), _fsin( x.z ), _fsin( x.w ) };
 	}
-	FORCE_INLINE inline constexpr vec4 vec_cos( const vec4& x )
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_cos( const vec4& x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::sincos_poly( x ).second;
 		return { _fcos( x.x ), _fcos( x.y ), _fcos( x.z ), _fcos( x.w ) };
 	}
-	FORCE_INLINE inline constexpr vec3 vec_sin( const vec3& vec ) { return vec_sin( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline constexpr vec3 vec_cos( const vec3& vec ) { return vec_cos( vec4::from( vec, 0 ) ).xyz(); }
-	FORCE_INLINE inline constexpr vec2 vec_sin( const vec2& vec ) { return { fsin( vec.x ), fsin( vec.y ) }; }
-	FORCE_INLINE inline constexpr vec2 vec_cos( const vec2& vec ) { return { fcos( vec.x ), fcos( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_asin( const vec4& x )
+	{
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
+			return impl::asincos_poly( x ).first;
+		return { fasin( x.x ), fasin( x.y ), fasin( x.z ), fasin( x.w ) };
+	}
+	CONST_FN FORCE_INLINE inline constexpr vec4 vec_acos( const vec4& x )
+	{
+		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
+			return impl::asincos_poly( x ).second;
+		return { facos( x.x ), facos( x.y ), facos( x.z ), facos( x.w ) };
+	}
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_sin( const vec3& vec ) { return vec_sin( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_cos( const vec3& vec ) { return vec_cos( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_asin( const vec3& vec ) { return vec_asin( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec3 vec_acos( const vec3& vec ) { return vec_acos( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_sin( const vec2& vec ) { return { fsin( vec.x ), fsin( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_cos( const vec2& vec ) { return { fcos( vec.x ), fcos( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_asin( const vec2& vec ) { return { fasin( vec.x ), fasin( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline constexpr vec2 vec_acos( const vec2& vec ) { return { facos( vec.x ), facos( vec.y ) }; }
 
 	// Matrix inversion.
 	//
@@ -1331,7 +1416,7 @@ namespace xstd::math
 		//
 		if ( dotv < 0.999f )
 		{
-			float theta = acosf( dotv );
+			float theta = facos( dotv );
 			float rstheta = rcp( fsin( theta ) );
 			t2 = fsin( theta * t2 ) * rstheta;
 			t =  fsin( theta * t )  * rstheta;
@@ -1456,7 +1541,7 @@ namespace xstd::math
 	}
 	FORCE_INLINE inline vec3 direction_to_euler( const vec3& direction )
 	{
-		return vec3{ -asinf( direction.z / direction.length() ), atan2f( direction.y, direction.x ), 0 };
+		return vec3{ -fasin( direction.z / direction.length() ), atan2f( direction.y, direction.x ), 0 };
 	}
 	FORCE_INLINE inline quaternion direction_to_quaternion( const vec3& direction )
 	{
@@ -1473,7 +1558,7 @@ namespace xstd::math
 		float siny_cosp = 2.0f * ( q.w * q.z + q.x * q.y );
 		float cosy_cosp = 1.0f - 2.0f * ( q.y * q.y + q.z * q.z );
 		return {
-			asinf( fclamp( sinp, -1.0f, +1.0f ) ),
+			fasin( fclamp( sinp, -1.0f, +1.0f ) ),
 			atan2f( siny_cosp, cosy_cosp ),
 			atan2f( sinr_cosp, cosr_cosp )
 		};
