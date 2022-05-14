@@ -1668,6 +1668,13 @@ namespace xstd::math
 		return out;
 	}
 
+	// Given a rotation matrix, converts it to rotation around a point.
+	//
+	FORCE_INLINE inline constexpr void make_rotation_off_center( mat4x4& mat, vec4 center )
+	{
+		mat[ 3 ] += ( mat * -center ) + center;
+	}
+
 	// Fast transformation matrix.
 	//
 	FORCE_INLINE inline constexpr mat4x4 matrix_transformation( const quaternion& rot, const vec3& scale, const vec3& translation )
@@ -1701,6 +1708,56 @@ namespace xstd::math
 			 vec4{ 0,  0, 1, 0 },
 			 vec4::from( translation, 0, 1 )
 		};
+	}
+
+	// Intersection helpers.
+	//
+	FORCE_INLINE inline constexpr std::optional<float> ix_ray_sphere( const vec3& ray_origin, const vec3& ray_direction, 
+																							const vec3& sphere_origin, float sphere_radius )
+	{
+		auto m = ray_origin - sphere_origin;
+		float b = dot( m, ray_direction );
+		float c = m.length_sq() - sphere_radius * sphere_radius;
+		if ( c >= 0 && b >= 0 )
+			return std::nullopt;
+		float d = b * b - c;
+		if ( d < 0 ) 
+			return std::nullopt;
+		return fmax( 0, -b - fsqrt( d ) );
+	}
+	FORCE_INLINE inline constexpr std::optional<float> ix_ray_box( const vec3& ray_origin, const vec3& ray_direction, 
+																						const vec3& box_min, const vec3& box_max )
+	{
+		auto rdir = rcp( ray_direction );
+		auto t1 = ( box_min - ray_origin ) * rdir;
+		auto t2 = ( box_max - ray_origin ) * rdir;
+
+		auto tmin = fmax( t1.min_element( t2 ).reduce_max(), 0 );
+		auto tmax = t1.max_element( t2 ).reduce_min();
+
+		if ( tmax <= tmin )
+			return std::nullopt;
+		else
+			return tmin;
+	}
+	FORCE_INLINE inline constexpr std::optional<float> ix_ray_plane( const vec3& ray_origin, const vec3& ray_direction, 
+																						  const vec3& plane_point, const vec3& plane_normal )
+	{
+		float d = dot( plane_normal, ray_direction );
+		if ( fabs( d ) > flt_eps )
+		{
+			float t = dot( plane_point - ray_origin, plane_normal ) / d;
+			if ( t >= 0 )
+				return t;
+		}
+		return std::nullopt;
+	}
+	FORCE_INLINE inline constexpr bool ix_aa_bb( const vec3& a_min, const vec3& a_max,
+																const vec3& b_min, const vec3& b_max )
+	{
+		auto a = vec4::from( a_max - b_min, 0 ); // >= 0
+		auto b = vec4::from( b_max - a_min, 0 ); // >= 0
+		return a.min_element( b ).reduce_min() >= 0;
 	}
 
 	// View helpers.
