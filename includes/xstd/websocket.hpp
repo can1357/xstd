@@ -259,8 +259,6 @@ namespace xstd::ws
 			return parser_status( 1 );
 		if ( hdr.is_control_frame() && !hdr.finished )
 			return parser_status( 2 );
-		if ( hdr.is_control_frame() && hdr.length >= length_extend_u16 )
-			return parser_status( 3 );
 
 		// Read the extended length if relevant.
 		//
@@ -306,7 +304,6 @@ namespace xstd::ws
 		// Create the networked header and write it including extended size if relevant.
 		//
 		dassert( hdr.op < opcode::maximum );
-		dassert( !hdr.is_control_frame() || hdr.length < length_extend_u16 );
 		dassert( !hdr.is_control_frame() || hdr.finished );
 
 		net_header net = { .op = hdr.op, .rsvd = 0, .fin = hdr.finished, .masked = hdr.mask_key != 0 };
