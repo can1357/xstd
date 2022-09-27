@@ -98,17 +98,16 @@ namespace xstd
 	struct ref_counted : ref_counted_tag_t
 	{
 		mutable std::atomic<uint32_t> ref_count = { 1 };
-		T* _wptr = nullptr;
 
-		ref<T> add_ref() 
+		template<typename Ty = T>
+		ref<Ty> add_ref()
 		{  
-			dassert( _wptr );
-			return ref<T>{ _wptr }; 
+			return ref<Ty>{ static_cast<Ty*>( this ) };
 		}
-		ref<const T> add_ref() const 
+		template<typename Ty = T>
+		ref<const Ty> add_ref() const
 		{ 
-			dassert( _wptr );
-			return ref<const T>{ _wptr }; 
+			return ref<const Ty>{ static_cast<const Ty*>( this ) };
 		}
 	};
 
@@ -118,9 +117,6 @@ namespace xstd
 	inline ref<T> make_refc( Tx&&... args ) 
 	{ 
 		using V = typename ref<T>::store_type;
-		V* ptr = new V( std::forward<Tx>( args )... );
-		if constexpr ( HasBase<ref_counted_tag_t, T> )
-			ptr->_wptr = ( T* ) ptr;
-		return ref<T>( ptr, false ); 
+		return ref<T>( new V( std::forward<Tx>( args )... ), false );
 	}
 };
