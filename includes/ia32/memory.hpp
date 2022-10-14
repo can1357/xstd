@@ -104,7 +104,7 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline constexpr xstd::any_ptr make_cannonical( xstd::any_ptr ptr ) { return xstd::any_ptr( int64_t( ptr << sx_bits ) >> sx_bits ); }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t page_size( int8_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t page_offset( xstd::any_ptr ptr ) { return ptr & 0xFFF; }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( xstd::any_ptr ptr, int8_t level ) { return ( ptr >> ( 12 + 9 * level ) ) % 512; }
+	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( xstd::any_ptr ptr, int8_t level ) { return ( ptr >> ( 12 + 9 * level ) ) & 511; }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( xstd::any_ptr ptr ) { return pt_index( ptr, pte_level ); }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t pd_index( xstd::any_ptr ptr ) { return pt_index( ptr, pde_level ); }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t pdpt_index( xstd::any_ptr ptr ) { return pt_index( ptr, pdpte_level ); }

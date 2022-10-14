@@ -1563,20 +1563,24 @@ namespace xstd::math
 			atan2f( sinr_cosp, cosr_cosp )
 		};
 	}
-	FORCE_INLINE inline constexpr mat4x4 quaternion_to_matrix( const quaternion& rot )
+	FORCE_INLINE inline constexpr mat4x4 quaternion_to_matrix_weighted( const quaternion& rot, float w = 2.0f )
 	{
 		mat4x4 out = {};
-		out[ 0 ][ 0 ] = 1.0f - 2.0f * ( rot.y * rot.y + rot.z * rot.z );
-		out[ 0 ][ 1 ] = 2.0f * ( rot.x * rot.y + rot.z * rot.w );
-		out[ 0 ][ 2 ] = 2.0f * ( rot.x * rot.z - rot.y * rot.w );
-		out[ 1 ][ 0 ] = 2.0f * ( rot.x * rot.y - rot.z * rot.w );
-		out[ 1 ][ 1 ] = 1.0f - 2.0f * ( rot.x * rot.x + rot.z * rot.z );
-		out[ 1 ][ 2 ] = 2.0f * ( rot.y * rot.z + rot.x * rot.w );
-		out[ 2 ][ 0 ] = 2.0f * ( rot.x * rot.z + rot.y * rot.w );
-		out[ 2 ][ 1 ] = 2.0f * ( rot.y * rot.z - rot.x * rot.w );
-		out[ 2 ][ 2 ] = 1.0f - 2.0f * ( rot.x * rot.x + rot.y * rot.y );
+		out[ 0 ][ 0 ] = 1.0f - w * ( rot.y * rot.y + rot.z * rot.z );
+		out[ 0 ][ 1 ] = w * ( rot.x * rot.y + rot.z * rot.w );
+		out[ 0 ][ 2 ] = w * ( rot.x * rot.z - rot.y * rot.w );
+		out[ 1 ][ 0 ] = w * ( rot.x * rot.y - rot.z * rot.w );
+		out[ 1 ][ 1 ] = 1.0f - w * ( rot.x * rot.x + rot.z * rot.z );
+		out[ 1 ][ 2 ] = w * ( rot.y * rot.z + rot.x * rot.w );
+		out[ 2 ][ 0 ] = w * ( rot.x * rot.z + rot.y * rot.w );
+		out[ 2 ][ 1 ] = w * ( rot.y * rot.z - rot.x * rot.w );
+		out[ 2 ][ 2 ] = 1.0f - w * ( rot.x * rot.x + rot.y * rot.y );
 		out[ 3 ][ 3 ] = 1.0f;
 		return out;
+	}
+	FORCE_INLINE inline constexpr mat4x4 quaternion_to_matrix( const quaternion& rot )
+	{
+		return quaternion_to_matrix_weighted( rot );
 	}
 	FORCE_INLINE inline constexpr vec3 quaternion_to_direction( const quaternion& q )
 	{
