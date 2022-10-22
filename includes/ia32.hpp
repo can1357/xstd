@@ -2480,411 +2480,708 @@ typedef struct
  * sub-leaf, and EBX, ECX & EDX contain information of extended feature flags.
  */
 #define CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS                      0x00000007
+
 typedef struct
 {
   union
   {
-	struct
-	{
-		/**
-		* [Bits 31:0] Reports the maximum input value for supported leaf 7 sub-leaves.
-		*/
-		uint32_t number_of_sub_leaves                                  : 32;
+    struct
+    {
+      /**
+       * [Bits 31:0] Reports the maximum input value for supported leaf 7 sub-leaves.
+       */
+      uint32_t number_of_sub_leaves                                  : 32;
 #define CPUID_EAX_NUMBER_OF_SUB_LEAVES_BIT                           0
 #define CPUID_EAX_NUMBER_OF_SUB_LEAVES_FLAG                          0xFFFFFFFF
 #define CPUID_EAX_NUMBER_OF_SUB_LEAVES_MASK                          0xFFFFFFFF
 #define CPUID_EAX_NUMBER_OF_SUB_LEAVES(_)                            (((_) >> 0) & 0xFFFFFFFF)
-	};
+    };
 
-	uint32_t flags;
+    uint32_t flags;
   } eax;
 
   union
   {
-	struct
-	{
-		/**
-		* [Bit 0] Supports RDFSBASE/RDGSBASE/WRFSBASE/WRGSBASE if 1.
-		*/
-		uint32_t fsgsbase                                              : 1;
+    struct
+    {
+      /**
+       * [Bit 0] Supports RDFSBASE/RDGSBASE/WRFSBASE/WRGSBASE if 1.
+       */
+      uint32_t fsgsbase                                              : 1;
 #define CPUID_EBX_FSGSBASE_BIT                                       0
 #define CPUID_EBX_FSGSBASE_FLAG                                      0x01
 #define CPUID_EBX_FSGSBASE_MASK                                      0x01
 #define CPUID_EBX_FSGSBASE(_)                                        (((_) >> 0) & 0x01)
 
-		/**
-		* [Bit 1] IA32_TSC_ADJUST MSR is supported if 1.
-		*/
-		uint32_t ia32_tsc_adjust_msr                                   : 1;
+      /**
+       * [Bit 1] IA32_TSC_ADJUST MSR is supported if 1.
+       */
+      uint32_t ia32_tsc_adjust_msr                                   : 1;
 #define CPUID_EBX_IA32_TSC_ADJUST_MSR_BIT                            1
 #define CPUID_EBX_IA32_TSC_ADJUST_MSR_FLAG                           0x02
 #define CPUID_EBX_IA32_TSC_ADJUST_MSR_MASK                           0x01
 #define CPUID_EBX_IA32_TSC_ADJUST_MSR(_)                             (((_) >> 1) & 0x01)
 
-		/**
-		* [Bit 2] Supports Intel(R) Software Guard Extensions (Intel(R) SGX Extensions) if 1.
-		*/
-		uint32_t sgx                                                   : 1;
+      /**
+       * [Bit 2] Supports Intel(R) Software Guard Extensions (Intel(R) SGX Extensions) if 1.
+       */
+      uint32_t sgx                                                   : 1;
 #define CPUID_EBX_SGX_BIT                                            2
 #define CPUID_EBX_SGX_FLAG                                           0x04
 #define CPUID_EBX_SGX_MASK                                           0x01
 #define CPUID_EBX_SGX(_)                                             (((_) >> 2) & 0x01)
 
-		/**
-		* [Bit 3] BMI1.
-		*/
-		uint32_t bmi1                                                  : 1;
+      /**
+       * [Bit 3] BMI1.
+       */
+      uint32_t bmi1                                                  : 1;
 #define CPUID_EBX_BMI1_BIT                                           3
 #define CPUID_EBX_BMI1_FLAG                                          0x08
 #define CPUID_EBX_BMI1_MASK                                          0x01
 #define CPUID_EBX_BMI1(_)                                            (((_) >> 3) & 0x01)
 
-		/**
-		* [Bit 4] HLE.
-		*/
-		uint32_t hle                                                   : 1;
+      /**
+       * [Bit 4] HLE.
+       */
+      uint32_t hle                                                   : 1;
 #define CPUID_EBX_HLE_BIT                                            4
 #define CPUID_EBX_HLE_FLAG                                           0x10
 #define CPUID_EBX_HLE_MASK                                           0x01
 #define CPUID_EBX_HLE(_)                                             (((_) >> 4) & 0x01)
 
-		/**
-		* [Bit 5] AVX2.
-		*/
-		uint32_t avx2                                                  : 1;
+      /**
+       * [Bit 5] AVX2.
+       */
+      uint32_t avx2                                                  : 1;
 #define CPUID_EBX_AVX2_BIT                                           5
 #define CPUID_EBX_AVX2_FLAG                                          0x20
 #define CPUID_EBX_AVX2_MASK                                          0x01
 #define CPUID_EBX_AVX2(_)                                            (((_) >> 5) & 0x01)
 
-		/**
-		* [Bit 6] x87 FPU Data Pointer updated only on x87 exceptions if 1.
-		*/
-		uint32_t fdp_excptn_only                                       : 1;
+      /**
+       * [Bit 6] x87 FPU Data Pointer updated only on x87 exceptions if 1.
+       */
+      uint32_t fdp_excptn_only                                       : 1;
 #define CPUID_EBX_FDP_EXCPTN_ONLY_BIT                                6
 #define CPUID_EBX_FDP_EXCPTN_ONLY_FLAG                               0x40
 #define CPUID_EBX_FDP_EXCPTN_ONLY_MASK                               0x01
 #define CPUID_EBX_FDP_EXCPTN_ONLY(_)                                 (((_) >> 6) & 0x01)
 
-		/**
-		* [Bit 7] Supports Supervisor-Mode Execution Prevention if 1.
-		*/
-		uint32_t smep                                                  : 1;
+      /**
+       * [Bit 7] Supports Supervisor-Mode Execution Prevention if 1.
+       */
+      uint32_t smep                                                  : 1;
 #define CPUID_EBX_SMEP_BIT                                           7
 #define CPUID_EBX_SMEP_FLAG                                          0x80
 #define CPUID_EBX_SMEP_MASK                                          0x01
 #define CPUID_EBX_SMEP(_)                                            (((_) >> 7) & 0x01)
 
-		/**
-		* [Bit 8] BMI2.
-		*/
-		uint32_t bmi2                                                  : 1;
+      /**
+       * [Bit 8] BMI2.
+       */
+      uint32_t bmi2                                                  : 1;
 #define CPUID_EBX_BMI2_BIT                                           8
 #define CPUID_EBX_BMI2_FLAG                                          0x100
 #define CPUID_EBX_BMI2_MASK                                          0x01
 #define CPUID_EBX_BMI2(_)                                            (((_) >> 8) & 0x01)
 
-		/**
-		* [Bit 9] Supports Enhanced REP MOVSB/STOSB if 1.
-		*/
-		uint32_t enhanced_rep_movsb_stosb                              : 1;
+      /**
+       * [Bit 9] Supports Enhanced REP MOVSB/STOSB if 1.
+       */
+      uint32_t enhanced_rep_movsb_stosb                              : 1;
 #define CPUID_EBX_ENHANCED_REP_MOVSB_STOSB_BIT                       9
 #define CPUID_EBX_ENHANCED_REP_MOVSB_STOSB_FLAG                      0x200
 #define CPUID_EBX_ENHANCED_REP_MOVSB_STOSB_MASK                      0x01
 #define CPUID_EBX_ENHANCED_REP_MOVSB_STOSB(_)                        (((_) >> 9) & 0x01)
 
-		/**
-		* [Bit 10] If 1, supports INVPCID instruction for system software that manages process-context identifiers.
-		*/
-		uint32_t invpcid                                               : 1;
+      /**
+       * [Bit 10] If 1, supports INVPCID instruction for system software that manages process-context identifiers.
+       */
+      uint32_t invpcid                                               : 1;
 #define CPUID_EBX_INVPCID_BIT                                        10
 #define CPUID_EBX_INVPCID_FLAG                                       0x400
 #define CPUID_EBX_INVPCID_MASK                                       0x01
 #define CPUID_EBX_INVPCID(_)                                         (((_) >> 10) & 0x01)
 
-		/**
-		* [Bit 11] RTM.
-		*/
-		uint32_t rtm                                                   : 1;
+      /**
+       * [Bit 11] RTM.
+       */
+      uint32_t rtm                                                   : 1;
 #define CPUID_EBX_RTM_BIT                                            11
 #define CPUID_EBX_RTM_FLAG                                           0x800
 #define CPUID_EBX_RTM_MASK                                           0x01
 #define CPUID_EBX_RTM(_)                                             (((_) >> 11) & 0x01)
 
-		/**
-		* [Bit 12] Supports Intel(R) Resource Director Technology (Intel(R) RDT) Monitoring capability if 1.
-		*/
-		uint32_t rdt_m                                                 : 1;
+      /**
+       * [Bit 12] Supports Intel(R) Resource Director Technology (Intel(R) RDT) Monitoring capability if 1.
+       */
+      uint32_t rdt_m                                                 : 1;
 #define CPUID_EBX_RDT_M_BIT                                          12
 #define CPUID_EBX_RDT_M_FLAG                                         0x1000
 #define CPUID_EBX_RDT_M_MASK                                         0x01
 #define CPUID_EBX_RDT_M(_)                                           (((_) >> 12) & 0x01)
 
-		/**
-		* [Bit 13] Deprecates FPU CS and FPU DS values if 1.
-		*/
-		uint32_t deprecates                                            : 1;
+      /**
+       * [Bit 13] Deprecates FPU CS and FPU DS values if 1.
+       */
+      uint32_t deprecates                                            : 1;
 #define CPUID_EBX_DEPRECATES_BIT                                     13
 #define CPUID_EBX_DEPRECATES_FLAG                                    0x2000
 #define CPUID_EBX_DEPRECATES_MASK                                    0x01
 #define CPUID_EBX_DEPRECATES(_)                                      (((_) >> 13) & 0x01)
 
-		/**
-		* [Bit 14] Supports Intel(R) Memory Protection Extensions if 1.
-		*/
-		uint32_t mpx                                                   : 1;
+      /**
+       * [Bit 14] Supports Intel(R) Memory Protection Extensions if 1.
+       */
+      uint32_t mpx                                                   : 1;
 #define CPUID_EBX_MPX_BIT                                            14
 #define CPUID_EBX_MPX_FLAG                                           0x4000
 #define CPUID_EBX_MPX_MASK                                           0x01
 #define CPUID_EBX_MPX(_)                                             (((_) >> 14) & 0x01)
 
-		/**
-		* [Bit 15] Supports Intel(R) Resource Director Technology (Intel(R) RDT) Allocation capability if 1.
-		*/
-		uint32_t rdt                                                   : 1;
+      /**
+       * [Bit 15] Supports Intel(R) Resource Director Technology (Intel(R) RDT) Allocation capability if 1.
+       */
+      uint32_t rdt                                                   : 1;
 #define CPUID_EBX_RDT_BIT                                            15
 #define CPUID_EBX_RDT_FLAG                                           0x8000
 #define CPUID_EBX_RDT_MASK                                           0x01
 #define CPUID_EBX_RDT(_)                                             (((_) >> 15) & 0x01)
 
-		/**
-		* [Bit 16] AVX512F.
-		*/
-		uint32_t avx512f                                               : 1;
+      /**
+       * [Bit 16] AVX512F.
+       */
+      uint32_t avx512f                                               : 1;
 #define CPUID_EBX_AVX512F_BIT                                        16
 #define CPUID_EBX_AVX512F_FLAG                                       0x10000
 #define CPUID_EBX_AVX512F_MASK                                       0x01
 #define CPUID_EBX_AVX512F(_)                                         (((_) >> 16) & 0x01)
 
-		/**
-		* [Bit 17] AVX512DQ.
-		*/
-		uint32_t avx512dq                                              : 1;
+      /**
+       * [Bit 17] AVX512DQ.
+       */
+      uint32_t avx512dq                                              : 1;
 #define CPUID_EBX_AVX512DQ_BIT                                       17
 #define CPUID_EBX_AVX512DQ_FLAG                                      0x20000
 #define CPUID_EBX_AVX512DQ_MASK                                      0x01
 #define CPUID_EBX_AVX512DQ(_)                                        (((_) >> 17) & 0x01)
 
-		/**
-		* [Bit 18] RDSEED.
-		*/
-		uint32_t rdseed                                                : 1;
+      /**
+       * [Bit 18] RDSEED.
+       */
+      uint32_t rdseed                                                : 1;
 #define CPUID_EBX_RDSEED_BIT                                         18
 #define CPUID_EBX_RDSEED_FLAG                                        0x40000
 #define CPUID_EBX_RDSEED_MASK                                        0x01
 #define CPUID_EBX_RDSEED(_)                                          (((_) >> 18) & 0x01)
 
-		/**
-		* [Bit 19] ADX.
-		*/
-		uint32_t adx                                                   : 1;
+      /**
+       * [Bit 19] ADX.
+       */
+      uint32_t adx                                                   : 1;
 #define CPUID_EBX_ADX_BIT                                            19
 #define CPUID_EBX_ADX_FLAG                                           0x80000
 #define CPUID_EBX_ADX_MASK                                           0x01
 #define CPUID_EBX_ADX(_)                                             (((_) >> 19) & 0x01)
 
-		/**
-		* [Bit 20] Supports Supervisor-Mode Access Prevention (and the CLAC/STAC instructions) if 1.
-		*/
-		uint32_t smap                                                  : 1;
+      /**
+       * [Bit 20] Supports Supervisor-Mode Access Prevention (and the CLAC/STAC instructions) if 1.
+       */
+      uint32_t smap                                                  : 1;
 #define CPUID_EBX_SMAP_BIT                                           20
 #define CPUID_EBX_SMAP_FLAG                                          0x100000
 #define CPUID_EBX_SMAP_MASK                                          0x01
 #define CPUID_EBX_SMAP(_)                                            (((_) >> 20) & 0x01)
 
-		/**
-		* [Bit 21] AVX512_IFMA.
-		*/
-		uint32_t avx512_ifma                                           : 1;
+      /**
+       * [Bit 21] AVX512_IFMA.
+       */
+      uint32_t avx512_ifma                                           : 1;
 #define CPUID_EBX_AVX512_IFMA_BIT                                    21
 #define CPUID_EBX_AVX512_IFMA_FLAG                                   0x200000
 #define CPUID_EBX_AVX512_IFMA_MASK                                   0x01
 #define CPUID_EBX_AVX512_IFMA(_)                                     (((_) >> 21) & 0x01)
-		uint32_t reserved1                                             : 1;
+      uint32_t reserved1                                             : 1;
 
-		/**
-		* [Bit 23] CLFLUSHOPT.
-		*/
-		uint32_t clflushopt                                            : 1;
+      /**
+       * [Bit 23] CLFLUSHOPT.
+       */
+      uint32_t clflushopt                                            : 1;
 #define CPUID_EBX_CLFLUSHOPT_BIT                                     23
 #define CPUID_EBX_CLFLUSHOPT_FLAG                                    0x800000
 #define CPUID_EBX_CLFLUSHOPT_MASK                                    0x01
 #define CPUID_EBX_CLFLUSHOPT(_)                                      (((_) >> 23) & 0x01)
 
-		/**
-		* [Bit 24] CLWB.
-		*/
-		uint32_t clwb                                                  : 1;
+      /**
+       * [Bit 24] CLWB.
+       */
+      uint32_t clwb                                                  : 1;
 #define CPUID_EBX_CLWB_BIT                                           24
 #define CPUID_EBX_CLWB_FLAG                                          0x1000000
 #define CPUID_EBX_CLWB_MASK                                          0x01
 #define CPUID_EBX_CLWB(_)                                            (((_) >> 24) & 0x01)
 
-		/**
-		* [Bit 25] Intel Processor Trace.
-		*/
-		uint32_t intel                                                 : 1;
+      /**
+       * [Bit 25] Intel Processor Trace.
+       */
+      uint32_t intel                                                 : 1;
 #define CPUID_EBX_INTEL_BIT                                          25
 #define CPUID_EBX_INTEL_FLAG                                         0x2000000
 #define CPUID_EBX_INTEL_MASK                                         0x01
 #define CPUID_EBX_INTEL(_)                                           (((_) >> 25) & 0x01)
 
-		/**
-		* [Bit 26] (Intel(R) Xeon Phi(TM) only).
-		*/
-		uint32_t avx512pf                                              : 1;
+      /**
+       * [Bit 26] (Intel(R) Xeon Phi(TM) only).
+       */
+      uint32_t avx512pf                                              : 1;
 #define CPUID_EBX_AVX512PF_BIT                                       26
 #define CPUID_EBX_AVX512PF_FLAG                                      0x4000000
 #define CPUID_EBX_AVX512PF_MASK                                      0x01
 #define CPUID_EBX_AVX512PF(_)                                        (((_) >> 26) & 0x01)
 
-		/**
-		* [Bit 27] (Intel(R) Xeon Phi(TM) only).
-		*/
-		uint32_t avx512er                                              : 1;
+      /**
+       * [Bit 27] (Intel(R) Xeon Phi(TM) only).
+       */
+      uint32_t avx512er                                              : 1;
 #define CPUID_EBX_AVX512ER_BIT                                       27
 #define CPUID_EBX_AVX512ER_FLAG                                      0x8000000
 #define CPUID_EBX_AVX512ER_MASK                                      0x01
 #define CPUID_EBX_AVX512ER(_)                                        (((_) >> 27) & 0x01)
 
-		/**
-		* [Bit 28] AVX512CD.
-		*/
-		uint32_t avx512cd                                              : 1;
+      /**
+       * [Bit 28] AVX512CD.
+       */
+      uint32_t avx512cd                                              : 1;
 #define CPUID_EBX_AVX512CD_BIT                                       28
 #define CPUID_EBX_AVX512CD_FLAG                                      0x10000000
 #define CPUID_EBX_AVX512CD_MASK                                      0x01
 #define CPUID_EBX_AVX512CD(_)                                        (((_) >> 28) & 0x01)
 
-		/**
-		* [Bit 29] Supports Intel(R) Secure Hash Algorithm Extensions (Intel(R) SHA Extensions) if 1.
-		*/
-		uint32_t sha                                                   : 1;
+      /**
+       * [Bit 29] Supports Intel(R) Secure Hash Algorithm Extensions (Intel(R) SHA Extensions) if 1.
+       */
+      uint32_t sha                                                   : 1;
 #define CPUID_EBX_SHA_BIT                                            29
 #define CPUID_EBX_SHA_FLAG                                           0x20000000
 #define CPUID_EBX_SHA_MASK                                           0x01
 #define CPUID_EBX_SHA(_)                                             (((_) >> 29) & 0x01)
 
-		/**
-		* [Bit 30] AVX512BW.
-		*/
-		uint32_t avx512bw                                              : 1;
+      /**
+       * [Bit 30] AVX512BW.
+       */
+      uint32_t avx512bw                                              : 1;
 #define CPUID_EBX_AVX512BW_BIT                                       30
 #define CPUID_EBX_AVX512BW_FLAG                                      0x40000000
 #define CPUID_EBX_AVX512BW_MASK                                      0x01
 #define CPUID_EBX_AVX512BW(_)                                        (((_) >> 30) & 0x01)
 
-		/**
-		* [Bit 31] AVX512VL.
-		*/
-		uint32_t avx512vl                                              : 1;
+      /**
+       * [Bit 31] AVX512VL.
+       */
+      uint32_t avx512vl                                              : 1;
 #define CPUID_EBX_AVX512VL_BIT                                       31
 #define CPUID_EBX_AVX512VL_FLAG                                      0x80000000
 #define CPUID_EBX_AVX512VL_MASK                                      0x01
 #define CPUID_EBX_AVX512VL(_)                                        (((_) >> 31) & 0x01)
-	};
+    };
 
-	uint32_t flags;
+    uint32_t flags;
   } ebx;
 
   union
   {
-	struct
-	{
-		/**
-		* [Bit 0] (Intel(R) Xeon Phi(TM) only).
-		*/
-		uint32_t prefetchwt1                                           : 1;
+    struct
+    {
+      /**
+       * [Bit 0] (Intel(R) Xeon Phi(TM) only).
+       */
+      uint32_t prefetchwt1                                           : 1;
 #define CPUID_ECX_PREFETCHWT1_BIT                                    0
 #define CPUID_ECX_PREFETCHWT1_FLAG                                   0x01
 #define CPUID_ECX_PREFETCHWT1_MASK                                   0x01
 #define CPUID_ECX_PREFETCHWT1(_)                                     (((_) >> 0) & 0x01)
 
-		/**
-		* [Bit 1] AVX512_VBMI.
-		*/
-		uint32_t avx512_vbmi                                           : 1;
+      /**
+       * [Bit 1] AVX512_VBMI.
+       */
+      uint32_t avx512_vbmi                                           : 1;
 #define CPUID_ECX_AVX512_VBMI_BIT                                    1
 #define CPUID_ECX_AVX512_VBMI_FLAG                                   0x02
 #define CPUID_ECX_AVX512_VBMI_MASK                                   0x01
 #define CPUID_ECX_AVX512_VBMI(_)                                     (((_) >> 1) & 0x01)
 
-		/**
-		* [Bit 2] Supports user-mode instruction prevention if 1.
-		*/
-		uint32_t umip                                                  : 1;
+      /**
+       * [Bit 2] Supports user-mode instruction prevention if 1.
+       */
+      uint32_t umip                                                  : 1;
 #define CPUID_ECX_UMIP_BIT                                           2
 #define CPUID_ECX_UMIP_FLAG                                          0x04
 #define CPUID_ECX_UMIP_MASK                                          0x01
 #define CPUID_ECX_UMIP(_)                                            (((_) >> 2) & 0x01)
 
-		/**
-		* [Bit 3] Supports protection keys for user-mode pages if 1.
-		*/
-		uint32_t pku                                                   : 1;
+      /**
+       * [Bit 3] Supports protection keys for user-mode pages if 1.
+       */
+      uint32_t pku                                                   : 1;
 #define CPUID_ECX_PKU_BIT                                            3
 #define CPUID_ECX_PKU_FLAG                                           0x08
 #define CPUID_ECX_PKU_MASK                                           0x01
 #define CPUID_ECX_PKU(_)                                             (((_) >> 3) & 0x01)
 
-		/**
-		* [Bit 4] If 1, OS has set CR4.PKE to enable protection keys (and the RDPKRU/WRPKRU instructions).
-		*/
-		uint32_t ospke                                                 : 1;
+      /**
+       * [Bit 4] If 1, OS has set CR4.PKE to enable protection keys (and the RDPKRU/WRPKRU instructions).
+       */
+      uint32_t ospke                                                 : 1;
 #define CPUID_ECX_OSPKE_BIT                                          4
 #define CPUID_ECX_OSPKE_FLAG                                         0x10
 #define CPUID_ECX_OSPKE_MASK                                         0x01
 #define CPUID_ECX_OSPKE(_)                                           (((_) >> 4) & 0x01)
-		uint32_t reserved1                                             : 12;
 
-		/**
-		* [Bits 21:17] The value of MAWAU used by the BNDLDX and BNDSTX instructions in 64-bit mode.
-		*/
-		uint32_t mawau                                                 : 5;
+      /**
+       * [Bit 5] WAITPKG.
+       */
+      uint32_t waitpkg                                               : 1;
+#define CPUID_ECX_WAITPKG_BIT                                        5
+#define CPUID_ECX_WAITPKG_FLAG                                       0x20
+#define CPUID_ECX_WAITPKG_MASK                                       0x01
+#define CPUID_ECX_WAITPKG(_)                                         (((_) >> 5) & 0x01)
+
+      /**
+       * [Bit 6] AVX512_VBMI2.
+       */
+      uint32_t avx512_vbmi2                                          : 1;
+#define CPUID_ECX_AVX512_VBMI2_BIT                                   6
+#define CPUID_ECX_AVX512_VBMI2_FLAG                                  0x40
+#define CPUID_ECX_AVX512_VBMI2_MASK                                  0x01
+#define CPUID_ECX_AVX512_VBMI2(_)                                    (((_) >> 6) & 0x01)
+
+      /**
+       * [Bit 7] Supports CET shadow stack features if 1. Processors that set this bit define bits 1:0 of the IA32_U_CET and
+       * IA32_S_CET MSRs. Enumerates support for the following MSRs: IA32_INTERRUPT_SPP_TABLE_ADDR, IA32_PL3_SSP, IA32_PL2_SSP,
+       * IA32_PL1_SSP, and IA32_PL0_SSP.
+       */
+      uint32_t cet_ss                                                : 1;
+#define CPUID_ECX_CET_SS_BIT                                         7
+#define CPUID_ECX_CET_SS_FLAG                                        0x80
+#define CPUID_ECX_CET_SS_MASK                                        0x01
+#define CPUID_ECX_CET_SS(_)                                          (((_) >> 7) & 0x01)
+
+      /**
+       * [Bit 8] GFNI.
+       */
+      uint32_t gfni                                                  : 1;
+#define CPUID_ECX_GFNI_BIT                                           8
+#define CPUID_ECX_GFNI_FLAG                                          0x100
+#define CPUID_ECX_GFNI_MASK                                          0x01
+#define CPUID_ECX_GFNI(_)                                            (((_) >> 8) & 0x01)
+
+      /**
+       * [Bit 9] VAES.
+       */
+      uint32_t vaes                                                  : 1;
+#define CPUID_ECX_VAES_BIT                                           9
+#define CPUID_ECX_VAES_FLAG                                          0x200
+#define CPUID_ECX_VAES_MASK                                          0x01
+#define CPUID_ECX_VAES(_)                                            (((_) >> 9) & 0x01)
+
+      /**
+       * [Bit 10] VPCLMULQDQ.
+       */
+      uint32_t vpclmulqdq                                            : 1;
+#define CPUID_ECX_VPCLMULQDQ_BIT                                     10
+#define CPUID_ECX_VPCLMULQDQ_FLAG                                    0x400
+#define CPUID_ECX_VPCLMULQDQ_MASK                                    0x01
+#define CPUID_ECX_VPCLMULQDQ(_)                                      (((_) >> 10) & 0x01)
+
+      /**
+       * [Bit 11] AVX512_VNNI.
+       */
+      uint32_t avx512_vnni                                           : 1;
+#define CPUID_ECX_AVX512_VNNI_BIT                                    11
+#define CPUID_ECX_AVX512_VNNI_FLAG                                   0x800
+#define CPUID_ECX_AVX512_VNNI_MASK                                   0x01
+#define CPUID_ECX_AVX512_VNNI(_)                                     (((_) >> 11) & 0x01)
+
+      /**
+       * [Bit 12] AVX512_BITALG.
+       */
+      uint32_t avx512_bitalg                                         : 1;
+#define CPUID_ECX_AVX512_BITALG_BIT                                  12
+#define CPUID_ECX_AVX512_BITALG_FLAG                                 0x1000
+#define CPUID_ECX_AVX512_BITALG_MASK                                 0x01
+#define CPUID_ECX_AVX512_BITALG(_)                                   (((_) >> 12) & 0x01)
+
+      /**
+       * [Bit 13] If 1, the following MSRs are supported: IA32_TME_CAPABILITY, IA32_TME_ACTIVATE, IA32_TME_EXCLUDE_MASK, and
+       * IA32_TME_EXCLUDE_BASE.
+       */
+      uint32_t tme_en                                                : 1;
+#define CPUID_ECX_TME_EN_BIT                                         13
+#define CPUID_ECX_TME_EN_FLAG                                        0x2000
+#define CPUID_ECX_TME_EN_MASK                                        0x01
+#define CPUID_ECX_TME_EN(_)                                          (((_) >> 13) & 0x01)
+
+      /**
+       * [Bit 14] AVX512_VPOPCNTDQ.
+       */
+      uint32_t avx512_vpopcntdq                                      : 1;
+#define CPUID_ECX_AVX512_VPOPCNTDQ_BIT                               14
+#define CPUID_ECX_AVX512_VPOPCNTDQ_FLAG                              0x4000
+#define CPUID_ECX_AVX512_VPOPCNTDQ_MASK                              0x01
+#define CPUID_ECX_AVX512_VPOPCNTDQ(_)                                (((_) >> 14) & 0x01)
+      uint32_t reserved1                                             : 1;
+
+      /**
+       * [Bit 16] Supports 57-bit linear addresses and five-level paging if 1.
+       */
+      uint32_t la57                                                  : 1;
+#define CPUID_ECX_LA57_BIT                                           16
+#define CPUID_ECX_LA57_FLAG                                          0x10000
+#define CPUID_ECX_LA57_MASK                                          0x01
+#define CPUID_ECX_LA57(_)                                            (((_) >> 16) & 0x01)
+
+      /**
+       * [Bits 21:17] The value of MAWAU used by the BNDLDX and BNDSTX instructions in 64-bit mode.
+       */
+      uint32_t mawau                                                 : 5;
 #define CPUID_ECX_MAWAU_BIT                                          17
 #define CPUID_ECX_MAWAU_FLAG                                         0x3E0000
 #define CPUID_ECX_MAWAU_MASK                                         0x1F
 #define CPUID_ECX_MAWAU(_)                                           (((_) >> 17) & 0x1F)
 
-		/**
-		* [Bit 22] RDPID and IA32_TSC_AUX are available if 1.
-		*/
-		uint32_t rdpid                                                 : 1;
+      /**
+       * [Bit 22] RDPID and IA32_TSC_AUX are available if 1.
+       */
+      uint32_t rdpid                                                 : 1;
 #define CPUID_ECX_RDPID_BIT                                          22
 #define CPUID_ECX_RDPID_FLAG                                         0x400000
 #define CPUID_ECX_RDPID_MASK                                         0x01
 #define CPUID_ECX_RDPID(_)                                           (((_) >> 22) & 0x01)
-		uint32_t reserved2                                             : 7;
 
-		/**
-		* [Bit 30] Supports SGX Launch Configuration if 1.
-		*/
-		uint32_t sgx_lc                                                : 1;
+      /**
+       * [Bit 23] KL. Supports Key Locker if 1.
+       */
+      uint32_t kl                                                    : 1;
+#define CPUID_ECX_KL_BIT                                             23
+#define CPUID_ECX_KL_FLAG                                            0x800000
+#define CPUID_ECX_KL_MASK                                            0x01
+#define CPUID_ECX_KL(_)                                              (((_) >> 23) & 0x01)
+      uint32_t reserved2                                             : 1;
+
+      /**
+       * [Bit 25] Supports cache line demote if 1.
+       */
+      uint32_t cldemote                                              : 1;
+#define CPUID_ECX_CLDEMOTE_BIT                                       25
+#define CPUID_ECX_CLDEMOTE_FLAG                                      0x2000000
+#define CPUID_ECX_CLDEMOTE_MASK                                      0x01
+#define CPUID_ECX_CLDEMOTE(_)                                        (((_) >> 25) & 0x01)
+      uint32_t reserved3                                             : 1;
+
+      /**
+       * [Bit 27] Supports MOVDIRI if 1.
+       */
+      uint32_t movdiri                                               : 1;
+#define CPUID_ECX_MOVDIRI_BIT                                        27
+#define CPUID_ECX_MOVDIRI_FLAG                                       0x8000000
+#define CPUID_ECX_MOVDIRI_MASK                                       0x01
+#define CPUID_ECX_MOVDIRI(_)                                         (((_) >> 27) & 0x01)
+
+      /**
+       * [Bit 28] Supports MOVDIR64B if 1.
+       */
+      uint32_t movdir64b                                             : 1;
+#define CPUID_ECX_MOVDIR64B_BIT                                      28
+#define CPUID_ECX_MOVDIR64B_FLAG                                     0x10000000
+#define CPUID_ECX_MOVDIR64B_MASK                                     0x01
+#define CPUID_ECX_MOVDIR64B(_)                                       (((_) >> 28) & 0x01)
+      uint32_t reserved4                                             : 1;
+
+      /**
+       * [Bit 30] Supports SGX Launch Configuration if 1.
+       */
+      uint32_t sgx_lc                                                : 1;
 #define CPUID_ECX_SGX_LC_BIT                                         30
 #define CPUID_ECX_SGX_LC_FLAG                                        0x40000000
 #define CPUID_ECX_SGX_LC_MASK                                        0x01
 #define CPUID_ECX_SGX_LC(_)                                          (((_) >> 30) & 0x01)
-		uint32_t reserved3                                             : 1;
-	};
 
-	uint32_t flags;
+      /**
+       * [Bit 31] Supports protection keys for supervisor-mode pages if 1.
+       */
+      uint32_t pks                                                   : 1;
+#define CPUID_ECX_PKS_BIT                                            31
+#define CPUID_ECX_PKS_FLAG                                           0x80000000
+#define CPUID_ECX_PKS_MASK                                           0x01
+#define CPUID_ECX_PKS(_)                                             (((_) >> 31) & 0x01)
+    };
+
+    uint32_t flags;
   } ecx;
 
   union
   {
-	struct
-	{
-		/**
-		* [Bits 31:0] EDX is reserved.
-		*/
-		uint32_t reserved                                              : 32;
-#define CPUID_EDX_RESERVED_BIT                                       0
-#define CPUID_EDX_RESERVED_FLAG                                      0xFFFFFFFF
-#define CPUID_EDX_RESERVED_MASK                                      0xFFFFFFFF
-#define CPUID_EDX_RESERVED(_)                                        (((_) >> 0) & 0xFFFFFFFF)
-	};
+    struct
+    {
+      uint32_t reserved1                                             : 2;
 
-	uint32_t flags;
+      /**
+       * [Bit 2] (Intel(R) Xeon Phi(TM) only.)
+       */
+      uint32_t avx512_4vnniw                                         : 1;
+#define CPUID_EDX_AVX512_4VNNIW_BIT                                  2
+#define CPUID_EDX_AVX512_4VNNIW_FLAG                                 0x04
+#define CPUID_EDX_AVX512_4VNNIW_MASK                                 0x01
+#define CPUID_EDX_AVX512_4VNNIW(_)                                   (((_) >> 2) & 0x01)
+
+      /**
+       * [Bit 3] (Intel(R) Xeon Phi(TM) only.)
+       */
+      uint32_t avx512_4fmaps                                         : 1;
+#define CPUID_EDX_AVX512_4FMAPS_BIT                                  3
+#define CPUID_EDX_AVX512_4FMAPS_FLAG                                 0x08
+#define CPUID_EDX_AVX512_4FMAPS_MASK                                 0x01
+#define CPUID_EDX_AVX512_4FMAPS(_)                                   (((_) >> 3) & 0x01)
+
+      /**
+       * [Bit 4] Fast Short REP MOV.
+       */
+      uint32_t fast_short_rep_mov                                    : 1;
+#define CPUID_EDX_FAST_SHORT_REP_MOV_BIT                             4
+#define CPUID_EDX_FAST_SHORT_REP_MOV_FLAG                            0x10
+#define CPUID_EDX_FAST_SHORT_REP_MOV_MASK                            0x01
+#define CPUID_EDX_FAST_SHORT_REP_MOV(_)                              (((_) >> 4) & 0x01)
+      uint32_t reserved2                                             : 3;
+
+      /**
+       * [Bit 8] AVX512_VP2INTERSECT.
+       */
+      uint32_t avx512_vp2intersect                                   : 1;
+#define CPUID_EDX_AVX512_VP2INTERSECT_BIT                            8
+#define CPUID_EDX_AVX512_VP2INTERSECT_FLAG                           0x100
+#define CPUID_EDX_AVX512_VP2INTERSECT_MASK                           0x01
+#define CPUID_EDX_AVX512_VP2INTERSECT(_)                             (((_) >> 8) & 0x01)
+      uint32_t reserved3                                             : 1;
+
+      /**
+       * [Bit 10] MD_CLEAR supported.
+       */
+      uint32_t md_clear                                              : 1;
+#define CPUID_EDX_MD_CLEAR_BIT                                       10
+#define CPUID_EDX_MD_CLEAR_FLAG                                      0x400
+#define CPUID_EDX_MD_CLEAR_MASK                                      0x01
+#define CPUID_EDX_MD_CLEAR(_)                                        (((_) >> 10) & 0x01)
+      uint32_t reserved4                                             : 3;
+
+      /**
+       * [Bit 14] SERIALIZE supported.
+       */
+      uint32_t serialize                                             : 1;
+#define CPUID_EDX_SERIALIZE_BIT                                      14
+#define CPUID_EDX_SERIALIZE_FLAG                                     0x4000
+#define CPUID_EDX_SERIALIZE_MASK                                     0x01
+#define CPUID_EDX_SERIALIZE(_)                                       (((_) >> 14) & 0x01)
+
+      /**
+       * [Bit 15] If 1, the processor is identified as a hybrid part.
+       */
+      uint32_t hybrid                                                : 1;
+#define CPUID_EDX_HYBRID_BIT                                         15
+#define CPUID_EDX_HYBRID_FLAG                                        0x8000
+#define CPUID_EDX_HYBRID_MASK                                        0x01
+#define CPUID_EDX_HYBRID(_)                                          (((_) >> 15) & 0x01)
+      uint32_t reserved5                                             : 2;
+
+      /**
+       * [Bit 18] Supports PCONFIG if 1.
+       */
+      uint32_t pconfig                                               : 1;
+#define CPUID_EDX_PCONFIG_BIT                                        18
+#define CPUID_EDX_PCONFIG_FLAG                                       0x40000
+#define CPUID_EDX_PCONFIG_MASK                                       0x01
+#define CPUID_EDX_PCONFIG(_)                                         (((_) >> 18) & 0x01)
+
+		/*
+		* [Bit 19] Supports ARCH LBR if 1.
+		*/
+		uint32_t arch_lbr : 1;
+#define CPUID_EDX_ARCH_LBR_BIT                                        19
+#define CPUID_EDX_ARCH_LBR_FLAG                                       0x80000
+#define CPUID_EDX_ARCH_LBR_MASK                                       0x01
+#define CPUID_EDX_ARCH_LBR(_)                                         (((_) >> 19) & 0x01)
+
+      /**
+       * [Bit 20] Supports CET indirect branch tracking features if 1. Processors that set this bit define bits 5:2 and bits
+       * 63:10 of the IA32_U_CET and IA32_S_CET MSRs.
+       */
+      uint32_t cet_ibt                                               : 1;
+#define CPUID_EDX_CET_IBT_BIT                                        20
+#define CPUID_EDX_CET_IBT_FLAG                                       0x100000
+#define CPUID_EDX_CET_IBT_MASK                                       0x01
+#define CPUID_EDX_CET_IBT(_)                                         (((_) >> 20) & 0x01)
+      uint32_t reserved7                                             : 5;
+
+      /**
+       * [Bit 26] Enumerates support for indirect branch restricted speculation (IBRS) and the indirect branch predictor barrier
+       * (IBPB). Processors that set this bit support the IA32_SPEC_CTRL MSR and the IA32_PRED_CMD MSR. They allow software to
+       * set IA32_SPEC_CTRL[0] (IBRS) and IA32_PRED_CMD[0] (IBPB).
+       */
+      uint32_t ibrs_ibpb                                             : 1;
+#define CPUID_EDX_IBRS_IBPB_BIT                                      26
+#define CPUID_EDX_IBRS_IBPB_FLAG                                     0x4000000
+#define CPUID_EDX_IBRS_IBPB_MASK                                     0x01
+#define CPUID_EDX_IBRS_IBPB(_)                                       (((_) >> 26) & 0x01)
+
+      /**
+       * [Bit 27] Enumerates support for single thread indirect branch predictors (STIBP). Processors that set this bit support
+       * the IA32_SPEC_CTRL MSR. They allow software to set IA32_SPEC_CTRL[1] (STIBP).
+       */
+      uint32_t stibp                                                 : 1;
+#define CPUID_EDX_STIBP_BIT                                          27
+#define CPUID_EDX_STIBP_FLAG                                         0x8000000
+#define CPUID_EDX_STIBP_MASK                                         0x01
+#define CPUID_EDX_STIBP(_)                                           (((_) >> 27) & 0x01)
+
+      /**
+       * [Bit 28] Enumerates support for L1D_FLUSH. Processors that set this bit support the IA32_FLUSH_CMD MSR. They allow
+       * software to set IA32_FLUSH_CMD[0] (L1D_FLUSH).
+       */
+      uint32_t l1d_flush                                             : 1;
+#define CPUID_EDX_L1D_FLUSH_BIT                                      28
+#define CPUID_EDX_L1D_FLUSH_FLAG                                     0x10000000
+#define CPUID_EDX_L1D_FLUSH_MASK                                     0x01
+#define CPUID_EDX_L1D_FLUSH(_)                                       (((_) >> 28) & 0x01)
+
+      /**
+       * [Bit 29] Enumerates support for the IA32_ARCH_CAPABILITIES MSR.
+       */
+      uint32_t ia32_arch_capabilities                                : 1;
+#define CPUID_EDX_IA32_ARCH_CAPABILITIES_BIT                         29
+#define CPUID_EDX_IA32_ARCH_CAPABILITIES_FLAG                        0x20000000
+#define CPUID_EDX_IA32_ARCH_CAPABILITIES_MASK                        0x01
+#define CPUID_EDX_IA32_ARCH_CAPABILITIES(_)                          (((_) >> 29) & 0x01)
+
+      /**
+       * [Bit 30] Enumerates support for the IA32_CORE_CAPABILITIES MSR.
+       */
+      uint32_t ia32_core_capabilities                                : 1;
+#define CPUID_EDX_IA32_CORE_CAPABILITIES_BIT                         30
+#define CPUID_EDX_IA32_CORE_CAPABILITIES_FLAG                        0x40000000
+#define CPUID_EDX_IA32_CORE_CAPABILITIES_MASK                        0x01
+#define CPUID_EDX_IA32_CORE_CAPABILITIES(_)                          (((_) >> 30) & 0x01)
+
+      /**
+       * [Bit 31] Enumerates support for Speculative Store Bypass Disable (SSBD). Processors that set this bit support the
+       * IA32_SPEC_CTRL MSR. They allow software to set IA32_SPEC_CTRL[2] (SSBD).
+       */
+      uint32_t ssbd                                                  : 1;
+#define CPUID_EDX_SSBD_BIT                                           31
+#define CPUID_EDX_SSBD_FLAG                                          0x80000000
+#define CPUID_EDX_SSBD_MASK                                          0x01
+#define CPUID_EDX_SSBD(_)                                            (((_) >> 31) & 0x01)
+    };
+
+    uint32_t flags;
   } edx;
 
 } cpuid_eax_07;
@@ -21592,6 +21889,20 @@ typedef union
 #define LBR_SELECT_NEAR_IND_JMP   (1ull<<6)
 #define LBR_SELECT_NEAR_REL_JMP   (1ull<<7)
 #define LBR_SELECT_FAR_BRANCH     (1ull<<8)
+
+#define IA32_LBR_CTL 0x14CE
+#define LBR_CTL_LBREN         (1ull<<0)
+#define LBR_CTL_CPL_EQ_0      (1ull<<1)
+#define LBR_CTL_CPL_NEQ_0     (1ull<<2)
+#define LBR_CTL_CALL_STACK    (1ull<<3)
+#define LBR_CTL_JCC           (1ull<<16)
+#define LBR_CTL_NEAR_REL_JMP  (1ull<<17)
+#define LBR_CTL_NEAR_IND_JMP  (1ull<<18)
+#define LBR_CTL_NEAR_REL_CALL (1ull<<19)
+#define LBR_CTL_NEAR_IND_CALL (1ull<<20)
+#define LBR_CTL_NEAR_IND_RET  (1ull<<21)
+#define LBR_CTL_FAR_BRANCH    (1ull<<22)
+
 // TSX control
 #define IA32_TSX_CTRL          0x122
 #define TSX_CTRL_DISABLE_RTM   (1<<0)
