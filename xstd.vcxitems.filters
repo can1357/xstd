@@ -286,6 +286,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\ring_buffer.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha512.hpp">
+      <Filter>Algorithms</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

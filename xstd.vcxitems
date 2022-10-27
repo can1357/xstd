@@ -79,6 +79,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha1.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha512.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\small_vector.hpp" />

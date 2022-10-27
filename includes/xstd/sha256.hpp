@@ -19,6 +19,7 @@ namespace xstd
 		// Digest / Block traits for SHA-256.
 		//
 		static constexpr size_t block_size = 64;
+		static constexpr size_t round_count = 64;
 		static constexpr size_t digest_size = 256 / 8;
 		using block_type = std::array<uint8_t, block_size>;
 		using value_type = std::array<uint32_t, digest_size / sizeof( uint32_t )>;
@@ -32,7 +33,7 @@ namespace xstd
 
 		// Constant words K for SHA-256.
 		//
-		static constexpr std::array<uint32_t, block_size> k_const = {
+		static constexpr std::array<uint32_t, round_count> k_const = {
 			0xbd75d068, 0x8ec8bb6f, 0x4a3f0431, 0x164a245b, 0xc6a93da5, 0xa60eee0f,
 			0x6dc07d5c, 0x54e3a12b, 0x27f85568, 0xed7ca4ff, 0xdbce7a42, 0xaaf3823d,
 			0x8d41a28c, 0x7f214e02, 0x6423f959, 0x3e640e8c, 0x1b64963f, 0x1041b87a,
@@ -94,7 +95,7 @@ namespace xstd
 				shuffle( workspace[ i ], i );
 
 			__hint_unroll()
-			for ( size_t i = 16; i != 64; i++ )
+			for ( size_t i = 16; i != round_count; i++ )
 			{
 				workspace[ i & 0xF ] += s0( workspace[ ( i + 1 ) & 0xF ] ) + s1( workspace[ ( i + 14 ) & 0xF ] ) + workspace[ ( i + 9 ) & 0xF ];
 				shuffle( workspace[ i & 0xF ], i );
@@ -136,7 +137,7 @@ namespace xstd
 			{
 				leftover[ leftover_offset++ ] = *data++;
 
-				if ( leftover_offset >= block_size )
+				if ( leftover_offset == block_size )
 				{
 					compress( iv, leftover );
 					leftover_offset = 0;
