@@ -1084,7 +1084,7 @@ namespace xstd
 				}
 				else if constexpr ( L == 1 )
 				{
-					result = T( *( const uint16_t* ) src );
+					result = T( *( const uint8_t* ) src );
 				}
 			}
 			return result;
