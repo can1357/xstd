@@ -268,7 +268,7 @@ inline static constexpr bool cxx_has_eh() { return HAS_CXX_EH; }
 #if GNU_COMPILER
 	#define __hint_unroll() _Pragma("unroll")
 #elif MS_COMPILER
-	#define __hint_unroll() __pragma(loop(ivdep))
+	#define __hint_unroll()
 #else
 	#define __hint_unroll()
 #endif

@@ -115,7 +115,7 @@ namespace xstd::asn1
 
 	// Object body.
 	//
-	struct object : std::enable_shared_from_this<object>
+	struct object
 	{
 		// Link to the parent object.
 		//
@@ -124,6 +124,7 @@ namespace xstd::asn1
 		// Reference to the source range described.
 		//
 		std::string_view source = {};
+		size_t header_length = 0;
 
 		// Tag of the object.
 		//
@@ -132,7 +133,7 @@ namespace xstd::asn1
 		// Child objects.
 		//
 		bool encapsulating = false;
-		std::vector<std::shared_ptr<object>> children = {};
+		std::vector<std::unique_ptr<object>> children = {};
 
 		// Raw data if primitive.
 		//
@@ -269,25 +270,27 @@ namespace xstd::asn1
 
 		// Non-recursive enumeration helper.
 		//
-		template<typename F> requires Invocable<F, void, std::shared_ptr<object>>
+		template<typename F> requires Invocable<F, void, object*>
 		void enumerate( const F& func ) const
 		{
-			std::list<std::shared_ptr<object>> stack = { children.rbegin(), children.rend() };
+			std::vector<object*> stack;
+			for ( auto it = children.rbegin(); it != children.rend(); ++it )
+				stack.emplace_back( it->get() );
 			while( !stack.empty() )
 			{
 				// Pop the top item.
 				//
-				auto top = std::move( stack.back() );
+				auto top = stack.back();
 				stack.pop_back();
 
 				// Push children.
 				//
 				for ( auto it = top->children.rbegin(); it != top->children.rend(); ++it )
-					stack.emplace_back( *it );
+					stack.emplace_back( it->get() );
 
 				// Invoke the callback.
 				//
-				func( std::move( top ) );
+				func( top );
 			}
 		}
 
@@ -418,11 +421,11 @@ namespace xstd::asn1
 
 	// Decodes an object instance, returns null on failure.
 	//
-	static std::shared_ptr<object> decode( std::string_view& range )
+	static std::unique_ptr<object> decode( std::string_view& range )
 	{
 		// Decode the tag.
 		//
-		auto result = std::make_shared<object>();
+		auto result = std::make_unique<object>();
 		result->source = range;
 		if ( auto tag = tag::decode( range ); !tag )
 			return nullptr;
@@ -465,6 +468,7 @@ namespace xstd::asn1
 			}
 			range.remove_prefix( bytes );
 		}
+		result->header_length = result->source.size() - range.size();
 
 		// Handle primitive data:
 		//
@@ -551,7 +555,7 @@ namespace xstd::asn1
 		result->source.remove_suffix( range.size() );
 		return result;
 	}
-	static std::shared_ptr<object> decode( xstd::any_ptr ptr, size_t len )
+	static std::unique_ptr<object> decode( xstd::any_ptr ptr, size_t len )
 	{
 		std::string_view rng{ ( char* ) ptr, ( char* ) ptr + len };
 		return decode( rng );

@@ -10,7 +10,7 @@
 
 namespace xstd
 {
-	// Defines a 160-bit hash type based on SHA-256.
+	// Defines a 160-bit hash type based on SHA-1.
 	//
 	struct sha1
 	{
