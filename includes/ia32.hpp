@@ -22208,19 +22208,19 @@ namespace ia32
 		struct cpuid_result_of
 		{
 			inline static cpuid_result value = {};
-			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, leaf, subleaf ); }
+			[[gnu::constructor( 103 ), gnu::used]] inline static void init() { query_cpuid( &value, leaf, subleaf ); }
 		};
 		template<>
 		struct cpuid_result_of<0, 0>
 		{
 			inline static cpuid_result value = {};
-			[[gnu::constructor( 101 ), gnu::used]] inline static void init() { query_cpuid( &value, 0, 0 ); }
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, 0, 0 ); }
 		};
 		template<uint64_t leaf, uint64_t subleaf>
 		struct cpuid_result_of_s
 		{
 			inline static cpuid_result value = {};
-			[[gnu::constructor( 102 ), gnu::used]] inline static void init()
+			[[gnu::constructor( 103 ), gnu::used]] inline static void init()
 			{ 
 				if ( cpuid_result_of<0, 0>::value[ 0 ] >= leaf )
 					query_cpuid( &value, leaf, subleaf );
