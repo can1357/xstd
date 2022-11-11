@@ -749,20 +749,20 @@ namespace xstd
 
 	// Extracts types from a parameter pack.
 	//
+#if !CLANG_COMPILER
 	namespace impl
 	{
-		template<size_t N, typename... Tx>              struct textract              { using type = void; };
+		template<size_t N, typename... Tx>              struct textract;
 		template<size_t N, typename T, typename... Tx>  struct textract<N, T, Tx...> { using type = typename textract<N - 1, Tx...>::type; };
 		template<typename T, typename... Tx>            struct textract<0, T, Tx...> { using type = T; };
-		
-		template<size_t N, auto... Vx>                  struct vextract              {};
-		template<size_t N, auto V, auto... Vx>          struct vextract<N, V, Vx...> { static constexpr auto value = vextract<N - 1, Vx...>::value; };
-		template<auto V, auto... Vx>                    struct vextract<0, V, Vx...> { static constexpr auto value = V; };
 	};
-	template<size_t N, typename... Tx> using extract_t =  typename impl::textract<N, Tx...>::type;
+	template<size_t N, typename... Tx> using extract_t = typename impl::textract<N, Tx...>::type;
+#else
+	template<size_t N, typename... Tx> using extract_t = __type_pack_element<N, Tx...>;
+#endif
 	template<typename... Tx>           using first_of_t = extract_t<0, Tx...>;
 	template<typename... Tx>           using last_of_t =  extract_t<sizeof...(Tx)-1, Tx...>;
-	template<size_t N, auto... Vx>     static constexpr auto extract_v =  impl::vextract<N, Vx...>::value;
+	template<size_t N, auto... Vx>     static constexpr auto extract_v =  extract_t<N, const_tag<Vx>...>::value;
 	template<auto... Vx>               static constexpr auto first_of_v = extract_v<0, Vx...>;
 	template<auto... Vx>               static constexpr auto last_of_v =  extract_v<sizeof...(Vx)-1, Vx...>;
 
