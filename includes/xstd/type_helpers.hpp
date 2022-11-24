@@ -2,7 +2,7 @@
 #include "intrinsics.hpp"
 #include <type_traits>
 #include <optional>
-#include <stdint.h>
+#include <cstdint>
 #include <array>
 #include <span>
 #include <tuple>
@@ -1106,15 +1106,14 @@ namespace xstd
 	//
 	struct TRIVIAL_ABI any_ptr
 	{
-		uint64_t address;
+		uintptr_t address;
 		
 		// Constructed by any kind of pointer or a number.
 		//
 		inline constexpr any_ptr() noexcept : address( 0 ) {}
 		inline constexpr any_ptr( std::nullptr_t ) noexcept : address( 0 ) {}
-		inline constexpr any_ptr( uint64_t address ) noexcept : address( address ) {}
-		template<typename T>       inline constexpr any_ptr( T* address ) noexcept : address( bit_cast<uint64_t>( address ) ) {}
-		template<MemberFunction P> inline constexpr any_ptr( P fn ) noexcept : address( bit_cast<uint64_t>( fn ) ) {}
+		inline constexpr any_ptr( uintptr_t address ) noexcept : address( address ) {}
+		template<typename T> inline constexpr any_ptr( T* address ) noexcept : address( uintptr_t( address ) ) {}
 
 		// Default copy and move.
 		//
@@ -1125,9 +1124,8 @@ namespace xstd
 
 		// Can decay to any pointer or an integer.
 		//
-		inline constexpr operator uint64_t() const noexcept { return address; }
-		template<typename T>       inline constexpr operator T*() const noexcept { return bit_cast<T*>( address ); }
-		template<MemberFunction P> inline constexpr operator P() const noexcept { return bit_cast<P>( address ); }
+		inline constexpr operator uintptr_t() const noexcept { return address; }
+		template<typename T> inline constexpr operator T*() const noexcept { return ( T* ) ( address ); }
 		
 		inline constexpr any_ptr& operator++() noexcept { address++; return *this; }
 		inline constexpr any_ptr operator++( int ) noexcept { auto s = *this; operator++(); return s; }

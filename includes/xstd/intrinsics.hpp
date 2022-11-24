@@ -26,9 +26,9 @@
 	#define __has_feature(...) 0
 #endif
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <string>
-#include <stdint.h>
+#include <cstdint>
 #include <type_traits>
 #include <typeinfo>
 #include <atomic>
