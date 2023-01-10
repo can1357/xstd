@@ -278,6 +278,8 @@ namespace ia32::pmu
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			if ( cfg == UINT32_MAX )
 				return;
+			if ( traits::get_dynamic_counter_count() <= index )
+				return;
 
 			// Create the event selector register and write it.
 			// - User-passed flags are bitwise compatible.
@@ -345,6 +347,8 @@ namespace ia32::pmu
 				size_t iindex = traits::template fixed_counter<evt>();
 				if ( iindex == std::string::npos )
 					return;
+				if ( traits::get_fixed_counter_count() <= iindex )
+					return;
 
 				// Update the fixed control register.
 				//
@@ -395,6 +399,8 @@ namespace ia32::pmu
 			auto [cfg, cnt] = traits::resolve_dynamic( index );
 			if ( cfg == UINT32_MAX )
 				return counter_flags( 0 );
+			if ( traits::get_dynamic_counter_count() <= index )
+				return counter_flags( 0 );
 
 			// Query global state if requested and relevant.
 			//
@@ -420,6 +426,8 @@ namespace ia32::pmu
 			//
 			auto [cfg, cnt] = traits::resolve_fixed( index );
 			if ( cfg == UINT32_MAX )
+				return counter_flags( 0 );
+			if ( traits::get_fixed_counter_count() <= index )
 				return counter_flags( 0 );
 
 			// Query global state if requested and relevant.
