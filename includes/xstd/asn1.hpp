@@ -4,6 +4,7 @@
 #include <variant>
 #include <string>
 #include <memory>
+#include <deque>
 #include <string_view>
 #include "type_helpers.hpp"
 #include "utf.hpp"
@@ -133,11 +134,15 @@ namespace xstd::asn1
 		// Child objects.
 		//
 		bool encapsulating = false;
-		std::vector<std::unique_ptr<object>> children = {};
+		std::vector<object*> children = {};
 
 		// Raw data if primitive.
 		//
 		std::vector<uint8_t> raw_data = {};
+
+		// If root, arena in which all children get allocated.
+		//
+		std::unique_ptr<std::deque<object>> arena = {};
 
 		// Type checks.
 		//
@@ -275,7 +280,7 @@ namespace xstd::asn1
 		{
 			std::vector<object*> stack;
 			for ( auto it = children.rbegin(); it != children.rend(); ++it )
-				stack.emplace_back( it->get() );
+				stack.emplace_back( *it );
 			while( !stack.empty() )
 			{
 				// Pop the top item.
@@ -286,7 +291,7 @@ namespace xstd::asn1
 				// Push children.
 				//
 				for ( auto it = top->children.rbegin(); it != top->children.rend(); ++it )
-					stack.emplace_back( it->get() );
+					stack.emplace_back( *it );
 
 				// Invoke the callback.
 				//
@@ -402,20 +407,142 @@ namespace xstd::asn1
 			}
 			return result;
 		}
+	};
 
-		// Simple destructor to prevent recursive destruction.
-		//
-		~object()
-		{
-			for ( size_t n = 0; n < children.size(); n++ )
+	// Internal decoder.
+	//
+	namespace impl {
+		static object* decode_into( object* root, object* result, std::string_view& range ) {
+			// Decode the tag.
+			//
+			result->source = range;
+			if ( auto tag = tag::decode( range ); !tag )
+				return nullptr;
+			else
+				result->tag_value = tag.value();
+
+			// Decode the length.
+			//
+			size_t length;
+			if ( range.empty() )
+				return nullptr;
+			uint8_t val = ( uint8_t ) range.front();
+			range.remove_prefix( 1 );
+
+			// Definite short form:
+			//
+			if ( !( val & 0x80 ) )
 			{
-				auto tmp = std::move( children[ n ]->children );
-				children.insert(
-					children.end(),
-					std::make_move_iterator( tmp.begin() ),
-					std::make_move_iterator( tmp.end() )
-				);
+				length = val;
 			}
+			// Indefinite long form:
+			//
+			else if ( !( val & 0x7F ) )
+			{
+				length = std::string::npos;
+			}
+			// Definite long form:
+			//
+			else
+			{
+				size_t bytes = val & 0x7F;
+				if ( range.size() < bytes )
+					return nullptr;
+
+				length = 0;
+				for ( size_t n = 0; n != bytes; n++ )
+				{
+					length <<= 8;
+					length |= ( uint8_t ) range[ n ];
+				}
+				range.remove_prefix( bytes );
+			}
+			result->header_length = result->source.size() - range.size();
+
+			// Handle primitive data:
+			//
+			if ( result->tag_value.primitive )
+			{
+				// Can't be indefinite length.
+				//
+				if ( length == std::string::npos )
+					return nullptr;
+
+				// Read the whole body.
+				//
+				if ( range.size() < length )
+					return nullptr;
+				result->raw_data = { ( uint8_t* ) range.data(), ( uint8_t* ) range.data() + length };
+				range.remove_prefix( length );
+
+				// Bitstring / OctetString might be used to encapsulate further data.
+				//
+				if ( result->tag_value.is_universal() && ( result->tag_value.tag_number == tag_octet_string || result->tag_value.tag_number == tag_bit_string ) )
+				{
+					std::string_view sub_range = { ( char* ) result->raw_data.data(), result->raw_data.size() };
+					while ( !sub_range.empty() )
+					{
+						if ( auto res = decode_into( root, &root->arena->emplace_back(), sub_range ); !res || res->tag_value.tag_number == tag_eoc )
+						{
+							result->children.clear();
+							break;
+						}
+						else
+						{
+							result->children.emplace_back( res );
+						}
+					}
+					result->encapsulating = !result->children.empty();
+				}
+			}
+			else
+			{
+				// If definite:
+				//
+				if ( length != std::string::npos )
+				{
+					if ( range.size() < length )
+						return nullptr;
+					auto sub_range = range.substr( 0, length );
+					range.remove_prefix( length );
+					while ( !sub_range.empty() )
+					{
+						auto child = decode_into( root, &root->arena->emplace_back(), sub_range );
+						if ( !child ) return nullptr;
+						child->parent = result;
+						result->children.emplace_back( child );
+					}
+				}
+				// If indefinite:
+				//
+				else
+				{
+					while ( !range.empty() )
+					{
+						// Must have enough space to decode tag + length.
+						//
+						if ( range.size() < 2 )
+							return nullptr;
+
+						// If end of content:
+						//
+						if ( range[ 0 ] == 0 && range[ 1 ] == 0 )
+						{
+							range.remove_prefix( 2 );
+							break;
+						}
+
+						// Otherwise, decode the element.
+						//
+						auto child = decode_into( root, &root->arena->emplace_back(), range );
+						if ( !child ) return nullptr;
+						child->parent = result;
+						result->children.emplace_back( child );
+					}
+				}
+			}
+			result->source.remove_suffix( range.size() );
+			return result;
 		}
 	};
 
@@ -423,137 +550,12 @@ namespace xstd::asn1
 	//
 	static std::unique_ptr<object> decode( std::string_view& range )
 	{
-		// Decode the tag.
-		//
-		auto result = std::make_unique<object>();
-		result->source = range;
-		if ( auto tag = tag::decode( range ); !tag )
-			return nullptr;
-		else
-			result->tag_value = tag.value();
-
-		// Decode the length.
-		//
-		size_t length;
-		if ( range.empty() )
-			return nullptr;
-		uint8_t val = ( uint8_t ) range.front();
-		range.remove_prefix( 1 );
-
-		// Definite short form:
-		//
-		if ( !( val & 0x80 ) )
-		{
-			length = val;
+		auto root = std::make_unique<object>();
+		root->arena = std::make_unique<std::deque<object>>();
+		if ( impl::decode_into( root.get(), root.get(), range ) ) {
+			return root;
 		}
-		// Indefinite long form:
-		//
-		else if ( !( val & 0x7F ) )
-		{
-			length = std::string::npos;
-		}
-		// Definite long form:
-		//
-		else
-		{
-			size_t bytes = val & 0x7F;
-			if ( range.size() < bytes )
-				return nullptr;
-
-			length = 0;
-			for ( size_t n = 0; n != bytes; n++ )
-			{
-				length <<= 8;
-				length |= ( uint8_t ) range[ n ];
-			}
-			range.remove_prefix( bytes );
-		}
-		result->header_length = result->source.size() - range.size();
-
-		// Handle primitive data:
-		//
-		if ( result->tag_value.primitive )
-		{
-			// Can't be indefinite length.
-			//
-			if ( length == std::string::npos )
-				return nullptr;
-
-			// Read the whole body.
-			//
-			if ( range.size() < length )
-				return nullptr;
-			result->raw_data = { ( uint8_t* ) range.data(), ( uint8_t* ) range.data() + length };
-			range.remove_prefix( length );
-
-			// Bitstring / OctetString might be used to encapsulate further data.
-			//
-			if ( result->tag_value.is_universal() && ( result->tag_value.tag_number == tag_octet_string || result->tag_value.tag_number == tag_bit_string ) )
-			{
-				std::string_view sub_range = { ( char* ) result->raw_data.data(), result->raw_data.size() };
-				while ( !sub_range.empty() )
-				{
-					if ( auto res = decode( sub_range ); !res || res->tag_value.tag_number == tag_eoc )
-					{
-						result->children.clear();
-						break;
-					}
-					else
-					{
-						result->children.emplace_back( std::move( res ) );
-					}
-				}
-				result->encapsulating = !result->children.empty();
-			}
-		}
-		else
-		{
-			// If definite:
-			//
-			if ( length != std::string::npos )
-			{
-				if ( range.size() < length )
-					return nullptr;
-				auto sub_range = range.substr( 0, length );
-				range.remove_prefix( length );
-				while ( !sub_range.empty() )
-				{
-					auto child = decode( sub_range );
-					if ( !child ) return nullptr;
-					child->parent = result.get();
-					result->children.emplace_back( std::move( child ) );
-				}
-			}
-			// If indefinite:
-			//
-			else
-			{
-				while ( !range.empty() )
-				{
-					// Must have enough space to decode tag + length.
-					//
-					if ( range.size() < 2 )
-						return nullptr;
-
-					// If end of content:
-					//
-					if ( range[ 0 ] == 0 && range[ 1 ] == 0 )
-					{
-						range.remove_prefix( 2 );
-						break;
-					}
-
-					// Otherwise, decode the element.
-					//
-					auto child = decode( range );
-					if ( !child ) return nullptr;
-					child->parent = result.get();
-					result->children.emplace_back( std::move( child ) );
-				}
-			}
-		}
-		result->source.remove_suffix( range.size() );
-		return result;
+		return nullptr;
 	}
 	static std::unique_ptr<object> decode( xstd::any_ptr ptr, size_t len )
 	{
