@@ -148,7 +148,7 @@ namespace xstd
 		}
 		edge_entry& edge( const value_type& src, const value_type& dst ) 
 		{
-			return edges.emplace_back( &node( src ), &node( dst ) );
+			return edges.emplace_back( edge_entry{ &node( src ), &node( dst ) } );
 		}
 
 		// Prints the graph.
