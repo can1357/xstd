@@ -101,16 +101,16 @@ namespace xstd::file
 #if WINDOWS_TARGET
 			if ( file_handle == impl::invalid_handle_value )
 				return;
-			if ( address && !UnmapViewOfFile( ( void* ) address ) ) [[unlikely]]
-				error( XSTD_ESTR( "UnmapViewOfFile failed." ) );
-			if ( mapping_handle != impl::invalid_handle_value ) [[unlikely]]
+			if ( address )
+				UnmapViewOfFile( ( void* ) address );
+			if ( mapping_handle != impl::invalid_handle_value )
 				CloseHandle( mapping_handle );
 			CloseHandle( file_handle );
 #else
 			if ( fd == -1 )
 				return;
-			if ( address && munmap( ( void* ) address, length * sizeof( T ) ) == -1 ) [[unlikely]]
-				error( XSTD_ESTR( "munmap failed." ) );
+			if ( address )
+				munmap( ( void* ) address, length * sizeof( T ) );
 			close( fd );
 #endif
 		}

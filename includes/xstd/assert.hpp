@@ -28,36 +28,6 @@
 
 namespace xstd
 {
-	// Aborts if the given condition is not met.
-	//
-	template<typename... Tx>
-	FORCE_INLINE inline constexpr void assert_that( bool condition, const char* fmt_str, Tx&&... ps )
-	{
-		if ( !condition ) [[unlikely]]
-		{
-			if ( std::is_constant_evaluated() ) unreachable();
-			else                                error( fmt_str, std::forward<Tx>( ps )... );
-		}
-	}
-	FORCE_INLINE inline constexpr void assert_that( bool condition )
-	{
-		if ( !condition ) [[unlikely]]
-		{
-			if ( std::is_constant_evaluated() ) unreachable();
-			else                                error( XSTD_ESTR( "Assertation failed." ) );
-		}
-	}
-
-	// Same as the one above but takes the format string as a lambda to avoid failure where the the string
-	// cannot be converted to const char* during constexpr evaluation.
-	//
-	template<typename F>
-	FORCE_INLINE inline constexpr void xassert_helper( bool condition, F&& getter )
-	{
-		if ( std::is_constant_evaluated() ) assert_that( condition );
-		else                                assert_that( condition, getter() );
-	}
-
 	// A helper to throw formatted error messages.
 	//
 	template<typename... params>
@@ -80,6 +50,36 @@ namespace xstd
 			throw std::runtime_error( fmt_str );
 		}
 #endif
+	}
+
+	// Aborts if the given condition is not met.
+	//
+	template<typename... Tx>
+	FORCE_INLINE inline constexpr void assert_that( bool condition, const char* fmt_str, Tx&&... ps )
+	{
+		if ( !condition ) [[unlikely]]
+		{
+			if ( std::is_constant_evaluated() ) unreachable();
+			else                                throw_fmt( fmt_str, std::forward<Tx>( ps )... );
+		}
+	}
+	FORCE_INLINE inline constexpr void assert_that( bool condition )
+	{
+		if ( !condition ) [[unlikely]]
+		{
+			if ( std::is_constant_evaluated() ) unreachable();
+			else                                throw_fmt( XSTD_ESTR( "Assertation failed." ) );
+		}
+	}
+
+	// Same as the one above but takes the format string as a lambda to avoid failure where the the string
+	// cannot be converted to const char* during constexpr evaluation.
+	//
+	template<typename F>
+	FORCE_INLINE inline constexpr void xassert_helper( bool condition, F&& getter )
+	{
+		if ( std::is_constant_evaluated() ) assert_that( condition );
+		else                                assert_that( condition, getter() );
 	}
 };
 
