@@ -72,7 +72,7 @@ namespace xstd::math
 
 	// Fast floating point intrinsics.
 	//
-#if !defined(CLANG_COMPILER) || defined(__INTELLISENSE__)
+#if !CLANG_COMPILER || defined(__INTELLISENSE__)
 	inline float fsqrt( float x ) { return sqrtf( x ); }
 	inline float fpow( float x, float y ) { return powf( x, y ); }
 	inline float _fsin( float x ) { return sinf( x ); }
@@ -1151,7 +1151,7 @@ namespace xstd::math
 
 		// Scalar asin-acos.
 		//
-		CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> asincos_poly( float x )
+		CONST_FN FORCE_INLINE inline std::pair<float, float> asincos_poly( float x )
 		{
 			// acos [0-1]
 			float xa = fabs( x );
@@ -1194,19 +1194,19 @@ namespace xstd::math
 			return impl::sincos_poly( x ).second;
 		return _fcos( x );
 	}
-	CONST_FN FORCE_INLINE inline constexpr float fasin( float x )
+	CONST_FN FORCE_INLINE inline float fasin( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::asincos_poly( x ).first;
 		return asinf( x );
 	}
-	CONST_FN FORCE_INLINE inline constexpr float facos( float x )
+	CONST_FN FORCE_INLINE inline float facos( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::asincos_poly( x ).second;
 		return acosf( x );
 	}
-	CONST_FN FORCE_INLINE inline constexpr std::pair<float, float> fasincos( float x )
+	CONST_FN FORCE_INLINE inline std::pair<float, float> fasincos( float x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::asincos_poly( x );
@@ -1241,13 +1241,13 @@ namespace xstd::math
 			return impl::sincos_poly( x ).second;
 		return { _fcos( x.x ), _fcos( x.y ), _fcos( x.z ), _fcos( x.w ) };
 	}
-	CONST_FN FORCE_INLINE inline constexpr vec4 vec_asin( const vec4& x )
+	CONST_FN FORCE_INLINE inline vec4 vec_asin( const vec4& x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::asincos_poly( x ).first;
 		return { fasin( x.x ), fasin( x.y ), fasin( x.z ), fasin( x.w ) };
 	}
-	CONST_FN FORCE_INLINE inline constexpr vec4 vec_acos( const vec4& x )
+	CONST_FN FORCE_INLINE inline vec4 vec_acos( const vec4& x )
 	{
 		if ( std::is_constant_evaluated() || XSTD_MATH_USE_POLY_TRIG )
 			return impl::asincos_poly( x ).second;
@@ -1255,12 +1255,12 @@ namespace xstd::math
 	}
 	CONST_FN FORCE_INLINE inline constexpr vec3 vec_sin( const vec3& vec ) { return vec_sin( vec4::from( vec, 0 ) ).xyz(); }
 	CONST_FN FORCE_INLINE inline constexpr vec3 vec_cos( const vec3& vec ) { return vec_cos( vec4::from( vec, 0 ) ).xyz(); }
-	CONST_FN FORCE_INLINE inline constexpr vec3 vec_asin( const vec3& vec ) { return vec_asin( vec4::from( vec, 0 ) ).xyz(); }
-	CONST_FN FORCE_INLINE inline constexpr vec3 vec_acos( const vec3& vec ) { return vec_acos( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 vec_asin( const vec3& vec ) { return vec_asin( vec4::from( vec, 0 ) ).xyz(); }
+	CONST_FN FORCE_INLINE inline vec3 vec_acos( const vec3& vec ) { return vec_acos( vec4::from( vec, 0 ) ).xyz(); }
 	CONST_FN FORCE_INLINE inline constexpr vec2 vec_sin( const vec2& vec ) { return { fsin( vec.x ), fsin( vec.y ) }; }
 	CONST_FN FORCE_INLINE inline constexpr vec2 vec_cos( const vec2& vec ) { return { fcos( vec.x ), fcos( vec.y ) }; }
-	CONST_FN FORCE_INLINE inline constexpr vec2 vec_asin( const vec2& vec ) { return { fasin( vec.x ), fasin( vec.y ) }; }
-	CONST_FN FORCE_INLINE inline constexpr vec2 vec_acos( const vec2& vec ) { return { facos( vec.x ), facos( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline vec2 vec_asin( const vec2& vec ) { return { fasin( vec.x ), fasin( vec.y ) }; }
+	CONST_FN FORCE_INLINE inline vec2 vec_acos( const vec2& vec ) { return { facos( vec.x ), facos( vec.y ) }; }
 
 	// Matrix inversion.
 	//

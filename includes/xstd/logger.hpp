@@ -357,31 +357,34 @@ namespace xstd
 		return finspect<color>( XSTD_CON_MSG_DST, std::forward<Tx>( objects )... );
 	}
 #else
-	template<typename... Tx> FORCE_INLINE inline int flog( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE inline int flog( Tx&&... ps ) { return 0; }
-	template<typename... Tx> FORCE_INLINE inline int log( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE inline int log( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int flog( Tx&&... ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int flog( Tx&&... ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int log( Tx&&... ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int log( Tx&&... ) { return 0; }
 
-	template<typename... Tx> FORCE_INLINE inline int finspect( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE inline int finspect( Tx&&... ps ) { return 0; }
-	template<typename... Tx> FORCE_INLINE inline int inspect( Tx&&... ps ) { return 0; }
-	template<console_color, typename... Tx> FORCE_INLINE inline int inspect( Tx&&... ps ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int finspect( Tx&&... ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int finspect( Tx&&... ) { return 0; }
+	template<typename... Tx> FORCE_INLINE inline int inspect( Tx&&... ) { return 0; }
+	template<console_color, typename... Tx> FORCE_INLINE inline int inspect( Tx&&... ) { return 0; }
 #endif
 
 	// Prints a warning message.
 	//
+#if !XSTD_CON_NO_WARNINGS
 	template<typename... Tx>
 	COLD NO_INLINE inline void warning( const char* fmt_str, Tx&&... ps )
 	{
-#if !XSTD_CON_NO_WARNINGS
 		// Forward to f-log with a prefix and a color.
 		//
 		std::lock_guard _g{ logger_state };
 		flog<CON_YLW>( XSTD_CON_ERR_DST, "[!] Warning: " );
 		flog<CON_YLW>( XSTD_CON_ERR_DST, fmt_str, std::forward<Tx>( ps )... );
 		flog<CON_DEF>( XSTD_CON_ERR_DST, "\n" );
-#endif
 	}
+#else
+	template<typename... Tx>
+	FORCE_INLINE inline void warning( const char*, Tx&&... ) {}
+#endif
 
 	// Prints an error message and breaks the execution.
 	//

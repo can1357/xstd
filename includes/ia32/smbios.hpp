@@ -255,6 +255,11 @@ namespace ia32::smbios
 		// Helpers to read type specific information.
 		//
 		template<typename T>
+		T* ptr() const
+		{
+			return ( T* ) data.data();
+		}
+		template<typename T>
 		T as() const
 		{
 			if ( data.size() >= sizeof( T ) )
