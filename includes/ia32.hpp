@@ -318,311 +318,355 @@ typedef union
 {
   struct
   {
-	/**
-	* @brief Virtual-8086 Mode Extensions
-	*
-	* [Bit 0] Enables interrupt- and exception-handling extensions in virtual-8086 mode when set; disables the extensions when
-	* clear. Use of the virtual mode extensions can improve the performance of virtual-8086 applications by eliminating the
-	* overhead of calling the virtual- 8086 monitor to handle interrupts and exceptions that occur while executing an 8086
-	* program and, instead, redirecting the interrupts and exceptions back to the 8086 program's handlers. It also provides
-	* hardware support for a virtual interrupt flag (VIF) to improve reliability of running 8086 programs in multitasking and
-	* multiple-processor environments.
-	*
-	* @see Vol3B[20.3(INTERRUPT AND EXCEPTION HANDLING IN VIRTUAL-8086 MODE)]
-	*/
-	uint64_t virtual_mode_extensions                                 : 1;
+    /**
+     * @brief Virtual-8086 Mode Extensions
+     *
+     * [Bit 0] Enables interrupt- and exception-handling extensions in virtual-8086 mode when set; disables the extensions when
+     * clear. Use of the virtual mode extensions can improve the performance of virtual-8086 applications by eliminating the
+     * overhead of calling the virtual- 8086 monitor to handle interrupts and exceptions that occur while executing an 8086
+     * program and, instead, redirecting the interrupts and exceptions back to the 8086 program's handlers. It also provides
+     * hardware support for a virtual interrupt flag (VIF) to improve reliability of running 8086 programs in multitasking and
+     * multiple-processor environments.
+     *
+     * @see Vol3B[20.3(INTERRUPT AND EXCEPTION HANDLING IN VIRTUAL-8086 MODE)]
+     */
+    uint64_t virtual_mode_extensions                                 : 1;
 #define CR4_VIRTUAL_MODE_EXTENSIONS_BIT                              0
 #define CR4_VIRTUAL_MODE_EXTENSIONS_FLAG                             0x01
 #define CR4_VIRTUAL_MODE_EXTENSIONS_MASK                             0x01
 #define CR4_VIRTUAL_MODE_EXTENSIONS(_)                               (((_) >> 0) & 0x01)
 
-	/**
-	* @brief Protected-Mode Virtual Interrupts
-	*
-	* [Bit 1] Enables hardware support for a virtual interrupt flag (VIF) in protected mode when set; disables the VIF flag in
-	* protected mode when clear.
-	*
-	* @see Vol3B[20.4(PROTECTED-MODE VIRTUAL INTERRUPTS)]
-	*/
-	uint64_t protected_mode_virtual_interrupts                       : 1;
+    /**
+     * @brief Protected-Mode Virtual Interrupts
+     *
+     * [Bit 1] Enables hardware support for a virtual interrupt flag (VIF) in protected mode when set; disables the VIF flag in
+     * protected mode when clear.
+     *
+     * @see Vol3B[20.4(PROTECTED-MODE VIRTUAL INTERRUPTS)]
+     */
+    uint64_t protected_mode_virtual_interrupts                       : 1;
 #define CR4_PROTECTED_MODE_VIRTUAL_INTERRUPTS_BIT                    1
 #define CR4_PROTECTED_MODE_VIRTUAL_INTERRUPTS_FLAG                   0x02
 #define CR4_PROTECTED_MODE_VIRTUAL_INTERRUPTS_MASK                   0x01
 #define CR4_PROTECTED_MODE_VIRTUAL_INTERRUPTS(_)                     (((_) >> 1) & 0x01)
 
-	/**
-	* @brief Time Stamp Disable
-	*
-	* [Bit 2] Restricts the execution of the RDTSC instruction to procedures running at privilege level 0 when set; allows
-	* RDTSC instruction to be executed at any privilege level when clear. This bit also applies to the RDTSCP instruction if
-	* supported (if CPUID.80000001H:EDX[27] = 1).
-	*/
-	uint64_t timestamp_disable                                       : 1;
+    /**
+     * @brief Time Stamp Disable
+     *
+     * [Bit 2] Restricts the execution of the RDTSC instruction to procedures running at privilege level 0 when set; allows
+     * RDTSC instruction to be executed at any privilege level when clear. This bit also applies to the RDTSCP instruction if
+     * supported (if CPUID.80000001H:EDX[27] = 1).
+     */
+    uint64_t timestamp_disable                                       : 1;
 #define CR4_TIMESTAMP_DISABLE_BIT                                    2
 #define CR4_TIMESTAMP_DISABLE_FLAG                                   0x04
 #define CR4_TIMESTAMP_DISABLE_MASK                                   0x01
 #define CR4_TIMESTAMP_DISABLE(_)                                     (((_) >> 2) & 0x01)
 
-	/**
-	* @brief Debugging Extensions
-	*
-	* [Bit 3] References to debug registers DR4 and DR5 cause an undefined opcode (\#UD) exception to be generated when set;
-	* when clear, processor aliases references to registers DR4 and DR5 for compatibility with software written to run on
-	* earlier IA-32 processors.
-	*
-	* @see Vol3B[17.2.2(Debug Registers DR4 and DR5)]
-	*/
-	uint64_t debugging_extensions                                    : 1;
+    /**
+     * @brief Debugging Extensions
+     *
+     * [Bit 3] References to debug registers DR4 and DR5 cause an undefined opcode (\#UD) exception to be generated when set;
+     * when clear, processor aliases references to registers DR4 and DR5 for compatibility with software written to run on
+     * earlier IA-32 processors.
+     *
+     * @see Vol3B[17.2.2(Debug Registers DR4 and DR5)]
+     */
+    uint64_t debugging_extensions                                    : 1;
 #define CR4_DEBUGGING_EXTENSIONS_BIT                                 3
 #define CR4_DEBUGGING_EXTENSIONS_FLAG                                0x08
 #define CR4_DEBUGGING_EXTENSIONS_MASK                                0x01
 #define CR4_DEBUGGING_EXTENSIONS(_)                                  (((_) >> 3) & 0x01)
 
-	/**
-	* @brief Page Size Extensions
-	*
-	* [Bit 4] Enables 4-MByte pages with 32-bit paging when set; restricts 32-bit paging to pages of 4 KBytes when clear.
-	*
-	* @see Vol3A[4.3(32-BIT PAGING)]
-	*/
-	uint64_t page_size_extensions                                    : 1;
+    /**
+     * @brief Page Size Extensions
+     *
+     * [Bit 4] Enables 4-MByte pages with 32-bit paging when set; restricts 32-bit paging to pages of 4 KBytes when clear.
+     *
+     * @see Vol3A[4.3(32-BIT PAGING)]
+     */
+    uint64_t page_size_extensions                                    : 1;
 #define CR4_PAGE_SIZE_EXTENSIONS_BIT                                 4
 #define CR4_PAGE_SIZE_EXTENSIONS_FLAG                                0x10
 #define CR4_PAGE_SIZE_EXTENSIONS_MASK                                0x01
 #define CR4_PAGE_SIZE_EXTENSIONS(_)                                  (((_) >> 4) & 0x01)
 
-	/**
-	* @brief Physical Address Extension
-	*
-	* [Bit 5] When set, enables paging to produce physical addresses with more than 32 bits. When clear, restricts physical
-	* addresses to 32 bits. PAE must be set before entering IA-32e mode.
-	*
-	* @see Vol3A[4(PAGING)]
-	*/
-	uint64_t physical_address_extension                              : 1;
+    /**
+     * @brief Physical Address Extension
+     *
+     * [Bit 5] When set, enables paging to produce physical addresses with more than 32 bits. When clear, restricts physical
+     * addresses to 32 bits. PAE must be set before entering IA-32e mode.
+     *
+     * @see Vol3A[4(PAGING)]
+     */
+    uint64_t physical_address_extension                              : 1;
 #define CR4_PHYSICAL_ADDRESS_EXTENSION_BIT                           5
 #define CR4_PHYSICAL_ADDRESS_EXTENSION_FLAG                          0x20
 #define CR4_PHYSICAL_ADDRESS_EXTENSION_MASK                          0x01
 #define CR4_PHYSICAL_ADDRESS_EXTENSION(_)                            (((_) >> 5) & 0x01)
 
-	/**
-	* @brief Machine-Check Enable
-	*
-	* [Bit 6] Enables the machine-check exception when set; disables the machine-check exception when clear.
-	*
-	* @see Vol3B[15(MACHINE-CHECK ARCHITECTURE)]
-	*/
-	uint64_t machine_check_enable                                    : 1;
+    /**
+     * @brief Machine-Check Enable
+     *
+     * [Bit 6] Enables the machine-check exception when set; disables the machine-check exception when clear.
+     *
+     * @see Vol3B[15(MACHINE-CHECK ARCHITECTURE)]
+     */
+    uint64_t machine_check_enable                                    : 1;
 #define CR4_MACHINE_CHECK_ENABLE_BIT                                 6
 #define CR4_MACHINE_CHECK_ENABLE_FLAG                                0x40
 #define CR4_MACHINE_CHECK_ENABLE_MASK                                0x01
 #define CR4_MACHINE_CHECK_ENABLE(_)                                  (((_) >> 6) & 0x01)
 
-	/**
-	* @brief Page Global Enable
-	*
-	* [Bit 7] (Introduced in the P6 family processors.) Enables the global page feature when set; disables the global page
-	* feature when clear. The global page feature allows frequently used or shared pages to be marked as global to all users
-	* (done with the global flag, bit 8, in a page-directory or page-table entry). Global pages are not flushed from the
-	* translation-lookaside buffer (TLB) on a task switch or a write to register CR3. When enabling the global page feature,
-	* paging must be enabled (by setting the PG flag in control register CR0) before the PGE flag is set. Reversing this
-	* sequence may affect program correctness, and processor performance will be impacted.
-	*
-	* @see Vol3A[4.10(CACHING TRANSLATION INFORMATION)]
-	*/
-	uint64_t page_global_enable                                      : 1;
+    /**
+     * @brief Page Global Enable
+     *
+     * [Bit 7] (Introduced in the P6 family processors.) Enables the global page feature when set; disables the global page
+     * feature when clear. The global page feature allows frequently used or shared pages to be marked as global to all users
+     * (done with the global flag, bit 8, in a page-directory or page-table entry). Global pages are not flushed from the
+     * translation-lookaside buffer (TLB) on a task switch or a write to register CR3. When enabling the global page feature,
+     * paging must be enabled (by setting the PG flag in control register CR0) before the PGE flag is set. Reversing this
+     * sequence may affect program correctness, and processor performance will be impacted.
+     *
+     * @see Vol3A[4.10(CACHING TRANSLATION INFORMATION)]
+     */
+    uint64_t page_global_enable                                      : 1;
 #define CR4_PAGE_GLOBAL_ENABLE_BIT                                   7
 #define CR4_PAGE_GLOBAL_ENABLE_FLAG                                  0x80
 #define CR4_PAGE_GLOBAL_ENABLE_MASK                                  0x01
 #define CR4_PAGE_GLOBAL_ENABLE(_)                                    (((_) >> 7) & 0x01)
 
-	/**
-	* @brief Performance-Monitoring Counter Enable
-	*
-	* [Bit 8] Enables execution of the RDPMC instruction for programs or procedures running at any protection level when set;
-	* RDPMC instruction can be executed only at protection level 0 when clear.
-	*/
-	uint64_t performance_monitoring_counter_enable                   : 1;
+    /**
+     * @brief Performance-Monitoring Counter Enable
+     *
+     * [Bit 8] Enables execution of the RDPMC instruction for programs or procedures running at any protection level when set;
+     * RDPMC instruction can be executed only at protection level 0 when clear.
+     */
+    uint64_t performance_monitoring_counter_enable                   : 1;
 #define CR4_PERFORMANCE_MONITORING_COUNTER_ENABLE_BIT                8
 #define CR4_PERFORMANCE_MONITORING_COUNTER_ENABLE_FLAG               0x100
 #define CR4_PERFORMANCE_MONITORING_COUNTER_ENABLE_MASK               0x01
 #define CR4_PERFORMANCE_MONITORING_COUNTER_ENABLE(_)                 (((_) >> 8) & 0x01)
 
-	/**
-	* @brief Operating System Support for FXSAVE and FXRSTOR instructions
-	*
-	* [Bit 9] When set, this flag:
-	* -# indicates to software that the operating system supports the use of the FXSAVE and FXRSTOR instructions,
-	* -# enables the FXSAVE and FXRSTOR instructions to save and restore the contents of the XMM and MXCSR registers along
-	* with the contents of the x87 FPU and MMX registers, and
-	* -# enables the processor to execute SSE/SSE2/SSE3/SSSE3/SSE4 instructions, with the exception of the PAUSE, PREFETCHh,
-	* SFENCE, LFENCE, MFENCE, MOVNTI, CLFLUSH, CRC32, and POPCNT.
-	* If this flag is clear, the FXSAVE and FXRSTOR instructions will save and restore the contents of the x87 FPU and MMX
-	* registers, but they may not save and restore the contents of the XMM and MXCSR registers. Also, the processor will
-	* generate an invalid opcode exception (\#UD) if it attempts to execute any SSE/SSE2/SSE3 instruction, with the exception
-	* of PAUSE, PREFETCHh, SFENCE, LFENCE, MFENCE, MOVNTI, CLFLUSH, CRC32, and POPCNT. The operating system or executive must
-	* explicitly set this flag.
-	*
-	* @remarks CPUID feature flag FXSR indicates availability of the FXSAVE/FXRSTOR instructions. The OSFXSR bit provides
-	*          operating system software with a means of enabling FXSAVE/FXRSTOR to save/restore the contents of the X87 FPU, XMM and
-	*          MXCSR registers. Consequently OSFXSR bit indicates that the operating system provides context switch support for
-	*          SSE/SSE2/SSE3/SSSE3/SSE4.
-	*/
-	uint64_t os_fxsave_fxrstor_support                               : 1;
+    /**
+     * @brief Operating System Support for FXSAVE and FXRSTOR instructions
+     *
+     * [Bit 9] When set, this flag:
+     * -# indicates to software that the operating system supports the use of the FXSAVE and FXRSTOR instructions,
+     * -# enables the FXSAVE and FXRSTOR instructions to save and restore the contents of the XMM and MXCSR registers along
+     * with the contents of the x87 FPU and MMX registers, and
+     * -# enables the processor to execute SSE/SSE2/SSE3/SSSE3/SSE4 instructions, with the exception of the PAUSE, PREFETCHh,
+     * SFENCE, LFENCE, MFENCE, MOVNTI, CLFLUSH, CRC32, and POPCNT.
+     * If this flag is clear, the FXSAVE and FXRSTOR instructions will save and restore the contents of the x87 FPU and MMX
+     * registers, but they may not save and restore the contents of the XMM and MXCSR registers. Also, the processor will
+     * generate an invalid opcode exception (\#UD) if it attempts to execute any SSE/SSE2/SSE3 instruction, with the exception
+     * of PAUSE, PREFETCHh, SFENCE, LFENCE, MFENCE, MOVNTI, CLFLUSH, CRC32, and POPCNT. The operating system or executive must
+     * explicitly set this flag.
+     *
+     * @remarks CPUID feature flag FXSR indicates availability of the FXSAVE/FXRSTOR instructions. The OSFXSR bit provides
+     *          operating system software with a means of enabling FXSAVE/FXRSTOR to save/restore the contents of the X87 FPU, XMM and
+     *          MXCSR registers. Consequently OSFXSR bit indicates that the operating system provides context switch support for
+     *          SSE/SSE2/SSE3/SSSE3/SSE4.
+     */
+    uint64_t os_fxsave_fxrstor_support                               : 1;
 #define CR4_OS_FXSAVE_FXRSTOR_SUPPORT_BIT                            9
 #define CR4_OS_FXSAVE_FXRSTOR_SUPPORT_FLAG                           0x200
 #define CR4_OS_FXSAVE_FXRSTOR_SUPPORT_MASK                           0x01
 #define CR4_OS_FXSAVE_FXRSTOR_SUPPORT(_)                             (((_) >> 9) & 0x01)
 
-	/**
-	* @brief Operating System Support for Unmasked SIMD Floating-Point Exceptions
-	*
-	* [Bit 10] Operating System Support for Unmasked SIMD Floating-Point Exceptions - When set, indicates that the operating
-	* system supports the handling of unmasked SIMD floating-point exceptions through an exception handler that is invoked
-	* when a SIMD floating-point exception (\#XM) is generated. SIMD floating-point exceptions are only generated by
-	* SSE/SSE2/SSE3/SSE4.1 SIMD floatingpoint instructions.
-	* The operating system or executive must explicitly set this flag. If this flag is not set, the processor will generate an
-	* invalid opcode exception (\#UD) whenever it detects an unmasked SIMD floating-point exception.
-	*/
-	uint64_t os_xmm_exception_support                                : 1;
+    /**
+     * @brief Operating System Support for Unmasked SIMD Floating-Point Exceptions
+     *
+     * [Bit 10] Operating System Support for Unmasked SIMD Floating-Point Exceptions - When set, indicates that the operating
+     * system supports the handling of unmasked SIMD floating-point exceptions through an exception handler that is invoked
+     * when a SIMD floating-point exception (\#XM) is generated. SIMD floating-point exceptions are only generated by
+     * SSE/SSE2/SSE3/SSE4.1 SIMD floating-point instructions.
+     * The operating system or executive must explicitly set this flag. If this flag is not set, the processor will generate an
+     * invalid opcode exception (\#UD) whenever it detects an unmasked SIMD floating-point exception.
+     */
+    uint64_t os_xmm_exception_support                                : 1;
 #define CR4_OS_XMM_EXCEPTION_SUPPORT_BIT                             10
 #define CR4_OS_XMM_EXCEPTION_SUPPORT_FLAG                            0x400
 #define CR4_OS_XMM_EXCEPTION_SUPPORT_MASK                            0x01
 #define CR4_OS_XMM_EXCEPTION_SUPPORT(_)                              (((_) >> 10) & 0x01)
 
-	/**
-	* @brief User-Mode Instruction Prevention
-	*
-	* [Bit 11] When set, the following instructions cannot be executed if CPL > 0: SGDT, SIDT, SLDT, SMSW, and STR. An attempt
-	* at such execution causes a generalprotection exception (\#GP).
-	*/
-	uint64_t usermode_instruction_prevention                         : 1;
+    /**
+     * @brief User-Mode Instruction Prevention
+     *
+     * [Bit 11] When set, the following instructions cannot be executed if CPL > 0: SGDT, SIDT, SLDT, SMSW, and STR. An attempt
+     * at such execution causes a general-protection exception (\#GP).
+     */
+    uint64_t usermode_instruction_prevention                         : 1;
 #define CR4_USERMODE_INSTRUCTION_PREVENTION_BIT                      11
 #define CR4_USERMODE_INSTRUCTION_PREVENTION_FLAG                     0x800
 #define CR4_USERMODE_INSTRUCTION_PREVENTION_MASK                     0x01
 #define CR4_USERMODE_INSTRUCTION_PREVENTION(_)                       (((_) >> 11) & 0x01)
-	
-	/**
-	* @brief 5-level paging.
-	*
-	* [Bit 12]
-	*/
-	uint64_t la57_enable                                             : 1;
-#define CR4_LA57_ENABLE_BIT                                          12
-#define CR4_LA57_ENABLE_FLAG                                         0x1000
-#define CR4_LA57_ENABLE_MASK                                         0x01
-#define CR4_LA57_ENABLE(_)                                           (((_) >> 12) & 0x01)
 
-	/**
-	* @brief VMX-Enable
-	*
-	* [Bit 13] Enables VMX operation when set.
-	*
-	* @see Vol3C[23(INTRODUCTION TO VIRTUAL MACHINE EXTENSIONS)]
-	*/
-	uint64_t vmx_enable                                              : 1;
+    /**
+     * @brief 57-bit Linear Addresses
+     *
+     * [Bit 12] When set in IA-32e mode, the processor uses 5-level paging to translate 57-bit linear addresses. When clear in
+     * IA-32e mode, the processor uses 4-level paging to translate 48-bit linear addresses. This bit cannot be modified in
+     * IA-32e mode.
+     *
+     * @see Vol3C[4(PAGING)]
+     */
+    uint64_t linear_addresses_57_bit                                 : 1;
+#define CR4_LINEAR_ADDRESSES_57_BIT_BIT                              12
+#define CR4_LINEAR_ADDRESSES_57_BIT_FLAG                             0x1000
+#define CR4_LINEAR_ADDRESSES_57_BIT_MASK                             0x01
+#define CR4_LINEAR_ADDRESSES_57_BIT(_)                               (((_) >> 12) & 0x01)
+
+    /**
+     * @brief VMX-Enable
+     *
+     * [Bit 13] Enables VMX operation when set.
+     *
+     * @see Vol3C[23(INTRODUCTION TO VIRTUAL MACHINE EXTENSIONS)]
+     */
+    uint64_t vmx_enable                                              : 1;
 #define CR4_VMX_ENABLE_BIT                                           13
 #define CR4_VMX_ENABLE_FLAG                                          0x2000
 #define CR4_VMX_ENABLE_MASK                                          0x01
 #define CR4_VMX_ENABLE(_)                                            (((_) >> 13) & 0x01)
 
-	/**
-	* @brief SMX-Enable
-	*
-	* [Bit 14] Enables SMX operation when set.
-	*
-	* @see Vol2[6(SAFER MODE EXTENSIONS REFERENCE)]
-	*/
-	uint64_t smx_enable                                              : 1;
+    /**
+     * @brief SMX-Enable
+     *
+     * [Bit 14] Enables SMX operation when set.
+     *
+     * @see Vol2[6(SAFER MODE EXTENSIONS REFERENCE)]
+     */
+    uint64_t smx_enable                                              : 1;
 #define CR4_SMX_ENABLE_BIT                                           14
 #define CR4_SMX_ENABLE_FLAG                                          0x4000
 #define CR4_SMX_ENABLE_MASK                                          0x01
 #define CR4_SMX_ENABLE(_)                                            (((_) >> 14) & 0x01)
-	uint64_t reserved2                                               : 1;
+    uint64_t reserved1                                               : 1;
 
-	/**
-	* @brief FSGSBASE-Enable
-	*
-	* [Bit 16] Enables the instructions RDFSBASE, RDGSBASE, WRFSBASE, and WRGSBASE.
-	*/
-	uint64_t fsgsbase_enable                                         : 1;
+    /**
+     * @brief FSGSBASE-Enable
+     *
+     * [Bit 16] Enables the instructions RDFSBASE, RDGSBASE, WRFSBASE, and WRGSBASE.
+     */
+    uint64_t fsgsbase_enable                                         : 1;
 #define CR4_FSGSBASE_ENABLE_BIT                                      16
 #define CR4_FSGSBASE_ENABLE_FLAG                                     0x10000
 #define CR4_FSGSBASE_ENABLE_MASK                                     0x01
 #define CR4_FSGSBASE_ENABLE(_)                                       (((_) >> 16) & 0x01)
 
-	/**
-	* @brief PCID-Enable
-	*
-	* [Bit 17] Enables process-context identifiers (PCIDs) when set. Can be set only in IA-32e mode (if IA32_EFER.LMA = 1).
-	*
-	* @see Vol3A[4.10.1(Process-Context Identifiers (PCIDs))]
-	*/
-	uint64_t pcid_enable                                             : 1;
+    /**
+     * @brief PCID-Enable
+     *
+     * [Bit 17] Enables process-context identifiers (PCIDs) when set. Can be set only in IA-32e mode (if IA32_EFER.LMA = 1).
+     *
+     * @see Vol3A[4.10.1(Process-Context Identifiers (PCIDs))]
+     */
+    uint64_t pcid_enable                                             : 1;
 #define CR4_PCID_ENABLE_BIT                                          17
 #define CR4_PCID_ENABLE_FLAG                                         0x20000
 #define CR4_PCID_ENABLE_MASK                                         0x01
 #define CR4_PCID_ENABLE(_)                                           (((_) >> 17) & 0x01)
 
-	/**
-	* @brief XSAVE and Processor Extended States-Enable
-	*
-	* [Bit 18] When set, this flag:
-	* -# indicates (via CPUID.01H:ECX.OSXSAVE[bit 27]) that the operating system supports the use of the XGETBV, XSAVE and
-	* XRSTOR instructions by general software;
-	* -# enables the XSAVE and XRSTOR instructions to save and restore the x87 FPU state (including MMX registers), the SSE
-	* state (XMM registers and MXCSR), along with other processor extended states enabled in XCR0;
-	* -# enables the processor to execute XGETBV and XSETBV instructions in order to read and write XCR0.
-	*
-	* @see Vol3A[2.6(EXTENDED CONTROL REGISTERS (INCLUDING XCR0))]
-	* @see Vol3A[13(SYSTEM PROGRAMMING FOR INSTRUCTION SET EXTENSIONS AND PROCESSOR EXTENDED)]
-	*/
-	uint64_t os_xsave                                                : 1;
+    /**
+     * @brief XSAVE and Processor Extended States-Enable
+     *
+     * [Bit 18] When set, this flag:
+     * -# indicates (via CPUID.01H:ECX.OSXSAVE[bit 27]) that the operating system supports the use of the XGETBV, XSAVE and
+     * XRSTOR instructions by general software;
+     * -# enables the XSAVE and XRSTOR instructions to save and restore the x87 FPU state (including MMX registers), the SSE
+     * state (XMM registers and MXCSR), along with other processor extended states enabled in XCR0;
+     * -# enables the processor to execute XGETBV and XSETBV instructions in order to read and write XCR0.
+     *
+     * @see Vol3A[2.6(EXTENDED CONTROL REGISTERS (INCLUDING XCR0))]
+     * @see Vol3A[13(SYSTEM PROGRAMMING FOR INSTRUCTION SET EXTENSIONS AND PROCESSOR EXTENDED)]
+     */
+    uint64_t os_xsave                                                : 1;
 #define CR4_OS_XSAVE_BIT                                             18
 #define CR4_OS_XSAVE_FLAG                                            0x40000
 #define CR4_OS_XSAVE_MASK                                            0x01
 #define CR4_OS_XSAVE(_)                                              (((_) >> 18) & 0x01)
-	uint64_t reserved3                                               : 1;
 
-	/**
-	* @brief SMEP-Enable
-	*
-	* [Bit 20] Enables supervisor-mode execution prevention (SMEP) when set.
-	*
-	* @see Vol3A[4.6(ACCESS RIGHTS)]
-	*/
-	uint64_t smep_enable                                             : 1;
+    /**
+     * @brief Key-Locker-Enable
+     *
+     * [Bit 19] When set, the LOADIWKEY instruction is enabled; in addition, if support for the AES Key Locker instructions has
+     * been activated by system firmware, CPUID.19H:EBX.AESKLE[bit 0] is enumerated as 1 and the AES Key Locker instructions
+     * are enabled. When clear, CPUID.19H:EBX.AESKLE[bit 0] is enumerated as 0 and execution of any Key Locker instruction
+     * causes an invalid-opcode exception (\#UD).
+     */
+    uint64_t key_locker_enable                                       : 1;
+#define CR4_KEY_LOCKER_ENABLE_BIT                                    19
+#define CR4_KEY_LOCKER_ENABLE_FLAG                                   0x80000
+#define CR4_KEY_LOCKER_ENABLE_MASK                                   0x01
+#define CR4_KEY_LOCKER_ENABLE(_)                                     (((_) >> 19) & 0x01)
+
+    /**
+     * @brief SMEP-Enable
+     *
+     * [Bit 20] Enables supervisor-mode execution prevention (SMEP) when set.
+     *
+     * @see Vol3A[4.6(ACCESS RIGHTS)]
+     */
+    uint64_t smep_enable                                             : 1;
 #define CR4_SMEP_ENABLE_BIT                                          20
 #define CR4_SMEP_ENABLE_FLAG                                         0x100000
 #define CR4_SMEP_ENABLE_MASK                                         0x01
 #define CR4_SMEP_ENABLE(_)                                           (((_) >> 20) & 0x01)
 
-	/**
-	* @brief SMAP-Enable
-	*
-	* [Bit 21] Enables supervisor-mode access prevention (SMAP) when set.
-	*
-	* @see Vol3A[4.6(ACCESS RIGHTS)]
-	*/
-	uint64_t smap_enable                                             : 1;
+    /**
+     * @brief SMAP-Enable
+     *
+     * [Bit 21] Enables supervisor-mode access prevention (SMAP) when set.
+     *
+     * @see Vol3A[4.6(ACCESS RIGHTS)]
+     */
+    uint64_t smap_enable                                             : 1;
 #define CR4_SMAP_ENABLE_BIT                                          21
 #define CR4_SMAP_ENABLE_FLAG                                         0x200000
 #define CR4_SMAP_ENABLE_MASK                                         0x01
 #define CR4_SMAP_ENABLE(_)                                           (((_) >> 21) & 0x01)
 
-	/**
-	* @brief Protection-Key-Enable
-	*
-	* [Bit 22] Enables 4-level paging to associate each linear address with a protection key. The PKRU register specifies, for
-	* each protection key, whether user-mode linear addresses with that protection key can be read or written. This bit also
-	* enables access to the PKRU register using the RDPKRU and WRPKRU instructions.
-	*/
-	uint64_t protection_key_enable                                   : 1;
+    /**
+     * @brief Protection-Key-Enable
+     *
+     * [Bit 22] Enables 4-level paging to associate each linear address with a protection key. The PKRU register specifies, for
+     * each protection key, whether user-mode linear addresses with that protection key can be read or written. This bit also
+     * enables access to the PKRU register using the RDPKRU and WRPKRU instructions.
+     */
+    uint64_t protection_key_enable                                   : 1;
 #define CR4_PROTECTION_KEY_ENABLE_BIT                                22
 #define CR4_PROTECTION_KEY_ENABLE_FLAG                               0x400000
 #define CR4_PROTECTION_KEY_ENABLE_MASK                               0x01
 #define CR4_PROTECTION_KEY_ENABLE(_)                                 (((_) >> 22) & 0x01)
-	uint64_t reserved4                                               : 41;
+
+    /**
+     * @brief Control-flow Enforcement Technology
+     *
+     * [Bit 23] Enables control-flow enforcement technology when set. This flag can be set only if CR0.WP is set, and it must
+     * be clear before CR0.WP can be cleared.
+     *
+     * @see Vol1[18(CONTROL-FLOW ENFORCEMENT TECHNOLOGY (CET))]
+     */
+    uint64_t control_flow_enforcement_enable                         : 1;
+#define CR4_CONTROL_FLOW_ENFORCEMENT_ENABLE_BIT                      23
+#define CR4_CONTROL_FLOW_ENFORCEMENT_ENABLE_FLAG                     0x800000
+#define CR4_CONTROL_FLOW_ENFORCEMENT_ENABLE_MASK                     0x01
+#define CR4_CONTROL_FLOW_ENFORCEMENT_ENABLE(_)                       (((_) >> 23) & 0x01)
+
+    /**
+     * @brief Enable protection keys for supervisor-mode pages
+     *
+     * [Bit 24] 4-level paging and 5-level paging associate each supervisor-mode linear address with a protection key. When
+     * set, this flag allows use of the IA32_PKRS MSR to specify, for each protection key, whether supervisor-mode linear
+     * addresses with that protection key can be read or written.
+     */
+    uint64_t protection_key_for_supervisor_mode_enable               : 1;
+#define CR4_PROTECTION_KEY_FOR_SUPERVISOR_MODE_ENABLE_BIT            24
+#define CR4_PROTECTION_KEY_FOR_SUPERVISOR_MODE_ENABLE_FLAG           0x1000000
+#define CR4_PROTECTION_KEY_FOR_SUPERVISOR_MODE_ENABLE_MASK           0x01
+#define CR4_PROTECTION_KEY_FOR_SUPERVISOR_MODE_ENABLE(_)             (((_) >> 24) & 0x01)
+    uint64_t reserved2                                               : 39;
   };
 
   uint64_t flags;
