@@ -19,15 +19,15 @@ namespace xstd::fmt
 
 	// Prints a singular hexadecimal digit to the buffer given.
 	//
-	template<typename C>
-	FORCE_INLINE inline constexpr void print_hex_digit( C* out, uint8_t value, bool uppercase = false )
+	template<Iterator C>
+	FORCE_INLINE inline constexpr void print_hex_digit( C out, uint8_t value, bool uppercase = false )
 	{
 		auto print = [ base = ( uppercase ? 'A' : 'a' ) ] (uint8_t digit) FORCE_INLINE
 		{
 			return digit >= 10 ? ( base + digit - 10 ) : digit + '0';
 		};
-		out[ 0 ] = ( C ) print( value >> 4 );
-		out[ 1 ] = ( C ) print( value & 0xF );
+		*out++ = ( iterator_val_t<C> ) print( value >> 4 );
+		*out++ = ( iterator_val_t<C> ) print( value & 0xF );
 	}
 
 	// Optimized hexdump for constant size input with no configuration.

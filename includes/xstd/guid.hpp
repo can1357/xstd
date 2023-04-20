@@ -47,7 +47,7 @@ namespace xstd
 		// - Must be string_length.
 		//
 		template<typename C>
-		static constexpr guid from( std::basic_string_view<C> str )
+		static constexpr guid from( C&& str )
 		{
 			auto read = [ & ] <typename T> ( type_tag<T>, size_t offset ) FORCE_INLINE -> T
 			{
@@ -72,46 +72,51 @@ namespace xstd
 			high |= uint64_t( bswap( read( type_tag<uint32_t>{}, 28 ) ) ) << 32;
 			return { low, high };
 		}
-		template<typename C> static constexpr guid from( const std::basic_string<C>& str ) { return from( std::basic_string_view<C>{ str } ); }
-		template<typename C> static constexpr guid from( const C* str ) { return from( std::basic_string_view<C>{ str } ); }
 
 		// Validates a guid string.
 		//
-		template<typename C>
-		static constexpr bool validate( std::basic_string_view<C> str )
+		template<Iterator C>
+		static constexpr bool validate( C str )
 		{
-			if ( str.size() != string_length )
-				return false;
-
-			auto validate_hex_range = [ & ] ( size_t a, size_t b ) FORCE_INLINE
+			auto take_hex = [ & ] ( size_t n ) FORCE_INLINE
 			{
-				for ( size_t i = a; i != b; i++ )
+				for ( ; n; n-- )
 				{
-					if ( '0' <= str[ i ] && str[ i ] <= '9' )
+					auto character = *str++;
+					if ( '0' <= character && character <= '9' )
 						continue;
-					if ( 'a' <= str[ i ] && str[ i ] <= 'f' )
+					if ( 'a' <= character && character <= 'f' )
 						continue;
-					if ( 'A' <= str[ i ] && str[ i ] <= 'F' )
+					if ( 'A' <= character && character <= 'F' )
 						continue;
 					return false;
 				}
 				return true;
 			};
-
-			char valid = 1;
-			valid &= validate_hex_range( 0, 8 );
-			valid &= validate_hex_range( 9, 13 );
-			valid &= validate_hex_range( 14, 18 );
-			valid &= validate_hex_range( 19, 23 );
-			valid &= validate_hex_range( 24, 36 );
-			valid &= str[ 8 ] == '-';
-			valid &= str[ 13 ] == '-';
-			valid &= str[ 18 ] == '-';
-			valid &= str[ 23 ] == '-';
-			return valid;
+			return take_hex( 8 )
+				&& ( *str++ == '-' )
+				&& take_hex( 4 )
+				&& ( *str++ == '-' )
+				&& take_hex( 4 )
+				&& ( *str++ == '-' )
+				&& take_hex( 4 )
+				&& ( *str++ == '-' )
+				&& take_hex( 12 );
 		}
-		template<typename C> static constexpr bool validate( const std::basic_string<C>& str ) { return validate( std::basic_string_view<C>{ str } ); }
-		template<typename C> static constexpr bool validate( const C* str ) { return validate( std::basic_string_view<C>{ str } ); }
+		template<typename C>
+		static constexpr bool validate( const std::basic_string<C>& cstr ) {
+			if ( cstr.size() != string_length ) {
+				return false;
+			}
+			return validate( cstr.data() );
+		}
+		template<typename C>
+		static constexpr bool validate( const std::basic_string_view<C>& cstr ) {
+			if ( cstr.size() != string_length ) {
+				return false;
+			}
+			return validate( cstr.data() );
+		}
 
 		// Default copy/move.
 		//
@@ -123,24 +128,20 @@ namespace xstd
 		// String conversion.
 		//
 		template<typename C>
-		constexpr void to_string( C&& buffer ) const
+		constexpr void to_string( C&& iterator ) const
 		{
-			auto* iterator = &buffer[ 0 ];
-			auto write_hex = [ & ] <typename I> ( I integer ) FORCE_INLINE
-			{
-				if ( !std::is_constant_evaluated() )
-				{
-					if constexpr ( sizeof( *iterator ) == 1 )
-					{
-						std::array res = fmt::print_hex<false>( integer );
-						*( ( decltype( res )*& ) iterator )++ = res;
-						return;
-					}
-					else if constexpr ( sizeof( *iterator ) == 2 )
-					{
-						std::array res = fmt::print_hex16<false>( integer );
-						*( ( decltype( res )*& ) iterator )++ = res;
-						return;
+			auto write_hex = [ & ] <typename I> ( I integer ) FORCE_INLINE {
+				if constexpr ( std::is_pointer_v<decltype( iterator )> ) {
+					if ( !std::is_constant_evaluated() ) {
+						if constexpr ( sizeof( *iterator ) == 1 ) {
+							std::array res = fmt::print_hex<false>( integer );
+							*( ( decltype( res )*& ) iterator )++ = res;
+							return;
+						} else if constexpr ( sizeof( *iterator ) == 2 ) {
+							std::array res = fmt::print_hex16<false>( integer );
+							*( ( decltype( res )*& ) iterator )++ = res;
+							return;
+						}
 					}
 				}
 				for ( auto c : fmt::print_hex<false>( integer ) )
@@ -160,13 +161,13 @@ namespace xstd
 		std::string to_string() const
 		{
 			std::string out( string_length, '\0' );
-			to_string( out );
+			to_string( out.begin() );
 			return out;
 		}
 		std::wstring to_wstring() const
 		{
 			std::wstring out( string_length, L'\0' );
-			to_string( out );
+			to_string( out.begin() );
 			return out;
 		}
 
