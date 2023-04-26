@@ -11,11 +11,11 @@
 // XSTD_RANDOM_THREAD_LOCAL: If set, will use the thread local qualifier for the random number generator.
 //
 #ifndef XSTD_RANDOM_THREAD_LOCAL
-	#define XSTD_RANDOM_THREAD_LOCAL 0
+#define XSTD_RANDOM_THREAD_LOCAL 0
 #endif
 
 #if GNU_COMPILER
-    #pragma GCC diagnostic ignored "-Wunused-value"
+#pragma GCC diagnostic ignored "-Wunused-value"
 #endif
 namespace xstd
 {
@@ -67,16 +67,16 @@ namespace xstd
 		}
 	}
 
-	// Fast uniform distribution.
+	// Fast uniform real distribution.
 	//
 	template<FloatingPoint F, Unsigned S> requires ( sizeof( S ) >= sizeof( F ) )
-	inline constexpr F uniform_real( S v )
+		inline constexpr F uniform_real( S v )
 	{
 		using U = std::conditional_t<Same<F, float>, uint32_t, uint64_t>;
-		constexpr bitcnt_t mantissa_bits = Same<F, float> ? 23  : 52;
-		constexpr bitcnt_t exponent_bits = Same<F, float> ? 8   : 11;
-		constexpr uint32_t exponent_0 =    uint32_t( fill_bits( exponent_bits - 1 ) - 2 ); // 2^-2, max at 0.499999.
-		
+		constexpr bitcnt_t mantissa_bits = Same<F, float> ? 23 : 52;
+		constexpr bitcnt_t exponent_bits = Same<F, float> ? 8 : 11;
+		constexpr uint32_t exponent_0 = uint32_t( fill_bits( exponent_bits - 1 ) - 2 ); // 2^-2, max at 0.499999.
+
 		// Find the lowest bit set, 0 requires 1 bit to be set to '0', 1 requires 
 		// 2 bits to be set to '0', each increment has half the chance of being 
 		// returned compared to the previous one which leads to equal distribution 
@@ -96,25 +96,43 @@ namespace xstd
 		return bit_cast< F >( U( v ) ) + 0.5;
 	}
 	template<Unsigned S> requires ( sizeof( S ) >= sizeof( double ) )
-	inline constexpr double uniform_real( S v, double min, double max )
+		inline constexpr double uniform_real( S v, double min, double max )
 	{
 		return min + uniform_real<double, S>( v ) * ( max - min );
 	}
 	template<Unsigned S> requires ( sizeof( S ) >= sizeof( float ) )
-	inline constexpr float uniform_real( S v, float min, float max )
+		inline constexpr float uniform_real( S v, float min, float max )
 	{
 		return min + uniform_real<float, S>( v ) * ( max - min );
 	}
-	template<Integral I, Unsigned S>
-	inline constexpr I uniform_integer( S seed, I min, I max ) 
+
+
+	// Uniform integer distribution.
+	//
+	template<Unsigned U>
+	inline constexpr U uniform_integer( U seed, U max )
 	{
-		using U = convert_uint_t<I>;
-		if constexpr ( sizeof( S ) > sizeof( I ) )
-			return uniform_integer<I, U>( ( U ) seed, min, max );
-		else if constexpr ( Same<I, bool> )
-			return ( seed & 1 ) ? min : max;
+		// Fixes both the issue with overflow/zero and speeds up handling of pow2-1.
+		//
+		if ( !( max & ( max + 1 ) ) )
+			return seed & max;
 		else
-			return min + ( seed % ( bit_cast<U>( max ) - bit_cast<U>( min ) ) );
+			return seed % ( max + 1 );
+	}
+
+
+
+	template<Integral I, Unsigned S>
+	inline constexpr I uniform_integer( S seed, I min, I max )
+	{
+		if constexpr ( Same<I, bool> )
+		{
+			return ( seed & 1 ) ? min : max;
+		} else
+		{
+			using U = convert_uint_t<I>;
+			return min + uniform_integer( seed, S( U( max ) - U( min ) ) );
+		}
 	}
 
 	// Implement an PCG and its atomic variant.
@@ -124,7 +142,7 @@ namespace xstd
 	{
 		using result_type = T;
 		static constexpr uint64_t multiplier = 6364136223846793005;
-		static constexpr uint64_t increment =  1;
+		static constexpr uint64_t increment = 1;
 
 		uint64_t state = 0;
 		inline constexpr basic_pcg( uint64_t s = 0 ) { seed( s ); }
@@ -143,7 +161,7 @@ namespace xstd
 			for ( auto& result : results )
 				result = pce_32( state );
 			if constexpr ( sizeof( T ) == 4 ) return results[ 0 ];
-			else if constexpr ( sizeof( T ) == 8 ) return bit_cast<T>( results );
+			else if constexpr ( sizeof( T ) == 8 ) return bit_cast< T >( results );
 			else return *( result_type* ) &results;
 		}
 	};
@@ -152,12 +170,12 @@ namespace xstd
 	{
 		using result_type = T;
 		static constexpr uint64_t multiplier = 6364136223846793005;
-		static constexpr uint64_t increment =  1;
+		static constexpr uint64_t increment = 1;
 
 		std::atomic<uint64_t> state;
 		inline constexpr basic_atomic_pcg( uint64_t s = 0 ) : state( basic_pcg<>{ s }.state ) {}
 		inline void seed( uint64_t s ) { state.store( basic_pcg<>{ s }.state, std::memory_order::relaxed ); }
-		
+
 		inline constexpr basic_atomic_pcg( const basic_atomic_pcg& o ) = delete;
 		inline constexpr basic_atomic_pcg& operator=( const basic_atomic_pcg& o ) = delete;
 
@@ -190,30 +208,30 @@ namespace xstd
 			return *( result_type* ) &results;
 		}
 	};
-	using pcg =          basic_pcg<uint32_t>;
-	using pcg64 =        basic_pcg<uint64_t>;
-	using atomic_pcg =   basic_atomic_pcg<uint32_t>;
+	using pcg = basic_pcg<uint32_t>;
+	using pcg64 = basic_pcg<uint64_t>;
+	using atomic_pcg = basic_atomic_pcg<uint32_t>;
 	using atomic_pcg64 = basic_atomic_pcg<uint64_t>;
 
 	namespace impl
 	{
 #if XSTD_RANDOM_THREAD_LOCAL
-	#define __xstd_rng thread_local pcg64
+#define __xstd_rng thread_local pcg64
 #else
-	#define __xstd_rng pcg64
+#define __xstd_rng pcg64
 #endif
 
 #ifndef XSTD_RANDOM_FIXED_SEED
 		// Declare the constexpr random seed.
 		//
-		static constexpr uint64_t crandom_default_seed = ([]()
+		static constexpr uint64_t crandom_default_seed = ( [ ] ()
 		{
 			uint64_t value = 0xa0d82d3adc00b109;
 			for ( char c : __DATE__ )
 				value = ( value ^ c ) * 0x100000001B3;
 			return value;
-		} )();
-		inline __xstd_rng global_rng{ uint64_t( std::random_device{}() ) | ( uint64_t( std::random_device{}() ) << 32 ) };
+		} )( );
+		inline __xstd_rng global_rng{ uint64_t( std::random_device{}( ) ) | ( uint64_t( std::random_device{}( ) ) << 32 ) };
 #else
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
 		inline __xstd_rng global_rng{ XSTD_RANDOM_FIXED_SEED };
@@ -224,7 +242,7 @@ namespace xstd
 	// Changes the random seed.
 	// - If XSTD_RANDOM_THREAD_LOCAL is set, will be a thread-local change, else global.
 	//
-	FORCE_INLINE static void seed_rng( size_t n )
+	FORCE_INLINE static void seed_rng( uint64_t n )
 	{
 		impl::global_rng.seed( n );
 	}
@@ -236,8 +254,8 @@ namespace xstd
 	{
 		using U = std::random_device::result_type;
 		U seed[ ( sizeof( T ) + sizeof( U ) - 1 ) / sizeof( U ) ];
-		for( auto& v : seed )
-			v = std::random_device{}();
+		for ( auto& v : seed )
+			v = std::random_device{}( );
 		return uniform_integer( *( convert_uint_t<T>* ) & seed[ 0 ], min, max );
 	}
 	template<FloatingPoint T>
