@@ -110,11 +110,11 @@ namespace xstd
 		int padding_carry = 0;
 #endif
 
+#if WINDOWS_TARGET && XSTD_CON_ENFORCE_MODE_WINDOWS
 		// Constructor initializes logger.
 		//
 		logger_state_t()
 		{
-#if ( WINDOWS_TARGET && XSTD_CON_ENFORCE_MODE_WINDOWS )
 			constexpr uint32_t _CP_UTF8 = 65001;
 			SetConsoleOutputCP( _CP_UTF8 );
 			constexpr uint32_t _ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
@@ -122,8 +122,8 @@ namespace xstd
 			unsigned long mode;
 			GetConsoleMode( GetStdHandle( _STD_OUTPUT_HANDLE ), &mode );
 			SetConsoleMode( GetStdHandle( _STD_OUTPUT_HANDLE ), mode | _ENABLE_VIRTUAL_TERMINAL_PROCESSING );
-#endif
 		}
+#endif
 
 		// Lock of the stream.
 		//
