@@ -22741,6 +22741,7 @@ namespace ia32
 		template<size_t U, typename T>
 		_LINKAGE inline void unroll_for( const T& fn, xstd::any_ptr ptr, size_t count, size_t granularity )
 		{
+			count += ptr & ( granularity - 1 );
 			size_t n = ( count + ( granularity - 1 ) ) / granularity;
 			for ( ; n >= U; n -= U )
 			{
