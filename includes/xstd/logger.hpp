@@ -261,8 +261,13 @@ namespace xstd
 			return out_cnt;
 		}
 
+#ifdef GNU_COMPILER
+		template<bool HasArgs>
+		inline int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
+#else
 		template<bool HasArgs>
 		FORCE_INLINE inline int log_w( FILE* dst, console_color color, const char* fmt_str, ... )
+#endif
 		{
 			// If it's a message:
 			//

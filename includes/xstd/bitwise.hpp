@@ -1,6 +1,6 @@
 #pragma once
-#include <stdint.h>
-#include <math.h>
+#include <cstdint>
+#include <cmath>
 #include <optional>
 #include <type_traits>
 #include <numeric>
@@ -37,9 +37,9 @@ namespace xstd
 
 		if ( std::is_constant_evaluated() )
 		{
-			U uval = bit_cast<U>( value );
+			U uval = U( value );
 			uval += U( ( -I( uval ) ) % alignment );
-			return bit_cast<T>( uval  );
+			return T( uval );
 		}
 		else
 		{
@@ -61,9 +61,9 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if ( std::is_constant_evaluated() )
 		{
-			U uval = bit_cast<U>( value );
+			U uval = U( value );
 			uval -= uval % alignment;
-			return bit_cast<T>( uval  );
+			return T( uval );
 		}
 		else
 		{
@@ -83,10 +83,7 @@ namespace xstd
 			return __builtin_is_aligned( value, alignment );
 #else
 		using U = convert_uint_t<T>;
-		if ( std::is_constant_evaluated() )
-			return !( bit_cast<U>( value ) % alignment );
-		else
-			return !( U( value ) % alignment );
+		return !( U( value ) % alignment );
 #endif
 	}
 
@@ -379,7 +376,7 @@ namespace xstd
 		else
 		{
 			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
-			unreachable();
+			return false;
 		}
 	}
 	template<typename T>
@@ -478,7 +475,7 @@ namespace xstd
 		else
 		{
 			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
-			unreachable();
+			return false;
 		}
 	}
 	template<typename T>
@@ -573,7 +570,7 @@ namespace xstd
 		else
 		{
 			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
-			unreachable();
+			return false;
 		}
 	}
 	template<typename T>
@@ -665,6 +662,7 @@ namespace xstd
 		else
 		{
 			static_assert( sizeof( T ) == -1, "Invalid type for bitwise op." );
+			return false;
 		}
 	}
 	template<Integral I>
@@ -677,7 +675,7 @@ namespace xstd
 			case 2:  return __builtin_bitreverse16( value );
 			case 4:  return __builtin_bitreverse32( value );
 			case 8:  return __builtin_bitreverse64( value );
-			default: unreachable();
+			default: return 0;
 		}
 #else
 		if constexpr ( sizeof( I ) == 1 )

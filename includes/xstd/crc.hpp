@@ -12,7 +12,11 @@
 // XSTD_HW_CRC32C: Determines the availability of hardware CRC32C.
 //
 #ifndef XSTD_HW_CRC32C
-	#define XSTD_HW_CRC32C ( AMD64_TARGET && ( GNU_COMPILER || MS_COMPILER ) )
+	#define XSTD_HW_CRC32C ( ( AMD64_TARGET || ARM64_TARGET ) && ( GNU_COMPILER || MS_COMPILER ) )
+#endif
+
+#if ARM64_TARGET
+	#include <arm_acle.h>
 #endif
 
 namespace xstd::impl
@@ -21,7 +25,12 @@ namespace xstd::impl
 	template<xstd::Integral T>
 	FORCE_INLINE CONST_FN static uint32_t hw_crc32ci( T value, uint32_t crc )
 	{
-#if MS_COMPILER
+#if ARM64_TARGET
+		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) __crc32cd( crc, ( uint64_t ) value );
+		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) __crc32cw( crc, ( uint32_t ) value );
+		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) __crc32ch( crc, ( uint16_t ) value );
+		else if constexpr ( sizeof( T ) == 1 ) return ( uint32_t ) __crc32cb( crc, ( uint8_t ) value );
+#elif MS_COMPILER
 		if constexpr ( sizeof( T ) == 8 )      return ( uint32_t ) _mm_crc32_u64( crc, ( uint64_t ) value );
 		else if constexpr ( sizeof( T ) == 4 ) return ( uint32_t ) _mm_crc32_u32( crc, ( uint32_t ) value );
 		else if constexpr ( sizeof( T ) == 2 ) return ( uint32_t ) _mm_crc32_u16( crc, ( uint16_t ) value );

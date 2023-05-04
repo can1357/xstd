@@ -104,13 +104,13 @@ namespace xstd
 		struct type_namer
 		{
 			template<typename __id__ = T>
-			static _CONSTEVAL std::string_view __id__()
+			static _CONSTEVAL std::string_view _fid_()
 			{
 				auto [sig, begin, delta, end] = std::tuple{
 #if GNU_COMPILER
 					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
 #else
-					std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +1, ">"
+					std::string_view{ __FUNCSIG__ },         std::string_view{ "_fid_" },  +1, ">"
 #endif
 				};
 
@@ -134,7 +134,7 @@ namespace xstd
 
 			static constexpr auto name = [ ] ()
 			{
-				constexpr std::string_view view = type_namer<T>::__id__<T>();
+				constexpr std::string_view view = type_namer<T>::_fid_<T>();
 				std::array<char, view.length() + 1> data = {};
 				std::copy( view.begin(), view.end(), data.data() );
 				return data;
@@ -146,13 +146,13 @@ namespace xstd
 		struct value_namer
 		{
 			template<auto __id__ = V>
-			static _CONSTEVAL std::string_view __id__()
+			static _CONSTEVAL std::string_view _fid_()
 			{
 				auto [sig, begin, delta, end] = std::tuple{
 #if GNU_COMPILER
 					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
 #else
-					std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +0, ">"
+					std::string_view{ __FUNCSIG__ },         std::string_view{ "_fid_" },  +1, ">"
 #endif
 				};
 
@@ -176,7 +176,7 @@ namespace xstd
 
 			static constexpr auto name = [ ] ()
 			{
-				constexpr std::string_view view = value_namer<V>::__id__<V>();
+				constexpr std::string_view view = value_namer<V>::_fid_<V>();
 				std::array<char, view.length() + 1> data = {};
 				std::copy( view.begin(), view.end(), data.data() );
 				return data;
@@ -830,6 +830,8 @@ namespace xstd
 
 	// Bitcasting.
 	//
+#if __has_builtin(__builtin_bit_cast) || ( HAS_MS_EXTENSIONS && _MSC_VER >= 1926 )
+#define __XSTD_BITCAST_CXPR constexpr
 	template<TriviallyCopyable To, TriviallyCopyable From> requires( sizeof( To ) == sizeof( From ) )
 	FORCE_INLINE inline constexpr To bit_cast( const From& src ) noexcept
 	{
@@ -837,9 +839,19 @@ namespace xstd
 			return *( const To* ) &src;
 #if __has_builtin(__builtin_bit_cast) || ( HAS_MS_EXTENSIONS && _MSC_VER >= 1926 )
 		return __builtin_bit_cast( To, src );
+#else
+		return std::bit_cast< To >( src );
 #endif
-		unreachable();
 	}
+#else
+#define __XSTD_BITCAST_CXPR
+	template<TriviallyCopyable To, TriviallyCopyable From> requires( sizeof( To ) == sizeof( From ) )
+	FORCE_INLINE inline To bit_cast( const From& src ) noexcept
+	{
+		return *( const To* ) &src;
+	}
+#endif
+
 	template<typename T>
 	concept Bitcastable = requires( T x ) { bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
 	

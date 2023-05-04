@@ -766,7 +766,8 @@ FORCE_INLINE static constexpr T bswap( T value ) noexcept
 template<typename T>
 FORCE_INLINE static bool cmpxchg( volatile T& data, T& expected, const T& desired )
 {
-#if !MS_COMPILER
+
+#if CLANG_COMPILER
 	using Y = std::array<uint8_t, sizeof( T )>;
 	static_assert( __c11_atomic_is_lock_free( sizeof( Y ) ), "Compare exchange of this size cannot be lock-free." );
 	return __c11_atomic_compare_exchange_strong(
@@ -776,6 +777,10 @@ FORCE_INLINE static bool cmpxchg( volatile T& data, T& expected, const T& desire
 			__ATOMIC_SEQ_CST, 
 			__ATOMIC_SEQ_CST
 	);
+#elif GNU_COMPILER
+	using Y = std::array<uint8_t, sizeof( T )>;
+	std::atomic_ref<Y> ref_data{ ( Y& ) data };
+	return ref_data.compare_exchange_strong( ( Y* ) &expected, *( Y* ) &desired );
 #else
 
 	#define __CMPXCHG_BASE(fn , type)          \
