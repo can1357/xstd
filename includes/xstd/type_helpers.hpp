@@ -108,7 +108,7 @@ namespace xstd
 			{
 				auto [sig, begin, delta, end] = std::tuple{
 #if GNU_COMPILER
-					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
+					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "];"
 #else
 					std::string_view{ __FUNCSIG__ },         std::string_view{ "_fid_" },  +1, ">"
 #endif
@@ -150,7 +150,7 @@ namespace xstd
 			{
 				auto [sig, begin, delta, end] = std::tuple{
 #if GNU_COMPILER
-					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
+					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "];"
 #else
 					std::string_view{ __FUNCSIG__ },         std::string_view{ "_fid_" },  +1, ">"
 #endif
