@@ -47,8 +47,6 @@ namespace xstd
 		template<typename T, auto N> T __vector_reduce_xor( native_vector<T, N> ) asm( "llvm.vector.reduce.xor" );
 		template<typename T, auto N> T __vector_reduce_add( native_vector<T, N> ) asm( "llvm.vector.reduce.add" );
 		template<typename T, auto N> T __vector_reduce_mul( native_vector<T, N> ) asm( "llvm.vector.reduce.mul" );
-		template<typename T, auto N> T __vector_reduce_fadd( T, native_vector<T, N> ) asm( "llvm.vector.reduce.fadd" );
-		template<typename T, auto N> T __vector_reduce_fmul( T, native_vector<T, N> ) asm( "llvm.vector.reduce.fmul" );
 		template<typename T, auto N> T __vector_reduce_umax( native_vector<T, N> ) asm( "llvm.vector.reduce.umax" );
 		template<typename T, auto N> T __vector_reduce_umin( native_vector<T, N> ) asm( "llvm.vector.reduce.umin" );
 		template<typename T, auto N> T __vector_reduce_smax( native_vector<T, N> ) asm( "llvm.vector.reduce.smax" );
@@ -821,8 +819,6 @@ namespace xstd
 				{
 					if constexpr ( !FloatingPoint<T> )
 						return impl::__vector_reduce_add<T, N>( vec._nat );
-					else
-						return impl::__vector_reduce_fadd<T, N>( 0, vec._nat );
 				}
 			}
 #endif
@@ -841,8 +837,6 @@ namespace xstd
 				{
 					if constexpr ( !FloatingPoint<T> )
 						return impl::__vector_reduce_mul<T, N>( vec._nat );
-					else
-						return impl::__vector_reduce_fmul<T, N>( 1, vec._nat );
 				}
 			}
 #endif
