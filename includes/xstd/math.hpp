@@ -262,6 +262,7 @@ namespace xstd::math
 			}
 		}
 #endif
+		
 		return ( v1 * v2 ).reduce_add();
 	}
 	template<typename V>
@@ -987,7 +988,7 @@ namespace xstd::math
 			r += m[ 3 ];
 			return r;
 		}
-		FORCE_INLINE inline constexpr vec3 operator*( const vec3& v ) const noexcept
+		FORCE_INLINE inline constexpr vec3_t<F> operator*( const vec3_t<F>& v ) const noexcept
 		{
 			return apply_no_w( vec::from_xvec( v.to_xvec() ) ).xyz();
 		}
@@ -1121,8 +1122,8 @@ namespace xstd::math
 				m[ 3 ].template cast<O>(),
 			};
 		}
-		template<typename F>
-		FORCE_INLINE inline constexpr operator mat4x4_t<F>() const noexcept { return this->template cast<F>(); }
+		template<typename F2>
+		FORCE_INLINE inline constexpr operator mat4x4_t<F2>() const noexcept { return this->template cast<F2>(); }
 	};
 	using mat4x4f = mat4x4_t<float>;
 	using mat4x4d = mat4x4_t<double>;
