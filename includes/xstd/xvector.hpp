@@ -822,10 +822,16 @@ namespace xstd
 				}
 			}
 #endif
-			T result = vec[ 0 ];
-			for ( size_t i = 1; i != N; i++ )
-				result += vec[ i ];
-			return result;
+			if constexpr ( N == 4 ) {
+				T lo = vec[ 0 ] + vec[ 1 ];
+				T hi = vec[ 2 ] + vec[ 3 ];
+				return lo + hi;
+			} else {
+				T result = vec[ 0 ];
+				for ( size_t i = 1; i != N; i++ )
+					result += vec[ i ];
+				return result;
+			}
 		}
 		template<typename T, auto N>
 		FORCE_INLINE inline constexpr T reduce_mul( xvec<T, N> vec )
