@@ -39,22 +39,6 @@ namespace xstd
 {
 	namespace impl
 	{
-		// LLVM intrinsics.
-		//
-#if CLANG_COMPILER && !defined(__INTELLISENSE__)
-		template<typename T, auto N> T __vector_reduce_or(  native_vector<T, N> ) asm( "llvm.vector.reduce.or" );
-		template<typename T, auto N> T __vector_reduce_and( native_vector<T, N> ) asm( "llvm.vector.reduce.and" );
-		template<typename T, auto N> T __vector_reduce_xor( native_vector<T, N> ) asm( "llvm.vector.reduce.xor" );
-		template<typename T, auto N> T __vector_reduce_add( native_vector<T, N> ) asm( "llvm.vector.reduce.add" );
-		template<typename T, auto N> T __vector_reduce_mul( native_vector<T, N> ) asm( "llvm.vector.reduce.mul" );
-		template<typename T, auto N> T __vector_reduce_umax( native_vector<T, N> ) asm( "llvm.vector.reduce.umax" );
-		template<typename T, auto N> T __vector_reduce_umin( native_vector<T, N> ) asm( "llvm.vector.reduce.umin" );
-		template<typename T, auto N> T __vector_reduce_smax( native_vector<T, N> ) asm( "llvm.vector.reduce.smax" );
-		template<typename T, auto N> T __vector_reduce_smin( native_vector<T, N> ) asm( "llvm.vector.reduce.smin" );
-		template<typename T, auto N> T __vector_reduce_fmax( native_vector<T, N> ) asm( "llvm.vector.reduce.fmax" );
-		template<typename T, auto N> T __vector_reduce_fmin( native_vector<T, N> ) asm( "llvm.vector.reduce.fmin" );
-#endif
-
 		// Comparison result helper.
 		//
 		template<typename T> struct comparison_unit;
@@ -776,7 +760,7 @@ namespace xstd
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
-					return impl::__vector_reduce_or<T, N>( vec._nat );
+					return __builtin_reduce_or( vec._nat );
 #endif
 			T result = vec[ 0 ];
 			for ( size_t i = 1; i != N; i++ )
@@ -789,7 +773,7 @@ namespace xstd
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
-					return impl::__vector_reduce_and<T, N>( vec._nat );
+					return __builtin_reduce_and( vec._nat );
 #endif
 			T result = vec[ 0 ];
 			for ( size_t i = 1; i != N; i++ )
@@ -802,7 +786,7 @@ namespace xstd
 #if CLANG_COMPILER && !defined(__INTELLISENSE__)
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 				if ( !std::is_constant_evaluated() )
-					return impl::__vector_reduce_xor<T, N>( vec._nat );
+					return __builtin_reduce_xor( vec._nat );
 #endif
 			T result = vec[ 0 ];
 			for ( size_t i = 1; i != N; i++ )
@@ -818,7 +802,7 @@ namespace xstd
 				if ( !std::is_constant_evaluated() )
 				{
 					if constexpr ( !FloatingPoint<T> )
-						return impl::__vector_reduce_add<T, N>( vec._nat );
+						return __builtin_reduce_add( vec._nat );
 				}
 			}
 #endif
@@ -842,7 +826,7 @@ namespace xstd
 				if ( !std::is_constant_evaluated() )
 				{
 					if constexpr ( !FloatingPoint<T> )
-						return impl::__vector_reduce_mul<T, N>( vec._nat );
+						return __builtin_reduce_mul( vec._nat );
 				}
 			}
 #endif
@@ -859,14 +843,7 @@ namespace xstd
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 			{
 				if ( !std::is_constant_evaluated() )
-				{
-					if constexpr ( FloatingPoint<T> )
-						return impl::__vector_reduce_fmax<T, N>( vec._nat );
-					else if constexpr ( Signed<T> )
-						return impl::__vector_reduce_smax<T, N>( vec._nat );
-					else
-						return impl::__vector_reduce_umax<T, N>( vec._nat );
-				}
+					return __builtin_reduce_max( vec._nat );
 			}
 #endif
 			T result = vec[ 0 ];
@@ -885,14 +862,7 @@ namespace xstd
 			if constexpr ( sizeof( vec._nat ) == sizeof( vec._data ) && N >= 4 )
 			{
 				if ( !std::is_constant_evaluated() )
-				{
-					if constexpr ( FloatingPoint<T> )
-						return impl::__vector_reduce_fmin<T, N>( vec._nat );
-					else if constexpr ( Signed<T> )
-						return impl::__vector_reduce_smin<T, N>( vec._nat );
-					else
-						return impl::__vector_reduce_umin<T, N>( vec._nat );
-				}
+					return __builtin_reduce_min( vec._nat );
 			}
 #endif
 			T result = vec[ 0 ];
