@@ -18,7 +18,6 @@
 #include "intrinsics.hpp"
 #include "bitwise.hpp"
 #include "enum_name.hpp"
-#include "fields.hpp"
 #include "utf.hpp"
 #include "small_vector.hpp"
 #include "hexdump.hpp"
@@ -378,38 +377,7 @@ namespace xstd::fmt
 		// Custom conversion.
 		//
 		if constexpr ( CustomStringConvertible<base_type> )
-		{
 			return string_formatter<base_type>{}( std::forward<T>( x ) );
-		}
-		else if constexpr ( FieldMappable<base_type> )
-		{
-			using field_list = typename base_type::field_list;
-
-			std::string result = { '{', ' ' };
-			make_constant_series<std::tuple_size_v<field_list>>( [ & ] <size_t N> ( const_tag<N> )
-			{
-				using E = std::tuple_element_t<N, field_list>;
-
-				if constexpr ( !E::is_function )
-				{
-					auto&& value = E::get( x );
-					if constexpr ( StringConvertible<decltype( value )> )
-					{
-						const char* volatile name = &E::name[ 0 ];
-						result += name;
-						result += ": ";
-						result += as_string( value );
-						result += ", ";
-					}
-				}
-			} );
-
-			auto it = result.data() + result.size();
-			if ( result.size() != 2 )
-				*--it = ' ';
-			*--it = '}';
-			return result;
-		}
 		// String and langauge primitives:
 		//
 		else if constexpr ( Same<std::string, base_type> )

@@ -11,7 +11,6 @@
 #include "bitwise.hpp"
 #include "hashable.hpp"
 #include "narrow_cast.hpp"
-#include "shared.hpp"
 
 namespace xstd
 {
@@ -340,35 +339,6 @@ namespace xstd
 				input_stream = std::move( rec.range );
 			}
 			return std::reinterpret_pointer_cast< T >( rec.deserialized );
-		}
-		template<impl::SafeObj T>
-		shared<T> deserialize_xpointer()
-		{
-			size_t index = read_idx();
-			if ( !index ) return nullptr;
-
-			auto& rec = rpointers->at( index );
-			if ( !rec.is_lifted )
-			{
-				auto* ref = std::allocator<impl::ref_store<T>>{}.allocate( 1 );
-				rec.xdeserialized = ref;
-				ref->strong_ref_count = 1;
-				ref->weak_ref_count = 0;
-				rec.is_lifted = true;
-
-				std::swap( input_stream, rec.range );
-				new ( ref->value ) T( deserialize<T>( *this ) );
-				input_stream = std::move( rec.range );
-
-				rec.destroy_xptr = [ = ] () { ref->dec_ref(); };
-			}
-			if ( auto* p = ( impl::ref_store<T>* ) rec.xdeserialized )
-			{
-				shared<T> ret{ p };
-				ret.entry->inc_ref();
-				return ret;
-			}
-			return nullptr;
 		}
 
 		// Helpers for readers.
@@ -727,18 +697,6 @@ namespace xstd
 		}
 	};
 	template<impl::SafeObj T>
-	struct serializer<shared<T>>
-	{
-		static void apply( serialization& ctx, const shared<T>& value )
-		{
-			ctx.serialize_pointer( value.get(), true );
-		}
-		static shared<T> reflect( serialization& ctx )
-		{
-			return ctx.deserialize_xpointer<T>();
-		}
-	};
-	template<impl::SafeObj T>
 	struct serializer<std::weak_ptr<T>>
 	{
 		static void apply( serialization& ctx, const std::weak_ptr<T>& value )
@@ -748,18 +706,6 @@ namespace xstd
 		static std::weak_ptr<T> reflect( serialization& ctx )
 		{
 			return ctx.deserialize_pointer<T>();
-		}
-	};
-	template<impl::SafeObj T>
-	struct serializer<weak<T>>
-	{
-		static void apply( serialization& ctx, const weak<T>& value )
-		{
-			ctx.serialize_pointer( value.lock().get(), false );
-		}
-		static weak<T> reflect( serialization& ctx )
-		{
-			return ctx.deserialize_xpointer<T>();
 		}
 	};
 	template<impl::SafeObj T>

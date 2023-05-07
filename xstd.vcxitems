@@ -29,7 +29,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_generator.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\circular_buffer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_hashmap.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\base_n.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\bitmap.hpp" />
@@ -40,7 +39,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fields.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp" />
@@ -81,13 +79,10 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha512.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared_mutex.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\shared.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\small_vector.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\spinlock.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stack_containers.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\static_warning.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\statistics.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\strong_formatting.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\scope_tpr.hpp" />

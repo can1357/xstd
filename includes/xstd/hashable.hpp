@@ -7,18 +7,13 @@
 #include "formatting.hpp"
 #include "fnv.hpp"
 #include "crc.hpp"
-#include "shared.hpp"
 #include "ref_counted.hpp"
 
 // [[Configuration]]
 // XSTD_DEFAULT_HASHER: If set, changes the type of default hash_t.
 //
 #ifndef XSTD_DEFAULT_HASHER
-	#if XSTD_HW_CRC32C
-		#define XSTD_DEFAULT_HASHER xstd::xcrc
-	#else
-		#define XSTD_DEFAULT_HASHER xstd::fnv64
-	#endif
+	#define XSTD_DEFAULT_HASHER xstd::xcrc
 #endif
 
 namespace xstd
@@ -262,34 +257,6 @@ namespace xstd
 
 	// Overload for XSTD smart pointers.
 	//
-	template<typename H, typename T>
-	struct basic_hasher<H, shared<T>>
-	{
-		FORCE_INLINE constexpr static void extend( H& out, const shared<T>& value ) noexcept
-		{
-			extend_hash<H>( out, value.get() );
-		}
-		FORCE_INLINE inline constexpr H operator()( const shared<T>& value ) const noexcept
-		{
-			H out = {};
-			extend( out, value );
-			return out;
-		}
-	};
-	template<typename H, typename T>
-	struct basic_hasher<H, weak<T>>
-	{
-		FORCE_INLINE constexpr static void extend( H& out, const weak<T>& value ) noexcept
-		{
-			extend_hash<H>( out, value.get() );
-		}
-		FORCE_INLINE inline constexpr H operator()( const weak<T>& value ) const noexcept
-		{
-			H out = {};
-			extend( out, value );
-			return out;
-		}
-	};
 	template<typename H, typename T>
 	struct basic_hasher<H, ref<T>>
 	{
