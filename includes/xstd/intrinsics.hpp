@@ -412,7 +412,7 @@ FORCE_INLINE constexpr static void yield_cpu()
 #elif AMD64_TARGET && MS_COMPILER
 	_mm_pause();
 #elif ARM64_TARGET
-	asm volatile ( "yield" ::: "memory" );
+	asm volatile ( "isb" ::: "memory" );
 #else
 	std::atomic_thread_fence( std::memory_order::release ); // Close enough...
 #endif
