@@ -161,7 +161,7 @@ namespace xstd
 			for ( auto& result : results )
 				result = pce_32( state );
 			if constexpr ( sizeof( T ) == 4 ) return results[ 0 ];
-			else if constexpr ( sizeof( T ) == 8 ) return bit_cast< T >( results );
+			else if constexpr ( sizeof( T ) == 8 ) return xstd::bit_cast< T >( results );
 			else return *( result_type* ) &results;
 		}
 	};

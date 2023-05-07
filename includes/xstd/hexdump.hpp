@@ -45,7 +45,7 @@ namespace xstd::fmt
 		auto chars = x.template reinterpret<uint8_t>();
 		chars += '0';
 		chars += ( chars > '9' ) & K;
-		return bit_cast<std::array<char, 2 * N>>( chars.to_array() );
+		return xstd::bit_cast<std::array<char, 2 * N>>( chars.to_array() );
 	}
 	template<bool Uppercase, size_t N>
 	FORCE_INLINE inline constexpr std::array<char16_t, 2 * N> print_hex16( const std::array<uint8_t, N>& data)
@@ -60,7 +60,7 @@ namespace xstd::fmt
 		auto chars = x.template reinterpret<uint16_t>();
 		chars += '0';
 		chars += ( chars > '9' ) & K;
-		return bit_cast<std::array<char16_t, 2 * N>>( chars.to_array() );
+		return xstd::bit_cast<std::array<char16_t, 2 * N>>( chars.to_array() );
 	}
 	template<bool Uppercase, typename T>
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data )

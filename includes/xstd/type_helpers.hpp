@@ -853,12 +853,12 @@ namespace xstd
 #endif
 
 	template<typename T>
-	concept Bitcastable = requires( T x ) { bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
+	concept Bitcastable = requires( T x ) { xstd::bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
 	
 	template<Bitcastable T>
 	FORCE_INLINE inline constexpr auto to_bytes( const T& src ) noexcept
 	{
-		return bit_cast<std::array<uint8_t, sizeof( T )>>( src );
+		return xstd::bit_cast<std::array<uint8_t, sizeof( T )>>( src );
 	}
 	template<typename T> requires ( !Reference<T> && !Const<T> )
 	FORCE_INLINE inline auto& as_bytes( T& src ) noexcept

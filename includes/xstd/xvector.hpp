@@ -314,7 +314,7 @@ namespace xstd
 					return xvec<Ty, N2>( std::in_place_t{}, ( native_vector<Ty, N2> ) _nat );
 
 			xvec<Ty, N2> result = {};
-			result._data = bit_cast< std::array<Ty, N2> >( _data );
+			result._data = xstd::bit_cast< std::array<Ty, N2> >( _data );
 			return result;
 		}
 		template<typename Ty, size_t N2> requires ( N2 == ( ByteLength / sizeof( T ) ) )
@@ -431,7 +431,7 @@ namespace xstd
 			else if constexpr ( ByteLength <= 8 )
 			{
 				using U = convert_uint_t<decltype( vec_bytes._data )>;
-				return bit_cast< U >( vec_bytes._data ) == 0;
+				return xstd::bit_cast< U >( vec_bytes._data ) == 0;
 			}
 
 			// Handle hardware accelerated sizes.
