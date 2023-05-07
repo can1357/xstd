@@ -298,7 +298,7 @@ namespace xstd
 		static constexpr size_t MaxSIMDWidth = XSTD_VECTOR_EXT ? XSTD_SIMD_WIDTH : 0;
 
 		template<typename Char, typename Char2, bool CaseSensitive, bool ForEquality, size_t SIMDWidth> requires ( sizeof( Char ) <= sizeof( Char2 ) )
-		PURE_FN FORCE_INLINE inline std::optional<int> utf_ascii_cmp( const Char* v1, const Char2* v2, size_t limit, size_t& iterator )
+		FORCE_INLINE inline std::optional<int> utf_ascii_cmp( const Char* v1, const Char2* v2, size_t limit, size_t& iterator )
 		{
 			// SIMD traits.
 			//
@@ -531,7 +531,7 @@ namespace xstd
 			return n;
 		}
 		template<typename Char, typename Char2, bool CaseSensitive, bool ForEquality, size_t SIMDWidth> requires ( sizeof( Char ) <= sizeof( Char2 ) )
-		PURE_FN FORCE_INLINE inline constexpr int utf_compare( const Char* a, const Char* a_end, const Char2* b, const Char2* b_end )
+		PURE_FN FORCE_INLINE inline constexpr int utf_compare( const Char* a, const Char* const a_end, const Char2* b, const Char2* const b_end )
 		{
 			using UChar =   convert_uint_t<Char>;
 			using UChar2 =  convert_uint_t<Char2>;
