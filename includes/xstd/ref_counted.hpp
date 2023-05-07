@@ -4,16 +4,17 @@
 
 namespace xstd
 {
-	struct ref_counted_tag_t {};
+	struct ref_counted_base {
+		mutable std::atomic<uint32_t> ref_count = { 1 };
+	};
 
 	// Simple implementation of shared_ptr with known destructor and simpler reference counting.
 	//
 	template<typename T>
 	struct ref
 	{
-		struct ref_base { mutable std::atomic<uint32_t> ref_count = { 1 }; };
-		struct wrapper : T, ref_base { using T::T; };
-		using store_type = std::conditional_t<HasBase<ref_counted_tag_t, T>, T, wrapper>;
+		struct wrapper : T, ref_counted_base { using T::T; };
+		using store_type = std::conditional_t<HasBase<ref_counted_base, T>, T, wrapper>;
 
 		store_type* ptr = nullptr;
 
@@ -54,7 +55,7 @@ namespace xstd
 			if ( auto p = std::exchange( ptr, new_ptr ) )
 			{
 				if ( !--p->ref_count ) [[unlikely]]
-					std::destroy_at( p );
+					delete p;
 			}
 		}
 		store_type* release() { return std::exchange( ptr, nullptr ); }
@@ -82,7 +83,7 @@ namespace xstd
 		{
 			size_t n = --ptr->ref_count;
 			if ( !n )
-				std::destroy_at( std::exchange( ptr, nullptr ) );
+				delete std::exchange( ptr, nullptr );
 			return n;
 		}
 		size_t ref_count() const { return ptr->ref_count.load( std::memory_order::relaxed ); }
@@ -95,10 +96,8 @@ namespace xstd
 	// enable_shared_from_this equivalent.
 	//
 	template<typename T>
-	struct ref_counted : ref_counted_tag_t
+	struct ref_counted : ref_counted_base
 	{
-		mutable std::atomic<uint32_t> ref_count = { 1 };
-
 		template<typename Ty = T>
 		ref<Ty> add_ref()
 		{  
