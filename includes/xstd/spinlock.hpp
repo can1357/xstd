@@ -11,14 +11,17 @@ namespace xstd
 {
 	// Basic spinlock.
 	//
-	template<typename T, size_t N>
-	struct basic_spinlock
+	struct spinlock
 	{
-		std::atomic<T> value = 0;
+		std::atomic<uint16_t> value = 0;
 
 		FORCE_INLINE bool try_lock()
 		{
-			return bit_set( value, N ) == 0;
+#if AMD64_TARGET
+			return bit_set( value, 0 ) == 0;
+#else
+			return value.exchange( 1, std::memory_order::acquire ) == 0;
+#endif
 		}
 		FORCE_INLINE void unlock()
 		{
@@ -27,7 +30,11 @@ namespace xstd
 		}
 		FORCE_INLINE bool locked() const
 		{
-			return bit_test( value, N );
+#if AMD64_TARGET
+			return bit_test( value, 0 );
+#else
+			return value.load( std::memory_order::relaxed ) != 0;
+#endif
 		}
 		FORCE_INLINE void lock()
 		{
@@ -39,7 +46,6 @@ namespace xstd
 			}
 		}
 	};
-	using spinlock = basic_spinlock<uint16_t, 0>;
 
 	// Shared spinlock.
 	//
