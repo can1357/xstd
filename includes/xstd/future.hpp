@@ -387,7 +387,7 @@ namespace xstd
 		//
 		[[nodiscard]] coroutine_handle<> signal()
 		{
-			uint8_t prev_tp;
+			task_priority_t prev_tp;
 			{
 				xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
 				prev_tp = g.prev_tp;

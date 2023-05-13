@@ -187,7 +187,7 @@ namespace xstd::http
 		size_t method_end = line.find( ' ' );
 		if ( method_end == std::string::npos )
 			return false;
-		hash_t method_hash = hash_method( line.substr( 0, method_end ) );
+		auto method_hash = hash_method( line.substr( 0, method_end ) );
 		auto it = std::find( method_hashmap.begin(), method_hashmap.end(), method_hash );
 		if ( it == method_hashmap.end() )
 			return false;

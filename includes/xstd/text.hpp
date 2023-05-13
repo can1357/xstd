@@ -598,7 +598,11 @@ namespace xstd
 			value += *v;
 			view.remove_prefix( 1 );
 		}
-		return sign ? -value : value;
+
+		if constexpr ( Unsigned<T> )
+			return sign ? T( -convert_int_t<T>( value ) ) : value;
+		else
+			return sign ? -value : value;
 	}
 	template<typename T = uint64_t, String S1 = std::string_view> requires ( Integral<T> || FloatingPoint<T> )
 	inline constexpr T parse_number( S1&& str, int default_base = 10, T default_value = {} )
