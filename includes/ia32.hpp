@@ -22571,7 +22571,7 @@ namespace ia32
 	}
 	_LINKAGE void wtouch( xstd::any_ptr ptr )
 	{
-		asm volatile( "orb $0, %0" :: "m" ( *( char* ) ptr.address ) : "flags" );
+		asm volatile( "lock orb $0, %0" :: "m" ( *( char* ) ptr.address ) : "flags" );
 	}
 	_LINKAGE void flush_tlb()
 	{
