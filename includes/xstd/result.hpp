@@ -274,8 +274,10 @@ namespace xstd
 		}
 		constexpr void assert() const
 		{
-			if ( !success() ) [[unlikely]]
-				throw_fmt( XSTD_ESTR( "Accessing failed result: %s" ), message() );
+			if ( !success() ) [[unlikely]] {
+				std::string err = message();
+				throw_fmt( message().c_str() );
+			}
 		}
 	
 		// String conversion.

@@ -481,7 +481,7 @@ namespace xstd
 	};
 	template<typename F> concept Function =        function_traits<F>::is_valid;
 	template<typename F> concept Lambda =          function_traits<F>::is_lambda;
-	template<typename F> concept StatelessLambda = Empty<F> && Lambda<F>;
+	template<typename F> concept StatelessLambda = Empty<F> && Lambda<F> && DefaultConstructible<F>;
 
 	// Callable traits.
 	//

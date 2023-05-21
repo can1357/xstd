@@ -25,7 +25,7 @@ namespace xstd
 			{
 				// Stateless:
 				//
-				if constexpr ( Empty<F> )
+				if constexpr ( Empty<F> && DefaultConstructible<F> )
 				{
 					F{}();
 				}
@@ -53,7 +53,7 @@ namespace xstd
 				// Stateless:
 				//
 				void* ctx;
-				if constexpr ( Empty<F> )
+				if constexpr ( Empty<F> && DefaultConstructible<F> )
 				{
 					ctx = nullptr;
 				}
