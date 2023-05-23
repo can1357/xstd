@@ -272,7 +272,7 @@ namespace xstd
 			else
 				return success() ? XSTD_ESTR( "Success" ) : XSTD_ESTR( "Unknown error" );
 		}
-		constexpr void assert() const
+		void assert() const
 		{
 			if ( !success() ) [[unlikely]] {
 				std::string err = message();

@@ -3,6 +3,7 @@
 #include <atomic>
 #include <functional>
 #include "type_helpers.hpp"
+#include "assert.hpp"
 
 namespace xstd
 {
@@ -69,9 +70,11 @@ namespace xstd
 		std::unique_ptr<uint8_t[]> raw_data = std::make_unique<uint8_t[]>( N );
 
 		// Producer queue.
-		// - Tail = Position of the next byte that will be written. 
+		// - Tail = Number of bytes written so far no wrapping.
+		// - Dtail = Position of the next byte that will be written.
 		//
 		std::atomic<size_t> producer_tail = {};
+		std::atomic<size_t> producer_dtail = {};
 
 		// Consumer queue.
 		// - Head = Position of the last consumed byte.
@@ -88,7 +91,7 @@ namespace xstd
 
 			// Load the intial number of bytes produced.
 			//
-			size_t lp = producer_tail.load( std::memory_order::relaxed );
+			size_t lp = producer_dtail.load( std::memory_order::relaxed );
 			while ( true )
 			{
 				// Load the last consumed byte, calculate the free spaces left.
@@ -98,8 +101,12 @@ namespace xstd
 
 				// If there is enough space, return the position.
 				//
-				if ( free >= count )
-					return lp;
+				if ( free >= count ) {
+					if ( producer_dtail.compare_exchange_strong( lp, ( lp + count ) % N ) )
+						return lp;
+					else
+						continue;
+				}
 				
 				// If we're asked not to spin, fail.
 				//
@@ -114,21 +121,21 @@ namespace xstd
 
 		// Commits a number of bytes to the previously reserved region.
 		//
-		void commit( size_t pos, size_t count )
+		void commit( size_t count )
 		{
-			producer_tail.store( ( pos + count ) % N, std::memory_order::release );
+			producer_tail += count;
 		}
 		void commit( size_t pos, const void* data, size_t count )
 		{
 			write_raw( pos, data, count );
-			return commit( pos, count );
+			return commit( count );
 		}
 
 		// Peeks into the consumer queue and returns the position and the number of bytes.
 		//
 		std::pair<size_t, size_t> peek()
 		{
-			size_t lp = producer_tail.load( std::memory_order::relaxed );
+			size_t lp = producer_tail.load( std::memory_order::relaxed ) % N;
 			size_t lc = consumer_head.load( std::memory_order::relaxed );
 			size_t length = ( lp - lc - 1 ) % N;
 			return { lc + 1, length };
@@ -152,8 +159,8 @@ namespace xstd
 
 		// Returns the number of empty / filled slots.
 		//
-		size_t current_capacity() const { return ( consumer_head - producer_tail ) % N; }
-		size_t size() const { return ( producer_tail - consumer_head - 1 ) % N; }
+		size_t current_capacity() const { return ( N + consumer_head - producer_dtail ) % N; }
+		size_t size() const { return ( N + producer_dtail - consumer_head - 1 ) % N; }
 
 		// ::begin and ::size refer to the buffer itself ignoring the queue state.
 		//
