@@ -331,7 +331,7 @@ namespace xstd
 			while ( !ref.compare_exchange_strong( value, value | ( U(1) << n ) ) );
 			return value & ( U(1) << n );
 		}
-		else if constexpr( xstd::Integral<T> )
+		else if constexpr( Integral<T> )
 		{
 			// If shift is constant and can be encoded as imm32/imm8, OR will be faster.
 			//
@@ -430,7 +430,7 @@ namespace xstd
 			while ( !ref.compare_exchange_strong( value, value & ~( U(1) << n ) ) );
 			return value & ( U(1) << n );
 		}
-		else if constexpr( xstd::Integral<T> )
+		else if constexpr( Integral<T> )
 		{
 			// If shift is constant and can be encoded as imm32/imm8, AND will be faster.
 			//
@@ -525,7 +525,7 @@ namespace xstd
 			while ( !ref.compare_exchange_strong( value, value ^ ( U(1) << n ) ) );
 			return value & ( U(1) << n );
 		}
-		else if constexpr ( xstd::Integral<T> )
+		else if constexpr ( Integral<T> )
 		{
 			// If shift is constant and can be encoded as imm32/imm8, XOR will be faster.
 			//
@@ -574,7 +574,7 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE PURE_FN inline constexpr bool bit_test( const T& value, bitcnt_t n )
+	FORCE_INLINE inline constexpr bool bit_test( const T& value, bitcnt_t n )
 	{
 		using U = convert_uint_t<T>;
 		if constexpr ( Volatile<T> || Atomic<T> )
@@ -619,7 +619,7 @@ namespace xstd
 #endif
 			return ( *( volatile U* ) &value ) & ( U(1) << n );
 		}
-		else if constexpr ( xstd::Integral<T> )
+		else if constexpr ( Integral<T> )
 		{
 			// If shift is constant and can be encoded as imm32/imm8, TEST will be faster.
 			//
@@ -665,6 +665,31 @@ namespace xstd
 			return false;
 		}
 	}
+	template<typename T>
+	FORCE_INLINE inline bool atomic_bit_reset( T& value, bitcnt_t n ) 
+	{
+		if constexpr ( Integral<T> )
+			return bit_reset( ( volatile T& ) value, n );
+		else
+			return bit_reset( value, n );
+	}
+	template<typename T>
+	FORCE_INLINE inline bool atomic_bit_set( T& value, bitcnt_t n ) 
+	{
+		if constexpr ( Integral<T> )
+			return bit_set( ( volatile T& ) value, n );
+		else
+			return bit_set( value, n );
+	}
+	template<typename T>
+	FORCE_INLINE inline bool atomic_bit_complement( T& value, bitcnt_t n ) 
+	{
+		if constexpr ( Integral<T> )
+			return bit_complement( ( volatile T& ) value, n );
+		else
+			return bit_complement( value, n );
+	}
+
 	template<Integral I>
 	FORCE_INLINE CONST_FN inline constexpr I bit_reverse( I value )
 	{
