@@ -17,6 +17,7 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\apic.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\hde64.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\iospace.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\memory.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\pci.hpp" />
