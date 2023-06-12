@@ -621,16 +621,8 @@ namespace xstd
 
 	// Promise reference type.
 	//
-	template<typename T, typename S> 
-	struct promise_ref_tag_t {};
-	
-	template<typename V, typename T, typename S>
-	inline constexpr bool is_promise_v = HasBase<promise_ref_tag_t<T, S>, V>;
-	template<typename V, typename T, typename S>
-	concept Promise = is_promise_v<V, T, S>;
-
 	template<typename T, typename S, bool Owner>
-	struct promise_ref : promise_ref_tag_t<T, S>
+	struct promise_ref
 	{
 		promise_base<T, S>* ptr = nullptr;
 
@@ -648,30 +640,26 @@ namespace xstd
 		// Copy/Move within the same types.
 		//
 		inline constexpr promise_ref( promise_ref&& other ) noexcept : ptr( std::exchange( other.ptr, nullptr ) ) {}
-		inline constexpr promise_ref& operator=( promise_ref&& other ) noexcept { std::swap( ptr, other.ptr ); return *this; }
 		inline constexpr promise_ref( const promise_ref& other ) { reset( other.ptr ); }
+		inline constexpr promise_ref& operator=( promise_ref&& other ) noexcept { std::swap( ptr, other.ptr ); return *this; }
 		inline constexpr promise_ref& operator=( const promise_ref& other ) { reset( other.ptr ); return *this; }
 
 		// Copy/Move from parents.
 		//
-		template<typename V> requires Promise<V, T, S>
-		inline constexpr promise_ref( V&& other ) noexcept
+		inline constexpr promise_ref( promise_ref<T, S, !Owner>&& other ) noexcept
 		{
 			adopt( std::exchange( other.ptr, nullptr ), other.is_owner() );
 		}
-		template<typename V> requires Promise<V, T, S>
-		inline constexpr promise_ref( const V& other ) 
+		inline constexpr promise_ref( const promise_ref<T, S, !Owner>& other )
 		{
 			reset( other.ptr );
 		}
-		template<typename V> requires Promise<V, T, S>
-		inline constexpr promise_ref& operator=( V&& other ) noexcept
+		inline constexpr promise_ref& operator=( promise_ref<T,S, !Owner>&& other ) noexcept
 		{
 			adopt( std::exchange( other.ptr, nullptr ), other.is_owner() );
 			return *this;
 		}
-		template<typename V> requires Promise<V, T, S>
-		inline constexpr promise_ref& operator=( const V& other )
+		inline constexpr promise_ref& operator=( const promise_ref<T, S, !Owner>& other )
 		{
 			reset( other.ptr );
 			return *this;
@@ -795,9 +783,7 @@ namespace xstd
 
 		// Comparison.
 		//
-		template<typename V> requires Promise<V, T, S> inline constexpr bool operator==( const V& other ) const noexcept { return ptr == other.ptr; }
-		template<typename V> requires Promise<V, T, S> inline constexpr bool operator!=( const V& other ) const noexcept { return ptr != other.ptr; }
-		template<typename V> requires Promise<V, T, S> inline constexpr bool operator<( const V& other )  const noexcept { return ptr < other.ptr; }
+		inline constexpr auto operator<=>( const promise_ref& ) const noexcept = default;
 	};
 
 	// Moving awaitable wrapper for promise refences, might be unsafe if shared.
@@ -808,9 +794,7 @@ namespace xstd
 		using reference_type = promise_ref<T, S, false>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
-		using reference_type::operator==;
-		using reference_type::operator!=;
-		using reference_type::operator<;
+		using reference_type::operator<=>;
 
 		// No copy.
 		//
@@ -838,9 +822,7 @@ namespace xstd
 		using reference_type = promise_ref<T, S, true>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
-		using reference_type::operator==;
-		using reference_type::operator!=;
-		using reference_type::operator<;
+		using reference_type::operator<=>;
 
 		// Traits for co_await.
 		//
@@ -896,9 +878,7 @@ namespace xstd
 		using reference_type = promise_ref<T, S, false>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
-		using reference_type::operator==;
-		using reference_type::operator!=;
-		using reference_type::operator<;
+		using reference_type::operator<=>;
 
 		// Traits for co_await.
 		//
@@ -953,9 +933,7 @@ namespace xstd
 		using reference_type = promise_ref<void, S, false>;
 		using reference_type::reference_type;
 		using reference_type::operator=;
-		using reference_type::operator==;
-		using reference_type::operator!=;
-		using reference_type::operator<;
+		using reference_type::operator<=>;
 
 		// Traits for co_await.
 		//
