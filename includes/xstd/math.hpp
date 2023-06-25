@@ -123,7 +123,11 @@ namespace xstd::math
 	double _fround( double x ) asm( "llvm.round.f64" );
 	double _ftrunc( double x ) asm( "llvm.trunc.f64" );
 #endif
-
+	template<typename V>
+	CONST_FN FORCE_INLINE inline constexpr V rcp( V v )
+	{
+		return 1 / v;
+	}
 	template<Float F = fp_t>
 	CONST_FN FORCE_INLINE inline constexpr F fabs( F a )
 	{
@@ -176,8 +180,7 @@ namespace xstd::math
 	template<Float F = fp_t>
 	CONST_FN FORCE_INLINE inline constexpr F fmod( F x, F y )
 	{
-		F m = F(1) / y;
-		return x - ftrunc( x * m ) * y;
+		return x - ftrunc( x * rcp( y ) ) * y;
 	}
 	template<Float F = fp_t>
 	CONST_FN FORCE_INLINE inline constexpr F foddsgn( F x )
@@ -264,11 +267,6 @@ namespace xstd::math
 #endif
 		
 		return ( v1 * v2 ).reduce_add();
-	}
-	template<typename V>
-	FORCE_INLINE inline constexpr V rcp( V v )
-	{
-		return 1 / v;
 	}
 	template<typename V>
 	PURE_FN FORCE_INLINE inline V normalize( V vec )
@@ -466,8 +464,8 @@ namespace xstd::math
 		FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return vec::reduce_mul( to_xvec( 1 ) ); }
 		FORCE_INLINE inline constexpr T reduce_min() const noexcept { return vec::reduce_min( to_xvec( z ) ); }
 		FORCE_INLINE inline constexpr T reduce_max() const noexcept { return vec::reduce_max( to_xvec( z ) ); }
-		FORCE_INLINE inline constexpr vec3_t min_element( const vec3_t& o ) const noexcept { return from_xvec( vec::min( to_xvec(), o.to_xvec() ) ); }
-		FORCE_INLINE inline constexpr vec3_t max_element( const vec3_t& o ) const noexcept { return from_xvec( vec::max( to_xvec(), o.to_xvec() ) ); }
+		FORCE_INLINE inline constexpr vec3_t min_element( const vec3_t& o ) const noexcept { return from_xvec( (vec::min)( to_xvec(), o.to_xvec() ) ); }
+		FORCE_INLINE inline constexpr vec3_t max_element( const vec3_t& o ) const noexcept { return from_xvec( (vec::max)( to_xvec(), o.to_xvec() ) ); }
 
 		FORCE_INLINE inline constexpr vec3_t& operator+=( T f ) noexcept { *this = ( *this + f ); return *this; }
 		FORCE_INLINE inline constexpr vec3_t& operator-=( T f ) noexcept { *this = ( *this - f ); return *this; }
@@ -592,8 +590,8 @@ namespace xstd::math
 		FORCE_INLINE inline constexpr T reduce_mul() const noexcept { return vec::reduce_mul( to_xvec() ); }
 		FORCE_INLINE inline constexpr T reduce_min() const noexcept { return vec::reduce_min( to_xvec() ); }
 		FORCE_INLINE inline constexpr T reduce_max() const noexcept { return vec::reduce_max( to_xvec() ); }
-		FORCE_INLINE inline constexpr vec4_t min_element( const vec4_t& o ) const noexcept { return from_xvec( vec::min( to_xvec(), o.to_xvec() ) ); }
-		FORCE_INLINE inline constexpr vec4_t max_element( const vec4_t& o ) const noexcept { return from_xvec( vec::max( to_xvec(), o.to_xvec() ) ); }
+		FORCE_INLINE inline constexpr vec4_t min_element( const vec4_t& o ) const noexcept { return from_xvec( (vec::min)( to_xvec(), o.to_xvec() ) ); }
+		FORCE_INLINE inline constexpr vec4_t max_element( const vec4_t& o ) const noexcept { return from_xvec( (vec::max)( to_xvec(), o.to_xvec() ) ); }
 
 		FORCE_INLINE inline constexpr vec4_t& operator+=( T f ) noexcept { *this = ( *this + f ); return *this; }
 		FORCE_INLINE inline constexpr vec4_t& operator-=( T f ) noexcept { *this = ( *this - f ); return *this; }
@@ -731,6 +729,8 @@ namespace xstd::math
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_sqrt( const vec4_t<F>& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_pow( const vec4_t<F>& a, F x ) { return { fpow( a.x, x ), fpow( a.y, x ), fpow( a.z, x ), fpow( a.w, x ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_pow( const vec4_t<F>& a, const vec4_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ), fpow( a.w, b.w ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, F y ) { return x - vec_trunc( x * rcp( y ) ) * y; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, const vec4_t<F>& y ) { return x - vec_trunc( x * rcp( y ) ) * y; }
 
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_abs( const vec3_t<F>& vec ) { return vec_abs( vec4_t<F>::from( vec, 0 ) ).xyz(); }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_ceil( const vec3_t<F>& vec ) { return vec_ceil( vec4_t<F>::from( vec, 0 ) ).xyz(); }
@@ -744,6 +744,8 @@ namespace xstd::math
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec3_t<F> vec_sqrt( const vec3_t<F>& vec ) { return vec_sqrt( vec4_t<F>::from( vec, 0 ) ).xyz(); }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec3_t<F> vec_pow( const vec3_t<F>& a, F x ) { return { fpow( a.x, x ), fpow( a.y, x ), fpow( a.z, x ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec3_t<F> vec_pow( const vec3_t<F>& a, const vec3_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_mod( const vec3_t<F>& x, F y ) { return vec_mod( vec4_t<F>::from( x, 0 ), y ).xyz(); }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_mod( const vec3_t<F>& x, const vec3_t<F>& y ) { return vec_mod( vec4_t<F>::from( x, 0 ), vec4_t<F>::from( y, 0 ) ).xyz(); }
 
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_abs( const vec2_t<F>& vec ) { return { fabs( vec.x ), fabs( vec.y ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_ceil( const vec2_t<F>& vec ) { return { fceil( vec.x ), fceil( vec.y ) }; }
@@ -757,6 +759,9 @@ namespace xstd::math
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec2_t<F> vec_sqrt( const vec2_t<F>& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec2_t<F> vec_pow( const vec2_t<F>& a, F x ) { return { fpow( a.x, x ), fpow( a.y, x ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec2_t<F> vec_pow( const vec2_t<F>& a, const vec2_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_mod( const vec2_t<F>& x, F y ) { return { fmod( x.x, y, x.y, y ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_mod( const vec2_t<F>& x, const vec2_t<F>& y ) { return { fmod( x.x, y.x, x.y, y.y ) }; }
+
 
 	template<typename V>
 	CONST_FN FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2 )
@@ -1722,6 +1727,18 @@ namespace xstd::math
 	FORCE_INLINE inline constexpr vec3_t<F> quaternion_to_direction( const quaternion_t<F>& q )
 	{
 		return rotate_by( forward, q );
+	}
+
+	// Euler normalization.
+	//
+	FORCE_INLINE CONST_FN static constexpr float normalize_euler( float in )
+	{
+		return fmod( in + pi, 2 * pi ) - pi; // [-pi, +pi]
+	}
+	template<Float F = fp_t>
+	FORCE_INLINE CONST_FN static constexpr vec3_t<F> normalize_euler( const vec3_t<F>& in )
+	{
+		return ( vec_mod( vec4_t<F>::from( in, 0 ) + pi, 2 * pi ) - pi ).xyz();
 	}
 
 	// Euler to Matrix/Quaternion/Direction.
