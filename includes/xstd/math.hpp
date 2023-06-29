@@ -4,6 +4,7 @@
 #include "formatting.hpp"
 #include <math.h>
 #include <array>
+#include <span>
 
 // [[Configuration]]
 // XSTD_MATH_FP64:          If set uses double as default.
@@ -279,14 +280,30 @@ namespace xstd::math
 		return v1 + ( v2 - v1 ) * s;
 	}
 
+#define VEC_MATRIX_CONTRACT																													 \
+																																						 \
+	static constexpr size_t Columns = 1;																									 \
+	static constexpr size_t Rows = Length;																									 \
+	using key_type = size_t;																													 \
+	using unit_type = T;																															 \
+	constexpr size_t cols() const { return Columns; }																					 \
+	constexpr size_t rows() const { return Rows; }																						 \
+	constexpr size_t llen() const { return cols() * rows(); }																		 \
+	T* __restrict data() { return &x; }																										 \
+	const T* __restrict data() const { return &x; }																						 \
+	constexpr T& __restrict at( size_t row, size_t col ) { return operator[]( row* cols() + col ); }					 \
+	constexpr const T& __restrict at( size_t row, size_t col ) const { return operator[]( row* cols() + col ); }	 \
+	constexpr T& __restrict operator()( size_t row, size_t col ) { return at( row, col ); }								 \
+	constexpr const T& __restrict operator()( size_t row, size_t col ) const { return at( row, col ); }				 \
+
 	// Define vector types.
 	//
 	template<typename T>
 	struct TRIVIAL_ABI vec2_t
 	{
-		using key_type = size_t;
 		using value_type = T;
 		static constexpr size_t Length = 2;
+		VEC_MATRIX_CONTRACT;
 
 		T x = 0;
 		T y = 0;
@@ -377,9 +394,9 @@ namespace xstd::math
 	template<typename T>
 	struct TRIVIAL_ABI vec3_t
 	{
-		using key_type = size_t;
 		using value_type = T;
 		static constexpr size_t Length = 3;
+		VEC_MATRIX_CONTRACT;
 
 		T x = 0;
 		T y = 0;
@@ -486,9 +503,9 @@ namespace xstd::math
 	template<typename T>
 	struct TRIVIAL_ABI vec4_t
 	{
-		using key_type = size_t;
 		using value_type = T;
 		static constexpr size_t Length = 4;
+		VEC_MATRIX_CONTRACT;
 
 		T x = 0;
 		T y = 0;
@@ -838,6 +855,18 @@ namespace xstd::math
 		using vec = vec4_t<F>;
 		vec m[ 4 ] = { vec{} };
 
+		// Implement matrix contract.
+		//
+		static constexpr size_t Columns = 4;
+		static constexpr size_t Rows =    4;
+		constexpr size_t cols() const { return Columns; }
+		constexpr size_t rows() const { return Rows; }
+		constexpr size_t llen() const { return cols() * rows(); }
+		F* __restrict data() { return ( F* ) &m; }
+		const F* __restrict data() const { return ( F* ) &m; }
+		constexpr F& __restrict at( size_t row, size_t col ) { return operator()( row * cols() + col ); }
+		constexpr const F& __restrict at( size_t row, size_t col ) const { return operator()( row * cols() + col ); }
+
 		// Default construction.
 		//
 		constexpr mat4x4_t() = default;
@@ -1061,8 +1090,8 @@ namespace xstd::math
 		//
 		FORCE_INLINE inline constexpr vec& operator[]( size_t n ) noexcept { return m[ n & 3 ]; }
 		FORCE_INLINE inline constexpr const vec& operator[]( size_t n ) const noexcept { return m[ n & 3 ]; }
-		FORCE_INLINE inline constexpr F& operator()( size_t i, size_t j ) noexcept { return m[ i & 3 ][ j & 3 ]; }
-		FORCE_INLINE inline constexpr const F& operator()( size_t i, size_t j ) const noexcept { return m[ i & 3 ][ j & 3 ]; }
+		FORCE_INLINE inline constexpr F& operator()( size_t i, size_t j ) noexcept { return m[ i ][ j ]; }
+		FORCE_INLINE inline constexpr const F& operator()( size_t i, size_t j ) const noexcept { return m[ i ][ j ]; }
 
 		// Hashing, serialization, comparison and string conversion.
 		//
@@ -2154,3 +2183,4 @@ namespace xstd::math
 inline constexpr fp_t operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
 inline constexpr fp_t operator""_deg( unsigned long long int deg ) { return xstd::math::to_rad( deg ); }
 #undef fp_t
+#undef VEC_MATRIX_CONTRACT

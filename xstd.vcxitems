@@ -61,6 +61,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\image_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\intrinsics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\leb128.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\linalg.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\logger.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\math.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\narrow_cast.hpp" />
