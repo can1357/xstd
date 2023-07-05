@@ -181,6 +181,11 @@ namespace xstd::math
 	template<Float F = fp_t>
 	CONST_FN FORCE_INLINE inline constexpr F fmod( F x, F y )
 	{
+		return x - ffloor( x * rcp( y ) ) * y;
+	}
+	template<Float F = fp_t>
+	CONST_FN FORCE_INLINE inline constexpr F frem( F x, F y )
+	{
 		return x - ftrunc( x * rcp( y ) ) * y;
 	}
 	template<Float F = fp_t>
@@ -746,8 +751,10 @@ namespace xstd::math
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_sqrt( const vec4_t<F>& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_pow( const vec4_t<F>& a, F x ) { return { fpow( a.x, x ), fpow( a.y, x ), fpow( a.z, x ), fpow( a.w, x ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_pow( const vec4_t<F>& a, const vec4_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ), fpow( a.w, b.w ) }; }
-	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, F y ) { return x - vec_trunc( x * rcp( y ) ) * y; }
-	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, const vec4_t<F>& y ) { return x - vec_trunc( x * rcp( y ) ) * y; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, F y ) { return x - vec_floor( x * rcp( y ) ) * y; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, const vec4_t<F>& y ) { return x - vec_floor( x * rcp( y ) ) * y; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_rem( const vec4_t<F>& x, F y ) { return x - vec_trunc( x * rcp( y ) ) * y; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_rem( const vec4_t<F>& x, const vec4_t<F>& y ) { return x - vec_trunc( x * rcp( y ) ) * y; }
 
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_abs( const vec3_t<F>& vec ) { return vec_abs( vec4_t<F>::from( vec, 0 ) ).xyz(); }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_ceil( const vec3_t<F>& vec ) { return vec_ceil( vec4_t<F>::from( vec, 0 ) ).xyz(); }
@@ -763,6 +770,8 @@ namespace xstd::math
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec3_t<F> vec_pow( const vec3_t<F>& a, const vec3_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_mod( const vec3_t<F>& x, F y ) { return vec_mod( vec4_t<F>::from( x, 0 ), y ).xyz(); }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_mod( const vec3_t<F>& x, const vec3_t<F>& y ) { return vec_mod( vec4_t<F>::from( x, 0 ), vec4_t<F>::from( y, 0 ) ).xyz(); }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_rem( const vec3_t<F>& x, F y ) { return vec_rem( vec4_t<F>::from( x, 0 ), y ).xyz(); }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec3_t<F> vec_rem( const vec3_t<F>& x, const vec3_t<F>& y ) { return vec_rem( vec4_t<F>::from( x, 0 ), vec4_t<F>::from( y, 0 ) ).xyz(); }
 
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_abs( const vec2_t<F>& vec ) { return { fabs( vec.x ), fabs( vec.y ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_ceil( const vec2_t<F>& vec ) { return { fceil( vec.x ), fceil( vec.y ) }; }
@@ -776,9 +785,10 @@ namespace xstd::math
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec2_t<F> vec_sqrt( const vec2_t<F>& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec2_t<F> vec_pow( const vec2_t<F>& a, F x ) { return { fpow( a.x, x ), fpow( a.y, x ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec2_t<F> vec_pow( const vec2_t<F>& a, const vec2_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ) }; }
-	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_mod( const vec2_t<F>& x, F y ) { return { fmod( x.x, y, x.y, y ) }; }
-	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_mod( const vec2_t<F>& x, const vec2_t<F>& y ) { return { fmod( x.x, y.x, x.y, y.y ) }; }
-
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_mod( const vec2_t<F>& x, F y ) { return { fmod( x.x, y ), fmod( x.y, y ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_mod( const vec2_t<F>& x, const vec2_t<F>& y ) { return { fmod( x.x, y.x ), fmod( x.y, y.y ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_rem( const vec2_t<F>& x, F y ) { return { frem( x.x, y ), frem( x.y, y ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec2_t<F> vec_rem( const vec2_t<F>& x, const vec2_t<F>& y ) { return { frem( x.x, y.x ), frem( x.y, y.y ) }; }
 
 	template<typename V>
 	CONST_FN FORCE_INLINE inline constexpr V vec_max( const V& v1, const V& v2 )

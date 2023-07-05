@@ -4,27 +4,10 @@
 #include <bit>
 #include "formatting.hpp"
 #include "type_helpers.hpp"
+#include "math.hpp"
 
 namespace xstd
 {
-	namespace impl
-	{
-		static constexpr float pi = ( float ) 3.14159265358979323846;
-		inline constexpr float fmodcx( float a, float b ) 
-		{
-			float m = 1.0f / b;
-			return a - int32_t( a * m ) * b;
-		}
-		inline constexpr float normalize_angle_pos( float rad ) 
-		{
-			float x = fmodcx( rad, 2 * pi );
-			if ( x < 0 )
-				return ( 2 * pi ) + x;
-			else
-				return x;
-		}
-	};
-
 	// Define the color models.
 	//
 	enum class color_model
@@ -195,7 +178,7 @@ namespace xstd
 	template<>
 	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
 	{
-		float hh = impl::normalize_angle_pos( src.h ) / ( impl::pi * 60 / 180 );
+		float hh = math::normalize_euler( src.h ) / ( math::pi * 60 / 180 );
 		uint32_t i = ( uint32_t ) hh;
 		float ff = hh - i;
 		float p = src.v * ( 1 - src.s );
@@ -292,7 +275,7 @@ namespace xstd
 			out.h = 2.0f + ( fb - fr ) / delta;
 		else
 			out.h = 4.0f + ( fr - fg ) / delta;
-		out.h = impl::normalize_angle_pos( out.h * ( impl::pi * 60 / 180 ) );
+		out.h = math::normalize_euler( out.h * ( math::pi * 60 / 180 ) );
 		return out;
 	}
 	template<>
