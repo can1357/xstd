@@ -1597,9 +1597,9 @@ namespace xstd::math
 	// Define helpers for radian / degrees.
 	//
 	template<typename V>
-	FORCE_INLINE inline constexpr auto to_rad( V deg ) { return deg * ( pi / 180.0 ); }
+	FORCE_INLINE inline constexpr auto to_rad( V deg ) { return deg * ( pi / 180.0f ); }
 	template<typename V>
-	FORCE_INLINE inline constexpr auto to_deg( V rad ) { return rad * ( 180.0 / pi ); }
+	FORCE_INLINE inline constexpr auto to_deg( V rad ) { return rad * ( 180.0f / pi ); }
 
 	// Default axis used for euler world.
 	//

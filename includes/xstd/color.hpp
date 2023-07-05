@@ -178,7 +178,7 @@ namespace xstd
 	template<>
 	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
 	{
-		float hh = math::normalize_euler( src.h ) / ( math::pi * 60 / 180 );
+		float hh = math::fmod( src.h, math::pi * 2 ) / ( math::pi * 60 / 180 );
 		uint32_t i = ( uint32_t ) hh;
 		float ff = hh - i;
 		float p = src.v * ( 1 - src.s );
@@ -275,7 +275,7 @@ namespace xstd
 			out.h = 2.0f + ( fb - fr ) / delta;
 		else
 			out.h = 4.0f + ( fr - fg ) / delta;
-		out.h = math::normalize_euler( out.h * ( math::pi * 60 / 180 ) );
+		out.h = math::fmod( out.h * ( math::pi * 60 / 180 ), math::pi * 2 );
 		return out;
 	}
 	template<>
