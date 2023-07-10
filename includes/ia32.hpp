@@ -22260,13 +22260,19 @@ namespace ia32
 			inline static cpuid_result value = {};
 			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, 0, 0 ); }
 		};
+		template<>
+		struct cpuid_result_of<0x80000000, 0>
+		{
+			inline static cpuid_result value = {};
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, 0x80000000, 0 ); }
+		};
 		template<uint64_t leaf, uint64_t subleaf>
 		struct cpuid_result_of_s
 		{
 			inline static cpuid_result value = {};
 			[[gnu::constructor( 103 ), gnu::used]] inline static void init()
 			{ 
-				if ( cpuid_result_of<0, 0>::value[ 0 ] >= leaf )
+				if ( cpuid_result_of<( leaf & 0x80000000 ), 0>::value[ 0 ] >= leaf )
 					query_cpuid( &value, leaf, subleaf );
 			}
 		};
@@ -22275,7 +22281,7 @@ namespace ia32
 	
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	inline const T& static_cpuid =   *( const T* ) &impl::cpuid_result_of<leaf, subleaf>::value;
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && leaf < 0x40000000 )
+	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && ( leaf < 0x40000000 || leaf >= 0x80000000 ) )
 	inline const T& static_cpuid_s = *( const T* ) &impl::cpuid_result_of_s<leaf, subleaf>::value;
 
 	// Refreshes a previously queried CPUID result.
