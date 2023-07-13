@@ -327,20 +327,18 @@ namespace ia32::mem
 
 			// Iterate page boundaries:
 			//
-			for ( auto it = ptr; it < ( ptr + length ); )
-			{
+			for ( auto it = ptr; it < ( ptr + length ); ) {
 				auto [pte, depth] = lookup_pte( it );
-				dassert( pte->present );
 
 				auto& atomic = xstd::make_atomic( pte->flags );
 				atomic.fetch_or( mask );
 				atomic.fetch_and( mask | ~all_flags );
 
+				if constexpr ( !IpiFlush )
+					invlpg( it );
 				it += page_size( depth );
 			}
 
-			if constexpr ( !IpiFlush )
-				invlpg( ptr, length );
 			if constexpr( IpiFlush )
 				ipi_flush_tlb( ptr, length );
 		}

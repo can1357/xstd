@@ -22581,19 +22581,22 @@ namespace ia32
 	}
 	_LINKAGE void flush_tlb()
 	{
-		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.invpcid )
-			return invpcid( invpcid_type::global, 0, nullptr );
-
-		auto cr4 = read_cr4();
-		if ( cr4.page_global_enable )
-		{
-			auto cr4_2 = cr4;
-			cr4_2.page_global_enable = 0;
-			write_cr4( cr4_2 );
-			write_cr4( cr4 );
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.invpcid ) [[likely]] {
+			invpcid( invpcid_type::global, 0, nullptr );
 		}
-		else
-		{
+		auto cr4 = read_cr4();
+		write_cr4( { .flags = cr4.flags ^ CR4_PAGE_GLOBAL_ENABLE_FLAG } );
+		write_cr4( cr4 );
+	}
+	_LINKAGE void flush_tlb_local()
+	{
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.invpcid ) [[likely]] {
+			invpcid( invpcid_type::local, 0, nullptr );
+		} else if ( static_cpuid_s<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx.process_context_identifiers ) {
+			auto cr4 = read_cr4();
+			write_cr4( { .flags = cr4.flags ^ CR4_PAGE_GLOBAL_ENABLE_FLAG } );
+			write_cr4( cr4 );
+		} else {
 			write_cr3( read_cr3() );
 		}
 	}
