@@ -215,48 +215,6 @@ namespace ia32::mem
 		return { get_pte( ptr ), pte_level };
 	}
 
-	// Looks up a PTE with specific access rights, on failure returns the lookup result
-	// and an additional "fake" page fault exception with the bits set as the following:
-	//
-	//  - .present:          Page was NOT present.  // <--- Additional emphasis, since it behaves differently compared to a real #PF.
-	//  - .write:            Page was not writable.
-	//  - .execute:          Page was not executable.
-	//  - .user_mode_access: Supervisor page accessed by user mode or VICE VERSA. // ^
-	//
-	FORCE_INLINE inline std::tuple<pt_entry_64*, int8_t, page_fault_exception> lookup_pte_as( xstd::any_ptr ptr, bool user, bool write, bool execute, bool smap = false, bool smep = false )
-	{
-		// Iterate the page tables until the PTE.
-		//
-		bool puser = true;
-		for ( int8_t n = pxe_level; n >= pte_level; n-- )
-		{
-			auto* entry = get_pte( ptr, n );
-
-			// Fail if not present / violates user-bit.
-			//
-			if ( !entry->present ) [[unlikely]]
-				return { entry, n, { .present = true } };
-			if ( user && !entry->user ) [[unlikely]]
-				return { entry, n, { .user_mode_access = true } };
-			puser &= entry->user;
-
-			// If we've reached the final data page, validate access.
-			//
-			if ( n == 0 || entry->large_page )
-			{
-				if ( puser && !user && ( execute ? smep : smap ) ) [[unlikely]]
-					return { entry, n, { .user_mode_access = true } };
-				else if ( write && !entry->write ) [[unlikely]]
-					return { entry, n, { .write = true } };
-				else if ( execute && entry->execute_disable ) [[unlikely]]
-					return { entry, n, { .execute = true } };
-				else
-					return { entry, n, { .flags = 0 } };
-			}
-		}
-		unreachable();
-	}
-
 	// Reverse recursive page table lookup.
 	//
 	FORCE_INLINE CONST_FN inline xstd::any_ptr pte_to_va( const void* pte, int8_t level ) { return ( ( int64_t( pte ) << ( sx_bits + 12 + ( 9 * level ) - 3 ) ) >> sx_bits ); }
