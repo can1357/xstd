@@ -227,6 +227,26 @@ namespace xstd
 	using sha1_t = typename sha1::value_type;
 };
 
+// String literal.
+//
+static consteval xstd::sha1_t operator""_sha1( const char* data, size_t ) {
+	auto parse_digit = [ ] ( char c ) consteval {
+		if ( '0' <= c && c <= '9' )
+			return c - '0';
+		c |= 0x20;
+		return 0xA + ( c - 'a' );
+	};
+	xstd::sha1_t result = {};
+	for ( auto& dw : result ) {
+		for ( size_t i = 0; i != 4; i++ ) {
+			uint8_t byte = parse_digit( *data++ ) << 4;
+			byte |= parse_digit( *data++ );
+			dw |= uint32_t( byte ) << ( i * 8 );
+		}
+	}
+	return result;
+}
+
 // Make it std::hashable.
 //
 namespace std

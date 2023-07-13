@@ -250,6 +250,26 @@ namespace xstd
 	using sha512_t = typename sha512::value_type;
 };
 
+// String literal.
+//
+static consteval xstd::sha512_t operator""_sha512( const char* data, size_t ) {
+	auto parse_digit = [ ] ( char c ) consteval {
+		if ( '0' <= c && c <= '9' )
+			return c - '0';
+		c |= 0x20;
+		return 0xA + ( c - 'a' );
+	};
+	xstd::sha512_t result = {};
+	for ( auto& qw : result ) {
+		for ( size_t i = 0; i != 8; i++ ) {
+			uint8_t byte = parse_digit( *data++ ) << 4;
+			byte |= parse_digit( *data++ );
+			qw |= uint64_t( byte ) << ( i * 8 );
+		}
+	}
+	return result;
+}
+
 // Make it std::hashable.
 //
 namespace std

@@ -243,6 +243,26 @@ namespace xstd
 	using sha256_t = typename sha256::value_type;
 };
 
+// String literal.
+//
+static consteval xstd::sha256_t operator""_sha256( const char* data, size_t ) {
+	auto parse_digit = [ ] ( char c ) consteval {
+		if ( '0' <= c && c <= '9' )
+			return c - '0';
+		c |= 0x20;
+		return 0xA + ( c - 'a' );
+	};
+	xstd::sha256_t result = {};
+	for ( auto& dw : result ) {
+		for ( size_t i = 0; i != 4; i++ ) {
+			uint8_t byte = parse_digit( *data++ ) << 4;
+			byte |= parse_digit( *data++ );
+			dw |= uint32_t( byte ) << ( i * 8 );
+		}
+	}
+	return result;
+}
+
 // Make it std::hashable.
 //
 namespace std
