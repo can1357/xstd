@@ -169,7 +169,30 @@ namespace xstd
 			if ( v ) return bit_set( &blocks[ n / 64 ], n & 63 );
 			else     return bit_reset( &blocks[ n / 64 ], n & 63 );
 		}
+
+		// Fills the entire bitmap.
+		//
+		constexpr void fill( bool value ) { blocks.fill( value ? ~0ull : 0 ); }
+		constexpr void clear() { fill( false ); }
 	};
+
+	// Override xstd::bit_enum.
+	//
+	template<size_t N, typename T>
+	inline constexpr void bit_enum( const bitmap<N>& map, T&& fn, bool reverse = false ) 
+	{
+		constexpr size_t blocks = bitmap<N>::block_count;
+
+		__hint_nounroll()
+		for ( size_t step = 0; step < blocks; step++ ) {
+			size_t i = reverse ? blocks - ( step + 1 ) : step;
+			for ( uint64_t mask = map.blocks[ i ]; mask; ) {
+				bitcnt_t idx = reverse ? msb( mask ) : lsb( mask );
+				bit_reset( mask, idx );
+				fn( ( i * 64 ) + idx );
+			}
+		}
+	}
 };
 
 // Override std::find to bit scan.

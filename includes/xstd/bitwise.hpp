@@ -841,15 +841,9 @@ namespace xstd
 	template<typename V, typename T>
 	inline constexpr void bit_enum( V mask, T&& fn, bool reverse = false )
 	{
-		while ( true )
+		while ( mask )
 		{
-			// If scanner returns negative, break.
-			//
 			bitcnt_t idx = reverse ? msb( mask ) : lsb( mask );
-			if ( idx < 0 ) return;
-
-			// Reset the bit and invoke the callback.
-			//
 			bit_reset( mask, idx );
 			fn( idx );
 		}

@@ -266,11 +266,14 @@ inline static constexpr bool cxx_has_eh() { return HAS_CXX_EH; }
 #endif
 
 #if GNU_COMPILER
-	#define __hint_unroll() _Pragma("unroll")
+	#define __hint_unroll()   _Pragma("unroll")
+	#define __hint_nounroll() _Pragma("nounroll")
 #elif MS_COMPILER
 	#define __hint_unroll()
+	#define __hint_nounroll()
 #else
 	#define __hint_unroll()
+	#define __hint_nounroll()
 #endif
 
 #if GNU_COMPILER && HAS_MS_EXTENSIONS
