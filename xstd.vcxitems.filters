@@ -34,6 +34,12 @@
     <Filter Include="Formats">
       <UniqueIdentifier>{62a685cc-cae9-4d3c-bda8-52ad2be215a0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Containers\Frozen">
+      <UniqueIdentifier>{95a20cf1-5b7c-4cb3-b94e-cfbcbba3598b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Containers\Frozen\Bits">
+      <UniqueIdentifier>{4299b9bb-696c-419d-85ae-c9d2f2edca17}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp">
@@ -279,6 +285,60 @@
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\linalg.hpp">
       <Filter>Numeric</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\algorithm.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\map.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\random.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\set.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\string.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\unordered_map.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\unordered_set.h">
+      <Filter>Containers\Frozen</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\algorithms.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\basic_types.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\constexpr_assert.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\defines.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\elsa.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\elsa_std.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\exceptions.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\hash_string.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\pmh.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\version.h">
+      <Filter>Containers\Frozen\Bits</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\frozen.hpp">
+      <Filter>Containers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

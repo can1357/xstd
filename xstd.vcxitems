@@ -15,6 +15,23 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\algorithm.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\algorithms.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\basic_types.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\constexpr_assert.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\defines.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\elsa.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\elsa_std.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\exceptions.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\hash_string.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\pmh.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\bits\version.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\map.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\random.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\set.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\string.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\unordered_map.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\frozen\unordered_set.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\apic.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ia32\hde64.hpp" />
@@ -41,6 +58,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\frozen.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\graph.hpp" />
