@@ -11,17 +11,17 @@ namespace xstd::encode
 		// Helper to create dictionaries.
 		//
 		template<size_t N>
-		inline constexpr std::array<int, 0x100> reverse_dictionary( const char( &v )[ N ] )
+		inline constexpr std::array<char, 0x100> reverse_dictionary( const char( &v )[ N ] )
 		{
-			std::array<int, 0x100> res = { -1 };
+			std::array<char, 0x100> res = { -1 };
 			for ( size_t n = 0; n != N; n++ )
-				res[ v[ n ] ] = ( int ) n;
+				res[ ( uint8_t ) v[ n ] ] = ( char ) n;
 			return res;
 		}
 		template<size_t N>
-		inline constexpr std::array<int, 0x100> forward_dictionary( const char( &v )[ N ] )
+		inline constexpr std::array<char, 0x100> forward_dictionary( const char( &v )[ N ] )
 		{
-			std::array<int, 0x100> res = { -1 };
+			std::array<char, 0x100> res = { -1 };
 			for ( size_t n = 0; n != N; n++ )
 				res[ n ] = v[ n ];
 			return res;
@@ -31,7 +31,7 @@ namespace xstd::encode
 	// Declare a basic dictionary with encoding and decoding traits.
 	//
 	template<size_t N> requires ( N < 0x100 && popcnt( N ) == 1 )
-		struct dictionary
+	struct dictionary
 	{
 		// Number of bits encoded per character, e.g. base64 => 6.
 		//
@@ -54,19 +54,19 @@ namespace xstd::encode
 
 		// Forward and reverse dictionaries.
 		//
-		std::array<int, 0x100> lookup;
-		std::array<int, 0x100> rlookup;
+		std::array<char, 0x100> lookup;
+		std::array<char, 0x100> rlookup;
 		constexpr dictionary( const char( &v )[ N + 2 ] ) : lookup( impl::forward_dictionary( v ) ), rlookup( impl::reverse_dictionary( v ) ) {}
 
 		// Helper methods.
 		//
 		constexpr char encode( char n ) const
 		{
-			return ( char ) lookup[ uint8_t( n ) ];
+			return lookup[ uint8_t( n ) ];
 		}
 		constexpr char decode( char n ) const
 		{
-			return ( char ) rlookup[ uint8_t( n ) ];
+			return rlookup[ uint8_t( n ) ];
 		}
 		constexpr char fill() const { return lookup[ N ]; }
 		constexpr size_t size() const { return N; }
