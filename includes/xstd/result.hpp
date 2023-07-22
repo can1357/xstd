@@ -272,11 +272,15 @@ namespace xstd
 			else
 				return success() ? XSTD_ESTR( "Success" ) : XSTD_ESTR( "Unknown error" );
 		}
-		void assert() const
+		COLD void assert_fail() const
+		{
+			std::string err = message();
+			throw_fmt( message().c_str() );
+		}
+		FORCE_INLINE constexpr void assert() const
 		{
 			if ( !success() ) [[unlikely]] {
-				std::string err = message();
-				throw_fmt( message().c_str() );
+				assert_fail();
 			}
 		}
 	
@@ -294,17 +298,17 @@ namespace xstd
 	
 		// For accessing the value, replicate the std::optional interface.
 		//
-		constexpr const value_type& value() const &
+		FORCE_INLINE constexpr const value_type& value() const &
 		{
 			assert();
 			return result.value();
 		}
-		constexpr value_type& value() &
+		FORCE_INLINE constexpr value_type& value() &
 		{
 			assert();
 			return result.value();
 		}
-		constexpr value_type&& value() &&
+		FORCE_INLINE constexpr value_type&& value() &&
 		{
 			assert();
 			return std::move( result ).value();

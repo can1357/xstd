@@ -115,7 +115,7 @@ namespace ia32::mem
 	{
 		return xstd::make_constant_series<page_table_depth + 1>( [ & ] <size_t N> ( xstd::const_tag<N> c ) -> uint16_t
 		{ 
-			if constexpr ( c == page_table_depth )
+			if constexpr ( N == page_table_depth )
 				return page_offset( ptr );
 			else
 				return pt_index( ptr, page_table_depth - ( c + 1 ) ); 
