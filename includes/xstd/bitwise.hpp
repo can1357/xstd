@@ -738,7 +738,7 @@ namespace xstd
 			if ( impl::const_demote_and<uint32_t>( value, mask ) )
 				return ( I ) bit_pext<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
 
-#if XSTD_HW_PDEP_PEXT
+#if XSTD_HW_PDEP_PEXT && !defined(__INTELLISENSE__)
 		if ( !std::is_constant_evaluated() )
 		{
 #if GNU_COMPILER
@@ -780,7 +780,7 @@ namespace xstd
 			if ( impl::const_demote<uint32_t>( mask ) )
 				return ( I ) bit_pdep<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
 
-#if XSTD_HW_PDEP_PEXT
+#if XSTD_HW_PDEP_PEXT && !defined(__INTELLISENSE__)
 		if ( !std::is_constant_evaluated() )
 		{
 #if GNU_COMPILER

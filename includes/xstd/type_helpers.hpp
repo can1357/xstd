@@ -27,58 +27,48 @@
 
 namespace xstd
 {
-	// Type traits.
-	//
-	#define __std_trait_1(name, ...) xstrcat(__, name)(__VA_ARGS__)
-	#define __std_trait_0(name, ...) xstrcat(std:: name, _v)<__VA_ARGS__>
-	#define __std_trait_cc(name)     xstrcat(__std_trait_, __has_builtin(name))
-#ifdef __INTELLISENSE__
-	#define __std_trait(name, ...) __std_trait_0(name, __VA_ARGS__)
-#else
-	#define __std_trait(name, ...) __std_trait_cc(xstrcat(__, name))(name, __VA_ARGS__)
-#endif
 	// Comparison:
-	template<typename T> concept Void =                                   __std_trait( is_void, T );
-	template<typename T> concept NonVoid =                                !__std_trait( is_void, T );
-	template<typename A, typename B> concept Same =                       __std_trait( is_same, A, B );
+	template<typename T> concept Void =                                   std::is_void_v<T>;
+	template<typename T> concept NonVoid =                                !std::is_void_v<T>;
+	template<typename A, typename B> concept Same =                       std::is_same_v<A, B>;
 	// Classification:
-	template<typename T> concept Enum =                                   __std_trait( is_enum, T );
-	template<typename T> concept Class =                                  __std_trait( is_class, T );
-	template<typename T> concept Union =                                  __std_trait( is_union, T );
-	template<typename T> concept Pointer =                                __std_trait( is_pointer, T );
-	template<typename T> concept Aggregate =                              __std_trait( is_aggregate, T );
-	template<typename T> concept Array =                                  __std_trait( is_array, T );
-	template<typename T> concept MemberReference =                        __std_trait( is_member_object_pointer, T );
-	template<typename T> concept MemberFunction =                         __std_trait( is_member_function_pointer, T );
-	template<typename T> concept MemberPointer =                          __std_trait( is_member_pointer, T );
+	template<typename T> concept Enum =                                   std::is_enum_v<T>;
+	template<typename T> concept Class =                                  std::is_class_v<T>;
+	template<typename T> concept Union =                                  std::is_union_v<T>;
+	template<typename T> concept Pointer =                                std::is_pointer_v<T>;
+	template<typename T> concept Aggregate =                              std::is_aggregate_v<T>;
+	template<typename T> concept Array =                                  std::is_array_v<T>;
+	template<typename T> concept MemberReference =                        std::is_member_object_pointer_v<T>;
+	template<typename T> concept MemberFunction =                         std::is_member_function_pointer_v<T>;
+	template<typename T> concept MemberPointer =                          std::is_member_pointer_v<T>;
 	// Qualifiers:
-	template<typename T> concept Const =                                  __std_trait( is_const, T );
-	template<typename T> concept Mutable =                                !__std_trait( is_const, T );
-	template<typename T> concept Volatile =                               __std_trait( is_volatile, T );
-	template<typename T> concept Reference =                              __std_trait( is_reference, T );
-	template<typename T> concept LvReference =                            __std_trait( is_lvalue_reference, T );
-	template<typename T> concept RvReference =                            __std_trait( is_rvalue_reference, T );
+	template<typename T> concept Const =                                  std::is_const_v<T>;
+	template<typename T> concept Mutable =                                !std::is_const_v<T>;
+	template<typename T> concept Volatile =                               std::is_volatile_v<T>;
+	template<typename T> concept Reference =                              std::is_reference_v<T>;
+	template<typename T> concept LvReference =                            std::is_lvalue_reference_v<T>;
+	template<typename T> concept RvReference =                            std::is_rvalue_reference_v<T>;
 	// Arithmetic:
-	template<typename T> concept Signed =                                 __std_trait( is_signed, T );
-	template<typename T> concept Unsigned =                               __std_trait( is_unsigned, T );
-	template<typename T> concept Integral =                               __std_trait( is_integral, T );
-	template<typename T> concept Arithmetic =                             __std_trait( is_arithmetic, T );
-	template<typename T> concept FloatingPoint =                          __std_trait( is_floating_point, T );
+	template<typename T> concept Signed =                                 std::is_signed_v<T>;
+	template<typename T> concept Unsigned =                               std::is_unsigned_v<T>;
+	template<typename T> concept Integral =                               std::is_integral_v<T>;
+	template<typename T> concept Arithmetic =                             std::is_arithmetic_v<T>;
+	template<typename T> concept FloatingPoint =                          std::is_floating_point_v<T>;
 	// User-type:
-	template<typename T> concept Trivial =                                __std_trait( is_trivial, T );
-	template<typename T> concept Final =                                  __std_trait( is_final, T );
-	template<typename T> concept Empty =                                  __std_trait( is_empty, T );
-	template<typename T> concept Fundamental =                            __std_trait( is_fundamental, T );
-	template<typename T> concept Polymorphic =                            __std_trait( is_polymorphic, T );
-	template<typename T> concept HasVirtualDestructor =                   __std_trait( has_virtual_destructor, T );
-	template<typename T> concept TriviallyCopyable =                      __std_trait( is_trivially_copyable, T );
-	template<typename T> concept TriviallyDestructable =                  __std_trait( is_trivially_destructible, T );
-	template<typename B, typename T> concept HasBase =                    __std_trait( is_base_of, B, T );
-	template<typename S, typename D> concept Convertible =                __std_trait( is_convertible, S, D );
-	template<typename S, typename D> concept Assignable =                 __std_trait( is_assignable, S, D );
-	template<typename S, typename D> concept TriviallyAssignable =        __std_trait( is_trivially_assignable, S, D );
-	template<typename T, typename... Tx> concept Constructible =          __std_trait( is_constructible, T, Tx... );
-	template<typename T, typename... Tx> concept TriviallyConstructible = __std_trait( is_trivially_constructible, T, Tx... );
+	template<typename T> concept Trivial =                                std::is_trivial_v<T>;
+	template<typename T> concept Final =                                  std::is_final_v<T>;
+	template<typename T> concept Empty =                                  std::is_empty_v<T>;
+	template<typename T> concept Fundamental =                            std::is_fundamental_v<T>;
+	template<typename T> concept Polymorphic =                            std::is_polymorphic_v<T>;
+	template<typename T> concept HasVirtualDestructor =                   std::has_virtual_destructor_v<T>;
+	template<typename T> concept TriviallyCopyable =                      std::is_trivially_copyable_v<T>;
+	template<typename T> concept TriviallyDestructable =                  std::is_trivially_destructible_v<T>;
+	template<typename B, typename T> concept HasBase =                    std::is_base_of_v<B, T>;
+	template<typename S, typename D> concept Convertible =                std::is_convertible_v<S, D>;
+	template<typename S, typename D> concept Assignable =                 std::is_assignable_v<S, D>;
+	template<typename S, typename D> concept TriviallyAssignable =        std::is_trivially_assignable_v<S, D>;
+	template<typename T, typename... Tx> concept Constructible =          std::is_constructible_v<T, Tx...>;
+	template<typename T, typename... Tx> concept TriviallyConstructible = std::is_trivially_constructible_v<T, Tx...>;
 	template<typename T> concept Destructable =                           std::is_destructible_v<T>;
 	// Compound traits:
 	template<typename T> concept DefaultConstructible =                   Constructible<T>;
@@ -91,10 +81,6 @@ namespace xstd
 	template<typename T> concept CopyAssignable =                         Assignable<T&, const T&>;
 	template<typename T> concept TriviallyMoveAssignable =                TriviallyAssignable<T&, T>;
 	template<typename T> concept TriviallyCopyAssignable =                TriviallyAssignable<T&, const T&>;
-#undef __std_trait
-#undef __std_trait_1
-#undef __std_trait_0
-#undef __std_trait_cc
 
 	// Type/value namers.
 	//

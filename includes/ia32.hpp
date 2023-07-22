@@ -25697,7 +25697,11 @@ namespace ia32
 			}
 		};
 	};
-	_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) { return impl::cpuid_result_of<0, 0>::value[ 0 ] >= leaf; }
+	_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) {
+		if ( leaf >= 0x80000000 )
+			return impl::cpuid_result_of<0x80000000, 0>::value[ 0 ] >= leaf;
+		return impl::cpuid_result_of<0, 0>::value[ 0 ] >= leaf;
+	}
 	
 	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	inline const T& static_cpuid =   *( const T* ) &impl::cpuid_result_of<leaf, subleaf>::value;
@@ -25744,11 +25748,11 @@ namespace ia32
 	//
 	_LINKAGE rflags read_flags()
 	{
-		return { .flags = __readeflags() };
+		return { .flags = __builtin_ia32_readeflags_u64() };
 	}
 	_LINKAGE void write_flags( rflags flags )
 	{
-		__writeeflags( flags.flags );
+		__builtin_ia32_writeeflags_u64( flags.flags );
 	}
 	_LINKAGE rflags read_flags_low()
 	{

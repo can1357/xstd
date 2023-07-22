@@ -75,13 +75,8 @@ namespace ia32::mem
 	//
 	static constexpr pt_level max_large_page_level = pdpte_level;
 
-	//
-	// --- OS specific details that are left to be externally initialized.
-	//
-
 	// Index of the self referencing page table entry and the bases.
 	//
-
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
 	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return ( uint64_t ) __builtin_fetch_dynamic( "@.pxe_base" ); }
