@@ -146,12 +146,8 @@ namespace ia32::apic
 			{
 				// Disable interrupts if safe.
 				//
-				bool prev = false;
-				if constexpr ( Safe )
-				{
-					prev = read_flags().interrupt_enable_flag;
-					disable();
-				}
+				using IrqlLock = std::conditional_t<Safe, scope_irql<NO_INTERRUPTS>, std::monostate>;
+				IrqlLock _g{};
 
 				// Wait for the pending flag to clear.
 				//
@@ -165,10 +161,6 @@ namespace ia32::apic
 				// Write the command.
 				//
 				write_register( cmd_register, cmd );
-
-				// Restore interrupt state.
-				//
-				if ( prev ) enable();
 			}
 			else
 			{

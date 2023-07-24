@@ -25754,6 +25754,10 @@ namespace ia32
 	{
 		__builtin_ia32_writeeflags_u64( flags.flags );
 	}
+	_LINKAGE bool interrupts_enabled()
+	{
+		return read_flags().interrupt_enable_flag;
+	}
 	_LINKAGE rflags read_flags_low()
 	{
 		register uint8_t result asm( "ah" );
@@ -27032,10 +27036,10 @@ namespace ia32
 
 		void reset( bool state = false )
 		{
-			if ( prev_flags.interrupt_enable_flag )
-			{
-				if ( state ) disable();
-				else enable();
+			if ( state ) {
+				disable();
+			} else {
+				write_flags( prev_flags );
 			}
 		}
 		~scope_irql()
