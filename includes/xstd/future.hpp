@@ -83,12 +83,13 @@ namespace xstd
 			{
 				// If it does not fit within the current buffer:
 				//
-				if ( size() == capacity() ) [[unlikely]]
+				if ( length >= reserved ) [[unlikely]]
 				{
 					// Allocate a new buffer.
 					//
-					coroutine_handle<>* buffer = new coroutine_handle<>[ capacity() * 4 ];
-					std::copy( begin(), end(), buffer );
+					reserved += reserved << 1;
+					coroutine_handle<>* buffer = new coroutine_handle<>[ reserved ];
+					std::copy_n( first, length, buffer );
 
 					// Free the previous one and assign the new one.
 					//
