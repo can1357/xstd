@@ -147,7 +147,7 @@ namespace ia32::apic
 				// Disable interrupts if safe.
 				//
 				using IrqlLock = std::conditional_t<Safe, scope_irql<NO_INTERRUPTS>, std::monostate>;
-				IrqlLock _g{};
+				[[maybe_unused]] IrqlLock _g{};
 
 				// Wait for the pending flag to clear.
 				//
