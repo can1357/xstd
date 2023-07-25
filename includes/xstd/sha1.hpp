@@ -8,6 +8,24 @@
 #include "type_helpers.hpp"
 #include "hexdump.hpp"
 
+// [[Configuration]]
+// XSTD_HW_SHA1: Determines the availability of hardware SHA1.
+//
+#ifndef XSTD_HW_SHA1
+	#define XSTD_HW_SHA1 ( AMD64_TARGET && GNU_COMPILER )
+#endif
+
+// Intel implementation.
+//
+#if XSTD_HW_SHA1 && AMD64_TARGET && GNU_COMPILER
+#include "../ia32.hpp"
+namespace xstd::impl {
+	FORCE_INLINE bool hw_sha1_compress_s( uint32_t* iv, const uint8_t* block ) {
+		return ia32::sha1_compress_s( iv, block );
+	}
+}
+#endif
+
 namespace xstd
 {
 	// Defines a 160-bit hash type based on SHA-1.
@@ -37,8 +55,15 @@ namespace xstd
 
 		// Implement the compression functor mixing the data.
 		//
-		FORCE_INLINE static constexpr void compress( value_type& iv, const block_type& block )
+		inline static constexpr void compress( value_type& iv, const uint8_t* block )
 		{
+#if XSTD_HW_SHA1
+			if ( !std::is_constant_evaluated() ) {
+				if ( impl::hw_sha1_compress_s( iv.data(), block ) ) {
+					return;
+				}
+			}
+#endif
 			constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return z ^ ( x & ( y ^ z ) ); };
 			constexpr auto f2 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return x ^ y ^ z; };
 			constexpr auto f3 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return ( x & y ) | ( x & z ) | ( y & z ); };
@@ -92,17 +117,15 @@ namespace xstd
 		// Crypto state.
 		//
 		value_type iv;
-		size_t bit_count = 0;
+		size_t     input_length = 0;
 		block_type leftover = { 0 };
-		size_t leftover_offset = 0;
-		bool finalized = false;
 
 		// Construct a new hash from an optional IV of 160-bit value.
 		//
 		constexpr sha1() noexcept
 			: iv{ default_iv } {}
 		constexpr sha1( value_type result ) noexcept
-			: iv{ result }, finalized( true ) {}
+			: iv{ result }, input_length( std::string::npos ) {}
 		constexpr sha1( value_type iv160, iv_tag ) noexcept
 			: iv{ iv160 } {}
 
@@ -113,20 +136,66 @@ namespace xstd
 		constexpr sha1& operator=( sha1&& ) noexcept = default;
 		constexpr sha1& operator=( const sha1& ) = default;
 
+		// Returns whether or not hash is finalized.
+		//
+		FORCE_INLINE constexpr bool finalized() const { return input_length == std::string::npos; }
+
+		// Skips to next block.
+		//
+		FORCE_INLINE constexpr void next_block() 
+		{
+			compress( iv, leftover.data() );
+			leftover = { 0 };
+		}
+
 		// Appends the given array of bytes into the hash value.
 		//
-		inline constexpr void add_bytes( const uint8_t* data, size_t n )
+		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
 		{
-			while ( n-- )
-			{
-				leftover[ leftover_offset++ ] = *data++;
+			size_t prev_length = input_length;
+			input_length += n;
+			assume( input_length != std::string::npos );
 
-				if ( leftover_offset >= block_size )
-				{
-					compress( iv, leftover );
-					leftover_offset = 0;
-					bit_count += block_size * 8;
+			// If there was a leftover:
+			//
+			if ( size_t offset = prev_length % block_size ) {
+				// Pad with new data.
+				//
+				size_t space_available = block_size - offset;
+				size_t copy_count =      std::min( n, space_available );
+				if ( std::is_constant_evaluated() )
+					std::copy_n( data, copy_count, leftover.data() + offset );
+				else
+					memcpy( leftover.data() + offset, data, copy_count );
+				n -=    copy_count;
+				data += copy_count;
+
+				// Finish the block.
+				//
+				if ( space_available == copy_count ) {
+					next_block();
 				}
+
+				// Break if done.
+				//
+				if ( !n ) return;
+			}
+
+			// Add full blocks.
+			//
+			while ( n >= block_size ) {
+				compress( iv, data );
+				n -=     block_size;
+				data +=  block_size;
+			}
+
+			// Add the remainder.
+			//
+			if ( n ) {
+				if ( std::is_constant_evaluated() )
+					std::copy_n( data, n, leftover.begin() );
+				else
+					memcpy( leftover.data(), data, n );
 			}
 		}
 
@@ -149,54 +218,55 @@ namespace xstd
 
 		// Finalization of the hash.
 		//
-		constexpr void finalize() noexcept
+		FORCE_INLINE constexpr auto& finalize() noexcept
 		{
-			if ( finalized )
-				return;
+			if ( finalized() ) return *this;
 			
 			// Apply the leftover block and terminate the stream.
 			//
-			bit_count += leftover_offset * 8;
+			size_t leftover_offset = input_length % block_size;
 			leftover[ leftover_offset++ ] = 0x80;
 			
 			// If padding does not fit in the current block, compress first.
 			//
-			if ( leftover_offset > ( block_size - 8 ) )
-			{
-				std::fill( leftover.begin() + leftover_offset, leftover.end(), 0 );
-				compress( iv, leftover );
-				leftover_offset = 0;
+			if ( leftover_offset > ( block_size - 8 ) ) {
+				next_block();
 			}
 
-			// Pad with zeros and append the big endian length at the end.
+			// Append the big endian length at the end.
 			//
-			std::fill( leftover.begin() + leftover_offset, leftover.end() - 8, 0 );
-			leftover[ block_size - 1 ] = ( uint8_t ) ( bit_count );
-			leftover[ block_size - 2 ] = ( uint8_t ) ( bit_count >> 8 );
-			leftover[ block_size - 3 ] = ( uint8_t ) ( bit_count >> 16 );
-			leftover[ block_size - 4 ] = ( uint8_t ) ( bit_count >> 24 );
-			leftover[ block_size - 5 ] = ( uint8_t ) ( bit_count >> 32 );
-			leftover[ block_size - 6 ] = ( uint8_t ) ( bit_count >> 40 );
-			leftover[ block_size - 7 ] = ( uint8_t ) ( bit_count >> 48 );
-			leftover[ block_size - 8 ] = ( uint8_t ) ( bit_count >> 56 );
+			size_t bit_count = input_length * 8;
+			if ( std::is_constant_evaluated() ) {
+				leftover[ block_size - 1 ] = ( uint8_t ) ( bit_count );
+				leftover[ block_size - 2 ] = ( uint8_t ) ( bit_count >> 8 );
+				leftover[ block_size - 3 ] = ( uint8_t ) ( bit_count >> 16 );
+				leftover[ block_size - 4 ] = ( uint8_t ) ( bit_count >> 24 );
+				leftover[ block_size - 5 ] = ( uint8_t ) ( bit_count >> 32 );
+				leftover[ block_size - 6 ] = ( uint8_t ) ( bit_count >> 40 );
+				leftover[ block_size - 7 ] = ( uint8_t ) ( bit_count >> 48 );
+				leftover[ block_size - 8 ] = ( uint8_t ) ( bit_count >> 56 );
+			} else {
+				*( uint64_t* ) &leftover[ block_size - 8 ] = bswapq( bit_count );
+			}
 
 			// Compress again.
 			//
-			compress( iv, leftover );
+			next_block();
 
 			// Write the digest and set the flag.
 			//
 			for ( auto& v : iv )
 				v = bswap( v );
-			finalized = true;
+			input_length = std::string::npos;
+			return *this;
 		}
+		FORCE_INLINE constexpr value_type digest() noexcept { return finalize().iv; }
 		FORCE_INLINE constexpr value_type digest() const noexcept
 		{
-			if ( finalized ) [[likely]]
+			if ( finalized() ) [[likely]]
 				return iv;
-			sha1 clone{ *this };
-			clone.finalize();
-			return clone.iv;
+			auto clone{ *this };
+			return clone.digest();
 		}
 
 		// Explicit conversions.

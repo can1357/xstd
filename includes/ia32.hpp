@@ -25615,6 +25615,11 @@ namespace ia32
 	_EXPOSE_REG( dr7, dr7,            value.flags,            );
 #undef _EXPOSE_REG
 
+	// Common vector types.
+	//
+	using v4d_u =  xstd::native_vector<uint32_t, 4>;
+	using v16b_u = xstd::native_vector<uint8_t, 16>;
+
 	// Further Cr0 wrappers.
 	//
 	_LINKAGE void clts() { asm volatile( "clts" ); }
@@ -25650,8 +25655,6 @@ namespace ia32
 	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
 	_LINKAGE void query_cpuid( T* out, uint64_t leaf, uint64_t subleaf = 0 )
 	{
-		using v4d_u = xstd::native_vector<uint32_t, 4>;
-
 		v4d_u result;
 		asm volatile( R"(
 			 mov     %%rbx,  %%r8
@@ -26923,7 +26926,7 @@ namespace ia32
 		wait_on( ref, [ v = T( ref ) ] ( T value ) FORCE_INLINE { return value != v; }, pause_count, mwait_hint );
 	}
 
-	// Hardware accelerated crypto.
+	// Hardware accelerated CRC32C.
 	//
 	template<xstd::Integral T>
 	_LINKAGE CONST_FN constexpr uint32_t crc32ci( T value, uint32_t crc = ~0 )
@@ -26949,6 +26952,427 @@ namespace ia32
 		return ~crc32ci( ptr, length, ~crc );
 	}
 
+	// Hardware accelerated SHA primitives.
+	//
+	_LINKAGE PURE_FN v4d_u sha1msg1( v4d_u v1, v4d_u v2 )
+	{
+		asm( "sha1msg1 %1, %0" : "+x" ( v1 ) : "x" ( v2 ) );
+		return v1;
+	}
+	_LINKAGE PURE_FN v4d_u sha1msg2( v4d_u v1, v4d_u v2 )
+	{
+		asm( "sha1msg2 %1, %0" : "+x" ( v1 ) : "x" ( v2 ) );
+		return v1;
+	}
+	_LINKAGE PURE_FN v4d_u sha1nexte( v4d_u v1, v4d_u v2 )
+	{
+		asm( "sha1nexte %1, %0" : "+x" ( v1 ) : "x" ( v2 ) );
+		return v1;
+	}
+	template<int R>
+	_LINKAGE PURE_FN v4d_u sha1rnds4( v4d_u v1, v4d_u v2 )
+	{
+		asm( "sha1rnds4 %2, %1, %0" : "+x" ( v1 ) : "x" ( v2 ), "i" ( R ) );
+		return v1;
+	}
+	_LINKAGE PURE_FN v4d_u sha256msg1( v4d_u v1, v4d_u v2 )
+	{
+		asm( "sha256msg1 %1, %0" : "+x" ( v1 ) : "x" ( v2 ) );
+		return v1;
+	}
+	_LINKAGE PURE_FN v4d_u sha256msg2( v4d_u v1, v4d_u v2 )
+	{
+		asm( "sha256msg2 %1, %0" : "+x" ( v1 ) : "x" ( v2 ) );
+		return v1;
+	}
+	_LINKAGE PURE_FN v4d_u sha256rnds2( v4d_u v1, v4d_u v2, v4d_u v3 )
+	{
+		register v4d_u tmp asm( "xmm0" ) = v3;
+		asm( "sha256rnds2 %1, %0" : "+x" ( v1 ) : "x" ( v2 ), "x" ( tmp ) );
+		return v1;
+	}
+
+	// SHA1 implementation.
+	//
+	_LINKAGE void sha1_compress( uint32_t* iv, const uint8_t* block )
+	{
+		auto load_bevec = []( const void* ptr ) FORCE_INLINE {
+			auto bytes = xstd::load_misaligned<v16b_u>( ptr );
+			bytes = __builtin_shufflevector( bytes, bytes, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 );
+			return ( v4d_u ) bytes;
+		};
+
+		v4d_u ABCD, ABCD_SAVE, E0, E0_SAVE, E1;
+		v4d_u MSG0, MSG1, MSG2, MSG3;
+
+		/* Load initial values */
+		ABCD = xstd::load_misaligned<v4d_u>( iv );
+		E0 = { 0, 0, 0, iv[ 4 ] };
+		ABCD = __builtin_shufflevector( ABCD, ABCD, 3, 2, 1, 0 );
+
+		/* Save current state  */
+		ABCD_SAVE = ABCD;
+		E0_SAVE = E0;
+
+		/* Rounds 0-3 */
+		MSG0 = load_bevec( &block[ 0 ] );
+		E0 += MSG0;
+		E1 = ABCD;
+		ABCD = sha1rnds4<0>( ABCD, E0 );
+
+		/* Rounds 4-7 */
+		MSG1 = load_bevec( &block[ 16 ] );
+		E1 = sha1nexte( E1, MSG1 );
+		E0 = ABCD;
+		ABCD = sha1rnds4<0>( ABCD, E1 );
+		MSG0 = sha1msg1( MSG0, MSG1 );
+
+		/* Rounds 8-11 */
+		MSG2 = load_bevec( &block[ 32 ] );
+		E0 = sha1nexte( E0, MSG2 );
+		E1 = ABCD;
+		ABCD = sha1rnds4<0>( ABCD, E0 );
+		MSG1 = sha1msg1( MSG1, MSG2 );
+		MSG0 ^= MSG2;
+
+		/* Rounds 12-15 */
+		MSG3 = load_bevec( &block[ 48 ] );
+		E1 = sha1nexte( E1, MSG3 );
+		E0 = ABCD;
+		MSG0 = sha1msg2( MSG0, MSG3 );
+		ABCD = sha1rnds4<0>( ABCD, E1 );
+		MSG2 = sha1msg1( MSG2, MSG3 );
+		MSG1 ^= MSG3;
+
+		/* Rounds 16-19 */
+		E0 = sha1nexte( E0, MSG0 );
+		E1 = ABCD;
+		MSG1 = sha1msg2( MSG1, MSG0 );
+		ABCD = sha1rnds4<0>( ABCD, E0 );
+		MSG3 = sha1msg1( MSG3, MSG0 );
+		MSG2 ^= MSG0;
+
+		/* Rounds 20-23 */
+		E1 = sha1nexte( E1, MSG1 );
+		E0 = ABCD;
+		MSG2 = sha1msg2( MSG2, MSG1 );
+		ABCD = sha1rnds4<1>( ABCD, E1 );
+		MSG0 = sha1msg1( MSG0, MSG1 );
+		MSG3 ^= MSG1;
+
+		/* Rounds 24-27 */
+		E0 = sha1nexte( E0, MSG2 );
+		E1 = ABCD;
+		MSG3 = sha1msg2( MSG3, MSG2 );
+		ABCD = sha1rnds4<1>( ABCD, E0 );
+		MSG1 = sha1msg1( MSG1, MSG2 );
+		MSG0 ^= MSG2;
+
+		/* Rounds 28-31 */
+		E1 = sha1nexte( E1, MSG3 );
+		E0 = ABCD;
+		MSG0 = sha1msg2( MSG0, MSG3 );
+		ABCD = sha1rnds4<1>( ABCD, E1 );
+		MSG2 = sha1msg1( MSG2, MSG3 );
+		MSG1 ^= MSG3;
+
+		/* Rounds 32-35 */
+		E0 = sha1nexte( E0, MSG0 );
+		E1 = ABCD;
+		MSG1 = sha1msg2( MSG1, MSG0 );
+		ABCD = sha1rnds4<1>( ABCD, E0 );
+		MSG3 = sha1msg1( MSG3, MSG0 );
+		MSG2 ^= MSG0;
+
+		/* Rounds 36-39 */
+		E1 = sha1nexte( E1, MSG1 );
+		E0 = ABCD;
+		MSG2 = sha1msg2( MSG2, MSG1 );
+		ABCD = sha1rnds4<1>( ABCD, E1 );
+		MSG0 = sha1msg1( MSG0, MSG1 );
+		MSG3 ^= MSG1;
+
+		/* Rounds 40-43 */
+		E0 = sha1nexte( E0, MSG2 );
+		E1 = ABCD;
+		MSG3 = sha1msg2( MSG3, MSG2 );
+		ABCD = sha1rnds4<2>( ABCD, E0 );
+		MSG1 = sha1msg1( MSG1, MSG2 );
+		MSG0 ^= MSG2;
+
+		/* Rounds 44-47 */
+		E1 = sha1nexte( E1, MSG3 );
+		E0 = ABCD;
+		MSG0 = sha1msg2( MSG0, MSG3 );
+		ABCD = sha1rnds4<2>( ABCD, E1 );
+		MSG2 = sha1msg1( MSG2, MSG3 );
+		MSG1 ^= MSG3;
+
+		/* Rounds 48-51 */
+		E0 = sha1nexte( E0, MSG0 );
+		E1 = ABCD;
+		MSG1 = sha1msg2( MSG1, MSG0 );
+		ABCD = sha1rnds4<2>( ABCD, E0 );
+		MSG3 = sha1msg1( MSG3, MSG0 );
+		MSG2 ^= MSG0;
+
+		/* Rounds 52-55 */
+		E1 = sha1nexte( E1, MSG1 );
+		E0 = ABCD;
+		MSG2 = sha1msg2( MSG2, MSG1 );
+		ABCD = sha1rnds4<2>( ABCD, E1 );
+		MSG0 = sha1msg1( MSG0, MSG1 );
+		MSG3 ^= MSG1;
+
+		/* Rounds 56-59 */
+		E0 = sha1nexte( E0, MSG2 );
+		E1 = ABCD;
+		MSG3 = sha1msg2( MSG3, MSG2 );
+		ABCD = sha1rnds4<2>( ABCD, E0 );
+		MSG1 = sha1msg1( MSG1, MSG2 );
+		MSG0 ^= MSG2;
+
+		/* Rounds 60-63 */
+		E1 = sha1nexte( E1, MSG3 );
+		E0 = ABCD;
+		MSG0 = sha1msg2( MSG0, MSG3 );
+		ABCD = sha1rnds4<3>( ABCD, E1 );
+		MSG2 = sha1msg1( MSG2, MSG3 );
+		MSG1 ^= MSG3;
+
+		/* Rounds 64-67 */
+		E0 = sha1nexte( E0, MSG0 );
+		E1 = ABCD;
+		MSG1 = sha1msg2( MSG1, MSG0 );
+		ABCD = sha1rnds4<3>( ABCD, E0 );
+		MSG3 = sha1msg1( MSG3, MSG0 );
+		MSG2 ^= MSG0;
+
+		/* Rounds 68-71 */
+		E1 = sha1nexte( E1, MSG1 );
+		E0 = ABCD;
+		MSG2 = sha1msg2( MSG2, MSG1 );
+		ABCD = sha1rnds4<3>( ABCD, E1 );
+		MSG3 ^= MSG1;
+
+		/* Rounds 72-75 */
+		E0 = sha1nexte( E0, MSG2 );
+		E1 = ABCD;
+		MSG3 = sha1msg2( MSG3, MSG2 );
+		ABCD = sha1rnds4<3>( ABCD, E0 );
+
+		/* Rounds 76-79 */
+		E1 = sha1nexte( E1, MSG3 );
+		E0 = ABCD;
+		ABCD = sha1rnds4<3>( ABCD, E1 );
+
+		/* Combine state */
+		E0 = sha1nexte( E0, E0_SAVE );
+		ABCD += ABCD_SAVE;
+		ABCD = __builtin_shufflevector( ABCD, ABCD, 3, 2, 1, 0 );
+		
+		xstd::store_misaligned<v4d_u>( iv, ABCD );
+		iv[ 4 ] = E0[ 3 ];
+	}
+	_LINKAGE bool sha1_compress_s( uint32_t* iv, const uint8_t* block )
+	{
+		if ( !static_cpuid_s<7, 0, cpuid_eax_07>.ebx.sha ) {
+			return false;
+		}
+		sha1_compress( iv, block );
+		return true;
+	}
+	// SHA-256 implementation.
+	//
+	_LINKAGE void sha256_compress( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const )
+	{
+		auto load_bevec = []( const void* ptr ) FORCE_INLINE {
+			auto bytes = xstd::load_misaligned<v16b_u>( ptr );
+			bytes = __builtin_shufflevector( bytes, bytes, 3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12 );
+			return ( v4d_u ) bytes;
+		};
+
+		v4d_u STATE0, STATE1, MSG, TMP, ABEF_SAVE, CDGH_SAVE;
+		v4d_u MSG0, MSG1, MSG2, MSG3;
+
+		/* Load initial values */
+		TMP =    xstd::load_misaligned<v4d_u>( &iv[ 0 ] );
+		STATE1 = xstd::load_misaligned<v4d_u>( &iv[ 4 ] );
+
+		STATE0 = __builtin_shufflevector( TMP, STATE1, 5, 4, 1, 0 ); // ABEF
+		STATE1 = __builtin_shufflevector( TMP, STATE1, 7, 6, 3, 2 ); // CDGH
+
+		/* Save current state */
+		ABEF_SAVE = STATE0;
+		CDGH_SAVE = STATE1;
+
+		/* Rounds 0-3 */
+		MSG0 = load_bevec( &block[ 0 ] );
+		MSG = MSG0 - xstd::load_misaligned<v4d_u>( &ik_const[ 0 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+
+		/* Rounds 4-7 */
+		MSG1 = load_bevec( &block[ 16 ] );
+		MSG = MSG1 - xstd::load_misaligned<v4d_u>( &ik_const[ 4 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG0 = sha256msg1( MSG0, MSG1 );
+
+		/* Rounds 8-11 */
+		MSG2 = load_bevec( &block[ 32 ] );
+		MSG = MSG2 - xstd::load_misaligned<v4d_u>( &ik_const[ 8 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG1 = sha256msg1( MSG1, MSG2 );
+
+		/* Rounds 12-15 */
+		MSG3 = load_bevec( &block[ 48 ] );
+		MSG = MSG3 - xstd::load_misaligned<v4d_u>( &ik_const[ 12 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG2, MSG3, 1, 2, 3, 4 );
+		MSG0 = MSG0 + TMP;
+		MSG0 = sha256msg2( MSG0, MSG3 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG2 = sha256msg1( MSG2, MSG3 );
+
+		/* Rounds 16-19 */
+		MSG = MSG0 - xstd::load_misaligned<v4d_u>( &ik_const[ 16 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG3, MSG0, 1, 2, 3, 4 );
+		MSG1 = MSG1 + TMP;
+		MSG1 = sha256msg2( MSG1, MSG0 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG3 = sha256msg1( MSG3, MSG0 );
+
+		/* Rounds 20-23 */
+		MSG = MSG1 - xstd::load_misaligned<v4d_u>( &ik_const[ 20 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG0, MSG1, 1, 2, 3, 4 );
+		MSG2 = MSG2 + TMP;
+		MSG2 = sha256msg2( MSG2, MSG1 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG0 = sha256msg1( MSG0, MSG1 );
+
+		/* Rounds 24-27 */
+		MSG = MSG2 - xstd::load_misaligned<v4d_u>( &ik_const[ 24 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG1, MSG2, 1, 2, 3, 4 );
+		MSG3 = MSG3 + TMP;
+		MSG3 = sha256msg2( MSG3, MSG2 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG1 = sha256msg1( MSG1, MSG2 );
+
+		/* Rounds 28-31 */
+		MSG = MSG3 - xstd::load_misaligned<v4d_u>( &ik_const[ 28 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG2, MSG3, 1, 2, 3, 4 );
+		MSG0 = MSG0 + TMP;
+		MSG0 = sha256msg2( MSG0, MSG3 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG2 = sha256msg1( MSG2, MSG3 );
+
+		/* Rounds 32-35 */
+		MSG = MSG0 - xstd::load_misaligned<v4d_u>( &ik_const[ 32 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG3, MSG0, 1, 2, 3, 4 );
+		MSG1 = MSG1 + TMP;
+		MSG1 = sha256msg2( MSG1, MSG0 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG3 = sha256msg1( MSG3, MSG0 );
+
+		/* Rounds 36-39 */
+		MSG = MSG1 - xstd::load_misaligned<v4d_u>( &ik_const[ 36 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG0, MSG1, 1, 2, 3, 4 );
+		MSG2 = MSG2 + TMP;
+		MSG2 = sha256msg2( MSG2, MSG1 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG0 = sha256msg1( MSG0, MSG1 );
+
+		/* Rounds 40-43 */
+		MSG = MSG2 - xstd::load_misaligned<v4d_u>( &ik_const[ 40 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG1, MSG2, 1, 2, 3, 4 );
+		MSG3 = MSG3 + TMP;
+		MSG3 = sha256msg2( MSG3, MSG2 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG1 = sha256msg1( MSG1, MSG2 );
+
+		/* Rounds 44-47 */
+		MSG = MSG3 - xstd::load_misaligned<v4d_u>( &ik_const[ 44 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG2, MSG3, 1, 2, 3, 4 );
+		MSG0 = MSG0 + TMP;
+		MSG0 = sha256msg2( MSG0, MSG3 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG2 = sha256msg1( MSG2, MSG3 );
+
+		/* Rounds 48-51 */
+		MSG = MSG0 - xstd::load_misaligned<v4d_u>( &ik_const[ 48 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG3, MSG0, 1, 2, 3, 4 );
+		MSG1 = MSG1 + TMP;
+		MSG1 = sha256msg2( MSG1, MSG0 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+		MSG3 = sha256msg1( MSG3, MSG0 );
+
+		/* Rounds 52-55 */
+		MSG = MSG1 - xstd::load_misaligned<v4d_u>( &ik_const[ 52 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG0, MSG1, 1, 2, 3, 4 );
+		MSG2 = MSG2 + TMP;
+		MSG2 = sha256msg2( MSG2, MSG1 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+
+		/* Rounds 56-59 */
+		MSG = MSG2 - xstd::load_misaligned<v4d_u>( &ik_const[ 56 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		TMP = __builtin_shufflevector( MSG1, MSG2, 1, 2, 3, 4 );
+		MSG3 = MSG3 + TMP;
+		MSG3 = sha256msg2( MSG3, MSG2 );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+
+		/* Rounds 60-63 */
+		MSG = MSG3 - xstd::load_misaligned<v4d_u>( &ik_const[ 60 ] );
+		STATE1 = sha256rnds2( STATE1, STATE0, MSG );
+		MSG = __builtin_shufflevector( MSG, MSG, 2, 3, 0, 0 );
+		STATE0 = sha256rnds2( STATE0, STATE1, MSG );
+
+		/* Combine state  */
+		STATE0 = STATE0 + ABEF_SAVE;
+		STATE1 = STATE1 + CDGH_SAVE;
+
+		/* Save state */
+		TMP =    STATE0;
+		
+		xstd::store_misaligned<v4d_u>( &iv[ 0 ], __builtin_shufflevector( TMP, STATE1, 3, 2, 7, 6 ) ); // DCHG
+		xstd::store_misaligned<v4d_u>( &iv[ 4 ], __builtin_shufflevector( TMP, STATE1, 1, 0, 5, 4 ) ); // BAFE
+	}
+	_LINKAGE bool sha256_compress_s( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const )
+	{
+		if ( !static_cpuid_s<7, 0, cpuid_eax_07>.ebx.sha ) {
+			return false;
+		}
+		sha256_compress( iv, block, ik_const );
+		return true;
+	}
+
 	// Non-temporal memory helpers.
 	//
 	template<typename Vec>
@@ -26956,9 +27380,9 @@ namespace ia32
 	{
 		Vec r;
 #if __AVX__
-		asm volatile( "vmovntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
+		asm( "vmovntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
 #else
-		asm volatile( "movntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
+		asm( "movntdqa %1, %0" : "=x" ( r ) : "m" ( *p ) );
 #endif
 		return r;
 	}
@@ -26966,9 +27390,9 @@ namespace ia32
 	_LINKAGE void store_non_temporal( Vec* p, Vec r )
 	{
 #if __AVX__
-		asm volatile( "vmovntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
+		asm( "vmovntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
 #else
-		asm volatile( "movntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
+		asm( "movntdq %1, %0" : "=m" ( *p ) : "x" ( r ) );
 #endif
 	}
 
