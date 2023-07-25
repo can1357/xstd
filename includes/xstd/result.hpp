@@ -4,8 +4,6 @@
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
-#undef assert // If cassert hijacks the name, undefine.
-
 // Pack all types in this namespace to improve storage.
 #if HAS_MS_EXTENSIONS
 	#pragma pack(push, 1)

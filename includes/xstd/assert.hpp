@@ -1,9 +1,11 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 #include <stdexcept>
 #include <string_view>
+#include <cassert>
 #include "intrinsics.hpp"
 #include "logger.hpp"
+#undef assert // If cassert hijacks the name, undefine.
 
 // [[Configuration]]
 // XSTD_ASSERT_MESSAGE: Sets the assert failure message.
