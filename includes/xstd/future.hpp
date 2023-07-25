@@ -43,7 +43,7 @@ namespace xstd
 
 		// Small vector implementation.
 		//
-		static constexpr size_t in_place_continuation_count = 2;
+		static constexpr size_t in_place_continuation_count = 8;
 		struct continuation_vector
 		{
 			// In-place buffer.
