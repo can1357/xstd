@@ -5,6 +5,7 @@ namespace xstd
 {
 	// Define SHA-512.
 	//
+	template<bool HwAcccel>
 	struct sha512_traits
 	{
 		using block_type = std::array<uint8_t,  128>;
@@ -97,7 +98,7 @@ namespace xstd
 				iv[ n ] += ivd[ n ];
 		}
 	};
-	using sha512 =   basic_sha<sha512_traits>;
+	using sha512 =   basic_sha<sha512_traits<true>>;
 	using sha512_t = typename sha512::value_type;
 };
 

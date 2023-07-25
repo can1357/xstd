@@ -19,15 +19,6 @@
 //
 #if XSTD_HW_SHA1 && AMD64_TARGET && GNU_COMPILER
 #include "../ia32.hpp"
-namespace xstd::impl {
-	FORCE_INLINE inline bool hw_sha1_compress_s( uint32_t* iv, const uint8_t* block ) {
-		if ( !ia32::static_cpuid_s<7, 0, ia32::cpuid_eax_07>.ebx.sha ) {
-			return false;
-		}
-		ia32::sha1_compress( iv, block );
-		return true;
-	}
-}
 #endif
 
 namespace xstd
@@ -242,6 +233,7 @@ namespace xstd
 
 	// Define SHA-1.
 	//
+	template<bool HwAcccel>
 	struct sha1_traits
 	{
 		using block_type = std::array<uint8_t,  64>;
@@ -259,10 +251,13 @@ namespace xstd
 		inline static constexpr void compress( value_type& iv, const uint8_t* block )
 		{
 #if XSTD_HW_SHA1
-			if ( !std::is_constant_evaluated() ) {
-				if ( impl::hw_sha1_compress_s( iv.data(), block ) ) {
+			if ( HwAcccel && !std::is_constant_evaluated() ) {
+#if AMD64_TARGET && GNU_COMPILER
+				if ( ia32::static_cpuid_s<7, 0, ia32::cpuid_eax_07>.ebx.sha ) {
+					ia32::sha1_compress( iv.data(), block );
 					return;
 				}
+#endif
 			}
 #endif
 			constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return z ^ ( x & ( y ^ z ) ); };
@@ -315,7 +310,7 @@ namespace xstd
 				iv[ n ] += ivd[ n ];
 		}
 	};
-	using sha1 =   basic_sha<sha1_traits>;
+	using sha1 =   basic_sha<sha1_traits<true>>;
 	using sha1_t = typename sha1::value_type;
 };
 

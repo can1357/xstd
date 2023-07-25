@@ -8,25 +8,15 @@
 	#define XSTD_HW_SHA256 ( AMD64_TARGET && GNU_COMPILER )
 #endif
 
-// Intel implementation.
-//
 #if XSTD_HW_SHA256 && AMD64_TARGET && GNU_COMPILER
 #include "../ia32.hpp"
-namespace xstd::impl {
-	FORCE_INLINE inline bool hw_sha256_compress_s( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const ) {
-		if ( !ia32::static_cpuid_s<7, 0, ia32::cpuid_eax_07>.ebx.sha ) {
-			return false;
-		}
-		ia32::sha256_compress( iv, block, ik_const );
-		return true;
-	}
-}
 #endif
 
 namespace xstd
 {
 	// Define SHA-256.
 	//
+	template<bool HwAcccel>
 	struct sha256_traits
 	{
 		using block_type = std::array<uint8_t,  64>;
@@ -55,10 +45,13 @@ namespace xstd
 		inline static constexpr void compress( value_type& iv, const uint8_t* block )
 		{
 #if XSTD_HW_SHA256
-			if ( !std::is_constant_evaluated() ) {
-				if ( impl::hw_sha256_compress_s( iv.data(), block, k_const.data() ) ) {
+			if ( HwAcccel && !std::is_constant_evaluated() ) {
+#if AMD64_TARGET && GNU_COMPILER
+				if ( ia32::static_cpuid_s<7, 0, ia32::cpuid_eax_07>.ebx.sha ) {
+					ia32::sha256_compress( iv.data(), block, k_const.data() );
 					return;
 				}
+#endif
 			}
 #endif
 			constexpr auto e0 = [ ] ( uint32_t v ) FORCE_INLINE { return rotr( v, 2 ) ^ rotr( v, 13 ) ^ rotr( v, 22 ); };
@@ -115,7 +108,7 @@ namespace xstd
 				iv[ n ] += ivd[ n ];
 		}
 	};
-	using sha256 =   basic_sha<sha256_traits>;
+	using sha256 =   basic_sha<sha256_traits<true>>;
 	using sha256_t = typename sha256::value_type;
 };
 
