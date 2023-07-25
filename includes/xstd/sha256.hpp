@@ -20,7 +20,7 @@
 #if XSTD_HW_SHA256 && AMD64_TARGET && GNU_COMPILER
 #include "../ia32.hpp"
 namespace xstd::impl {
-	FORCE_INLINE bool hw_sha256_compress_s( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const ) {
+	FORCE_INLINE inline bool hw_sha256_compress_s( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const ) {
 		return ia32::sha256_compress_s( iv, block, ik_const );
 	}
 }
