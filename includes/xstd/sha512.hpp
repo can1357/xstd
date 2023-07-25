@@ -1,41 +1,22 @@
 #pragma once
-#include <string>
-#include <array>
-#include <functional>
-#include <numeric>
-#include <cstring>
-#include "intrinsics.hpp"
-#include "type_helpers.hpp"
-#include "hexdump.hpp"
+#include "sha1.hpp"
 
 namespace xstd
 {
-	// Defines a 512-bit hash type based on SHA-512.
+	// Define SHA-512.
 	//
-	struct sha512
+	struct sha512_traits
 	{
-		struct iv_tag {};
+		using block_type = std::array<uint8_t,  128>;
+		using value_type = std::array<uint64_t, 512 / ( 8 * sizeof( uint64_t ) )>;
 
-		// Digest / Block traits for SHA-512.
-		//
-		static constexpr size_t block_size = 128;
-		static constexpr size_t round_count = 80;
-		static constexpr size_t digest_size = 512 / 8;
-		using block_type = std::array<uint8_t, block_size>;
-		using value_type = std::array<uint64_t, digest_size / sizeof( uint64_t )>;
-
-		// Default initialization vector for SHA-512.
-		//
 		static constexpr value_type default_iv = {
 			0x6A09E667F3BCC908, 0xBB67AE8584CAA73B,
 			0x3C6EF372FE94F82B, 0xA54FF53A5F1D36F1,
 			0x510E527FADE682D1, 0x9B05688C2B3E6C1F,
 			0x1F83D9ABFB41BD6B, 0x5BE0CD19137E2179,
 		};
-
-		// Constant words K for SHA-512.
-		//
-		static constexpr std::array<uint64_t, round_count> k_const = {
+		static constexpr std::array<uint64_t, 80> k_const = {
 			0xbd75d06728d751de, 0x8ec8bb6edc109a33, 0x4a3f043013b2c4d1, 0x164a245a7e762444, 
 			0xc6a93da40cb74ac8, 0xa60eee0e49fa2fe7, 0x6dc07d5b50e6b065, 0x54e3a12a25927ee8,
 			0x27f855675cfcfdbe, 0xed7ca4feba8f9042, 0xdbce7a41b11b4d74, 0xaaf3823c2a004b1e,
@@ -60,7 +41,7 @@ namespace xstd
 
 		// Implement the compression functor mixing the data.
 		//
-		FORCE_INLINE static constexpr void compress( value_type& iv, const uint8_t* block )
+		inline static constexpr void compress( value_type& iv, const uint8_t* block )
 		{
 			constexpr auto e0 = [ ] ( uint64_t v ) FORCE_INLINE { return rotr( v, 28 ) ^ rotr( v, 34 ) ^ rotr( v, 39 ); };
 			constexpr auto e1 = [ ] ( uint64_t v ) FORCE_INLINE { return rotr( v, 14 ) ^ rotr( v, 18 ) ^ rotr( v, 41 ); };
@@ -106,7 +87,7 @@ namespace xstd
 				shuffle( workspace[ i ], i );
 
 			__hint_unroll()
-			for ( size_t i = 16; i != round_count; i++ )
+			for ( size_t i = 16; i != 80; i++ )
 			{
 				workspace[ i & 0xF ] += s0( workspace[ ( i + 1 ) & 0xF ] ) + s1( workspace[ ( i + 14 ) & 0xF ] ) + workspace[ ( i + 9 ) & 0xF ];
 				shuffle( workspace[ i & 0xF ], i );
@@ -115,184 +96,8 @@ namespace xstd
 			for ( size_t n = 0; n != ivd.size(); n++ )
 				iv[ n ] += ivd[ n ];
 		}
-
-		// Crypto state.
-		//
-		value_type iv;
-		size_t     input_length = 0;
-		block_type leftover = { 0 };
-
-		// Construct a new hash from an optional IV of 512-bit value.
-		//
-		constexpr sha512() noexcept
-			: iv{ default_iv } {}
-		constexpr sha512( value_type result ) noexcept
-			: iv{ result }, input_length( std::string::npos ) {}
-		constexpr sha512( value_type iv512, iv_tag ) noexcept
-			: iv{ iv512 } {}
-
-		// Default copy/move.
-		//
-		constexpr sha512( sha512&& ) noexcept = default;
-		constexpr sha512( const sha512& ) = default;
-		constexpr sha512& operator=( sha512&& ) noexcept = default;
-		constexpr sha512& operator=( const sha512& ) = default;
-
-		// Returns whether or not hash is finalized.
-		//
-		FORCE_INLINE constexpr bool finalized() const { return input_length == std::string::npos; }
-
-		// Skips to next block.
-		//
-		FORCE_INLINE constexpr void next_block() 
-		{
-			compress( iv, leftover.data() );
-			leftover = { 0 };
-		}
-
-		// Appends the given array of bytes into the hash value.
-		//
-		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
-		{
-			size_t prev_length = input_length;
-			input_length += n;
-			assume( input_length != std::string::npos );
-
-			// If there was a leftover:
-			//
-			if ( size_t offset = prev_length % block_size ) {
-				// Pad with new data.
-				//
-				size_t space_available = block_size - offset;
-				size_t copy_count =      std::min( n, space_available );
-				if ( std::is_constant_evaluated() )
-					std::copy_n( data, copy_count, leftover.data() + offset );
-				else
-					memcpy( leftover.data() + offset, data, copy_count );
-				n -=    copy_count;
-				data += copy_count;
-
-				// Finish the block.
-				//
-				if ( space_available == copy_count ) {
-					next_block();
-				}
-
-				// Break if done.
-				//
-				if ( !n ) return;
-			}
-
-			// Add full blocks.
-			//
-			while ( n >= block_size ) {
-				compress( iv, data );
-				n -=     block_size;
-				data +=  block_size;
-			}
-
-			// Add the remainder.
-			//
-			if ( n ) {
-				if ( std::is_constant_evaluated() )
-					std::copy_n( data, n, leftover.begin() );
-				else
-					memcpy( leftover.data(), data, n );
-			}
-		}
-
-
-		// Appends the given trivial value as bytes into the hash value.
-		//
-		template<typename T>
-		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
-		{
-			if ( std::is_constant_evaluated() )
-			{
-				using array_t = std::array<uint8_t, sizeof( T )>;
-				array_t arr = bit_cast< array_t >( data );
-				add_bytes( arr.data(), arr.size() );
-			}
-			else
-			{
-				add_bytes( ( const uint8_t* ) &data, sizeof( T ) );
-			}
-		}
-
-		// Finalization of the hash.
-		//
-		FORCE_INLINE constexpr auto& finalize() noexcept
-		{
-			if ( finalized() ) return *this;
-			
-			// Apply the leftover block and terminate the stream.
-			//
-			size_t leftover_offset = input_length % block_size;
-			leftover[ leftover_offset++ ] = 0x80;
-			
-			// If padding does not fit in the current block, compress first.
-			//
-			if ( leftover_offset > ( block_size - 8 ) ) {
-				next_block();
-			}
-
-			// Append the big endian length at the end.
-			//
-			size_t bit_count = input_length * 8;
-			if ( std::is_constant_evaluated() ) {
-				leftover[ block_size - 1 ] = ( uint8_t ) ( bit_count );
-				leftover[ block_size - 2 ] = ( uint8_t ) ( bit_count >> 8 );
-				leftover[ block_size - 3 ] = ( uint8_t ) ( bit_count >> 16 );
-				leftover[ block_size - 4 ] = ( uint8_t ) ( bit_count >> 24 );
-				leftover[ block_size - 5 ] = ( uint8_t ) ( bit_count >> 32 );
-				leftover[ block_size - 6 ] = ( uint8_t ) ( bit_count >> 40 );
-				leftover[ block_size - 7 ] = ( uint8_t ) ( bit_count >> 48 );
-				leftover[ block_size - 8 ] = ( uint8_t ) ( bit_count >> 56 );
-			} else {
-				*( uint64_t* ) &leftover[ block_size - 8 ] = bswapq( bit_count );
-			}
-
-			// Compress again.
-			//
-			next_block();
-
-			// Write the digest and set the flag.
-			//
-			for ( auto& v : iv )
-				v = bswap( v );
-			input_length = std::string::npos;
-			return *this;
-		}
-		FORCE_INLINE constexpr value_type digest() noexcept { return finalize().iv; }
-		FORCE_INLINE constexpr value_type digest() const noexcept
-		{
-			if ( finalized() ) [[likely]]
-				return iv;
-			auto clone{ *this };
-			return clone.digest();
-		}
-
-		// Explicit conversions.
-		//
-		constexpr value_type as512() const noexcept { return digest(); }
-		constexpr uint64_t as64() const noexcept { return as512()[ 0 ]; }
-		constexpr uint64_t as32() const noexcept { return uint32_t( as64() ); }
-
-		// Implicit conversions.
-		//
-		constexpr operator value_type() const noexcept { return as512(); }
-		constexpr operator uint64_t() const noexcept { return as64(); }
-
-		// Conversion to human-readable format.
-		//
-		std::string to_string() const { return fmt::as_hex_string( digest() ); }
-
-		// Basic comparison operators.
-		//
-		constexpr bool operator<( const sha512& o ) const noexcept { return digest() < o.digest(); }
-		constexpr bool operator==( const sha512& o ) const noexcept { return digest() == o.digest(); }
-		constexpr bool operator!=( const sha512& o ) const noexcept { return digest() != o.digest(); }
 	};
+	using sha512 =   basic_sha<sha512_traits>;
 	using sha512_t = typename sha512::value_type;
 };
 

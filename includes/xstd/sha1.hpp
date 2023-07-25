@@ -32,31 +32,228 @@ namespace xstd::impl {
 
 namespace xstd
 {
-	// Defines a 160-bit hash type based on SHA-1.
+	// Common SHA implementation.
 	//
-	struct sha1
+	struct sha_custom_iv_t {};
+	static constexpr sha_custom_iv_t sha_custom_iv = {};
+
+	template<typename Traits>
+	struct basic_sha
 	{
-		struct iv_tag {};
+		using value_type = typename Traits::value_type;
+		using block_type = typename Traits::block_type;
+		using unit_type =  typename value_type::value_type;
+		
+		static constexpr size_t block_size =  std::tuple_size_v<block_type>;
+		static constexpr size_t digest_size = std::tuple_size_v<value_type> * sizeof( unit_type );
 
-		// Digest / Block traits for SHA-1.
+		// Crypto state.
 		//
-		static constexpr size_t block_size = 64;
-		static constexpr size_t digest_size = 160 / 8;
-		using block_type = std::array<uint8_t, block_size>;
-		using value_type = std::array<uint32_t, digest_size / sizeof( uint32_t )>;
+		value_type iv;
+		size_t     input_length = 0;
+		block_type leftover = { 0 };
 
-		// Default initialization vector for SHA-1.
+		// Default IV connstruction.
 		//
+		constexpr basic_sha() noexcept
+			: iv{ Traits::default_iv } {}
+
+		// Result construction.
+		//
+		constexpr basic_sha( value_type result ) noexcept
+			: iv{ result }, input_length( std::string::npos ) {}
+
+		// Custom IV construction.
+		//
+		constexpr basic_sha( value_type iv, sha_custom_iv_t ) noexcept
+			: iv{ iv } {}
+
+		// Default copy/move.
+		//
+		constexpr basic_sha( basic_sha&& ) noexcept = default;
+		constexpr basic_sha( const basic_sha& ) = default;
+		constexpr basic_sha& operator=( basic_sha&& ) noexcept = default;
+		constexpr basic_sha& operator=( const basic_sha& ) = default;
+
+		// Returns whether or not hash is finalized.
+		//
+		FORCE_INLINE constexpr bool finalized() const { return input_length == std::string::npos; }
+
+		// Skips to next block.
+		//
+		FORCE_INLINE constexpr void next_block() 
+		{
+			Traits::compress( iv, leftover.data() );
+			leftover = { 0 };
+		}
+
+		// Appends the given array of bytes into the hash value.
+		//
+		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
+		{
+			size_t prev_length = input_length;
+			input_length += n;
+			assume( input_length != std::string::npos );
+
+			// If there was a leftover:
+			//
+			if ( size_t offset = prev_length % leftover.size() ) {
+				// Pad with new data.
+				//
+				size_t space_available = leftover.size() - offset;
+				size_t copy_count =      std::min( n, space_available );
+				if ( std::is_constant_evaluated() )
+					std::copy_n( data, copy_count, leftover.data() + offset );
+				else
+					memcpy( leftover.data() + offset, data, copy_count );
+				n -=    copy_count;
+				data += copy_count;
+
+				// Finish the block.
+				//
+				if ( space_available == copy_count ) {
+					next_block();
+				}
+
+				// Break if done.
+				//
+				if ( !n ) return;
+			}
+
+			// Add full blocks.
+			//
+			while ( n >= leftover.size() ) {
+				Traits::compress( iv, data );
+				n -=    leftover.size();
+				data += leftover.size();
+			}
+
+			// Add the remainder.
+			//
+			if ( n ) {
+				if ( std::is_constant_evaluated() )
+					std::copy_n( data, n, leftover.begin() );
+				else
+					memcpy( leftover.data(), data, n );
+			}
+		}
+
+		// Appends the given trivial value as bytes into the hash value.
+		//
+		template<typename T>
+		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
+		{
+			if ( std::is_constant_evaluated() )
+			{
+				using array_t = std::array<uint8_t, sizeof( T )>;
+				array_t arr = bit_cast< array_t >( data );
+				add_bytes( arr.data(), arr.size() );
+			}
+			else
+			{
+				add_bytes( ( const uint8_t* ) &data, sizeof( T ) );
+			}
+		}
+
+		// Finalization of the hash.
+		//
+		FORCE_INLINE constexpr auto& finalize() noexcept
+		{
+			if ( finalized() ) return *this;
+			
+			// Apply the leftover block and terminate the stream.
+			//
+			size_t leftover_offset = input_length % leftover.size();
+			leftover[ leftover_offset++ ] = 0x80;
+			
+			// If padding does not fit in the current block, compress first.
+			//
+			if ( leftover_offset > ( leftover.size() - 8 ) ) {
+				next_block();
+			}
+
+			// Append the big endian length at the end.
+			//
+			size_t bit_count = input_length * 8;
+			if ( std::is_constant_evaluated() ) {
+				leftover[ leftover.size() - 1 ] = ( uint8_t ) ( bit_count );
+				leftover[ leftover.size() - 2 ] = ( uint8_t ) ( bit_count >> 8 );
+				leftover[ leftover.size() - 3 ] = ( uint8_t ) ( bit_count >> 16 );
+				leftover[ leftover.size() - 4 ] = ( uint8_t ) ( bit_count >> 24 );
+				leftover[ leftover.size() - 5 ] = ( uint8_t ) ( bit_count >> 32 );
+				leftover[ leftover.size() - 6 ] = ( uint8_t ) ( bit_count >> 40 );
+				leftover[ leftover.size() - 7 ] = ( uint8_t ) ( bit_count >> 48 );
+				leftover[ leftover.size() - 8 ] = ( uint8_t ) ( bit_count >> 56 );
+			} else {
+				*( uint64_t* ) &leftover[ leftover.size() - 8 ] = bswapq( bit_count );
+			}
+
+			// Compress again.
+			//
+			next_block();
+
+			// Write the digest and set the flag.
+			//
+			for ( auto& v : iv )
+				v = bswap( v );
+			input_length = std::string::npos;
+			return *this;
+		}
+		FORCE_INLINE constexpr value_type digest() noexcept { return finalize().iv; }
+		FORCE_INLINE constexpr value_type digest() const noexcept
+		{
+			if ( finalized() ) [[likely]]
+				return iv;
+			auto clone{ *this };
+			return clone.digest();
+		}
+
+		// Explicit conversions.
+		//
+		constexpr uint32_t as32() const noexcept { return uint32_t( digest()[ 0 ] ); }
+		constexpr uint64_t as64() const noexcept
+		{
+			if constexpr ( std::is_same_v<unit_type, uint64_t> ) {
+				return digest()[ 0 ];
+			} else if constexpr ( std::is_same_v<unit_type, uint32_t> ) {
+				auto v = digest();
+				return ( uint64_t( v[ 1 ] ) << 32 ) | v[ 0 ];
+			} else {
+				static_assert( sizeof( unit_type ) == -1, "Invalid unit." );
+			}
+		}
+
+		// Implicit conversions.
+		//
+		constexpr operator value_type() const noexcept { return digest(); }
+		constexpr operator uint64_t() const noexcept { return as64(); }
+		constexpr operator uint32_t() const noexcept { return as32(); }
+
+		// Conversion to human-readable format.
+		//
+		std::string to_string() const { return fmt::as_hex_string( digest() ); }
+
+		// Basic comparison operators.
+		//
+		constexpr bool operator<( const basic_sha& o ) const noexcept { return digest() < o.digest(); }
+		constexpr bool operator==( const basic_sha& o ) const noexcept { return digest() == o.digest(); }
+		constexpr bool operator!=( const basic_sha& o ) const noexcept { return digest() != o.digest(); }
+	};
+
+	// Define SHA-1.
+	//
+	struct sha1_traits
+	{
+		using block_type = std::array<uint8_t,  64>;
+		using value_type = std::array<uint32_t, 160 / ( 8 * sizeof( uint32_t ) )>;
+		
 		static constexpr value_type default_iv = {
 			0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0,
 		};
-
-		// Constant words K for SHA-1.
-		//
 		static constexpr std::array<uint32_t, 4> k_const = {
 			0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6
 		};
-
+		
 		// Implement the compression functor mixing the data.
 		//
 		inline static constexpr void compress( value_type& iv, const uint8_t* block )
@@ -117,187 +314,8 @@ namespace xstd
 			for ( size_t n = 0; n != ivd.size(); n++ )
 				iv[ n ] += ivd[ n ];
 		}
-
-		// Crypto state.
-		//
-		value_type iv;
-		size_t     input_length = 0;
-		block_type leftover = { 0 };
-
-		// Construct a new hash from an optional IV of 160-bit value.
-		//
-		constexpr sha1() noexcept
-			: iv{ default_iv } {}
-		constexpr sha1( value_type result ) noexcept
-			: iv{ result }, input_length( std::string::npos ) {}
-		constexpr sha1( value_type iv160, iv_tag ) noexcept
-			: iv{ iv160 } {}
-
-		// Default copy/move.
-		//
-		constexpr sha1( sha1&& ) noexcept = default;
-		constexpr sha1( const sha1& ) = default;
-		constexpr sha1& operator=( sha1&& ) noexcept = default;
-		constexpr sha1& operator=( const sha1& ) = default;
-
-		// Returns whether or not hash is finalized.
-		//
-		FORCE_INLINE constexpr bool finalized() const { return input_length == std::string::npos; }
-
-		// Skips to next block.
-		//
-		FORCE_INLINE constexpr void next_block() 
-		{
-			compress( iv, leftover.data() );
-			leftover = { 0 };
-		}
-
-		// Appends the given array of bytes into the hash value.
-		//
-		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
-		{
-			size_t prev_length = input_length;
-			input_length += n;
-			assume( input_length != std::string::npos );
-
-			// If there was a leftover:
-			//
-			if ( size_t offset = prev_length % block_size ) {
-				// Pad with new data.
-				//
-				size_t space_available = block_size - offset;
-				size_t copy_count =      std::min( n, space_available );
-				if ( std::is_constant_evaluated() )
-					std::copy_n( data, copy_count, leftover.data() + offset );
-				else
-					memcpy( leftover.data() + offset, data, copy_count );
-				n -=    copy_count;
-				data += copy_count;
-
-				// Finish the block.
-				//
-				if ( space_available == copy_count ) {
-					next_block();
-				}
-
-				// Break if done.
-				//
-				if ( !n ) return;
-			}
-
-			// Add full blocks.
-			//
-			while ( n >= block_size ) {
-				compress( iv, data );
-				n -=     block_size;
-				data +=  block_size;
-			}
-
-			// Add the remainder.
-			//
-			if ( n ) {
-				if ( std::is_constant_evaluated() )
-					std::copy_n( data, n, leftover.begin() );
-				else
-					memcpy( leftover.data(), data, n );
-			}
-		}
-
-		// Appends the given trivial value as bytes into the hash value.
-		//
-		template<typename T>
-		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
-		{
-			if ( std::is_constant_evaluated() )
-			{
-				using array_t = std::array<uint8_t, sizeof( T )>;
-				array_t arr = bit_cast< array_t >( data );
-				add_bytes( arr.data(), arr.size() );
-			}
-			else
-			{
-				add_bytes( ( const uint8_t* ) &data, sizeof( T ) );
-			}
-		}
-
-		// Finalization of the hash.
-		//
-		FORCE_INLINE constexpr auto& finalize() noexcept
-		{
-			if ( finalized() ) return *this;
-			
-			// Apply the leftover block and terminate the stream.
-			//
-			size_t leftover_offset = input_length % block_size;
-			leftover[ leftover_offset++ ] = 0x80;
-			
-			// If padding does not fit in the current block, compress first.
-			//
-			if ( leftover_offset > ( block_size - 8 ) ) {
-				next_block();
-			}
-
-			// Append the big endian length at the end.
-			//
-			size_t bit_count = input_length * 8;
-			if ( std::is_constant_evaluated() ) {
-				leftover[ block_size - 1 ] = ( uint8_t ) ( bit_count );
-				leftover[ block_size - 2 ] = ( uint8_t ) ( bit_count >> 8 );
-				leftover[ block_size - 3 ] = ( uint8_t ) ( bit_count >> 16 );
-				leftover[ block_size - 4 ] = ( uint8_t ) ( bit_count >> 24 );
-				leftover[ block_size - 5 ] = ( uint8_t ) ( bit_count >> 32 );
-				leftover[ block_size - 6 ] = ( uint8_t ) ( bit_count >> 40 );
-				leftover[ block_size - 7 ] = ( uint8_t ) ( bit_count >> 48 );
-				leftover[ block_size - 8 ] = ( uint8_t ) ( bit_count >> 56 );
-			} else {
-				*( uint64_t* ) &leftover[ block_size - 8 ] = bswapq( bit_count );
-			}
-
-			// Compress again.
-			//
-			next_block();
-
-			// Write the digest and set the flag.
-			//
-			for ( auto& v : iv )
-				v = bswap( v );
-			input_length = std::string::npos;
-			return *this;
-		}
-		FORCE_INLINE constexpr value_type digest() noexcept { return finalize().iv; }
-		FORCE_INLINE constexpr value_type digest() const noexcept
-		{
-			if ( finalized() ) [[likely]]
-				return iv;
-			auto clone{ *this };
-			return clone.digest();
-		}
-
-		// Explicit conversions.
-		//
-		constexpr value_type as160() const noexcept { return digest(); }
-		constexpr uint32_t as32() const noexcept { return as160()[ 0 ]; }
-		constexpr uint64_t as64() const noexcept
-		{
-			auto v = as160();
-			return ( uint64_t( v[ 1 ] ) << 32 ) | v[ 0 ];
-		}
-
-		// Implicit conversions.
-		//
-		constexpr operator value_type() const noexcept { return as160(); }
-		constexpr operator uint64_t() const noexcept { return as64(); }
-
-		// Conversion to human-readable format.
-		//
-		std::string to_string() const { return fmt::as_hex_string( digest() ); }
-
-		// Basic comparison operators.
-		//
-		constexpr bool operator<( const sha1& o ) const noexcept { return digest() < o.digest(); }
-		constexpr bool operator==( const sha1& o ) const noexcept { return digest() == o.digest(); }
-		constexpr bool operator!=( const sha1& o ) const noexcept { return digest() != o.digest(); }
 	};
+	using sha1 =   basic_sha<sha1_traits>;
 	using sha1_t = typename sha1::value_type;
 };
 
