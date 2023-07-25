@@ -21,7 +21,11 @@
 #include "../ia32.hpp"
 namespace xstd::impl {
 	FORCE_INLINE inline bool hw_sha256_compress_s( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const ) {
-		return ia32::sha256_compress_s( iv, block, ik_const );
+		if ( !ia32::static_cpuid_s<7, 0, ia32::cpuid_eax_07>.ebx.sha ) {
+			return false;
+		}
+		ia32::sha256_compress( iv, block, ik_const );
+		return true;
 	}
 }
 #endif

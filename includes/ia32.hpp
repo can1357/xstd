@@ -27174,14 +27174,7 @@ namespace ia32
 		xstd::store_misaligned<v4d_u>( iv, ABCD );
 		iv[ 4 ] = E0[ 3 ];
 	}
-	_LINKAGE bool sha1_compress_s( uint32_t* iv, const uint8_t* block )
-	{
-		if ( !static_cpuid_s<7, 0, cpuid_eax_07>.ebx.sha ) {
-			return false;
-		}
-		sha1_compress( iv, block );
-		return true;
-	}
+
 	// SHA-256 implementation.
 	//
 	_LINKAGE void sha256_compress( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const )
@@ -27363,14 +27356,6 @@ namespace ia32
 		
 		xstd::store_misaligned<v4d_u>( &iv[ 0 ], __builtin_shufflevector( TMP, STATE1, 3, 2, 7, 6 ) ); // DCHG
 		xstd::store_misaligned<v4d_u>( &iv[ 4 ], __builtin_shufflevector( TMP, STATE1, 1, 0, 5, 4 ) ); // BAFE
-	}
-	_LINKAGE bool sha256_compress_s( uint32_t* iv, const uint8_t* block, const uint32_t* ik_const )
-	{
-		if ( !static_cpuid_s<7, 0, cpuid_eax_07>.ebx.sha ) {
-			return false;
-		}
-		sha256_compress( iv, block, ik_const );
-		return true;
 	}
 
 	// Non-temporal memory helpers.
