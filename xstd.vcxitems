@@ -57,7 +57,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\flat_map.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\frozen.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp" />
