@@ -25909,7 +25909,7 @@ namespace ia32
 	}
 	_LINKAGE uint64_t read_pmc( uint64_t id, bool fixed = false, bool fast = false )
 	{
-		if ( fast ) id |= 1ull << 31;
+		if ( fast )  id |= 1ull << 31;
 		if ( fixed ) id |= 1ull << 30;
 
 		uint32_t low, high;
@@ -26113,6 +26113,7 @@ namespace ia32
 	{
 		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.invpcid ) [[likely]] {
 			invpcid( invpcid_type::global, 0, nullptr );
+			return;
 		}
 		auto cr4 = read_cr4();
 		write_cr4( { .flags = cr4.flags ^ CR4_PAGE_GLOBAL_ENABLE_FLAG } );
