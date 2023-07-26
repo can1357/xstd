@@ -60,6 +60,7 @@ namespace ia32::apic
 
 	// Global APIC mapping if relevant.
 	//
+	inline apic_base_register info = {};
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 	FORCE_INLINE inline void set_apic_base( volatile uint32_t* value ) { __builtin_store_dynamic( "@.apic_base", ( void* ) value ); }
 	FORCE_INLINE CONST_FN inline volatile uint32_t* apic_base() { return ( volatile uint32_t* ) __builtin_fetch_dynamic( "@.apic_base" ); }
@@ -195,32 +196,33 @@ namespace ia32::apic
 			cmd.sh_group = group;
 			send_command( cmd );
 		}
+		inline void request_nmi( uint32_t identifier ) const noexcept
+		{
+			command cmd = {};
+			cmd.mode = delivery_mode::nmi;
+			send_command( cmd, identifier );
+		}
 	};
 
 	// Initialization of the APIC base.
 	//
-	inline bool initialized = false;
-	inline bool init()
-	{
+	inline bool initialized() { return info.apic_global_enable; }
+	inline bool init() {
 		// Fail if APIC is not enabled.
 		//
-		auto apic_info = read_msr<apic_base_register>( IA32_APIC_BASE );
-		if ( !apic_info.apic_global_enable )
+		info = read_msr<apic_base_register>( IA32_APIC_BASE );
+		if ( !info.apic_global_enable )
 			return false;
 
 		// If not in x2apic mode, map the memory and assign the APIC base.
 		//
-		if ( !apic_info.enable_x2apic_mode )
-		{
+		if ( !info.enable_x2apic_mode ) {
 			static mem::unique_phys_ptr<volatile uint32_t> base;
-			base = mem::map_physical<volatile uint32_t>( apic_info.apic_base << 12, 0x1000 );
+			base = mem::map_physical<volatile uint32_t>( info.apic_base << 12, 0x1000 );
 			set_apic_base( base.get() );
-		}
-		else
-		{
+		} else {
 			set_apic_base( nullptr );
 		}
-		initialized = true;
 		return true;
 	}
 };
