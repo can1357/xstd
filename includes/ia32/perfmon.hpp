@@ -64,11 +64,11 @@ namespace ia32::pmu
 	//  - Maps the platform and event identifier to a fixed counter index where possible, otherwise maps to npos.
 	//
 	template<bool is_intel, event_id evt>
-	struct fixed_counter { static constexpr size_t value = std::string::npos /*None*/; };
+	struct fixed_counter { static constexpr uint32_t value = UINT32_MAX /*None*/; };
 	// -- Intel exclusive fixed counters.
-	template<> struct fixed_counter<true, event_id::ins_retire> { static constexpr size_t value = 0; };
-	template<> struct fixed_counter<true, event_id::clock_core> { static constexpr size_t value = 1; };
-	template<> struct fixed_counter<true, event_id::clock_tsc> { static constexpr size_t value = 2; };
+	template<> struct fixed_counter<true, event_id::ins_retire> { static constexpr uint32_t value = 0; };
+	template<> struct fixed_counter<true, event_id::clock_core> { static constexpr uint32_t value = 1; };
+	template<> struct fixed_counter<true, event_id::clock_tsc> { static constexpr uint32_t value = 2; };
 
 	// Dynamic event selectors.
 	//  - Maps the platform and event identifier to a event selector where possible, otherwise maps to the null selector.
@@ -107,7 +107,7 @@ namespace ia32::pmu
 
 	// Shortcuts.
 	//
-	template<bool is_intel, event_id evt> inline constexpr size_t   fixed_counter_v =    fixed_counter<is_intel, evt>::value;
+	template<bool is_intel, event_id evt> inline constexpr uint32_t fixed_counter_v =    fixed_counter<is_intel, evt>::value;
 	template<bool is_intel, event_id evt> inline constexpr evtsel_t dynamic_selector_v = dynamic_selector<is_intel, evt>::value;
 
 	// Configuration traits for each platform.
@@ -119,7 +119,7 @@ namespace ia32::pmu
 
 		// Shortcuts.
 		//
-		template<event_id evt> static constexpr size_t fixed_counter() { return fixed_counter_v<is_intel, evt>; }
+		template<event_id evt> static constexpr uint32_t fixed_counter() { return fixed_counter_v<is_intel, evt>; }
 		template<event_id evt> static constexpr evtsel_t dynamic_selector() { return dynamic_selector_v<is_intel, evt>; }
 
 		// Status MSRs.
@@ -167,16 +167,16 @@ namespace ia32::pmu
 			//}
 			return 48;
 		}
-		inline static constexpr size_t get_counter_max_value()
+		inline static constexpr uint64_t get_counter_max_value()
 		{
 			return xstd::fill_bits( get_counter_resolution() );
 		}
-		inline static size_t get_dynamic_counter_count()
+		inline static uint32_t get_dynamic_counter_count()
 		{
 			if constexpr ( is_intel )
 			{
-				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>;
-				return caps.eax.number_of_performance_monitoring_counter_per_logical_processor;
+				auto& caps = static_cpuid_s<0xA, 0, cpuid_eax_0a>;
+				return ( uint32_t ) caps.eax.number_of_performance_monitoring_counter_per_logical_processor;
 			}
 			else
 			{
@@ -187,12 +187,13 @@ namespace ia32::pmu
 					return 4;
 			}
 		}
-		inline static size_t get_fixed_counter_count()
+		inline static uint32_t get_fixed_counter_count()
 		{
 			if constexpr ( is_intel )
 			{
 				auto& caps = static_cpuid<0xA, 0, cpuid_eax_0a>;
-				return caps.edx.number_of_fixed_function_performance_counters;
+				if ( caps.eax.version_id_of_architectural_performance_monitoring > 1 )
+					return ( uint32_t ) caps.edx.number_of_fixed_function_performance_counters;
 			}
 			return 0;
 		}
@@ -202,33 +203,34 @@ namespace ia32::pmu
 		// - Null MSRs indicate failure.
 		// - Note: Fixed counter control MSR is a bitset.
 		//
-		inline static constexpr std::pair<uint32_t, uint32_t> resolve_dynamic( size_t index, bool alias = false )
+		inline static constexpr std::pair<uint32_t, uint32_t> resolve_dynamic( uint32_t index, bool alias = false, bool dyn_count = false )
 		{
 			// Validate the counter index.
 			//
-			if ( index >= aliasing_counter_limit )
+			if ( index == UINT32_MAX || index >= aliasing_counter_limit )
+				return { UINT32_MAX, UINT32_MAX };
+			if ( dyn_count && get_dynamic_counter_count() <= index )
 				return { UINT32_MAX, UINT32_MAX };
 
 			// Return the mapping MSRs.
 			//
-			if ( !alias && index < counter_limit )
-			{
+			if ( !alias && index < counter_limit ) {
 				uint32_t offset = counter_stride * index;
 				return { config_base + offset, counter_base + offset };
-			}
-			else
-			{
+			} else {
 				uint32_t offset = aliasing_counter_stride * index;
 				return { aliasing_config_base + offset, aliasing_counter_base + offset };
 			}
 		}
-		inline static constexpr std::pair<uint32_t, uint32_t> resolve_fixed( size_t index )
+		inline static constexpr std::pair<uint32_t, uint32_t> resolve_fixed( uint32_t index, bool dyn_count = false )
 		{
 			// Validate the counter index.
 			//
 			if constexpr ( fixed_control == UINT32_MAX || fixed_counter_base == UINT32_MAX )
 				return { UINT32_MAX, UINT32_MAX };
-			if ( index >= fixed_counter_limit )
+			if ( index == UINT32_MAX || index >= fixed_counter_limit )
+				return { UINT32_MAX, UINT32_MAX };
+			if ( dyn_count && get_fixed_counter_count() <= index )
 				return { UINT32_MAX, UINT32_MAX };
 
 			// Return the mapping MSRs.
@@ -264,9 +266,9 @@ namespace ia32::pmu
 	};
 
 	// Changes the state configuration given the dynamic/fixed counter.
-	// - Returns false/npos on failure, else true/counter index.
+	// - Returns false/umax on failure, else true/counter index.
 	//
-	FORCE_INLINE inline bool dynamic_set_state( size_t index, evtsel_t selector, uint32_t flags, bool update_global = false )
+	FORCE_INLINE inline bool dynamic_set_state( uint32_t index, evtsel_t selector, uint32_t flags, bool update_global = false )
 	{
 		// Visit the platform.
 		//
@@ -307,7 +309,7 @@ namespace ia32::pmu
 		} );
 		return success;
 	}
-	FORCE_INLINE inline bool dynamic_set_state( size_t index, event_id event, uint32_t flags, bool update_global = false )
+	FORCE_INLINE inline bool dynamic_set_state( uint32_t index, event_id event, uint32_t flags, bool update_global = false )
 	{
 		// Visit the event identifier.
 		//
@@ -326,11 +328,11 @@ namespace ia32::pmu
 		} );
 		return success;
 	}
-	FORCE_INLINE inline size_t fixed_set_state( event_id event, uint32_t flags, bool update_global = false )
+	FORCE_INLINE inline uint32_t fixed_set_state( event_id event, uint32_t flags, bool update_global = false )
 	{
 		// Visit the platform.
 		//
-		size_t index = std::string::npos;
+		uint32_t index = UINT32_MAX;
 		visit_traits( [ & ] <typename traits> ( traits )
 		{
 			// Validate the fixed control register.
@@ -344,8 +346,8 @@ namespace ia32::pmu
 			{
 				// Map and validate the selector.
 				//
-				size_t iindex = traits::template fixed_counter<evt>();
-				if ( iindex == std::string::npos )
+				uint32_t iindex = traits::template fixed_counter<evt>();
+				if ( iindex == UINT32_MAX )
 					return;
 				if ( traits::get_fixed_counter_count() <= iindex )
 					return;
@@ -388,7 +390,7 @@ namespace ia32::pmu
 	// Queries the state configuration given the dynamic/fixed counter.
 	// - Returns zero on failure.
 	//
-	FORCE_INLINE inline counter_flags dynamic_query_state( size_t index, bool query_global = true )
+	FORCE_INLINE inline counter_flags dynamic_query_state( uint32_t index, bool query_global = true )
 	{
 		// Visit the platform.
 		//
@@ -418,7 +420,7 @@ namespace ia32::pmu
 			return counter_flags( read_msr( cfg ) );
 		} );
 	}
-	FORCE_INLINE inline counter_flags fixed_query_state( size_t index, bool query_global = true )
+	FORCE_INLINE inline counter_flags fixed_query_state( uint32_t index, bool query_global = true )
 	{
 		return visit_traits( [ & ] <typename traits> ( traits ) -> counter_flags
 		{
@@ -461,7 +463,7 @@ namespace ia32::pmu
 	// Sets the counter value given the dynamic/fixed counter.
 	// - Returns false on failure.
 	//
-	FORCE_INLINE inline bool dynamic_set_value( size_t index, uint64_t value )
+	FORCE_INLINE inline bool dynamic_set_value( uint32_t index, uint64_t value )
 	{
 		// Visit the platform.
 		//
@@ -479,7 +481,7 @@ namespace ia32::pmu
 			return true;
 		} );
 	}
-	FORCE_INLINE inline bool fixed_set_value( size_t index, uint64_t value )
+	FORCE_INLINE inline bool fixed_set_value( uint32_t index, uint64_t value )
 	{
 		// Visit the platform.
 		//
@@ -502,7 +504,7 @@ namespace ia32::pmu
 	// - This funtion (as opposed to directly calling read_pmc) will do validation and return 0 on an illegal call,
 	//   so it is slower than the alternative. It will also read using the MSR.
 	//
-	FORCE_INLINE inline uint64_t dynamic_query_value( size_t index )
+	FORCE_INLINE inline uint64_t dynamic_query_value( uint32_t index )
 	{
 		return visit_traits( [ & ] <typename traits> ( traits ) -> uint64_t
 		{
@@ -510,7 +512,7 @@ namespace ia32::pmu
 			return ( cnt && cfg ) ? read_msr( cnt ) : 0;
 		} );
 	}
-	FORCE_INLINE inline uint64_t fixed_query_value( size_t index )
+	FORCE_INLINE inline uint64_t fixed_query_value( uint32_t index )
 	{
 		return visit_traits( [ & ] <typename traits> ( traits ) -> uint64_t
 		{
@@ -520,8 +522,8 @@ namespace ia32::pmu
 	}
 
 	// Quick disable shortcuts.
-	// - Returns false/npos on failure, else true/counter index.
+	// - Returns false/umax on failure, else true/counter index.
 	//
-	FORCE_INLINE inline bool dynamic_disable( size_t index, bool update_global = false ) { return dynamic_set_state( index, event_id::none, 0, update_global ); }
-	FORCE_INLINE inline size_t fixed_disable( event_id event, bool update_global = false ) { return fixed_set_state( event, 0, update_global ); }
+	FORCE_INLINE inline bool dynamic_disable( uint32_t index, bool update_global = false ) { return dynamic_set_state( index, event_id::none, 0, update_global ); }
+	FORCE_INLINE inline uint32_t fixed_disable( event_id event, bool update_global = false ) { return fixed_set_state( event, 0, update_global ); }
 };
