@@ -25674,7 +25674,7 @@ namespace ia32
 	
 	namespace impl
 	{
-		inline char cpu_brand[ 48 ] = { 0 };
+		inline char cpu_brand[ 49 ] = { 0 };
 
 		template<uint64_t leaf, uint64_t subleaf>
 		struct cpuid_result_of {
@@ -25801,11 +25801,11 @@ namespace ia32
 
 	// Gets CPU brand.
 	//
-	_LINKAGE std::string_view get_brand() {
+	_LINKAGE const char* get_brand() {
 		( void ) static_cpuid<CPUID_BRAND_STRING1>;
 		( void ) static_cpuid<CPUID_BRAND_STRING2>;
 		( void ) static_cpuid<CPUID_BRAND_STRING3>;
-		return { impl::cpu_brand, std::size( impl::cpu_brand ) };
+		return &impl::cpu_brand[ 0 ];
 	}
 
 	// Wrappers around EFLAGS.
