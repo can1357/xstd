@@ -260,7 +260,7 @@ namespace xstd::math
 							}
 						}
 					} else {
-						dassert( false );
+						unreachable_s();
 					}
 				} else {
 					for ( auto& f : std::span{ this->data(), this->llen() } ) {

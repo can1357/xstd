@@ -97,14 +97,17 @@ namespace xstd
 	#define dassert_s( ... ) xassert( __VA_ARGS__ )
 	#define fassert(...)     xassert( __VA_ARGS__ )
 	#define fassert_s( ... ) xassert( __VA_ARGS__ )
+	#define unreachable_s()  do{  dassert( false ); unreachable(); } while(false)
 #elif XSTD_ASSERT_LEVEL >= 1
 	#define dassert(...)     do{}while(false)
 	#define dassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
 	#define fassert(...)     xassert( __VA_ARGS__ )
 	#define fassert_s( ... ) xassert( __VA_ARGS__ )
+	#define unreachable_s()  unreachable()
 #else
 	#define dassert(...)     do{}while(false)
 	#define dassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
 	#define fassert(...)     do{}while(false)
 	#define fassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
+	#define unreachable_s()  unreachable()
 #endif
