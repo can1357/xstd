@@ -25640,7 +25640,10 @@ namespace ia32
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wuninitialized"
 	using cpuid_result =    std::array<uint32_t, 4>;
-	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+	template<typename T>
+	concept CpuidResult = sizeof( T ) == sizeof( cpuid_result );
+
+	template<CpuidResult T = cpuid_result>
 	_LINKAGE T query_cpuid( uint64_t leaf, uint64_t subleaf = 0 )
 	{
 		cpuid_result result;
@@ -25652,7 +25655,7 @@ namespace ia32
 		)" : "=a"( result[ 0 ] ), "=&r"( result[ 1 ] ), "=c"( result[ 2 ] ), "=&d"( result[ 3 ] ) : "r" ( tmp ), "a"( leaf ), "c"( subleaf ) );
 		return xstd::bit_cast< T >( result );
 	}
-	template<typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+	template<CpuidResult T = cpuid_result>
 	_LINKAGE void query_cpuid( T* out, uint64_t leaf, uint64_t subleaf = 0 )
 	{
 		v4d_u result;
@@ -25671,55 +25674,107 @@ namespace ia32
 	
 	namespace impl
 	{
+		inline char cpu_brand[ 48 ] = { 0 };
+
 		template<uint64_t leaf, uint64_t subleaf>
-		struct cpuid_result_of
-		{
+		struct cpuid_result_of {
 			inline static cpuid_result value = {};
 			[[gnu::constructor( 103 ), gnu::used]] inline static void init() { query_cpuid( &value, leaf, subleaf ); }
 		};
 		template<>
-		struct cpuid_result_of<0, 0>
-		{
+		struct cpuid_result_of<0, 0> {
 			inline static cpuid_result value = {};
 			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, 0, 0 ); }
 		};
 		template<>
-		struct cpuid_result_of<0x80000000, 0>
-		{
+		struct cpuid_result_of<0x80000000, 0> {
 			inline static cpuid_result value = {};
 			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, 0x80000000, 0 ); }
 		};
+		template<>
+		struct cpuid_result_of<CPUID_BRAND_STRING1, 0> {
+			static constexpr char& value = cpu_brand[ 0 ];
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( ( cpuid_result* ) &value, CPUID_BRAND_STRING1, 0 ); }
+		};
+		template<>
+		struct cpuid_result_of<CPUID_BRAND_STRING2, 0> {
+			static constexpr char& value = cpu_brand[ 16 ];
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( ( cpuid_result* ) &value, CPUID_BRAND_STRING2, 0 ); }
+		};
+		template<>
+		struct cpuid_result_of<CPUID_BRAND_STRING3, 0> {
+			static constexpr char& value = cpu_brand[ 32 ];
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( ( cpuid_result* ) &value, CPUID_BRAND_STRING3, 0 ); }
+		};
+		_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) {
+			if ( ( leaf >> 28 ) == 8 ) {
+				return cpuid_result_of<0x80000000, 0>::value[ 0 ] >= leaf;
+			} else if ( ( leaf >> 28 ) == 0 ) {
+				return cpuid_result_of<0, 0>::value[ 0 ] >= leaf;
+			} else {
+				return true; // ?
+			}
+		}
+		template<uint64_t leaf>
+		_LINKAGE constexpr bool is_cpuid_leaf_assumed() {
+			switch ( leaf >> 28 ) {
+				// We can assume the existance of extended info and brand info, rest must be done safely.
+				//
+				case 8: {
+					if ( leaf <= CPUID_BRAND_STRING3 ) return true;
+					return false;
+				}
+				// We can assume cpuid 1:x exists granted SSE is assumed, else unknown.
+				//
+				case 0: {
+#if __AVX__ || __SSE__
+					if ( leaf <= 1 ) return true;
+#endif
+					return false;
+				}
+
+				// Can't write safe wrappers, so assume existing.
+				//
+				default:
+					return true;
+			}
+		}
+		template<uint64_t leaf>
+		static constexpr bool is_cpuid_leaf_assumed_v = is_cpuid_leaf_assumed<leaf>();
+
 		template<uint64_t leaf, uint64_t subleaf>
-		struct cpuid_result_of_s
-		{
+		struct cpuid_result_of_s {
 			inline static cpuid_result value = {};
 			[[gnu::constructor( 103 ), gnu::used]] inline static void init()
-			{ 
-				if ( cpuid_result_of<( leaf & 0x80000000 ), 0>::value[ 0 ] >= leaf )
+			{
+				if ( has_cpuid_leaf( leaf ) )
 					query_cpuid( &value, leaf, subleaf );
 			}
 		};
+		template<uint64_t leaf, uint64_t subleaf> requires is_cpuid_leaf_assumed_v<leaf>
+		struct cpuid_result_of_s<leaf, subleaf> {
+			static constexpr cpuid_result& value = cpuid_result_of<leaf, subleaf>::value;
+		};
 	};
 	_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) {
-		if ( leaf >= 0x80000000 )
-			return impl::cpuid_result_of<0x80000000, 0>::value[ 0 ] >= leaf;
-		return impl::cpuid_result_of<0, 0>::value[ 0 ] >= leaf;
+		return impl::has_cpuid_leaf( leaf );
 	}
 	
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) )
+	template<uint64_t leaf, uint64_t subleaf = 0, CpuidResult T = cpuid_result>
 	inline const T& static_cpuid =   *( const T* ) &impl::cpuid_result_of<leaf, subleaf>::value;
-	template<uint64_t leaf, uint64_t subleaf = 0, typename T = cpuid_result> requires( sizeof( T ) == sizeof( cpuid_result ) && leaf != 0 && ( leaf < 0x40000000 || leaf >= 0x80000000 ) )
+	template<uint64_t leaf, uint64_t subleaf = 0, CpuidResult T = cpuid_result>
 	inline const T& static_cpuid_s = *( const T* ) &impl::cpuid_result_of_s<leaf, subleaf>::value;
 
 	// Refreshes a previously queried CPUID result.
 	//
-	template<uint64_t leaf, uint64_t subleaf = 0> requires ( leaf != 0 )
+	template<uint64_t leaf, uint64_t subleaf = 0> requires ( leaf != 0 && leaf != 0x80000000 )
 	_LINKAGE void refresh_cpuid() 
 	{
 		cpuid_result result = query_cpuid<cpuid_result>( leaf, subleaf );
 		impl::cpuid_result_of<leaf, subleaf>::value = result;
-		if ( has_cpuid_leaf( leaf ) )
-			impl::cpuid_result_of_s<leaf, subleaf>::value = result;
+		if constexpr ( !impl::is_cpuid_leaf_assumed_v<leaf> ) {
+			if ( has_cpuid_leaf( leaf ) ) impl::cpuid_result_of_s<leaf, subleaf>::value = result;
+		}
 	}
 	
 	// Checks if the CPU vendor is Intel.
@@ -25740,12 +25795,18 @@ namespace ia32
 		via =        "VIA VIA VIA "[ vendor_uid_idx ],
 		vortex =     "Vortex86 SoC"[ vendor_uid_idx ],
 	};
-	_LINKAGE CONST_FN cpu_vendor get_vendor()
-	{
-		return ( ( const cpu_vendor* ) &static_cpuid<0, 0, cpuid_eax_00>.ebx_value_genu )[ vendor_uid_idx ];
-	}
+	_LINKAGE CONST_FN cpu_vendor get_vendor() { return ( ( const cpu_vendor* ) &static_cpuid<0, 0, cpuid_eax_00>.ebx_value_genu )[ vendor_uid_idx ]; }
 	_LINKAGE CONST_FN bool is_intel() { return get_vendor() == cpu_vendor::intel; }
 	_LINKAGE CONST_FN bool is_amd() { return get_vendor() == cpu_vendor::amd; }
+
+	// Gets CPU brand.
+	//
+	_LINKAGE std::string_view get_brand() {
+		( void ) static_cpuid<CPUID_BRAND_STRING1>;
+		( void ) static_cpuid<CPUID_BRAND_STRING2>;
+		( void ) static_cpuid<CPUID_BRAND_STRING3>;
+		return { impl::cpu_brand, std::size( impl::cpu_brand ) };
+	}
 
 	// Wrappers around EFLAGS.
 	//
@@ -26123,7 +26184,7 @@ namespace ia32
 	{
 		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.invpcid ) [[likely]] {
 			invpcid( invpcid_type::local, 0, nullptr );
-		} else if ( static_cpuid_s<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx.process_context_identifiers ) {
+		} else if ( static_cpuid<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx.process_context_identifiers ) {
 			auto cr4 = read_cr4();
 			write_cr4( { .flags = cr4.flags ^ CR4_PAGE_GLOBAL_ENABLE_FLAG } );
 			write_cr4( cr4 );
@@ -26856,7 +26917,7 @@ namespace ia32
 
 		// Use a pause loop if MONITOR is not available.
 		//
-		const auto& monitor_flags = static_cpuid_s<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx;
+		const auto& monitor_flags = static_cpuid<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx;
 		const bool mwait_supported = monitor_flags.monitor_mwait_instruction;
 		if ( !mwait_supported ) [[unlikely]]
 		{
