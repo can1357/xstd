@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 #include <tuple>
 #include <array>
 #include <xstd/intrinsics.hpp>
@@ -26559,74 +26559,6 @@ namespace ia32
 		return out;
 	}
 
-	// I/O ports.
-	//
-	template<typename T> requires ( sizeof( T ) <= 4 )
-	_LINKAGE T read_io( uint16_t adr )
-	{
-		union
-		{
-			uint8_t  i8;
-			uint16_t i16;
-			uint32_t i32;
-			T t;
-		} value = { .i32 = 0 };
-		if constexpr ( sizeof( T ) > 2 )
-			asm volatile( "in %%dx, %%eax" : "=a" ( value.i32 ) : "d" ( adr ) );
-		else if constexpr ( sizeof( T ) > 1 )
-			asm volatile( "in %%dx, %%ax"  : "=a" ( value.i16 ) : "d" ( adr ) );
-		else
-			asm volatile( "in %%dx, %%al"  : "=a" ( value.i8 )  : "d" ( adr ) );
-		return value.t;
-	}
-	template<typename T> requires ( sizeof( T ) <= 4 )
-	_LINKAGE void read_io( xstd::any_ptr dst, uint16_t adr, size_t count )
-	{
-		if constexpr ( sizeof( T ) > 2 )
-			asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
-		else if constexpr ( sizeof( T ) > 1 )
-			asm volatile( "cld; rep insw" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
-		else
-			asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
-	}
-	template<typename T = uint8_t> requires ( sizeof( T ) <= 4 )
-	_LINKAGE void write_io( uint16_t adr, T tvalue )
-	{
-		union
-		{
-			uint8_t  i8;
-			uint16_t i16;
-			uint32_t i32;
-			T t;
-		} value = { .i32 = 0 };
-		value.t = tvalue;
-		if constexpr ( sizeof( T ) > 2 )
-			asm volatile( "out %%eax, %%dx" :: "a" ( value.i32 ), "d" ( adr ) );
-		else if constexpr ( sizeof( T ) > 1 )
-			asm volatile( "out %%ax, %%dx"  :: "a" ( value.i16 ), "d" ( adr ) );
-		else
-			asm volatile( "out %%al, %%dx"  :: "a" ( value.i8 ),  "d" ( adr ) );
-	}
-	template<typename T> requires ( sizeof( T ) <= 4 )
-	_LINKAGE void write_io( uint16_t adr, xstd::any_ptr dst, size_t count )
-	{
-		if constexpr ( sizeof( T ) > 2 )
-			asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
-		else if constexpr ( sizeof( T ) > 1 )
-			asm volatile( "cld; rep outsw" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
-		else
-			asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
-	}
-	_LINKAGE void usleep()
-	{
-		write_io<uint8_t>( 0x80, 0 );
-	}
-	_LINKAGE void usleep( xstd::time::microseconds u )
-	{
-		for ( long long n = 0; n < u.count(); n++ )
-			usleep();
-	}
-
 	// Interrupt mask.
 	//
 	_LINKAGE void disable() { asm volatile( "cli" ); }
@@ -26818,6 +26750,67 @@ namespace ia32
 	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrs( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestris128( a, la, b, lb, mode ); }
 	template<uint8_t mode> _LINKAGE PURE_FN int cmpstrz( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestriz128( a, la, b, lb, mode ); }
 	template<uint8_t mode> _LINKAGE PURE_FN v16qi cmpstrm( v16qi a, int la, v16qi b, int lb ) { return __builtin_ia32_pcmpestrm128( a, la, b, lb, mode ); }
+	
+
+	// I/O ports.
+	//
+	template<typename T> requires ( sizeof( T ) <= 4 )
+	_LINKAGE T read_io( uint16_t adr )
+	{
+		union
+		{
+			uint8_t  i8;
+			uint16_t i16;
+			uint32_t i32;
+			T t;
+		} value = { .i32 = 0 };
+		if constexpr ( sizeof( T ) > 2 )
+			asm volatile( "in %%dx, %%eax" : "=a" ( value.i32 ) : "d" ( adr ) );
+		else if constexpr ( sizeof( T ) > 1 )
+			asm volatile( "in %%dx, %%ax"  : "=a" ( value.i16 ) : "d" ( adr ) );
+		else
+			asm volatile( "in %%dx, %%al"  : "=a" ( value.i8 )  : "d" ( adr ) );
+		return value.t;
+	}
+	template<typename T> requires ( sizeof( T ) <= 4 )
+	_LINKAGE void read_io( xstd::any_ptr dst, uint16_t adr, size_t count )
+	{
+		if constexpr ( sizeof( T ) > 2 )
+			asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+		else if constexpr ( sizeof( T ) > 1 )
+			asm volatile( "cld; rep insw" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+		else
+			asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+	}
+	template<typename T = uint8_t> requires ( sizeof( T ) <= 4 )
+	_LINKAGE void write_io( uint16_t adr, T tvalue )
+	{
+		union
+		{
+			uint8_t  i8;
+			uint16_t i16;
+			uint32_t i32;
+			T t;
+		} value = { .i32 = 0 };
+		value.t = tvalue;
+		if constexpr ( sizeof( T ) > 2 )
+			asm volatile( "out %%eax, %%dx" :: "a" ( value.i32 ), "d" ( adr ) );
+		else if constexpr ( sizeof( T ) > 1 )
+			asm volatile( "out %%ax, %%dx"  :: "a" ( value.i16 ), "d" ( adr ) );
+		else
+			asm volatile( "out %%al, %%dx"  :: "a" ( value.i8 ),  "d" ( adr ) );
+	}
+	template<typename T> requires ( sizeof( T ) <= 4 )
+	_LINKAGE void write_io( uint16_t adr, xstd::any_ptr dst, size_t count )
+	{
+		if constexpr ( sizeof( T ) > 2 )
+			asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+		else if constexpr ( sizeof( T ) > 1 )
+			asm volatile( "cld; rep outsw" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+		else
+			asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+	}
+	_LINKAGE void usleep() { write_io<uint8_t>( 0x80, 0 ); }
 
 	// Misc.
 	//
@@ -26829,17 +26822,36 @@ namespace ia32
 	{
 		asm volatile( "pause" ::: "memory" );
 	}
-	_LINKAGE bool tpause( uint32_t flags, uint64_t counter )
+	_LINKAGE bool tpause( uint32_t flags, uint64_t tsc )
 	{
-		uint32_t a = ( uint32_t ) counter;
-		uint32_t d = ( uint32_t ) ( counter >> 32 );
+		uint32_t a = ( uint32_t ) tsc;
+		uint32_t d = ( uint32_t ) ( tsc >> 32 );
 		int reached;
-		asm volatile( "tpause %0" : "=@ccc" ( reached ) : "r" ( flags ), "a"( a ), "d"( d ) : "memory", "flags" );
+		asm volatile( "tpause %1" : "=@ccc" ( reached ) : "r" ( flags ), "a"( a ), "d"( d ) : "memory", "flags" );
 		return reached;
 	}
 	_LINKAGE void halt()
 	{
 		asm volatile( "hlt" ::: "memory" );
+	}
+	_LINKAGE uint64_t pause_until( uint64_t tsc, uint64_t t0 = read_tsc() ) {
+		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ecx.waitpkg ) {
+			for ( ; t0 < tsc; t0 = read_tsc() ) {
+				tpause( 0, tsc );
+			}
+		} else if ( is_kernel_mode() && ( tsc - t0 ) > 5000 ) {
+			for ( ; t0 < tsc; t0 = read_tsc() ) {
+				usleep();
+			}
+		} else {
+			for ( ; t0 < tsc; t0 = read_tsc() ) {
+				pause();
+			}
+		}
+		return t0;
+	}
+	_LINKAGE uint64_t pause_for( uint64_t cycles, uint64_t t0 = read_tsc() ) {
+		return pause_until( cycles + t0, t0 );
 	}
 	
 	template<uint8_t CState, uint8_t SubCState = 0> requires ( SubCState <= 0x7 && CState <= 7 )

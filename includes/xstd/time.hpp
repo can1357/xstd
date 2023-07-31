@@ -9,9 +9,13 @@
 #include "algorithm.hpp"
 
 // [[Configuration]]
-// XSTD_DEFAULT_CLOCK: Changes the default high-accuracy clock.
+// XSTD_DEFAULT_CLOCK:      Changes the default high-accuracy clock.
+// XSTD_DEFAULT_CLOCK_READ: Forces xstd::time::now() to use a different function to return timestamp for XSTD_DEFAULT_CLOCK.
 #ifndef XSTD_DEFAULT_CLOCK
 	#define XSTD_DEFAULT_CLOCK std::chrono::high_resolution_clock
+#endif
+#ifndef XSTD_DEFAULT_CLOCK_READ
+	#define XSTD_DEFAULT_CLOCK_READ() (XSTD_DEFAULT_CLOCK::now().time_since_epoch().count())
 #endif
 
 // No-bloat chrono interface with some helpers and a profiler.
@@ -39,7 +43,7 @@ namespace xstd
 
 		// Wrap around base clock.
 		//
-		inline static timestamp now() { return base_clock::now(); }
+		inline static timestamp now() { return timestamp( duration( XSTD_DEFAULT_CLOCK_READ() ) ); }
 
 		// Declare conversion to string.
 		//
