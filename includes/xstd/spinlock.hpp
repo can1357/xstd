@@ -94,76 +94,60 @@ namespace xstd
 	{
 		std::atomic<uint16_t> counter = 0;
 
-		FORCE_INLINE bool try_lock()
-		{
+		FORCE_INLINE bool try_lock() {
 			uint16_t expected = 0;
 			return counter.compare_exchange_strong( expected, UINT16_MAX, std::memory_order::acquire );
 		}
-		FORCE_INLINE bool try_upgrade()
-		{
+		FORCE_INLINE bool try_upgrade() {
 			uint16_t expected = 1;
 			return counter.compare_exchange_strong( expected, UINT16_MAX, std::memory_order::acquire );
 		}
-		FORCE_INLINE bool try_lock_shared()
-		{
+		FORCE_INLINE bool try_lock_shared() {
 			uint16_t value = counter.load( std::memory_order::relaxed );
-			while ( value < ( UINT16_MAX - 1 ) )
-			{
-				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
+			while ( value < ( UINT16_MAX - 1 ) ) [[likely]] {
+				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) ) [[likely]]
 					return true;
 			}
 			return false;
 		}
-		FORCE_INLINE void downgrade()
-		{
+		FORCE_INLINE void downgrade() {
 			counter.store( 1, std::memory_order::release );
 		}
-		FORCE_INLINE void unlock()
-		{
+		FORCE_INLINE void unlock() {
 			dassert( counter.load( std::memory_order::relaxed ) == UINT16_MAX );
 			counter.store( 0, std::memory_order::release );
 		}
-		FORCE_INLINE void unlock_shared()
-		{
-			--counter;
+		FORCE_INLINE void unlock_shared() {
+			uint16_t prev = counter--;
+			dassert( 0 < prev && prev < UINT16_MAX );
 		}
-		FORCE_INLINE bool locked() const
-		{
+		FORCE_INLINE bool locked() const {
 			return counter.load( std::memory_order::relaxed ) != 0;
 		}
-		FORCE_INLINE bool locked_unique() const
-		{
+		FORCE_INLINE bool locked_unique() const {
 			return counter.load( std::memory_order::relaxed ) == UINT16_MAX;
 		}
-		FORCE_INLINE void lock()
-		{
-			while ( !try_lock() ) [[unlikely]]
-			{
+		FORCE_INLINE void lock() {
+			while ( !try_lock() ) [[unlikely]] {
 				do
 					yield_cpu();
 				while ( locked() );
 			}
 		}
-		FORCE_INLINE void lock_shared()
-		{
-			while ( true )
-			{
-				// Yield the CPU until the exclusive lock is gone.
-				//
-				uint16_t value;
-				while ( ( value = counter.load( std::memory_order::relaxed ) ) >= ( UINT16_MAX - 1 ) ) [[unlikely]]
+		FORCE_INLINE void lock_shared() {
+			uint16_t value = counter.load( std::memory_order::relaxed );
+			while ( true ) {
+				if ( value < ( UINT16_MAX - 1 ) ) [[likely]] {
+					if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) ) [[likely]]
+						return;
+				} else {
 					yield_cpu();
-
-				// Try incrementing share count.
-				//
-				if ( counter.compare_exchange_strong( value, value + 1, std::memory_order::acquire ) )
-					return;
+					value = counter.load( std::memory_order::relaxed );
+				}
 			}
 		}
-		FORCE_INLINE void upgrade()
-		{
-			if ( !try_upgrade() )
-			{
+		FORCE_INLINE void upgrade() {
+			if ( !try_upgrade() ) {
 				unlock_shared();
 				lock();
 			}
