@@ -25646,8 +25646,16 @@ namespace ia32
 	
 	namespace impl
 	{
+#pragma pack(push, 1)
+		struct padded_result {
+			cpuid_result result = {};
+			uint32_t     null_terminator = 0;
+		};
+#pragma pack(pop)
+
 		inline char cpu_brand[ 49 ] = { 0 };
-		inline char hv_info[ 17 ] = { 0 };
+		inline padded_result hv_vendor = {};
+		inline padded_result cpu_vendor = {};
 
 		template<uint64_t leaf, uint64_t subleaf>
 		struct cpuid_result_of {
@@ -25656,7 +25664,7 @@ namespace ia32
 		};
 		template<>
 		struct cpuid_result_of<0, 0> {
-			inline static cpuid_result value = {};
+			static constexpr cpuid_result& value = cpu_vendor.result;
 			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( &value, 0, 0 ); }
 		};
 		template<>
@@ -25681,7 +25689,7 @@ namespace ia32
 		};
 		template<>
 		struct cpuid_result_of<0x40000000, 0> {
-			static constexpr char& value = hv_info[ 0 ];
+			static constexpr cpuid_result& value = hv_vendor.result;
 			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( ( cpuid_result* ) &value, 0x40000000, 0 ); }
 		};
 		_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) {
@@ -25755,43 +25763,55 @@ namespace ia32
 		}
 	}
 	
-	// Checks if the CPU vendor is Intel.
+	// CPU Vendor and brand information.
 	//
-	static constexpr size_t vendor_uid_idx = 10;
-	enum class cpu_vendor : char
-	{
-		intel =      "GenuineIntel"[ vendor_uid_idx ],
-		amd =        "AuthenticAMD"[ vendor_uid_idx ],
-		centaur =    "CentaurHauls"[ vendor_uid_idx ],
-		cyrix =      "CyrixInstead"[ vendor_uid_idx ],
-		hygon =      "HygonGenuine"[ vendor_uid_idx ],
-		transmeta =  "TransmetaCPU"[ vendor_uid_idx ],
-		transmeta2 = "GenuineTMx86"[ vendor_uid_idx ],
-		rise =       "RiseRiseRise"[ vendor_uid_idx ],
-		sis =        "SiS SiS SiS "[ vendor_uid_idx ],
-		umc =        "UMC UMC UMC "[ vendor_uid_idx ],
-		via =        "VIA VIA VIA "[ vendor_uid_idx ],
-		vortex =     "Vortex86 SoC"[ vendor_uid_idx ],
+	static constexpr size_t cpu_vendor_uid_idx = 6;
+	enum class cpu_vendor : char {
+		intel =      "GenuntelineI"[ cpu_vendor_uid_idx ],
+		amd =        "AuthcAMDenti"[ cpu_vendor_uid_idx ],
+		centaur =    "CentaulsaurH"[ cpu_vendor_uid_idx ],
+		cyrix =      "CyriteadxIns"[ cpu_vendor_uid_idx ],
+		hygon =      "HygouinenGen"[ cpu_vendor_uid_idx ],
+		transmeta =  "TranaCPUsmet"[ cpu_vendor_uid_idx ],
+		transmeta2 = "GenuMx86ineT"[ cpu_vendor_uid_idx ],
+		rise =       "RiseRiseRise"[ cpu_vendor_uid_idx ],
+		sis =        "SiS SiS SiS "[ cpu_vendor_uid_idx ],
+		umc =        "UMC UMC UMC "[ cpu_vendor_uid_idx ],
+		via =        "VIA VIA VIA "[ cpu_vendor_uid_idx ],
+		vortex =     "Vort SoCex86"[ cpu_vendor_uid_idx ],
 	};
-	_LINKAGE CONST_FN cpu_vendor get_vendor() { return ( ( const cpu_vendor* ) &static_cpuid<0, 0, cpuid_eax_00>.ebx_value_genu )[ vendor_uid_idx ]; }
+	_LINKAGE CONST_FN const char* get_vendor_name() { return ( const char* ) &impl::cpu_vendor.result[ 1 ]; }
+	_LINKAGE CONST_FN cpu_vendor get_vendor() { return ( cpu_vendor ) get_vendor_name()[ cpu_vendor_uid_idx ]; }
 	_LINKAGE CONST_FN bool is_intel() { return get_vendor() == cpu_vendor::intel; }
 	_LINKAGE CONST_FN bool is_amd() { return get_vendor() == cpu_vendor::amd; }
-
-	// Gets CPU brand & HV information.
-	//
 	_LINKAGE CONST_FN const char* get_brand() {
 		( void ) static_cpuid<CPUID_BRAND_STRING1>;
 		( void ) static_cpuid<CPUID_BRAND_STRING2>;
 		( void ) static_cpuid<CPUID_BRAND_STRING3>;
 		return &impl::cpu_brand[ 0 ];
 	}
-	_LINKAGE CONST_FN const char* get_hypervisor_brand() {
-		( void ) static_cpuid<0x40000000>;
-		return &impl::hv_info[ 4 /*skip eax*/ ];
+
+	// Hypervisor Vendor information.
+	//
+	static constexpr size_t hv_vendor_uid_idx = 1;
+	enum class hv_vendor : char {
+		vmware =     "VMwareVMware"[ hv_vendor_uid_idx ],
+		hyperv =     "Microsoft HV"[ hv_vendor_uid_idx ],
+		kvm =        "KVMKVMKVM"   [ hv_vendor_uid_idx ],
+		freebsd =    "bhyve bhyve "[ hv_vendor_uid_idx ],
+		parallels =  "prl hyperv"  [ hv_vendor_uid_idx ],
+		vbox =       "VBoxVBoxVBox"[ hv_vendor_uid_idx ],
+		xen =        "XenVMMXenVMM"[ hv_vendor_uid_idx ],
+	};
+	_LINKAGE CONST_FN const char* get_hv_vendor_name() {
+		( void ) static_cpuid<0x40000000>; 
+		return ( const char* ) &impl::hv_vendor.result[ 1 ]; /* skip eax */ 
 	}
-	_LINKAGE CONST_FN bool is_hypervisor() {
-		return static_cpuid<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx.hypervisor_present;
-	}
+	_LINKAGE CONST_FN hv_vendor get_hv_vendor() { return ( hv_vendor ) get_hv_vendor_name()[ hv_vendor_uid_idx ]; }
+	_LINKAGE CONST_FN bool is_hypervisor() { return static_cpuid<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx.hypervisor_present; }
+	_LINKAGE CONST_FN bool is_vmware() { return is_hypervisor() && get_hv_vendor() == hv_vendor::vmware; }
+	_LINKAGE CONST_FN bool is_hyperv() { return is_hypervisor() && get_hv_vendor() == hv_vendor::hyperv; }
+	_LINKAGE CONST_FN bool is_vbox() { return is_hypervisor() && get_hv_vendor() == hv_vendor::vbox; }
 
 	// Wrappers around EFLAGS.
 	//
