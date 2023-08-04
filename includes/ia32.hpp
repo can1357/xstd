@@ -25647,6 +25647,7 @@ namespace ia32
 	namespace impl
 	{
 		inline char cpu_brand[ 49 ] = { 0 };
+		inline char hv_info[ 17 ] = { 0 };
 
 		template<uint64_t leaf, uint64_t subleaf>
 		struct cpuid_result_of {
@@ -25677,6 +25678,11 @@ namespace ia32
 		struct cpuid_result_of<CPUID_BRAND_STRING3, 0> {
 			static constexpr char& value = cpu_brand[ 32 ];
 			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( ( cpuid_result* ) &value, CPUID_BRAND_STRING3, 0 ); }
+		};
+		template<>
+		struct cpuid_result_of<0x40000000, 0> {
+			static constexpr char& value = hv_info[ 0 ];
+			[[gnu::constructor( 102 ), gnu::used]] inline static void init() { query_cpuid( ( cpuid_result* ) &value, 0x40000000, 0 ); }
 		};
 		_LINKAGE bool has_cpuid_leaf( uint64_t leaf ) {
 			if ( ( leaf >> 28 ) == 8 ) {
@@ -25771,13 +25777,20 @@ namespace ia32
 	_LINKAGE CONST_FN bool is_intel() { return get_vendor() == cpu_vendor::intel; }
 	_LINKAGE CONST_FN bool is_amd() { return get_vendor() == cpu_vendor::amd; }
 
-	// Gets CPU brand.
+	// Gets CPU brand & HV information.
 	//
-	_LINKAGE const char* get_brand() {
+	_LINKAGE CONST_FN const char* get_brand() {
 		( void ) static_cpuid<CPUID_BRAND_STRING1>;
 		( void ) static_cpuid<CPUID_BRAND_STRING2>;
 		( void ) static_cpuid<CPUID_BRAND_STRING3>;
 		return &impl::cpu_brand[ 0 ];
+	}
+	_LINKAGE CONST_FN const char* get_hypervisor_brand() {
+		( void ) static_cpuid<0x40000000>;
+		return &impl::hv_info[ 4 /*skip eax*/ ];
+	}
+	_LINKAGE CONST_FN bool is_hypervisor() {
+		return static_cpuid<1, 0, cpuid_eax_01>.cpuid_feature_information_ecx.hypervisor_present;
 	}
 
 	// Wrappers around EFLAGS.
