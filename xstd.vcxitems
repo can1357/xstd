@@ -104,7 +104,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\statistics.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\scope_tpr.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\text.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\time.hpp" />

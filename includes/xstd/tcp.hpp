@@ -6,7 +6,6 @@
 #include <deque>
 #include <string_view>
 #include "spinlock.hpp"
-#include "scope_tpr.hpp"
 #include "type_helpers.hpp"
 #include "future.hpp"
 #include "coro.hpp"
@@ -52,7 +51,7 @@ namespace xstd::tcp
 
 		// Transmission queues.
 		//
-		spinlock tx_lock = {};
+		xspinlock<XSTD_SOCKET_TASK_PRIORITY> tx_lock = {};
 		size_t last_ack_id = 0;
 		size_t last_tx_id = 0;
 		std::deque<std::pair<std::vector<uint8_t>, size_t>> tx_queue;
@@ -136,7 +135,8 @@ namespace xstd::tcp
 			//
 			if ( tx_queue.empty() )
 				return;
-			xstd::task_lock g{ tx_lock, XSTD_SOCKET_TASK_PRIORITY };
+
+			std::lock_guard _g{tx_lock};
 			flush_queues();
 		}
 
@@ -144,7 +144,7 @@ namespace xstd::tcp
 		//
 		void write( std::vector<uint8_t> data )
 		{
-			xstd::task_lock g{ tx_lock, XSTD_SOCKET_TASK_PRIORITY };
+			std::lock_guard _g{tx_lock};
 
 			// Append the data onto tx queue, flush the queues.
 			//
@@ -157,7 +157,7 @@ namespace xstd::tcp
 		//
 		void on_socket_ack( size_t n )
 		{
-			xstd::task_lock g{ tx_lock, XSTD_SOCKET_TASK_PRIORITY };
+			std::lock_guard _g{tx_lock};
 
 			// Clear the acknowledgment queue.
 			//

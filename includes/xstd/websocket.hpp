@@ -344,7 +344,7 @@ namespace xstd::ws
 
 		// Acquire the TX queue lock.
 		//
-		xstd::task_lock g{ socket.tx_lock, XSTD_SOCKET_TASK_PRIORITY };
+		std::lock_guard _g{ socket.tx_lock };
 		std::span data{ ( const uint8_t* ) src, ( const uint8_t* ) src + length };
 
 		// Enter the chunk processing loop.

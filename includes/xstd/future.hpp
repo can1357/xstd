@@ -4,7 +4,6 @@
 #include "coro.hpp"
 #include "chore.hpp"
 #include "spinlock.hpp"
-#include "scope_tpr.hpp"
 #include "hashable.hpp"
 #include "formatting.hpp"
 #include "time.hpp"
@@ -225,7 +224,7 @@ namespace xstd
 
 		// Lock guarding continuation list and the event list.
 		//
-		mutable spinlock                        state_lock = {};
+		mutable xspinlock<XSTD_PROMISE_TASK_PRIORITY> state_lock = {};
 
 		// Promise state.
 		//
@@ -269,7 +268,7 @@ namespace xstd
 		{
 			// Acquire the state lock, if already finished fail.
 			//
-			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
+			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
 
@@ -281,12 +280,9 @@ namespace xstd
 		}
 		bool deregister_wait_block( impl::wait_block& wb ) const
 		{
-			// Acquire the state lock.
+			// Acquire the state lock, if event is already signalled, return.
 			//
-			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
-
-			// If event is already signalled, return.
-			//
+			std::lock_guard g{ state_lock };
 			if ( wb.event.signalled() )
 				return false;
 
@@ -365,7 +361,7 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return false;
 
-			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
+			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
 			continuation.push( h );
@@ -376,7 +372,7 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return false;
 
-			xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
+			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
 			if ( !continuation.pop( h ) ) [[unlikely]]
@@ -390,8 +386,8 @@ namespace xstd
 		{
 			task_priority_t prev_tp;
 			{
-				xstd::task_lock g{ state_lock, XSTD_PROMISE_TASK_PRIORITY };
-				prev_tp = g.prev_tp;
+				std::lock_guard g{ state_lock };
+				prev_tp = g.priority();
 
 				// Notify all events.
 				//
