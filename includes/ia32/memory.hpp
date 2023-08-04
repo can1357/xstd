@@ -163,6 +163,7 @@ namespace ia32::mem
 	FORCE_INLINE inline void set_pa_bits( bitcnt_t value ) { ___pa_bits = value; }
 #endif
 	FORCE_INLINE CONST_FN inline bool has_1gb_pages() { return static_cpuid_s<0x80000001, 0, cpuid_eax_80000001>.edx.pages_1gb_available; }
+	FORCE_INLINE CONST_FN inline pt_level get_max_large_page_level() { return has_1gb_pages() ? pdpte_level : pde_level; }
 
 	// Virtual address details.
 	//
@@ -257,28 +258,69 @@ namespace ia32::mem
 #endif
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe( xstd::any_ptr ptr ) { return get_pte( ptr, pxe_level ); }
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index ) { return &locate_page_table( pxe_level )[ index ]; }
-
-	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr )
-	{
-		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, pxe_level - c ); } );
+	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr ) {
+		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, c ); } );
 	}
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr )
-	{
+
+	// Fast page table lookup, no validation.
+	//
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( std::array<pt_entry_64*, page_table_depth> hierarchy, pt_entry_64* accu = nullptr ) {
 		// Iterate the page tables until the PTE.
 		//
-		for ( int8_t n = pxe_level; n != pte_level; n-- )
-		{
-			// If we reached an entry representing data pages or if the
-			// entry is not present, return.
+		int8_t n;
+		pt_entry_64* entry;
+		pt_entry_64  accumulator = { .flags = PT_ENTRY_64_USER_FLAG };
+		__hint_unroll()
+		for ( n = pxe_level; n >= pte_level; n-- ) {
+			// Accumulate access flags.
 			//
-			auto* entry = get_pte( ptr, n );
-			if ( !entry->present || ( n <= max_large_page_level && entry->large_page ) ) [[unlikely]]
-				return { entry, n };
+			entry = hierarchy[ n ];
+			auto ventry = *entry;
+			auto xd = accumulator.execute_disable | ventry.execute_disable;
+			auto us = accumulator.user            & ventry.user;
+			accumulator = ventry;
+			accumulator.execute_disable = xd;
+			accumulator.user =            us;
+
+			// Break if not present or large page.
+			//
+			if ( !n || !ventry.present || ( n <= max_large_page_level && ventry.large_page ) )
+				break;
 		}
 
-		// Return the PTE.
+		// Write accumulator, return result.
 		//
-		return { get_pte( ptr ), pte_level };
+		if ( accu ) accu->flags = accumulator.flags;
+		return { entry, n };
+	}
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr, pt_entry_64* accu = nullptr ) {
+		// Iterate the page tables until the PTE.
+		//
+		int8_t n;
+		pt_entry_64* entry;
+		pt_entry_64  accumulator = { .flags = PT_ENTRY_64_USER_FLAG };
+		__hint_unroll()
+		for ( n = pxe_level; n >= pte_level; n-- ) {
+			// Accumulate access flags.
+			//
+			entry = get_pte( ptr, n );
+			auto ventry = *entry;
+			auto xd = accumulator.execute_disable | ventry.execute_disable;
+			auto us = accumulator.user            & ventry.user;
+			accumulator = ventry;
+			accumulator.execute_disable = xd;
+			accumulator.user =            us;
+
+			// Break if not present or large page.
+			//
+			if ( !n || !ventry.present || ( n <= max_large_page_level && ventry.large_page ) )
+				break;
+		}
+
+		// Write accumulator, return result.
+		//
+		if ( accu ) accu->flags = accumulator.flags;
+		return { entry, n };
 	}
 
 	// Reverse recursive page table lookup.
