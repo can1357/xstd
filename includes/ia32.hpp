@@ -261,60 +261,33 @@ typedef union
 
 typedef union
 {
-  struct
-  {
-		uint64_t pcid         : 12;
-		uint64_t padding      : 51;
-		uint64_t preserve_tlb : 1;
-  };
-  struct
-  {
-	uint64_t reserved1                                               : 3;
-
-	/**
-	* @brief Page-level Write-Through
-	*
-	* [Bit 3] Controls the memory type used to access the first paging structure of the current paging-structure hierarchy.
-	  * This bit is not used if paging is disabled, with PAE paging, or with 4-level paging if CR4.PCIDE=1.
-	  *
-	  * @see Vol3A[4.9(PAGING AND MEMORY TYPING)]
-	  */
-	 uint64_t page_level_write_through                                : 1;
-#define CR3_PAGE_LEVEL_WRITE_THROUGH_BIT                             3
-#define CR3_PAGE_LEVEL_WRITE_THROUGH_FLAG                            0x08
-#define CR3_PAGE_LEVEL_WRITE_THROUGH_MASK                            0x01
-#define CR3_PAGE_LEVEL_WRITE_THROUGH(_)                              (((_) >> 3) & 0x01)
-
-	 /**
-	  * @brief Page-level Cache Disable
-	  *
-	  * [Bit 4] Controls the memory type used to access the first paging structure of the current paging-structure hierarchy.
-	  * This bit is not used if paging is disabled, with PAE paging, or with 4-level paging2 if CR4.PCIDE=1.
-	  *
-	  * @see Vol3A[4.9(PAGING AND MEMORY TYPING)]
-	  */
-	 uint64_t page_level_cache_disable                                : 1;
-#define CR3_PAGE_LEVEL_CACHE_DISABLE_BIT                             4
-#define CR3_PAGE_LEVEL_CACHE_DISABLE_FLAG                            0x10
-#define CR3_PAGE_LEVEL_CACHE_DISABLE_MASK                            0x01
-#define CR3_PAGE_LEVEL_CACHE_DISABLE(_)                              (((_) >> 4) & 0x01)
-	 uint64_t reserved2                                               : 7;
-
-	 /**
-	  * @brief Address of page directory
-	  *
-	  * [Bits 47:12] Physical address of the 4-KByte aligned page directory (32-bit paging) or PML4 table (64-bit paging) used
-	  * for linear-address translation.
-	  *
-	  * @see Vol3A[4.3(32-BIT PAGING)]
-	  * @see Vol3A[4.5(4-LEVEL PAGING)]
-	  */
-	 uint64_t address_of_page_directory                               : 40;
+	// PCID enabled:
+  struct {
+		uint64_t pcid                       : 12;
+		uint64_t address_of_page_directory  : 40;
 #define CR3_ADDRESS_OF_PAGE_DIRECTORY_BIT                            12
 #define CR3_ADDRESS_OF_PAGE_DIRECTORY_FLAG                           0xFFFFFFFFFF000
 #define CR3_ADDRESS_OF_PAGE_DIRECTORY_MASK                           0xFFFFFFFFFF
 #define CR3_ADDRESS_OF_PAGE_DIRECTORY(_)                             (((_) >> 12) & 0xFFFFFFFFFF)
-	 uint64_t reserved3                                               : 12;
+		uint64_t reserved3                  : 11;
+		uint64_t preserve_tlb               : 1;
+  };
+
+  // PCID disabled:
+  struct {
+		uint64_t reserved1                  : 3;
+		uint64_t page_level_write_through   : 1;
+#define CR3_PAGE_LEVEL_WRITE_THROUGH_BIT                             3
+#define CR3_PAGE_LEVEL_WRITE_THROUGH_FLAG                            0x08
+#define CR3_PAGE_LEVEL_WRITE_THROUGH_MASK                            0x01
+#define CR3_PAGE_LEVEL_WRITE_THROUGH(_)                              (((_) >> 3) & 0x01)
+		uint64_t page_level_cache_disable   : 1;
+#define CR3_PAGE_LEVEL_CACHE_DISABLE_BIT                             4
+#define CR3_PAGE_LEVEL_CACHE_DISABLE_FLAG                            0x10
+#define CR3_PAGE_LEVEL_CACHE_DISABLE_MASK                            0x01
+#define CR3_PAGE_LEVEL_CACHE_DISABLE(_)                              (((_) >> 4) & 0x01)
+		uint64_t reserved2                  : 7;
+	 // +address_of_page_directory
   };
 
   uint64_t flags;
@@ -3164,9 +3137,9 @@ typedef struct
 		uint32_t reserved5                                             : 2;
 
 		/**
-       * [Bit 18] Supports PCONFIG if 1.
-       */
-      uint32_t pconfig                                               : 1;
+		 * [Bit 18] Supports PCONFIG if 1.
+		 */
+		uint32_t pconfig                                               : 1;
 #define CPUID_EDX_PCONFIG_BIT                                        18
 #define CPUID_EDX_PCONFIG_FLAG                                       0x40000
 #define CPUID_EDX_PCONFIG_MASK                                       0x01
@@ -3181,11 +3154,11 @@ typedef struct
 #define CPUID_EDX_ARCH_LBR_MASK                                       0x01
 #define CPUID_EDX_ARCH_LBR(_)                                         (((_) >> 19) & 0x01)
 
-      /**
-       * [Bit 20] Supports CET indirect branch tracking features if 1. Processors that set this bit define bits 5:2 and bits
-       * 63:10 of the IA32_U_CET and IA32_S_CET MSRs.
-       */
-      uint32_t cet_ibt                                               : 1;
+		/**
+		 * [Bit 20] Supports CET indirect branch tracking features if 1. Processors that set this bit define bits 5:2 and bits
+		 * 63:10 of the IA32_U_CET and IA32_S_CET MSRs.
+		 */
+		uint32_t cet_ibt                                               : 1;
 #define CPUID_EDX_CET_IBT_BIT                                        20
 #define CPUID_EDX_CET_IBT_FLAG                                       0x100000
 #define CPUID_EDX_CET_IBT_MASK                                       0x01
