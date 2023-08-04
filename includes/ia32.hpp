@@ -16294,14 +16294,13 @@ typedef union
 #define PT_ENTRY_64_IGNORED_1(_)                                     (((_) >> 9) & 0x07)
 
 	/**
-	* [Bits 47:12] Physical address of the 4-KByte page referenced by this entry.
+	* [Bits 51:12] Physical address of the 4-KByte page referenced by this entry.
 	*/
-	uint64_t page_frame_number                                       : 36;
+	uint64_t page_frame_number                                       : 40;
 #define PT_ENTRY_64_PAGE_FRAME_NUMBER_BIT                            12
-#define PT_ENTRY_64_PAGE_FRAME_NUMBER_FLAG                           0xFFFFFFFFF000
-#define PT_ENTRY_64_PAGE_FRAME_NUMBER_MASK                           0xFFFFFFFFF
-#define PT_ENTRY_64_PAGE_FRAME_NUMBER(_)                             (((_) >> 12) & 0xFFFFFFFFF)
-	uint64_t reserved1                                               : 4;
+#define PT_ENTRY_64_PAGE_FRAME_NUMBER_FLAG                           0xFFFFFFFFFF000
+#define PT_ENTRY_64_PAGE_FRAME_NUMBER_MASK                           0xFFFFFFFFFF
+#define PT_ENTRY_64_PAGE_FRAME_NUMBER(_)                             (((_) >> 12) & 0xFFFFFFFFFF)
 
 	/**
 	* [Bits 58:52] Ignored.
@@ -26582,6 +26581,11 @@ namespace ia32
 	{
 		write_cr8( ( uint64_t ) new_irql );
 	}
+	_LINKAGE void set_effective_irql( rflags* flags, irql_t new_irql )
+	{
+		set_irql( new_irql & 0xF );
+		flags->interrupt_enable_flag = ( new_irql & NO_INTERRUPTS ) == 0;
+	}
 	_LINKAGE void set_effective_irql( irql_t new_irql )
 	{
 		set_irql( new_irql & 0xF );
@@ -26590,27 +26594,11 @@ namespace ia32
 		else
 			enable();
 	}
-	_LINKAGE void set_effective_irql( rflags* flags, irql_t new_irql )
-	{
-		set_irql( new_irql & 0xF );
-		flags->interrupt_enable_flag = ( ~new_irql ) & NO_INTERRUPTS;
-	}
-	_LINKAGE void lower_irql( irql_t new_irql )
-	{
-		set_irql( new_irql );
-	}
 	_LINKAGE irql_t raise_irql( irql_t new_irql )
 	{
 		irql_t irql = get_irql();
 		dassert( irql <= new_irql );
 		set_irql( new_irql );
-		return irql;
-	}
-	_LINKAGE irql_t max_irql( irql_t new_irql )
-	{
-		irql_t irql = get_irql();
-		if ( irql <= new_irql )
-			set_irql( new_irql );
 		return irql;
 	}
 
@@ -27460,65 +27448,36 @@ namespace ia32
 	template<irql_t new_irql, bool relaxed = false>
 	struct scope_irql
 	{
-		irql_t prev;
-		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) : prev( prev )
-		{
-			if constexpr ( relaxed )
-			{
-				if ( prev < new_irql )
-					set_irql( new_irql );
-			}
-			else
-			{
-				dassert( prev <= new_irql );
-				set_irql( new_irql );
-			}
+		const irql_t prev;
+		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) : prev( prev ) {
+			if constexpr ( !relaxed )
+				dassert( prev <= new_irql ); 
+			reset( true ); 
 		}
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
 
-		void reset( bool state = false )
-		{
-			if constexpr ( relaxed )
-			{
-				if ( state )
-				{
-					if ( prev < new_irql )
-						set_irql( new_irql );
-				}
-				else
-				{
-					set_irql( prev );
-				}
-			}
-			else
-			{
-				if ( state ) 
-					set_irql( new_irql );
-				else 
-					set_irql( prev );
+		FORCE_INLINE void reset( bool state = false ) {
+			if ( state ) {
+				if ( relaxed && prev >= new_irql ) 
+					return;
+				set_irql( new_irql );
+			} else {
+				set_irql( prev );
 			}
 		}
-
-		~scope_irql()
-		{
-			reset();
-		}
+		~scope_irql() { reset(); }
 	};
 
 	template<bool relaxed>
 	struct scope_irql<NO_INTERRUPTS, relaxed>
 	{
-		rflags prev_flags;
-		scope_irql( rflags prev_flags = read_flags() ) : prev_flags( prev_flags )
-		{
-			disable();
-		}
+		const rflags prev_flags;
+		scope_irql( rflags prev_flags = read_flags() ) : prev_flags( prev_flags ) { disable(); }
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
 
-		void reset( bool state = false )
-		{
+		void reset( bool state = false ) {
 			if ( state ) {
 				disable();
 			} else {
