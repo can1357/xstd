@@ -3,7 +3,7 @@
 #include <string>
 #include <tuple>
 #include <xstd/bitwise.hpp>
-#include "../ia32.hpp"
+#include <ia32.hpp>
 
 // This namespace implements partial support for the performance monitoring extensions 
 // implemented by AMD and Intel and tries to unify the interface exposed.

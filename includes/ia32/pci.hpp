@@ -1,5 +1,5 @@
 #pragma once
-#include "../ia32.hpp"
+#include <ia32.hpp>
 #include "iospace.hpp"
 #include <vector>
 #include <xstd/spinlock.hpp>

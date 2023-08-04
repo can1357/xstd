@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 #include <xstd/bitwise.hpp>
-#include "../ia32.hpp"
+#include <ia32.hpp>
 #include "memory.hpp"
 
 namespace ia32::apic

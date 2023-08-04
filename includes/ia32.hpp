@@ -25780,7 +25780,10 @@ namespace ia32
 		via =        "VIA VIA VIA "[ cpu_vendor_uid_idx ],
 		vortex =     "Vort SoCex86"[ cpu_vendor_uid_idx ],
 	};
-	_LINKAGE CONST_FN const char* get_vendor_name() { return ( const char* ) &impl::cpu_vendor.result[ 1 ]; }
+	_LINKAGE CONST_FN const char* get_vendor_name() { 
+		( void ) static_cpuid<0>;
+		return ( const char* ) &impl::cpu_vendor.result[ 1 ]; 
+	}
 	_LINKAGE CONST_FN cpu_vendor get_vendor() { return ( cpu_vendor ) get_vendor_name()[ cpu_vendor_uid_idx ]; }
 	_LINKAGE CONST_FN bool is_intel() { return get_vendor() == cpu_vendor::intel; }
 	_LINKAGE CONST_FN bool is_amd() { return get_vendor() == cpu_vendor::amd; }
@@ -25804,7 +25807,7 @@ namespace ia32
 		xen =        "XenVMMXenVMM"[ hv_vendor_uid_idx ],
 	};
 	_LINKAGE CONST_FN const char* get_hv_vendor_name() {
-		( void ) static_cpuid<0x40000000>; 
+		( void ) static_cpuid<0x40000000>;
 		return ( const char* ) &impl::hv_vendor.result[ 1 ]; /* skip eax */ 
 	}
 	_LINKAGE CONST_FN hv_vendor get_hv_vendor() { return ( hv_vendor ) get_hv_vendor_name()[ hv_vendor_uid_idx ]; }

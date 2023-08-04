@@ -1,5 +1,5 @@
 #pragma once
-#include "../ia32.hpp"
+#include <ia32.hpp>
 #include <xstd/type_helpers.hpp>
 
 // [[Configuration]]

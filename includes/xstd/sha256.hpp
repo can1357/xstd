@@ -9,7 +9,7 @@
 #endif
 
 #if XSTD_HW_SHA256 && AMD64_TARGET && GNU_COMPILER
-#include "../ia32.hpp"
+#include <ia32.hpp>
 #endif
 
 namespace xstd
