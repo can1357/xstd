@@ -68,7 +68,8 @@ namespace xstd
 
 			// Start the counter at one, indicate success.
 			//
-			dassert_s( ++share_count == 1 );
+			expected = ++share_count;
+			dassert( expected == 1 );
 			return true;
 		}
 		FORCE_INLINE void lock_shared()
@@ -105,11 +106,12 @@ namespace xstd
 
 			// Start the counter at one.
 			//
-			dassert_s( ++share_count == 1 );
+			expected = ++share_count;
+			dassert( expected == 1 );
 		}
 		FORCE_INLINE void unlock()
 		{
-			dassert_s( share_count.load( std::memory_order::relaxed ) == -1 );
+			dassert( share_count.load( std::memory_order::relaxed ) == -1 );
 			share_count.store( 0, std::memory_order::release );
 			mutex.unlock();
 		}

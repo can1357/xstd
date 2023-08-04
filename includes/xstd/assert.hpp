@@ -10,9 +10,8 @@
 // [[Configuration]]
 // XSTD_ASSERT_MESSAGE: Sets the assert failure message.
 // XSTD_ASSERT_LEVEL: Declares assert level, valid values are:
-//  - 2: Both dassert and fassert will be evaluated. Debug mode default.
-//  - 1: Only fassert will be evaluated. Release mode default. 
-//  - 0: All asserts are ignored.
+//  - 1: Both dassert and fassert will be evaluated. Debug mode default.
+//  - 0: Only fassert will be evaluated. Release mode default. 
 //
 #ifndef XSTD_ASSERT_MESSAGE
 	#define XSTD_ASSERT_MESSAGE( cc, file, line ) XSTD_ESTR( "Assertion failure [" cc "] at " file ":" line )
@@ -22,9 +21,9 @@
 #endif
 #ifndef XSTD_ASSERT_LEVEL
 	#if DEBUG_BUILD
-		#define XSTD_ASSERT_LEVEL 2
-	#else
 		#define XSTD_ASSERT_LEVEL 1
+	#else
+		#define XSTD_ASSERT_LEVEL 0
 	#endif
 #endif
 
@@ -89,25 +88,14 @@ namespace xstd
 //
 #define xassert(...) xstd::xassert_helper((bool)(__VA_ARGS__), []{ return XSTD_ASSERT_MESSAGE( xstringify( __VA_ARGS__ ), __FILE__, xstringify( __LINE__ ) ); } )
 
-// Declare assertions, dassert is debug mode only, fassert is demo mode only, _s helpers 
-// have the same functionality but still evaluate the statement.
+// Declare assertions, dassert is debug mode only, fassert is emitted on release as well.
 //
-#if ( XSTD_ASSERT_LEVEL >= 2 || defined(__INTELLISENSE__) )
-	#define dassert(...)     xassert( __VA_ARGS__ )
-	#define dassert_s( ... ) xassert( __VA_ARGS__ )
-	#define fassert(...)     xassert( __VA_ARGS__ )
-	#define fassert_s( ... ) xassert( __VA_ARGS__ )
-	#define unreachable_s()  do{  dassert( false ); unreachable(); } while(false)
-#elif XSTD_ASSERT_LEVEL >= 1
-	#define dassert(...)     do{}while(false)
-	#define dassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
-	#define fassert(...)     xassert( __VA_ARGS__ )
-	#define fassert_s( ... ) xassert( __VA_ARGS__ )
-	#define unreachable_s()  unreachable()
+#if ( XSTD_ASSERT_LEVEL >= 1 || defined(__INTELLISENSE__) )
+	#define dassert(...)     xassert(__VA_ARGS__)
+	#define fassert(...)     xassert(__VA_ARGS__)
+	#define unreachable_s()  do { dassert( false ); unreachable(); } while(false)
 #else
-	#define dassert(...)     do{}while(false)
-	#define dassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
-	#define fassert(...)     do{}while(false)
-	#define fassert_s( ... ) ( ( void ) (__VA_ARGS__ ) )
+	#define dassert(...)     assume(__VA_ARGS__)
+	#define fassert(...)     xassert(__VA_ARGS__)
 	#define unreachable_s()  unreachable()
 #endif

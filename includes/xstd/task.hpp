@@ -226,7 +226,8 @@ namespace xstd
 			}
 			inline coroutine_handle<> await_suspend( coroutine_handle<> hnd )
 			{
-				dassert_s( std::exchange( ref.handle.promise().continuation, hnd ) == nullptr );
+				auto prev = std::exchange( ref.handle.promise().continuation, hnd );
+				dassert( prev == nullptr );
 				return ref.handle;
 			}
 			inline const auto& await_resume() const
@@ -252,7 +253,8 @@ namespace xstd
 			}
 			inline coroutine_handle<> await_suspend( coroutine_handle<> hnd )
 			{
-				dassert_s( std::exchange( ref.handle.promise().continuation, hnd ) == nullptr );
+				auto prev = std::exchange( ref.handle.promise().continuation, hnd );
+				dassert( prev == nullptr );
 				return ref.handle;
 			}
 			inline const auto& await_resume() const

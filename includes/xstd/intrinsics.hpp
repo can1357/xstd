@@ -301,11 +301,14 @@ inline static constexpr bool cxx_has_eh() { return HAS_CXX_EH; }
 #endif
 MUST_MATCH( DEBUG_BUILD );
 
-// Ignore some warnings if GNU.
+// Ignore some warnings if GNU/Clang.
 //
 #if GNU_COMPILER
 	#pragma GCC diagnostic ignored "-Wunused-function"
 	#pragma GCC diagnostic ignored "-Wmicrosoft-cast"
+#endif
+#if CLANG_COMPILER
+	#pragma clang diagnostic ignored "-Wassume"
 #endif
 
 // Define MS-style builtins if not available.
@@ -362,8 +365,9 @@ namespace xstd
 	#if __has_builtin(__builtin_assume)
 		#define assume(...) __builtin_assume(__VA_ARGS__)
 	#else
-		#define assume(...)
+		#define assume(...) if constexpr( false ) { ( void ) (__VA_ARGS__); }
 	#endif
+
 
 	#if __has_builtin(__builtin_unreachable)
 		#define unreachable() __builtin_unreachable()
