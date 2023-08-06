@@ -21,81 +21,7 @@
 using bitcnt_t = int;
 namespace xstd
 {
-	// Alignment helper.
-	//
-	template<typename T>
-	FORCE_INLINE CONST_FN inline constexpr T align_up( T value, size_t alignment )
-	{
-#if __has_builtin(__builtin_align_up)
-		if constexpr ( Same<T, xstd::any_ptr> )
-			return __builtin_align_up( ( void* ) value, alignment );
-		else
-			return __builtin_align_up( value, alignment );
-#else
-		using I = convert_int_t<T>;
-		using U = convert_uint_t<T>;
-
-		if ( std::is_constant_evaluated() )
-		{
-			U uval = U( value );
-			uval += U( ( -I( uval ) ) % alignment );
-			return T( uval );
-		}
-		else
-		{
-			U uval = ( U ) ( value );
-			uval += U( ( -I( uval ) ) % alignment );
-			return ( T ) ( uval );
-		}
-#endif
-	}
-	template<typename T>
-	FORCE_INLINE CONST_FN inline constexpr T align_down( T value, size_t alignment )
-	{
-#if __has_builtin(__builtin_align_down)
-		if constexpr ( Same<T, xstd::any_ptr> )
-			return __builtin_align_down( ( void* ) value, alignment );
-		else
-			return __builtin_align_down( value, alignment );
-#else
-		using U = convert_uint_t<T>;
-		if ( std::is_constant_evaluated() )
-		{
-			U uval = U( value );
-			uval -= uval % alignment;
-			return T( uval );
-		}
-		else
-		{
-			U uval = ( U ) ( value );
-			uval -= uval % alignment;
-			return ( T ) ( uval );
-		}
-#endif
-	}
-	template<typename T>
-	FORCE_INLINE CONST_FN inline constexpr bool is_aligned( T value, size_t alignment )
-	{
-#if __has_builtin(__builtin_is_aligned)
-		if constexpr ( Same<T, xstd::any_ptr> )
-			return __builtin_is_aligned( ( void* ) value, alignment );
-		else
-			return __builtin_is_aligned( value, alignment );
-#else
-		using U = convert_uint_t<T>;
-		return !( U( value ) % alignment );
-#endif
-	}
-
-	// Extracts the sign bit from the given value.
-	//
-	template<Signed T>
-	FORCE_INLINE CONST_FN inline constexpr bool sgn( T type )
-	{ 
-		return type < 0; 
-	}
-
-	// Micro-optimized implementation to trick MSVC into actually optimizing it, like Clang :).
+	// Micro-optimized implementation details to trick MSVC into actually optimizing it, like Clang :).
 	//
 	namespace impl
 	{
@@ -136,8 +62,7 @@ namespace xstd
 	// Implement platform-indepdenent bitwise operations.
 	//
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN inline constexpr bitcnt_t popcnt( T x )
-	{
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t popcnt( T x ) {
 		// Constant operand size demotion.
 		//
 		if constexpr ( sizeof( T ) > 1 )
@@ -171,10 +96,8 @@ namespace xstd
 			count += ( bitcnt_t ) ( x & 1 );
 		return count;
 	}
-
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN inline constexpr bitcnt_t msb( T x )
-	{
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t msb( T x ) {
 		// Constant operand size demotion.
 		//
 #if !XSTD_HW_BITSCAN
@@ -225,10 +148,8 @@ namespace xstd
 				return i;
 		return -1;
 	}
-
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN inline constexpr bitcnt_t lsb( T x )
-	{
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t lsb( T x ) {
 		// Constant operand size demotion.
 		//
 #if !XSTD_HW_BITSCAN
@@ -279,7 +200,96 @@ namespace xstd
 				return i;
 		return -1;
 	}
+	template<Unsigned T = uint64_t>
+	FORCE_INLINE CONST_FN inline constexpr bool is_pow2( T x ) {
+		return ( x & ( x - 1 ) ) == 0;
+	}
+	template<Integral T = uint64_t>
+	FORCE_INLINE CONST_FN inline constexpr T bit_floor( T x ) {
+		if ( x != 0 )
+			x = T{ 1 } << ( msb( x ) - 1 );
+		return x;
+	}
+	template<Integral T = uint64_t>
+	FORCE_INLINE CONST_FN inline constexpr T bit_ceil( T x ) {
+		T f = bit_floor( x );
+		if ( f != x )
+			x = f << 1;
+		return x;
+	}
+	template<Signed T>
+	FORCE_INLINE CONST_FN inline constexpr bool sgn( T type ) {
+		return type < 0;
+	}
 
+	// Alignment helper.
+	//
+	template<typename T>
+	FORCE_INLINE CONST_FN inline constexpr T align_up( T value, size_t alignment )
+	{
+		using U = convert_uint_t<T>;
+		if ( is_pow2( alignment ) ) {
+#if __has_builtin(__builtin_align_up)
+			if constexpr ( Same<T, xstd::any_ptr> )
+				return __builtin_align_up( ( void* ) value, alignment );
+			else
+				return __builtin_align_up( value, alignment );
+#else
+#endif
+			U x = U( value );
+			x += alignment - 1;
+			x &= ~( alignment - 1 );
+			return T( x );
+		} else {
+			U x = U( value );
+			x += alignment - 1;
+			x -= x % alignment;
+			return T( x );
+		}
+	}
+	template<typename T>
+	FORCE_INLINE CONST_FN inline constexpr T align_down( T value, size_t alignment )
+	{
+		using U = convert_uint_t<T>;
+		if ( is_pow2( alignment ) ) {
+#if __has_builtin(__builtin_align_down)
+			if constexpr ( Same<T, xstd::any_ptr> )
+				return __builtin_align_down( ( void* ) value, alignment );
+			else
+				return __builtin_align_down( value, alignment );
+#else
+#endif
+			U x = U( value );
+			x &= ~( alignment - 1 );
+			return T( x );
+		} else {
+			U x = U( value );
+			x -= x % alignment;
+			return T( x );
+		}
+	}
+	template<typename T>
+	FORCE_INLINE CONST_FN inline constexpr bool is_aligned( T value, size_t alignment )
+	{
+		using U = convert_uint_t<T>;
+		if ( is_pow2( alignment ) ) {
+#if __has_builtin(__builtin_is_aligned)
+			if constexpr ( Same<T, xstd::any_ptr> )
+				return __builtin_is_aligned( ( void* ) value, alignment );
+			else
+				return __builtin_is_aligned( value, alignment );
+#else
+#endif
+			U x = U( value );
+			return ( x & ( alignment - 1 ) ) == 0;
+		} else {
+			U x = U( value );
+			return ( x % alignment ) == 0;
+		}
+	}
+
+	// Bit set / reset / complement and test.
+	//
 	template<typename T>
 	FORCE_INLINE inline constexpr bool bit_set( T& value, bitcnt_t n )
 	{
@@ -326,10 +336,9 @@ namespace xstd
 #endif
 			}
 #endif
+			U mask = U{ 1 } << n;
 			auto& ref = *( std::atomic<U>* ) &value;
-			U value = ref.load( std::memory_order::relaxed );
-			while ( !ref.compare_exchange_strong( value, value | ( U(1) << n ) ) );
-			return value & ( U(1) << n );
+			return ( ref.fetch_or( mask ) & mask ) != 0;
 		}
 		else if constexpr( Integral<T> )
 		{
@@ -425,10 +434,9 @@ namespace xstd
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) &value;
-			U value = ref.load( std::memory_order::relaxed );
-			while ( !ref.compare_exchange_strong( value, value & ~( U(1) << n ) ) );
-			return value & ( U(1) << n );
+			U mask = U{ 1 } << n;
+			auto& ref = *( std::atomic<U>* ) & value;
+			return ( ref.fetch_and( ~mask ) & mask ) != 0;
 		}
 		else if constexpr( Integral<T> )
 		{
@@ -520,10 +528,9 @@ namespace xstd
 #endif
 			}
 #endif
-			auto& ref = *( std::atomic<U>* ) &value;
-			U value = ref.load( std::memory_order::relaxed );
-			while ( !ref.compare_exchange_strong( value, value ^ ( U(1) << n ) ) );
-			return value & ( U(1) << n );
+			U mask = U{ 1 } << n;
+			auto& ref = *( std::atomic<U>* ) & value;
+			return ( ref.fetch_xor( mask ) & mask ) != 0;
 		}
 		else if constexpr ( Integral<T> )
 		{
@@ -592,7 +599,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
+				asm( "btq %2, %1" : "=@ccc" ( out ) : "m" ( *( uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
 				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _bittest64( ( long long* ) &value, n );
@@ -602,7 +609,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
+				asm( "btl %2, %1" : "=@ccc" ( out ) : "m" ( *( uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
 				return bool( out );
 #elif HAS_MS_EXTENSIONS
 				return _bittest( ( long* ) &value, n );
@@ -612,7 +619,7 @@ namespace xstd
 			{
 #if GNU_COMPILER
 				int out;
-				asm volatile( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
+				asm( "btw %2, %1" : "=@ccc" ( out ) : "m" ( *( uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
 				return bool( out );
 #endif
 			}
@@ -630,7 +637,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm volatile( "btq %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
+					asm( "btq %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint64_t* ) &value ), "Jr" ( uint64_t( n ) ) );
 					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittest64( ( long long* ) &value, n );
@@ -640,7 +647,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm volatile( "btl %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
+					asm( "btl %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint32_t* ) &value ), "Jr" ( uint32_t( n ) ) );
 					return bool( out );
 #elif HAS_MS_EXTENSIONS
 					return _bittest( ( long* ) &value, n );
@@ -650,7 +657,7 @@ namespace xstd
 				{
 #if GNU_COMPILER
 					int out;
-					asm volatile( "btw %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
+					asm( "btw %2, %1" : "=@ccc" ( out ) : "r" ( *( const uint16_t* ) &value ), "Jr" ( uint16_t( n ) ) );
 					return bool( out );
 #endif
 				}
