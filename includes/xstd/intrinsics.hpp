@@ -493,51 +493,101 @@ FORCE_INLINE static task_priority_t get_task_priority()
 // Declare 128-bit multiplication.
 //
 #if !MS_COMPILER
-		using int128_t = __int128;
-		using uint128_t = unsigned __int128;
-		FORCE_INLINE static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
-		{
-			uint128_t _Product = uint128_t( _Multiplicand ) * _Multiplier;
-			*_HighProduct = uint64_t( _Product >> 64 );
-			return uint64_t( _Product );
-		}
-		FORCE_INLINE static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
-		{
-			int128_t _Product = int128_t( _Multiplier ) * _Multiplicand;
-			*_HighProduct = int64_t( uint128_t( _Product ) >> 64 );
-			return int64_t( _Product );
-		}
-		FORCE_INLINE CONST_FN static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
-		{
-			int64_t HighProduct;
-			mul128( _Multiplier, _Multiplicand, &HighProduct );
-			return HighProduct;
-		}
-		FORCE_INLINE CONST_FN static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
-		{
-			uint64_t HighProduct;
-			umul128( _Multiplier, _Multiplicand, &HighProduct );
-			return HighProduct;
-		}
+using int128_t = __int128;
+using uint128_t = unsigned __int128;
+FORCE_INLINE static constexpr uint64_t umul128( uint64_t x, uint64_t y, uint64_t* hi ) {
+	uint128_t r = uint128_t( y ) * x;
+	*hi = uint64_t( r >> 64 );
+	return uint64_t( r );
+}
+FORCE_INLINE static constexpr int64_t mul128( int64_t x, int64_t y, int64_t* hi ) {
+	int128_t r = int128_t( x ) * y;
+	*hi = int64_t( uint128_t( r ) >> 64 );
+	return int64_t( r );
+}
+FORCE_INLINE CONST_FN static constexpr int64_t mulh( int64_t x, int64_t y ) {
+	int64_t h;
+	mul128( x, y, &h );
+	return h;
+}
+FORCE_INLINE CONST_FN static constexpr uint64_t umulh( uint64_t x, uint64_t y ) {
+	uint64_t h;
+	umul128( x, y, &h );
+	return h;
+}
 #else
-		FORCE_INLINE static uint64_t umul128( uint64_t _Multiplier, uint64_t _Multiplicand, uint64_t* _HighProduct )
-		{
-			return _umul128( _Multiplier, _Multiplicand, _HighProduct );
-		}
-		FORCE_INLINE static int64_t mul128( int64_t _Multiplier, int64_t _Multiplicand, int64_t* _HighProduct )
-		{
-			return _mul128( _Multiplier, _Multiplicand, _HighProduct );
-		}
-		FORCE_INLINE static int64_t mulh( int64_t _Multiplier, int64_t _Multiplicand )
-		{
-			return __mulh( _Multiplier, _Multiplicand );
-		}
-
-		FORCE_INLINE static uint64_t umulh( uint64_t _Multiplier, uint64_t _Multiplicand )
-		{
-			return __umulh( _Multiplier, _Multiplicand );
-		}
+FORCE_INLINE static uint64_t umul128( uint64_t x, uint64_t y, uint64_t* hi ) {
+	return _umul128( x, y, hi );
+}
+FORCE_INLINE static int64_t mul128( int64_t x, int64_t y, int64_t* hi ) {
+	return _mul128( x, y, hi );
+}
+FORCE_INLINE static int64_t mulh( int64_t x, int64_t y ) {
+	return __mulh( x, y );
+}
+FORCE_INLINE static uint64_t umulh( uint64_t x, uint64_t y ) {
+	return __umulh( x, y );
+}
 #endif
+
+// Checked integer operations.
+//
+template<typename T>
+FORCE_INLINE CONST_FN constexpr std::pair<T, bool> add_checked( T x, T y ) {
+	T r; 
+	bool f;
+#if __has_builtin(__builtin_add_overflow)
+	f = __builtin_add_overflow( x, y, &r );
+#else
+	if constexpr ( std::is_signed_v<T> ) {
+		using U = std::make_unsigned_t<T>;
+		r = T( U( x ) + U( y ) );
+		f = ( ( x < 0 ) == ( y < 0 ) ) && ( ( x < 0 ) != ( r < 0 ) );
+	} else {
+		r = x + y;
+		f = r < y;
+	}
+#endif
+	return { r, f };
+}
+template<typename T>
+FORCE_INLINE CONST_FN constexpr std::pair<T, bool> sub_checked( T x, T y ) {
+	T r; bool f;
+#if __has_builtin(__builtin_sub_overflow)
+	f = __builtin_sub_overflow( x, y, &r );
+#else
+	if constexpr ( std::is_signed_v<T> ) {
+		using U = std::make_unsigned_t<T>;
+		r = T( U( x ) - U( y ) );
+		f = ( ( x < 0 ) == ( y >= 0 ) ) && ( ( x < 0 ) != ( r < 0 ) );
+	} else {
+		r = x - y;
+		f = x < y;
+	}
+#endif
+	return { r, f };
+}
+template<typename T>
+FORCE_INLINE CONST_FN constexpr std::pair<T, bool> mul_checked( T x, T y ) {
+	T r; bool f;
+#if __has_builtin(__builtin_mul_overflow)
+	f = __builtin_mul_overflow( x, y, &r );
+#else
+	if constexpr ( std::is_signed_v<T> ) {
+		using U = std::make_unsigned_t<T>;
+		r = T( U( x ) * U( y ) );
+		if ( r == ( std::numeric_limits<T>::min )( ) && x == -1 ) {
+			f = true;
+		} else {
+			f = x != 0 && T( r / x ) != y;
+		}
+	} else {
+		r = x * y;
+		f = x != 0 && T( r / x ) != y;
+	}
+#endif
+	return { r, f };
+}
 
 // Declare rotation.
 //
@@ -787,7 +837,7 @@ FORCE_INLINE static bool cmpxchg( volatile T& data, T& expected, const T& desire
 #elif GNU_COMPILER
 	using Y = std::array<uint8_t, sizeof( T )>;
 	std::atomic_ref<Y> ref_data{ ( Y& ) data };
-	return ref_data.compare_exchange_strong( ( Y* ) &expected, *( Y* ) &desired );
+	return ref_data.compare_exchange_strong( *( Y* ) &expected, *( Y* ) &desired );
 #else
 
 	#define __CMPXCHG_BASE(fn , type)          \

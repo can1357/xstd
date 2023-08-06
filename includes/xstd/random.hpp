@@ -17,54 +17,69 @@
 #if GNU_COMPILER
 #pragma GCC diagnostic ignored "-Wunused-value"
 #endif
-namespace xstd
-{
-	// Linear congruential generator.
+namespace xstd {
+	struct pcg_u128 {
+		uint64_t lo;
+		uint64_t hi;
+		constexpr auto operator<=>( const pcg_u128& ) const noexcept = default;
+	};
+
+	// All primitives.
 	//
-	FORCE_INLINE inline constexpr uint64_t lce_64( uint64_t& value )
-	{
+	FORCE_INLINE inline constexpr uint64_t lce_64( uint64_t& value ) {
 		return ( value = 6364136223846793005 * value + 1442695040888963407 );
 	}
-	FORCE_INLINE CONST_FN inline constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
-	{
-		while ( true )
-		{
-			uint64_t result = lce_64( value );
-			if ( !offset-- )
-				return result;
-		}
-	}
-
-	// Permuted congruential generator.
-	//
-	FORCE_INLINE inline constexpr uint32_t pce_32( uint64_t& value )
-	{
-		uint64_t x = std::exchange( value, value * 6364136223846793005 + 1 );
+	FORCE_INLINE inline constexpr uint32_t pce_32( uint64_t& value ) {
+		// oneseq_xsh_rr_64_32
+		uint64_t x = std::exchange( value, 6364136223846793005 * value + 1442695040888963407 );
 		uint8_t shift = uint8_t( x >> 59 );
 		x ^= x >> 18;
 		return rotl( uint32_t( x >> 27 ), shift );
 	}
-	FORCE_INLINE CONST_FN inline constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 1 )
-	{
-		while ( true )
-		{
-			uint32_t result = pce_32( value );
-			if ( !offset-- )
-				return result;
-		}
+	FORCE_INLINE inline constexpr uint64_t pce_64( pcg_u128& value ) {
+		// oneseq_xsl_rr_128_64
+		constexpr uint64_t mul_lo = 4865540595714422341ull;
+		constexpr uint64_t mul_hi = 2549297995355413924ull;
+		constexpr uint64_t inc_lo = 1442695040888963407ull;
+		constexpr uint64_t inc_hi = 6364136223846793005ull;
+
+		uint64_t hi;
+		uint64_t lo0 = umul128( mul_lo, value.lo, &hi );
+		hi += ( mul_lo * value.hi ) + ( mul_hi * value.lo );
+
+		auto [lo, of] = add_checked<uint64_t>( inc_lo, lo0 );
+		hi = inc_hi + hi + of;
+		value = { lo, hi };
+
+		bitcnt_t n = ( hi >> 58 ) & 63;
+		return rotrq( hi ^ lo, n );
 	}
-	FORCE_INLINE inline constexpr uint64_t pce_64( uint64_t& value )
-	{
+	FORCE_INLINE inline constexpr uint64_t pce_64( uint64_t& value ) {
+		// 2x oneseq_xsh_rr_64_32
 		return uint64_t( pce_32( value ) ) | ( uint64_t( pce_32( value ) ) << 32 );
 	}
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
-	{
-		while ( true )
-		{
-			uint64_t result = pce_64( value );
-			if ( !offset-- )
-				return result;
-		}
+
+	// Step count versions.
+	//
+	FORCE_INLINE CONST_FN inline constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 ) {
+		uint64_t result;
+		for ( size_t i = 0; i <= offset; i++ ) result = lce_64( value );
+		return result;
+	}
+	FORCE_INLINE CONST_FN inline constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 0 ) {
+		uint32_t result;
+		for ( size_t i = 0; i <= offset; i++ ) result = pce_32( value );
+		return result;
+	}
+	FORCE_INLINE CONST_FN inline constexpr uint64_t pce_64_n( pcg_u128 value, size_t offset = 0 ) {
+		uint64_t result;
+		for ( size_t i = 0; i <= offset; i++ ) result = pce_64( value );
+		return result;
+	}
+	FORCE_INLINE CONST_FN inline constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 0 ) {
+		uint64_t result;
+		for ( size_t i = 0; i <= offset; i++ ) result = pce_64( value );
+		return result;
 	}
 
 	// Fast uniform real distribution.
@@ -106,7 +121,6 @@ namespace xstd
 		return min + uniform_real<float, S>( v ) * ( max - min );
 	}
 
-
 	// Uniform integer distribution.
 	//
 	template<Unsigned U>
@@ -124,83 +138,107 @@ namespace xstd
 		if constexpr ( Same<I, bool> ) {
 			return ( seed & 1 ) ? min : max;
 		} else {
-			using U = convert_uint_t<I>;
 			return min + uniform_integer( seed, S( max - min ) );
 		}
 	}
 
-	// Implement an PCG and its atomic variant.
+	// Implement the engine-like wrapper.
 	//
-	template<xstd::Unsigned T = uint64_t>
-	struct basic_pcg
-	{
-		using result_type = T;
-		static constexpr uint64_t multiplier = 6364136223846793005;
-		static constexpr uint64_t increment = 1;
+	struct pcg {
+		using result_type = uint32_t;
 
-		uint64_t state = 0;
-		inline constexpr basic_pcg( uint64_t s = 0 ) { seed( s ); }
-		inline constexpr void seed( uint64_t s ) { state = s; pce_32( state ); }
-
-		constexpr basic_pcg( const basic_pcg& o ) = default;
-		constexpr basic_pcg& operator=( const basic_pcg& o ) = default;
-
-		static inline constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
-		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
-		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
-
-		inline constexpr result_type operator()() {
-			if constexpr ( sizeof( T ) <= 4 ) {
-				return ( T ) pce_32( state );
-			} else {
-				return ( T ) pce_64( state );
-			}
+		uint64_t state = { 0 };
+		inline constexpr pcg( uint64_t s = 0xcafef00dd15ea5e5 ) { seed( s ); }
+		inline constexpr void seed( uint64_t s ) {
+			s += 1442695040888963407;
+			pce_32( s );
+			state = s;
 		}
+
+		constexpr pcg( pcg&& o ) noexcept = default;
+		constexpr pcg( const pcg& o ) = default;
+		constexpr pcg& operator=( pcg&& o ) noexcept = default;
+		constexpr pcg& operator=( const pcg& o ) = default;
+
+		static inline constexpr result_type min() { return ( std::numeric_limits<result_type>::min )( ); }
+		static inline constexpr result_type max() { return ( std::numeric_limits<result_type>::max )( ); }
+		inline constexpr double entropy() const noexcept { return sizeof( result_type ) * 8; }
+		inline constexpr result_type operator()() { return ( result_type ) pce_32( state ); }
 	};
-	template<xstd::Unsigned T = uint64_t>
-	struct basic_atomic_pcg
-	{
-		using result_type = T;
-		static constexpr uint64_t multiplier = 6364136223846793005;
-		static constexpr uint64_t increment = 1;
+	struct pcg64 {
+		using result_type = uint64_t;
 
-		std::atomic<uint64_t> state;
-		inline constexpr basic_atomic_pcg( uint64_t s = 0 ) : state( basic_pcg<>{ s }.state ) {}
-		inline void seed( uint64_t s ) { state.store( basic_pcg<>{ s }.state, std::memory_order::relaxed ); }
+		pcg_u128 state = { 0, 0 };
+		inline constexpr pcg64( uint64_t s = 0xcafef00dd15ea5e5 ) { seed( s ); }
+		inline constexpr void seed( uint64_t s ) {
+			pcg_u128 tmp = { s, 6364136223846793005 };
+			pce_64( tmp );
+			state = tmp;
+		}
 
-		inline constexpr basic_atomic_pcg( const basic_atomic_pcg& o ) = delete;
-		inline constexpr basic_atomic_pcg& operator=( const basic_atomic_pcg& o ) = delete;
+		constexpr pcg64( pcg64&& o ) noexcept = default;
+		constexpr pcg64( const pcg64& o ) = default;
+		constexpr pcg64& operator=( pcg64&& o ) noexcept = default;
+		constexpr pcg64& operator=( const pcg64& o ) = default;
 
-		static inline constexpr result_type min() { return std::numeric_limits<result_type>::min(); }
-		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
-		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
+		static inline constexpr result_type min() { return ( std::numeric_limits<result_type>::min )( ); }
+		static inline constexpr result_type max() { return ( std::numeric_limits<result_type>::max )( ); }
+		inline constexpr double entropy() const noexcept { return sizeof( result_type ) * 8; }
+		inline constexpr result_type operator()() { return ( result_type ) pce_64( state ); }
+	};
+	struct atomic_pcg {
+		using result_type = uint32_t;
+
+		std::atomic<uint64_t> state = { 0 };
+		inline atomic_pcg( uint64_t s = 0xcafef00dd15ea5e5 ) { seed( s ); }
+		inline void seed( uint64_t s ) {
+			s += 1442695040888963407;
+			pce_32( s );
+			state.store( s, std::memory_order::release );
+		}
+
+		static inline constexpr result_type min() { return ( std::numeric_limits<result_type>::min )( ); }
+		static inline constexpr result_type max() { return ( std::numeric_limits<result_type>::max )( ); }
+		inline constexpr double entropy() const noexcept { return sizeof( result_type ) * 8; }
 
 		inline result_type operator()() {
-			if constexpr ( sizeof( T ) <= 4 ) {
-				uint64_t expected = state.load( std::memory_order::relaxed );
-				while ( true ) {
-					uint64_t new_value = expected;
-					T result = ( T ) pce_32( new_value );
-					if ( state.compare_exchange_strong( expected, new_value ) ) [[likely]] {
-						return result;
-					}
-				}
-			} else {
-				uint64_t expected = state.load( std::memory_order::relaxed );
-				while ( true ) {
-					uint64_t new_value = expected;
-					T result = ( T ) pce_64( new_value );
-					if ( state.compare_exchange_strong( expected, new_value ) ) [[likely]] {
-						return result;
-					}
+			uint64_t s0 = state.load( std::memory_order::relaxed );
+			while ( true ) {
+				uint64_t s1 = s0;
+				result_type r = pce_32( s1 );
+				if ( state.compare_exchange_strong( s0, s1, std::memory_order::acquire ) ) {
+					return r;
 				}
 			}
 		}
 	};
-	using pcg = basic_pcg<uint32_t>;
-	using pcg64 = basic_pcg<uint64_t>;
-	using atomic_pcg = basic_atomic_pcg<uint32_t>;
-	using atomic_pcg64 = basic_atomic_pcg<uint64_t>;
+	struct atomic_pcg64 {
+		using result_type = uint64_t;
+
+		volatile pcg_u128 state = pcg_u128{ 0, 0 };
+		inline atomic_pcg64( uint64_t s = 0xcafef00dd15ea5e5 ) { seed( s ); }
+		inline void seed( uint64_t s ) { 
+			pcg_u128 tmp = { s, 6364136223846793005 };
+			pce_64( tmp );
+			( pcg_u128& ) state = tmp;
+		}
+
+		static inline constexpr result_type min() { return ( std::numeric_limits<result_type>::min )( ); }
+		static inline constexpr result_type max() { return ( std::numeric_limits<result_type>::max )( ); }
+		inline constexpr double entropy() const noexcept { return sizeof( result_type ) * 8; }
+
+		inline result_type operator()() {
+			pcg_u128 s0 = ( pcg_u128& ) state;
+			std::atomic_thread_fence( std::memory_order::release );
+			while ( true ) {
+				pcg_u128 s1 = s0;
+				result_type r = pce_64( s1 );
+				if ( cmpxchg( state, s0, s1 ) ) {
+					return r;
+				}
+			}
+		}
+	};
 
 	namespace impl
 	{
