@@ -21,11 +21,11 @@ namespace xstd
 {
 	// Linear congruential generator.
 	//
-	inline constexpr uint64_t lce_64( uint64_t& value )
+	FORCE_INLINE inline constexpr uint64_t lce_64( uint64_t& value )
 	{
 		return ( value = 6364136223846793005 * value + 1442695040888963407 );
 	}
-	[[nodiscard]] inline constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
+	FORCE_INLINE CONST_FN inline constexpr uint64_t lce_64_n( uint64_t value, size_t offset = 0 )
 	{
 		while ( true )
 		{
@@ -37,14 +37,14 @@ namespace xstd
 
 	// Permuted congruential generator.
 	//
-	inline constexpr uint32_t pce_32( uint64_t& value )
+	FORCE_INLINE inline constexpr uint32_t pce_32( uint64_t& value )
 	{
 		uint64_t x = std::exchange( value, value * 6364136223846793005 + 1 );
 		uint8_t shift = uint8_t( x >> 59 );
 		x ^= x >> 18;
 		return rotl( uint32_t( x >> 27 ), shift );
 	}
-	[[nodiscard]] inline constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 1 )
+	FORCE_INLINE CONST_FN inline constexpr uint32_t pce_32_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( true )
 		{
@@ -53,11 +53,11 @@ namespace xstd
 				return result;
 		}
 	}
-	inline constexpr uint64_t pce_64( uint64_t& value )
+	FORCE_INLINE inline constexpr uint64_t pce_64( uint64_t& value )
 	{
 		return uint64_t( pce_32( value ) ) | ( uint64_t( pce_32( value ) ) << 32 );
 	}
-	[[nodiscard]] inline constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
+	FORCE_INLINE CONST_FN inline constexpr uint64_t pce_64_n( uint64_t value, size_t offset = 1 )
 	{
 		while ( true )
 		{
@@ -70,7 +70,7 @@ namespace xstd
 	// Fast uniform real distribution.
 	//
 	template<FloatingPoint F, Unsigned S> requires ( sizeof( S ) >= sizeof( F ) )
-		inline constexpr F uniform_real( S v )
+	FORCE_INLINE CONST_FN inline constexpr F uniform_real( S v )
 	{
 		using U = std::conditional_t<Same<F, float>, uint32_t, uint64_t>;
 		constexpr bitcnt_t mantissa_bits = Same<F, float> ? 23 : 52;
@@ -96,12 +96,12 @@ namespace xstd
 		return bit_cast< F >( U( v ) ) + 0.5;
 	}
 	template<Unsigned S> requires ( sizeof( S ) >= sizeof( double ) )
-		inline constexpr double uniform_real( S v, double min, double max )
+	FORCE_INLINE CONST_FN inline constexpr double uniform_real( S v, double min, double max )
 	{
 		return min + uniform_real<double, S>( v ) * ( max - min );
 	}
 	template<Unsigned S> requires ( sizeof( S ) >= sizeof( float ) )
-		inline constexpr float uniform_real( S v, float min, float max )
+	FORCE_INLINE CONST_FN inline constexpr float uniform_real( S v, float min, float max )
 	{
 		return min + uniform_real<float, S>( v ) * ( max - min );
 	}
@@ -110,8 +110,7 @@ namespace xstd
 	// Uniform integer distribution.
 	//
 	template<Unsigned U>
-	inline constexpr U uniform_integer( U seed, U max )
-	{
+	FORCE_INLINE CONST_FN inline constexpr U uniform_integer( U seed, U max ) {
 		// Fixes both the issue with overflow/zero and speeds up handling of pow2-1.
 		//
 		if ( !( max & ( max + 1 ) ) )
@@ -119,19 +118,14 @@ namespace xstd
 		else
 			return seed % ( max + 1 );
 	}
-
-
-
 	template<Integral I, Unsigned S>
-	inline constexpr I uniform_integer( S seed, I min, I max )
+	FORCE_INLINE CONST_FN inline constexpr I uniform_integer( S seed, I min, I max )
 	{
-		if constexpr ( Same<I, bool> )
-		{
+		if constexpr ( Same<I, bool> ) {
 			return ( seed & 1 ) ? min : max;
-		} else
-		{
+		} else {
 			using U = convert_uint_t<I>;
-			return min + uniform_integer( seed, S( U( max ) - U( min ) ) );
+			return min + uniform_integer( seed, S( max - min ) );
 		}
 	}
 
@@ -155,14 +149,12 @@ namespace xstd
 		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
 		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
 
-		[[nodiscard]] inline constexpr result_type operator()()
-		{
-			std::array<uint32_t, ( sizeof( T ) + 3 ) / 4> results = {};
-			for ( auto& result : results )
-				result = pce_32( state );
-			if constexpr ( sizeof( T ) == 4 ) return results[ 0 ];
-			else if constexpr ( sizeof( T ) == 8 ) return xstd::bit_cast< T >( results );
-			else return *( result_type* ) &results;
+		inline constexpr result_type operator()() {
+			if constexpr ( sizeof( T ) <= 4 ) {
+				return ( T ) pce_32( state );
+			} else {
+				return ( T ) pce_64( state );
+			}
 		}
 	};
 	template<xstd::Unsigned T = uint64_t>
@@ -183,29 +175,26 @@ namespace xstd
 		static inline constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
 		inline constexpr double entropy() const noexcept { return sizeof( T ) * 8; }
 
-		[[nodiscard]] inline result_type operator()()
-		{
-			static constexpr size_t step_count = ( sizeof( T ) + 3 ) / 4;
-
-			// Generate all keys in one step.
-			//
-			std::array<uint64_t, step_count> keys = {};
-			uint64_t expected = state.load( std::memory_order::relaxed );
-			while ( true )
-			{
-				uint64_t desired = expected;
-				for ( auto& key : keys )
-					key = std::exchange( desired, desired * multiplier + increment );
-				if ( state.compare_exchange_strong( expected, desired ) )
-					break;
+		inline result_type operator()() {
+			if constexpr ( sizeof( T ) <= 4 ) {
+				uint64_t expected = state.load( std::memory_order::relaxed );
+				while ( true ) {
+					uint64_t new_value = expected;
+					T result = ( T ) pce_32( new_value );
+					if ( state.compare_exchange_strong( expected, new_value ) ) [[likely]] {
+						return result;
+					}
+				}
+			} else {
+				uint64_t expected = state.load( std::memory_order::relaxed );
+				while ( true ) {
+					uint64_t new_value = expected;
+					T result = ( T ) pce_64( new_value );
+					if ( state.compare_exchange_strong( expected, new_value ) ) [[likely]] {
+						return result;
+					}
+				}
 			}
-
-			// Mask and return.
-			//
-			std::array<uint32_t, step_count> results = {};
-			for ( size_t n = 0; n != step_count; n++ )
-				results[ n ] = pce_32( keys[ n ] );
-			return *( result_type* ) &results;
 		}
 	};
 	using pcg = basic_pcg<uint32_t>;
@@ -224,13 +213,12 @@ namespace xstd
 #ifndef XSTD_RANDOM_FIXED_SEED
 		// Declare the constexpr random seed.
 		//
-		static constexpr uint64_t crandom_default_seed = ( [ ] ()
-		{
+		static constexpr uint64_t crandom_default_seed = [ ](){
 			uint64_t value = 0xa0d82d3adc00b109;
 			for ( char c : __DATE__ )
 				value = ( value ^ c ) * 0x100000001B3;
 			return value;
-		} )( );
+		}();
 		inline __xstd_rng global_rng{ uint64_t( std::random_device{}( ) ) | ( uint64_t( std::random_device{}( ) ) << 32 ) };
 #else
 		static constexpr uint64_t crandom_default_seed = XSTD_RANDOM_FIXED_SEED ^ 0xC0EC0E00;
@@ -256,7 +244,7 @@ namespace xstd
 		U seed[ ( sizeof( T ) + sizeof( U ) - 1 ) / sizeof( U ) ];
 		for ( auto& v : seed )
 			v = std::random_device{}( );
-		return uniform_integer( *( convert_uint_t<T>* ) & seed[ 0 ], min, max );
+		return uniform_integer( *( convert_uint_t<T>* ) &seed[ 0 ], min, max );
 	}
 	template<FloatingPoint T>
 	FORCE_INLINE static T make_srandom( T min = 0, T max = 1 )

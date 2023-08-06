@@ -35,19 +35,7 @@ namespace xstd
 		{
 			return const_demote<To>( a & b ) || const_demote<To>( a ) || const_demote<To>( b );
 		}
-		FORCE_INLINE CONST_FN inline constexpr bitcnt_t rshiftcnt( bitcnt_t n )
-		{
-#if AMD64_TARGET && !defined(__INTELLISENSE__)
-			// SAR/SHR/SHL will ignore anything besides [x % 64], which lets us 
-			// optimize (64 - n) into [-n] by substracting modulo size {64}.
-			//
-			if ( !std::is_constant_evaluated() )
-				return -n & 63;
-#endif
-			return 64 - n;
-		}
-
-#if !GNU_COMPILER
+#if !CLANG_COMPILER
 		inline constexpr auto bit_reverse_lookup_table = xstd::make_constant_series<0x100>( [] <int N> ( const_tag<N> )
 		{
 			uint8_t value = 0;
@@ -62,121 +50,72 @@ namespace xstd
 	// Implement platform-indepdenent bitwise operations.
 	//
 	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN inline constexpr bitcnt_t popcnt( T x ) {
-		// Constant operand size demotion.
-		//
-		if constexpr ( sizeof( T ) > 1 )
-			if ( impl::const_demote<uint8_t>( x ) )
-				return popcnt<uint8_t>( uint8_t( x ) );
-		if constexpr ( sizeof( T ) > 2 )
-			if ( impl::const_demote<uint16_t>( x ) )
-				return popcnt<uint16_t>( uint16_t( x ) );
-		if constexpr ( sizeof( T ) > 4 )
-			if ( impl::const_demote<uint32_t>( x ) )
-				return popcnt<uint32_t>( uint32_t( x ) );
-
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t popcnt( T v ) {
 		// Optimized using intrinsics if not const evaluated.
 		//
-		if ( !std::is_constant_evaluated() )
-		{
+		if ( !std::is_constant_evaluated() ) {
 #if MS_COMPILER && AMD64_TARGET
 			if constexpr ( sizeof( T ) <= 4 )
-				return ( bitcnt_t ) __popcnt( x );
+				return ( bitcnt_t ) __popcnt( v );
 			else
-				return ( bitcnt_t ) __popcnt64( x );
+				return ( bitcnt_t ) __popcnt64( v );
 #elif __has_builtin(__builtin_popcount)
 			if constexpr ( sizeof( T ) <= 4 )
-				return ( bitcnt_t ) __builtin_popcount( x );
+				return ( bitcnt_t ) __builtin_popcount( v );
 			else
-				return ( bitcnt_t ) __builtin_popcountll( x );
+				return ( bitcnt_t ) __builtin_popcountll( v );
 #endif
 		}
-		bitcnt_t count = 0;
-		for ( bitcnt_t i = 0; i != ( sizeof( T ) * 8 ); i++, x >>= 1 )
-			count += ( bitcnt_t ) ( x & 1 );
-		return count;
+
+		if ( sizeof( T ) <= 4 ) {
+			uint32_t x = uint32_t( v );
+			x = x - ( ( x >> 1 ) & 0x55555555u );
+			x = ( x & 0x33333333u ) + ( ( x >> 2 ) & 0x33333333u );
+			x = ( ( ( x + ( x >> 4u ) ) & 0xF0F0F0Fu ) * 0x1010101u ) >> 24u;
+			return bitcnt_t( x );
+		} else {
+			uint64_t x = uint64_t( v );
+			x = x - ( ( x >> 1 ) & 0x5555555555555555ull );
+			x = ( x & 0x3333333333333333ull ) + ( ( x >> 2u ) & 0x3333333333333333ull );
+			x = ( ( ( x + ( x >> 4 ) ) & 0x0F0F0F0F0F0F0F0Full ) * 0x0101010101010101ull ) >> 56u;
+			return bitcnt_t( x );
+		}
 	}
-	template<Integral T = uint64_t>
-	FORCE_INLINE CONST_FN inline constexpr bitcnt_t msb( T x ) {
-		// Constant operand size demotion.
-		//
-#if !XSTD_HW_BITSCAN
-		if constexpr ( sizeof( T ) > 1 )
-			if ( impl::const_demote<uint8_t>( x ) )
-				return msb<uint8_t>( uint8_t( x ) );
-		if constexpr ( sizeof( T ) > 2 )
-			if ( impl::const_demote<uint16_t>( x ) )
-				return msb<uint16_t>( uint16_t( x ) );
-#endif
-		if constexpr ( sizeof( T ) > 4 )
-			if ( impl::const_demote<uint32_t>( x ) )
-				return msb<uint32_t>( uint32_t( x ) );
-
-		// Optimized using intrinsics if not const evaluated.
-		//
-#if XSTD_HW_BITSCAN
-		if ( !std::is_constant_evaluated() )
-		{
-#if __has_builtin(__builtin_clz)
-#if __has_builtin(__builtin_clzs)
-			if constexpr ( sizeof( T ) <= 2 )
-				return x ? 15 - __builtin_clzs( x ) : -1;
-#endif
-			if constexpr ( sizeof( T ) <= 4 )
-				return x ? 31 - __builtin_clz( x ) : -1;
-			else
-				return x ? 63 - __builtin_clzll( x ) : -1;
-#elif MS_COMPILER && AMD64_TARGET
-			if constexpr ( sizeof( T ) <= 4 )
-			{
-				unsigned long idx;
-				return _BitScanReverse( &idx, x ) ? idx : -1;
+	template<Integral I>
+	FORCE_INLINE CONST_FN inline constexpr I bit_reverse( I value ) {
+#if CLANG_COMPILER
+		switch ( sizeof( I ) ) {
+			case 1:  return __builtin_bitreverse8( value );
+			case 2:  return __builtin_bitreverse16( value );
+			case 4:  return __builtin_bitreverse32( value );
+			case 8:  return __builtin_bitreverse64( value );
+			default: return 0;
+		}
+#else
+		if constexpr ( sizeof( I ) == 1 ) {
+			return ( I ) impl::bit_reverse_lookup_table[ uint8_t( value ) ];
+		} else {
+			std::make_unsigned_t<I> u = 0;
+			for ( size_t n = 0; n != sizeof( I ); n++ ) {
+				u <<= 8;
+				u |= impl::bit_reverse_lookup_table[ uint8_t( value & 0xFF ) ];
+				value >>= 8;
 			}
-			else
-			{
-				unsigned long idx;
-				return _BitScanReverse64( &idx, x ) ? idx : -1;
-			}
-#endif
+			return ( I ) u;
 		}
 #endif
-
-		// Start scan loop, return idx if found, else -1.
-		//
-		for ( bitcnt_t i = ( sizeof( T ) * 8 ) - 1; i >= 0; i-- )
-			if ( x & ( 1ull << i ) )
-				return i;
-		return -1;
 	}
 	template<Integral T = uint64_t>
 	FORCE_INLINE CONST_FN inline constexpr bitcnt_t lsb( T x ) {
-		// Constant operand size demotion.
-		//
-#if !XSTD_HW_BITSCAN
-		if constexpr ( sizeof( T ) > 1 )
-			if ( impl::const_demote<uint8_t>( x ) )
-				return lsb<uint8_t>( uint8_t( x ) );
-		if constexpr ( sizeof( T ) > 2 )
-			if ( impl::const_demote<uint16_t>( x ) )
-				return lsb<uint16_t>( uint16_t( x ) );
-#endif
-		if constexpr ( sizeof( T ) > 4 )
-			if ( impl::const_demote<uint32_t>( x ) )
-				return lsb<uint32_t>( uint32_t( x ) );
-
 		// Optimized using intrinsics if not const evaluated.
 		//
 #if XSTD_HW_BITSCAN
-		if ( !std::is_constant_evaluated() )
-		{
+		if ( !std::is_constant_evaluated() ) {
 #if MS_COMPILER && AMD64_TARGET
-			if constexpr ( sizeof( T ) <= 4 )
-			{
+			if constexpr ( sizeof( T ) <= 4 ) {
 				unsigned long idx;
 				return _BitScanForward( &idx, x ) ? idx : -1;
-			}
-			else
-			{
+			} else {
 				unsigned long idx;
 				return _BitScanForward64( &idx, x ) ? idx : -1;
 			}
@@ -193,11 +132,55 @@ namespace xstd
 		}
 #endif
 
-		// Start scan loop, return idx if found, else -1.
+		if ( x ) {
+			uint64_t y = uint64_t( x ) & int64_t( -x );
+			bitcnt_t r = bool( y >> 32 );
+			y |= y >> 32;
+			r = ( r << 1 ) + bool( y & 0xffff0000 );
+			r = ( r << 1 ) + bool( y & 0xff00ff00 );
+			r = ( r << 1 ) + bool( y & 0xf0f0f0f0 );
+			r = ( r << 1 ) + bool( y & 0xcccccccc );
+			r = ( r << 1 ) + bool( y & 0xaaaaaaaa );
+			return r;
+		}
+		return -1;
+	}
+	template<Integral T = uint64_t>
+	FORCE_INLINE CONST_FN inline constexpr bitcnt_t msb( T x ) {
+		// Optimized using intrinsics if not const evaluated.
 		//
-		for ( bitcnt_t i = 0; i != ( sizeof( T ) * 8 ); i++ )
-			if ( x & ( 1ull << i ) )
-				return i;
+#if XSTD_HW_BITSCAN
+		if ( !std::is_constant_evaluated() ) {
+#if __has_builtin(__builtin_clz)
+#if __has_builtin(__builtin_clzs)
+			if constexpr ( sizeof( T ) <= 2 )
+				return x ? 15 - __builtin_clzs( x ) : -1;
+#endif
+			if constexpr ( sizeof( T ) <= 4 )
+				return x ? 31 - __builtin_clz( x ) : -1;
+			else
+				return x ? 63 - __builtin_clzll( x ) : -1;
+#elif MS_COMPILER && AMD64_TARGET
+			if constexpr ( sizeof( T ) <= 4 ) {
+				unsigned long idx;
+				return _BitScanReverse( &idx, x ) ? idx : -1;
+			} else {
+				unsigned long idx;
+				return _BitScanReverse64( &idx, x ) ? idx : -1;
+			}
+#endif
+		}
+#endif
+
+		if ( x ) {
+			switch ( sizeof( T ) ) {
+				case 1: return  7 - lsb( bit_reverse<uint8_t>( uint8_t( x ) ) );
+				case 2: return 15 - lsb( bit_reverse<uint16_t>( uint16_t( x ) ) );
+				case 4: return 31 - lsb( bit_reverse<uint32_t>( uint32_t( x ) ) );
+				case 8: return 63 - lsb( bit_reverse<uint64_t>( uint64_t( x ) ) );
+				default: return 0;
+			}
+		}
 		return -1;
 	}
 	template<Unsigned T = uint64_t>
@@ -697,37 +680,6 @@ namespace xstd
 			return bit_complement( value, n );
 	}
 
-	template<Integral I>
-	FORCE_INLINE CONST_FN inline constexpr I bit_reverse( I value )
-	{
-#if GNU_COMPILER
-		switch ( sizeof( I ) )
-		{
-			case 1:  return __builtin_bitreverse8( value );
-			case 2:  return __builtin_bitreverse16( value );
-			case 4:  return __builtin_bitreverse32( value );
-			case 8:  return __builtin_bitreverse64( value );
-			default: return 0;
-		}
-#else
-		if constexpr ( sizeof( I ) == 1 )
-		{
-			return ( I ) impl::bit_reverse_lookup_table[ uint8_t( value ) ];
-		}
-		else
-		{
-			std::make_unsigned_t<I> u = 0;
-			for ( size_t n = 0; n != sizeof( I ); n++ )
-			{
-				u <<= 8;
-				u |= impl::bit_reverse_lookup_table[ uint8_t( value & 0xFF ) ];
-				value >>= 8;
-			}
-			return ( I ) u;
-		}
-#endif
-	}
-
 	// Parallel extraction/deposit.
 	//
 	template<Integral I = uint64_t>
@@ -867,7 +819,7 @@ namespace xstd
 
 		// Shift to right to remove bits, shift to left for adjustment.
 		//
-		value >>= impl::rshiftcnt( bit_count );
+		value >>= ( 64 - bit_count );
 		value <<= bit_offset;
 		return value;
 	}
@@ -903,8 +855,8 @@ namespace xstd
 		}
 		else
 		{
-			value <<= impl::rshiftcnt( bcnt_src );
-			value >>= impl::rshiftcnt( bcnt_src );
+			value <<= ( 64 - bcnt_src );
+			value >>= ( 64 - bcnt_src );
 			return value;
 		}
 	}
@@ -948,8 +900,8 @@ namespace xstd
 			// Interprete as signed, shift left matching the MSB and shift right.
 			//
 			int64_t value = ( int64_t ) ( std::make_unsigned_t<I> ) _value;
-			value <<= impl::rshiftcnt( bcnt_src );
-			value >>= impl::rshiftcnt( bcnt_src );
+			value <<= ( 64 - bcnt_src );
+			value >>= ( 64 - bcnt_src );
 			return value;
 		}
 	}

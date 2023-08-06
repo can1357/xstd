@@ -12,6 +12,7 @@
 #include <chrono>
 #include <utility>
 #include <memory>
+#include <algorithm>
 #include <variant>
 #include <bit>
 #include <string_view>

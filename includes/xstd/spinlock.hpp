@@ -403,7 +403,7 @@ namespace xstd
 
 			// Increment depth and return.
 			//
-			++depth;
+			++underlying_lock::depth;
 		}
 	};
 
