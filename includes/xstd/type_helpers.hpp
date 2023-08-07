@@ -1238,6 +1238,19 @@ namespace xstd
 #endif
 			}
 		}
+		template<typename Ti, typename T, Ti... I>
+		FLATTEN FORCE_INLINE inline constexpr bool make_constant_search( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
+		{
+			auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self ) {
+				if ( f( tag ) )
+					return true;
+				else if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
+					return self( const_tag<X + 1>{}, self );
+				else
+					return false;
+			};
+			return eval( const_tag<Ti( 0 )>{}, eval );
+		}
 	};
 	template<auto N, template<typename...> typename Tr = std::tuple, typename T>
 	FLATTEN FORCE_INLINE inline constexpr auto make_tuple_series( T&& f )
@@ -1251,6 +1264,11 @@ namespace xstd
 	FLATTEN FORCE_INLINE inline constexpr auto make_constant_series( T&& f )
 	{
 		return impl::make_constant_series<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
+	}
+	template<auto N, typename T>
+	FLATTEN FORCE_INLINE inline constexpr bool make_constant_search( T&& f )
+	{
+		return impl::make_constant_search<decltype( N )>( std::forward<T>( f ), std::make_integer_sequence<decltype( N ), N>{} );
 	}
 
 	// Visit strategies:

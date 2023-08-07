@@ -26922,7 +26922,7 @@ namespace ia32
 	template<typename T, typename Predicate> requires xstd::Invocable<Predicate, bool, const volatile T&>
 	_LINKAGE void wait_on( const volatile T& ref, Predicate&& pred, size_t pause_count = 4, uint32_t mwait_hint = mwait_hint_v<0> )
 	{
-		const bool caller_if =                read_flags().interrupt_enable_flag;
+		const bool caller_if = interrupts_enabled();
 
 		// Use a pause loop if MONITOR is not available.
 		//
@@ -27457,46 +27457,53 @@ namespace ia32
 	template<irql_t new_irql, bool relaxed = false>
 	struct scope_irql
 	{
-		const irql_t prev;
-		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) : prev( prev ) {
-			if constexpr ( !relaxed )
-				dassert( prev <= new_irql ); 
-			reset( true ); 
-		}
+		irql_t prev = 0;
+		bool locked = false;
+		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) { lock( prev ); }
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
 
-		FORCE_INLINE void reset( bool state = false ) {
-			if ( state ) {
-				if ( relaxed && prev >= new_irql ) 
-					return;
-				set_irql( new_irql );
-			} else {
-				set_irql( prev );
-			}
+		FORCE_INLINE void lock( irql_t src = ( uint8_t ) get_irql() ) {
+			dassert( !locked );
+			locked = true;
+			prev = src;
+			if constexpr ( !relaxed )
+				dassert( src <= new_irql );
+			if ( relaxed && src >= new_irql )
+				return;
+			set_irql( new_irql );
 		}
-		~scope_irql() { reset(); }
+		FORCE_INLINE void unlock() {
+			dassert( locked );
+			set_irql( prev );
+			locked = false;
+		}
+		FORCE_INLINE void reset() { if ( locked ) unlock();  }
+		FORCE_INLINE ~scope_irql() { reset(); }
 	};
 
 	template<bool relaxed>
 	struct scope_irql<NO_INTERRUPTS, relaxed>
 	{
-		const rflags prev_flags;
-		scope_irql( rflags prev_flags = read_flags() ) : prev_flags( prev_flags ) { disable(); }
+		bool prev = false;
+		bool locked = false;
+		scope_irql( bool prev = interrupts_enabled() ) { lock( prev ); }
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
 
-		void reset( bool state = false ) {
-			if ( state ) {
-				disable();
-			} else {
-				write_flags( prev_flags );
-			}
+		FORCE_INLINE void lock( bool src = interrupts_enabled() ) {
+			dassert( !locked );
+			locked = true;
+			prev = src;
+			disable();
 		}
-		~scope_irql()
-		{
-			reset();
+		FORCE_INLINE void unlock() {
+			dassert( locked );
+			if ( prev ) enable();
+			locked = false;
 		}
+		FORCE_INLINE void reset() { if ( locked ) unlock(); }
+		FORCE_INLINE ~scope_irql() { reset(); }
 	};
 
 	// TSC/MSR/PMC based profiling in the style of xstd::profile.

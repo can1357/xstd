@@ -59,6 +59,21 @@ namespace xstd
 		}();
 	};
 
+	// Format extension marker for accepting end of stream in tiable objects.
+	//
+	struct TRIVIAL_ABI version_bump_t {
+		struct _Tag {};
+		constexpr explicit version_bump_t( _Tag ) {}
+
+		constexpr version_bump_t( version_bump_t&& ) noexcept {}
+		constexpr version_bump_t( const version_bump_t& ) {}
+		constexpr version_bump_t& operator=( version_bump_t&& ) noexcept { return *this; }
+		constexpr version_bump_t& operator=( const version_bump_t& ) { return *this; }
+
+		constexpr auto operator<=>( const version_bump_t& ) const noexcept = default;
+	};
+	static version_bump_t version_bump{version_bump_t::_Tag{}};
+
 	// Maximum bytes an index serializes into.
 	//
 	inline constexpr size_t max_index_length = ( 64 + 6 ) / 7;
@@ -189,22 +204,21 @@ namespace xstd
 	//
 	struct serialization
 	{
-		struct pointer_record
-		{
+		struct pointer_record {
 			size_t index = 0;
 			std::vector<uint8_t> output_stream = {};
 			bool is_backed = false; // Not serialized, temporary.
 		};
 
-		struct rpointer_record
-		{
+		struct rpointer_record {
 			std::span<const uint8_t> range = {};
 			std::shared_ptr<void> deserialized = {};
-			void* xdeserialized = nullptr;
-			std::function<void()> destroy_xptr = {};
 			bool is_lifted = false;
-			~rpointer_record() { if ( destroy_xptr ) destroy_xptr(); }
 		};
+
+		// Shared version counter.
+		//
+		int64_t version = 0;
 
 		// Fields used during serialization.
 		//
@@ -264,15 +278,12 @@ namespace xstd
 
 		// Index read/write.
 		//
-		void write_idx( size_t idx )
-		{
+		void write_idx( size_t idx ) {
 			encode_index( output_stream, idx );
 		}
-		size_t read_idx()
-		{
+		size_t read_idx() {
 			auto [idx, len] = decode_index( &input_stream[ 0 ], input_stream.size() );
-			if ( len >= 0 ) [[likely]]
-			{
+			if ( len >= 0 ) [[likely]] {
 				input_stream = input_stream.subspan( len );
 				return idx;
 			}
@@ -348,15 +359,22 @@ namespace xstd
 		size_t length() const { return is_input() ? input_stream.size() : output_stream.size(); }
 		size_t offset() const { return is_input() ? input_stream.data() - input_start : output_stream.size(); }
 
-		// Reads or writes the pointer table.
+		// Reads or writes the headers.
 		//
-		std::vector<uint8_t> write_pointer_table() const
+		std::vector<uint8_t> write_header() const
 		{
 			serialization sx = {};
-			if ( pointers )
-			{
-				for ( auto& [ptr, rec] : *pointers )
-				{
+
+			// If version bumps are used or if the first pointer's index clashes with our magic number, write the version header.
+			//
+			if ( version || ( pointers && !pointers->empty() && ( pointers->begin()->second.index & 0xFF ) == 0xCA ) ) {
+				sx.write_idx( 0xca | ( uint64_t( version ) << 8 ) );
+			}
+
+			// Write pointers.
+			//
+			if ( pointers ) {
+				for ( auto& [ptr, rec] : *pointers ) {
 					if ( !rec.is_backed )
 						throw_fmt( XSTD_ESTR( "Dangling pointer serialized!" ) );
 					if ( !rec.index )
@@ -369,24 +387,30 @@ namespace xstd
 			sx.write_idx( 0 );
 			return std::move( sx.output_stream );
 		}
-		serialization& read_pointer_table()
+		serialization& read_header()
 		{
-			while( true )
-			{
-				size_t idx = read_idx();
-				if ( !idx )
-					break;
+			// Read version header.
+			//
+			size_t idx = read_idx();
+			if ( ( idx & 0xFF ) == 0xca ) {
+				version = idx >> 8;
+				idx = read_idx();
+			}
 
-				if ( !rpointers ) rpointers.emplace();
-				auto [it, inserted] = rpointers->emplace( idx, rpointer_record{} );
-				if ( !inserted )
-					throw_fmt( XSTD_ESTR( "Invalid pointer table." ) );
-
-				size_t sz = read_idx();
-				if ( sz >= input_stream.size() )
-					throw_fmt( XSTD_ESTR( "Referencing out of stream boundaries." ) );
-				it->second.range = input_stream.subspan( 0, sz );
-				input_stream = input_stream.subspan( sz );
+			// Read pointer table.
+			//
+			if ( idx ) {
+				auto& rp = rpointers.emplace();
+				do {
+					auto [it, inserted] = rp.emplace( idx, rpointer_record{} );
+					if ( !inserted )
+						throw_fmt( XSTD_ESTR( "Invalid pointer table." ) );
+					size_t sz = read_idx();
+					if ( sz >= input_stream.size() )
+						throw_fmt( XSTD_ESTR( "Referencing out of stream boundaries." ) );
+					it->second.range = input_stream.subspan( 0, sz );
+					input_stream = input_stream.subspan( sz );
+				} while ( ( idx = read_idx() ) );
 			}
 			return *this;
 		}
@@ -724,8 +748,7 @@ namespace xstd
 	// Implement custom serializables.
 	//
 	template<typename T> requires ( CustomSerializable<T> || CustomDeserializable<T> )
-	struct serializer<T>
-	{
+	struct serializer<T> {
 		static void apply( serialization& ctx, const T& value ) requires CustomSerializable<T>
 		{
 			value.serialize( ctx );
@@ -735,9 +758,11 @@ namespace xstd
 			return T::deserialize( ctx );
 		}
 	};
-	
+
 	// Implement automatically for tiables.
 	//
+	template<>
+	struct serializer<version_bump_t> {};
 	template<Tiable O>
 	struct serializer<O>
 	{
@@ -746,11 +771,13 @@ namespace xstd
 		static void apply( serialization& ctx, const O& value )
 		{
 			auto tied = const_cast< O& >( value ).tie();
-			if constexpr ( std::tuple_size_v<T> != 0 )
-			{
-				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
-				{
-					serialize( ctx, std::get<N>( tied ) );
+			if constexpr ( std::tuple_size_v<T> != 0 ) {
+				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> ) {
+					if constexpr ( std::is_same_v<std::decay_t<std::tuple_element_t<N ,T>>, version_bump_t> ) {
+						ctx.version++;
+					} else {
+						serialize( ctx, std::get<N>( tied ) );
+					}
 				} );
 			}
 		}
@@ -758,12 +785,15 @@ namespace xstd
 		{
 			O value = {};
 			auto tied = value.tie();
-			if constexpr ( std::tuple_size_v<T> != 0 )
-			{
-				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> )
-				{
+			if constexpr ( std::tuple_size_v<T> != 0 ) {
+				make_constant_search<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> ) {
 					auto& value = std::get<N>( tied );
-					value = deserialize<std::remove_reference_t<decltype( value )>>( ctx );
+					if constexpr ( std::is_same_v<std::decay_t<std::tuple_element_t<N, T>>, version_bump_t> ) {
+						return --ctx.version < 0;
+					} else {
+						value = deserialize<std::remove_reference_t<decltype( value )>>( ctx );
+						return false;
+					}
 				} );
 			}
 			return value;
@@ -806,7 +836,7 @@ namespace xstd
 		//
 		if ( !no_header )
 		{
-			auto ptr_tbl = write_pointer_table();
+			auto ptr_tbl = write_header();
 			result.insert( output_stream.begin(), ptr_tbl.begin(), ptr_tbl.end() );
 		}
 		else
@@ -822,13 +852,15 @@ namespace xstd
 		//
 		if ( !no_header )
 		{
-			auto ptr_tbl = write_pointer_table();
+			auto ptr_tbl = write_header();
 			output_stream.insert( output_stream.begin(), ptr_tbl.begin(), ptr_tbl.end() );
 		}
 		else
 		{
 			if ( pointers && !pointers->empty() )
 				throw_fmt( XSTD_ESTR( "Writing a serialization with a pointer table without headers." ) );
+			if ( version )
+				throw_fmt( XSTD_ESTR( "Writing versioned serialization without headers." ) );
 		}
 		return std::move( output_stream );
 	}
@@ -837,7 +869,7 @@ namespace xstd
 		input_stream = { ( uint8_t* ) data, length };
 		input_start = input_stream.data();
 		if ( !no_header )
-			read_pointer_table();
+			read_header();
 		return *this;
 	}
 	template<typename T> inline T serialization::read() { return serializer_t<T>::reflect( *this ); }
