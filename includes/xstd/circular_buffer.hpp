@@ -91,7 +91,7 @@ namespace xstd
 
 			// Load the intial number of bytes produced.
 			//
-			size_t lp = producer_dtail.load( std::memory_order::relaxed ) % N;
+			size_t lp = producer_dtail.load( std::memory_order::relaxed );
 			while ( true )
 			{
 				// Load the last consumed byte, calculate the free spaces left.
