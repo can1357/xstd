@@ -1105,21 +1105,21 @@ namespace xstd
 	//
 	struct TRIVIAL_ABI any_ptr
 	{
-		uintptr_t address;
-		
-		// Constructed by any kind of pointer or a number.
-		//
-		inline constexpr any_ptr() noexcept : address( 0 ) {}
-		inline constexpr any_ptr( std::nullptr_t ) noexcept : address( 0 ) {}
-		inline constexpr any_ptr( uintptr_t address ) noexcept : address( address ) {}
-		template<typename T> inline constexpr any_ptr( T* address ) noexcept : address( uintptr_t( address ) ) {}
+		uintptr_t address = 0;
 
-		// Default copy and move.
+		// Default construct, copy and move.
 		//
+		constexpr any_ptr() noexcept = default;
 		constexpr any_ptr( any_ptr&& ) noexcept = default;
 		constexpr any_ptr( const any_ptr& ) = default;
 		constexpr any_ptr& operator=( any_ptr&& ) noexcept = default;
 		constexpr any_ptr& operator=( const any_ptr& ) = default;
+		
+		// Constructed by any kind of pointer or a number.
+		//
+		inline constexpr any_ptr( std::nullptr_t ) noexcept : address( 0 ) {}
+		inline constexpr any_ptr( uintptr_t address ) noexcept : address( address ) {}
+		template<typename T> inline constexpr any_ptr( T* address ) noexcept : address( uintptr_t( address ) ) {}
 
 		// Can decay to any pointer or an integer.
 		//

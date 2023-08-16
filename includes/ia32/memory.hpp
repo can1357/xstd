@@ -111,9 +111,9 @@ namespace ia32::mem
 //
 namespace ia32::mem
 {
-	static constexpr size_t page_table_depth = ( XSTD_IA32_LA57 ? 5 : 4 );
-	static constexpr size_t va_bits = page_table_depth * 9 + 12;
-	static constexpr size_t sx_bits = 64 - va_bits;
+	static constexpr bitcnt_t page_table_depth = ( XSTD_IA32_LA57 ? 5 : 4 );
+	static constexpr bitcnt_t va_bits = page_table_depth * 9 + 12;
+	static constexpr bitcnt_t sx_bits = 64 - va_bits;
 
 	// Paging level enumerator.
 	//
@@ -307,14 +307,27 @@ namespace ia32::mem
 	{ 
 		return ( ( int64_t( pte ) << ( sx_bits + 12 + ( 9 * level ) - 3 ) ) >> sx_bits ); 
 	}
-	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( const pt_entry_64* pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( xstd::any_ptr pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-		uint64_t pte_adj = uint64_t( pte ) & ~3ull;
-		auto mismatch = xstd::msb( pte_adj ^ ( uint64_t ) locate_page_table( pxe_level, self_ref_idx ) );
-		for ( int i = pxe_level; i >= pte_level; i-- ) {
-			if ( mismatch < ( 12 + ( pxe_level - i ) * 9 ) ) {
-				return { pte_to_va( pte_adj, i ) , i };
-			}
+		// Xor with PXE base ignoring 8-byte offsets.
+		//
+		uint64_t base = pxe_base_div8();
+		if ( self_ref_idx.has_value() ) {
+			base = uint64_t( locate_page_table( pxe_level, *self_ref_idx ) ) >> 3;
+		}
+		base ^= pte >> 3;
+
+		// Count the highest bit mismatching, set lowest bit to optimize against tzcnt with 0.
+		//
+		bitcnt_t mismatch = xstd::msb( base | 0x1 );
+
+		// If first mismatch is below the PXE level:
+		// 
+		if ( mismatch < ( va_bits - 9 - 3 ) ) {
+			// Determine the level, return the mapped VA.
+			//
+			bitcnt_t level = pxe_level - ( mismatch / 9 );
+			return { pte_to_va( pte & ~3ull, ( int8_t ) level ), ( int8_t ) level };
 		}
 		return { nullptr, -1 };
 	}
