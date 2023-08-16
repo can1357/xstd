@@ -133,7 +133,7 @@ namespace xstd
 #endif
 
 		if ( x ) {
-			uint64_t y = uint64_t( x ) & int64_t( -x );
+			uint64_t y = uint64_t( x ) & uint64_t( -int64_t( x ) );
 			bitcnt_t r = bool( y >> 32 );
 			y |= y >> 32;
 			r = ( r << 1 ) + bool( y & 0xffff0000 );

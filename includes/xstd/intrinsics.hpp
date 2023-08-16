@@ -516,16 +516,67 @@ FORCE_INLINE CONST_FN static constexpr uint64_t umulh( uint64_t x, uint64_t y ) 
 	return h;
 }
 #else
-FORCE_INLINE static uint64_t umul128( uint64_t x, uint64_t y, uint64_t* hi ) {
+FORCE_INLINE static constexpr uint64_t umul128( uint64_t x, uint64_t y, uint64_t* hi ) {
+	if ( std::is_constant_evaluated() ) {
+		uint32_t a_lo = ( uint32_t ) x;
+		uint32_t a_hi = ( uint32_t ) ( x >> 32 );
+		uint32_t b_lo = ( uint32_t ) y;
+		uint32_t b_hi = ( uint32_t ) ( y >> 32 );
+		uint64_t b00 = ( uint64_t ) a_lo * b_lo;
+		uint64_t b01 = ( uint64_t ) a_lo * b_hi;
+		uint64_t b10 = ( uint64_t ) a_hi * b_lo;
+		uint64_t b11 = ( uint64_t ) a_hi * b_hi;
+		uint32_t b00_lo = ( uint32_t ) b00;
+		uint32_t b00_hi = ( uint32_t ) ( b00 >> 32 );
+		uint64_t mid1 = b10 + b00_hi;
+		uint32_t mid1_lo = ( uint32_t ) ( mid1 );
+		uint32_t mid1_hi = ( uint32_t ) ( mid1 >> 32 );
+		uint64_t mid2 = b01 + mid1_lo;
+		uint32_t mid2_lo = ( uint32_t ) ( mid2 );
+		uint32_t mid2_hi = ( uint32_t ) ( mid2 >> 32 );
+		*hi = b11 + mid1_hi + mid2_hi;
+		return ( ( uint64_t ) mid2_lo << 32 ) + b00_lo;
+	}
 	return _umul128( x, y, hi );
 }
-FORCE_INLINE static int64_t mul128( int64_t x, int64_t y, int64_t* hi ) {
+FORCE_INLINE static constexpr int64_t mul128( int64_t x, int64_t y, int64_t* hi ) {
+	if ( std::is_constant_evaluated() ) {
+		if ( x == -1 ) {
+			y = -y;
+			*hi = y < 0 ? -1 : 0;
+			return y;
+		} else if ( y == -1 ) {
+			x = -x;
+			*hi = x < 0 ? -1 : 0;
+			return x;
+		} else {
+			uint64_t ahi;
+			uint64_t alo = umul128( x < 0 ? -x : x, y < 0 ? -y : y, &ahi );
+			if ( ( x < 0 ) == ( y < 0 ) ) {
+				*hi = int64_t( ahi );
+				return int64_t( alo );
+			} else {
+				*hi = int64_t( ~ahi );
+				return -int64_t( alo );
+			}
+		}
+	}
 	return _mul128( x, y, hi );
 }
-FORCE_INLINE static int64_t mulh( int64_t x, int64_t y ) {
+FORCE_INLINE static constexpr int64_t mulh( int64_t x, int64_t y ) {
+	if ( std::is_constant_evaluated() ) {
+		int64_t hi;
+		mul128( x, y, &hi );
+		return hi;
+	}
 	return __mulh( x, y );
 }
-FORCE_INLINE static uint64_t umulh( uint64_t x, uint64_t y ) {
+FORCE_INLINE static constexpr uint64_t umulh( uint64_t x, uint64_t y ) {
+	if ( std::is_constant_evaluated() ) {
+		uint64_t hi;
+		umul128( x, y, &hi );
+		return hi;
+	}
 	return __umulh( x, y );
 }
 #endif
@@ -814,7 +865,7 @@ FORCE_INLINE static constexpr T bswap( T value ) noexcept
 	#pragma intrinsic(_InterlockedCompareExchange64)
 	unsigned char _InterlockedCompareExchange128(
 		__int64 volatile* _Destination,
-		__int64 _ExchangeHigh,
+		__int64 _Exchange_high,
 		__int64 _ExchangeLow,
 		__int64* _ComparandResult
 	);
