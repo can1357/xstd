@@ -172,94 +172,71 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline constexpr uint64_t page_size( int8_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t page_offset( xstd::any_ptr ptr ) { return ptr & 0xFFF; }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( xstd::any_ptr ptr, int8_t level ) { return ( ptr >> ( 12 + 9 * level ) ) & 511; }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( xstd::any_ptr ptr ) { return pt_index( ptr, pte_level ); }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pd_index( xstd::any_ptr ptr ) { return pt_index( ptr, pde_level ); }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pdpt_index( xstd::any_ptr ptr ) { return pt_index( ptr, pdpte_level ); }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pml4_index( xstd::any_ptr ptr ) { return pt_index( ptr, pml4e_level ); }
-#if XSTD_IA32_LA57
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pml5_index( xstd::any_ptr ptr ) { return pt_index( ptr, pml5e_level ); }
-#endif
 	FORCE_INLINE CONST_FN inline constexpr uint64_t px_index( xstd::any_ptr ptr ) { return pt_index( ptr, pxe_level ); }
-
-	// Unpack / pack helpers.
-	//
-	FORCE_INLINE inline std::array<uint16_t, page_table_depth + 1> unpack( xstd::any_ptr ptr )
-	{
-		return xstd::make_constant_series<page_table_depth + 1>( [ & ] <size_t N> ( xstd::const_tag<N> c ) -> uint16_t
-		{ 
-			if constexpr ( N == page_table_depth )
-				return page_offset( ptr );
-			else
-				return pt_index( ptr, page_table_depth - ( c + 1 ) ); 
-		} );
-	}
-	FORCE_INLINE inline xstd::any_ptr pack( const std::array<uint16_t, page_table_depth + 1>& array )
-	{
-		uint64_t result = 0;
-		for ( size_t n = 0; n != page_table_depth; n++ )
-			result = ( result << 9 ) | array[ n ];
-		result = ( result << 12 ) | array.back();
-		return make_cannonical( result );
-	}
 	
 	// Recursive page table indexing.
 	//
-	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth, uint32_t self_ref_idx )
-	{
-		uint64_t result = 0;
-		for ( int8_t j = 0; j <= depth; j++ )
-			result = ( result << 9 ) | self_ref_idx;
-		result <<= sx_bits + 12 + ( pxe_level - depth ) * 9;
-		return ( pt_entry_64* ) ( int64_t( result ) >> sx_bits );
-	}
-	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth )
+	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
-		switch ( depth )
-		{
+		if ( !self_ref_idx.has_value() ) {
+			switch ( depth ) {
 #if XSTD_IA32_LA57
-			case pml5e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml5e" );
+				case pml5e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml5e" );
 #endif
-			case pml4e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml4e" );
-			case pdpte_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pdpte" );
-			case pde_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pde" );
-			case pte_level:    return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pte" );
-			default:           unreachable();
+				case pml4e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml4e" );
+				case pdpte_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pdpte" );
+				case pde_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pde" );
+				case pte_level:    return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pte" );
+				default:           unreachable();
+			}
 		}
-#else
-		xstd::any_ptr ptr = pxe_base_div8();
-		if ( xstd::const_condition( depth == pxe_level ) )
-			return ( pt_entry_64* ) ( ptr << 3 );
-		auto shift = 12 + ( pxe_level - depth ) * 9;
-		return ( pt_entry_64* ) ( ( ptr >> ( shift - 3 ) ) << shift );
 #endif
+		if ( self_ref_idx.has_value() ) {
+			constexpr uint64_t base_coeff =
+#if XSTD_IA32_LA57
+				+ ( 1ull << ( 12 + 9 * pml5e_level ) )
+#endif
+				+ ( 1ull << ( 12 + 9 * pml4e_level ) )
+				+ ( 1ull << ( 12 + 9 * pdpte_level ) )
+				+ ( 1ull << ( 12 + 9 * pde_level ) )
+				+ ( 1ull << ( 12 + 9 * pte_level ) );
+			uint64_t coeff = ( base_coeff << sx_bits ) & ~( ( 1ull << ( sx_bits + 12 + 9 * ( pxe_level - depth ) ) ) - 1 );
+			return ( pt_entry_64* ) uint64_t( int64_t( *self_ref_idx * coeff ) >> sx_bits );
+		} else {
+			xstd::any_ptr ptr = pxe_base_div8();
+			if ( xstd::const_condition( depth == pxe_level ) )
+				return ( pt_entry_64* ) ( ptr << 3 );
+			auto shift = 12 + ( pxe_level - depth ) * 9;
+			return ( pt_entry_64* ) ( ( ptr >> ( shift - 3 ) ) << shift );
+		}
 	}
 
 	// Recursive page table lookup.
 	//
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth )
+	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth = pte_level, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
-		pt_entry_64* tbl = locate_page_table( depth );
-		return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
-#else
+		if ( !self_ref_idx.has_value() ) {
+			pt_entry_64* tbl = locate_page_table( depth );
+			return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
+		}
+#endif
 		uint64_t base = pxe_base_div8();
+		if ( self_ref_idx.has_value() ) {
+			base = uint64_t( locate_page_table( pxe_level, *self_ref_idx ) ) >> 3;
+		}
 		auto important_bits = ( page_table_depth - depth ) * 9;
 		uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
 		return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
-#endif
 	}
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr ) { return get_pte( ptr, pte_level ); }
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pde( xstd::any_ptr ptr ) { return get_pte( ptr, pde_level ); }
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pdpte( xstd::any_ptr ptr ) { return get_pte( ptr, pdpte_level ); }
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pml4e( xstd::any_ptr ptr ) { return get_pte( ptr, pml4e_level ); }
-#if XSTD_IA32_LA57
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pml5e( xstd::any_ptr ptr ) { return get_pte( ptr, pml5e_level ); }
-#endif
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe( xstd::any_ptr ptr ) { return get_pte( ptr, pxe_level ); }
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index ) { return &locate_page_table( pxe_level )[ index ]; }
-	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr ) {
-		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, c ); } );
+	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
+	{ 
+		return locate_page_table( pxe_level, self_ref_idx ) + index; 
+	}
+	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
+	{
+		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, c, self_ref_idx ); } );
 	}
 
 	// Fast page table lookup, no validation.
@@ -293,7 +270,7 @@ namespace ia32::mem
 		if ( accu ) accu->flags = accumulator.flags;
 		return { entry, n };
 	}
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr, pt_entry_64* accu = nullptr ) {
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr, pt_entry_64* accu = nullptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) {
 		// Iterate the page tables until the PTE.
 		//
 		int8_t n;
@@ -303,7 +280,7 @@ namespace ia32::mem
 		for ( n = pxe_level; n >= pte_level; n-- ) {
 			// Accumulate access flags.
 			//
-			entry = get_pte( ptr, n );
+			entry = get_pte( ptr, n, self_ref_idx );
 			auto ventry = *entry;
 			auto xd = accumulator.execute_disable | ventry.execute_disable;
 			auto us = accumulator.user            & ventry.user;
@@ -322,51 +299,47 @@ namespace ia32::mem
 		if ( accu ) accu->flags = accumulator.flags;
 		return { entry, n };
 	}
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx ) { return lookup_pte( ptr, nullptr, self_ref_idx ); }
 
 	// Reverse recursive page table lookup.
 	//
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pte_to_va( const void* pte, int8_t level ) { return ( ( int64_t( pte ) << ( sx_bits + 12 + ( 9 * level ) - 3 ) ) >> sx_bits ); }
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pte_to_va( const void* pte ) { return pte_to_va( pte, pte_level ); }
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pde_to_va( const void* pte ) { return pte_to_va( pte, pde_level ); }
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pdpte_to_va( const void* pte ) { return pte_to_va( pte, pdpte_level ); }
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pml4e_to_va( const void* pte ) { return pte_to_va( pte, pml4e_level ); }
-#if XSTD_IA32_LA57
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pml5e_to_va( const void* pte ) { return pte_to_va( pte, pml5e_level ); }
-#endif
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pxe_to_va( const void* pte ) { return pte_to_va( pte, pxe_level ); }
-	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( const pt_entry_64* pte )
+	FORCE_INLINE CONST_FN inline xstd::any_ptr pte_to_va( xstd::any_ptr pte, int8_t level = pte_level ) 
+	{ 
+		return ( ( int64_t( pte ) << ( sx_bits + 12 + ( 9 * level ) - 3 ) ) >> sx_bits ); 
+	}
+	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( const pt_entry_64* pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-		std::array hierarchy = unpack( pte );
-		if ( hierarchy[ 0 ] != self_ref_index() )
-			return { nullptr, -1 };
-
-		size_t n = 1;
-		while ( n != page_table_depth && hierarchy[ n ] == self_ref_index() )
-			n++;
-		return { pte_to_va( pte, n - 1 ), n - 1 };
+		uint64_t pte_adj = uint64_t( pte ) & ~3ull;
+		auto mismatch = xstd::msb( pte_adj ^ ( uint64_t ) locate_page_table( pxe_level, self_ref_idx ) );
+		for ( int i = pxe_level; i >= pte_level; i-- ) {
+			if ( mismatch < ( 12 + ( pxe_level - i ) * 9 ) ) {
+				return { pte_to_va( pte_adj, i ) , i };
+			}
+		}
+		return { nullptr, -1 };
 	}
 
 	// Virtual address validation and translation.
 	//
-	FORCE_INLINE inline bool is_address_valid( xstd::any_ptr ptr )
+	FORCE_INLINE inline bool is_address_valid( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 		if ( !is_cannonical( ptr ) ) [[unlikely]]
 			return false;
-		auto [pte, _] = lookup_pte( ptr );
+		auto [pte, _] = lookup_pte( ptr, self_ref_idx );
 		return pte->present;
 	}
 
 	// Gets the physical address associated with the virtual address.
 	//
-	FORCE_INLINE inline uint64_t get_physical_address( xstd::any_ptr ptr )
+	FORCE_INLINE inline uint64_t get_physical_address( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-		auto [pte, depth] = lookup_pte( ptr );
+		auto [pte, depth] = lookup_pte( ptr, self_ref_idx );
 		if ( !pte->present ) return 0;
 		return ( pte->page_frame_number << 12 ) | ( ptr & ( page_size( depth ) - 1 ) );
 	}
-	FORCE_INLINE inline uint64_t get_pfn( xstd::any_ptr ptr )
+	FORCE_INLINE inline uint64_t get_pfn( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-		return get_physical_address( ptr ) >> 12;
+		return get_physical_address( ptr, self_ref_idx ) >> 12;
 	}
 
 	// Changes the protection of the given range.
@@ -387,14 +360,14 @@ namespace ia32::mem
 	namespace impl
 	{
 		template<bool IpiFlush>
-		FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask )
+		FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt )
 		{
 			static constexpr uint64_t all_flags = prot_write | prot_read | prot_no_execute;
 
 			// Iterate page boundaries:
 			//
 			for ( auto it = ptr; it < ( ptr + length ); ) {
-				auto [pte, depth] = lookup_pte( it );
+				auto [pte, depth] = lookup_pte( it, self_ref_idx );
 
 				auto& atomic = xstd::make_atomic( pte->flags );
 				atomic.fetch_or( mask );
@@ -409,8 +382,8 @@ namespace ia32::mem
 				ipi_flush_tlb( ptr, length );
 		}
 	};
-	FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask ) { impl::change_protection<true>( ptr, length, mask ); }
-	FORCE_INLINE inline void change_protection_no_ipi( xstd::any_ptr ptr, size_t length, protection_mask mask ) { impl::change_protection<false>( ptr, length, mask ); }
+	FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt ) { impl::change_protection<true>( ptr, length, mask, self_ref_idx ); }
+	FORCE_INLINE inline void change_protection_no_ipi( xstd::any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt ) { impl::change_protection<false>( ptr, length, mask, self_ref_idx ); }
 
 	// Initialization helper.
 	//
