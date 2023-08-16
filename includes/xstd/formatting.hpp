@@ -146,7 +146,7 @@ namespace xstd::fmt
 
 	// Prints a pointer.
 	//
-	inline static std::string print_pointer( xstd::any_ptr ptr )
+	inline static std::string print_pointer( any_ptr ptr )
 	{
 		return print_ux<true>( ptr.address );
 	}

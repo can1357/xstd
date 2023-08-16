@@ -18,22 +18,22 @@ namespace ia32::mem
 	// -- If no arguments given, will flush the whole TLB, else a single range.
 	//
 	extern void ipi_flush_tlb();
-	extern void ipi_flush_tlb( xstd::any_ptr ptr, size_t length = 0x1000 );
+	extern void ipi_flush_tlb( any_ptr ptr, size_t length = 0x1000 );
 
 	// Mapping of physical memory.
 	//
-	extern xstd::any_ptr map_physical_memory_range( uint64_t address, size_t length, bool cached = false );
-	extern void unmap_physical_memory_range( xstd::any_ptr pointer, size_t length );
+	extern any_ptr map_physical_memory_range( uint64_t address, size_t length, bool cached = false );
+	extern void unmap_physical_memory_range( any_ptr pointer, size_t length );
 
 	// Identity mapping of physical memory, optional.
 	//
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 	FORCE_INLINE inline void set_phys_base( const void* value ) { __builtin_store_dynamic( "@.physidmap", value ); }
-	FORCE_INLINE CONST_FN inline xstd::any_ptr get_phys_base() { return __builtin_fetch_dynamic( "@.physidmap" ); }
+	FORCE_INLINE CONST_FN inline any_ptr get_phys_base() { return __builtin_fetch_dynamic( "@.physidmap" ); }
 #else
 	inline const void* __phys_id_map = nullptr;
 	FORCE_INLINE inline void set_phys_base( const void* value ) { __phys_id_map = value; }
-	FORCE_INLINE CONST_FN inline xstd::any_ptr get_phys_base() { return __phys_id_map; }
+	FORCE_INLINE CONST_FN inline any_ptr get_phys_base() { return __phys_id_map; }
 #endif
 
 	//
@@ -81,7 +81,7 @@ namespace ia32::mem
 		// Behaves like a C++ pointer.
 		//
 		constexpr bool valid() const { return int64_t( address ) >= 0; }
-		constexpr xstd::any_ptr get() const { return valid() ? get_phys_base() + address : nullptr; }
+		constexpr any_ptr get() const { return valid() ? get_phys_base() + address : nullptr; }
 		constexpr operator T*() const { return get(); }
 		constexpr T* operator->() const { return get(); }
 		explicit constexpr operator bool() const { return valid(); }
@@ -167,12 +167,12 @@ namespace ia32::mem
 
 	// Virtual address details.
 	//
-	FORCE_INLINE CONST_FN inline constexpr bool is_cannonical( xstd::any_ptr ptr ) { return ( ptr >> ( va_bits - 1 ) ) == 0 || ( int64_t( ptr ) >> ( va_bits - 1 ) ) == -1; }
-	FORCE_INLINE CONST_FN inline constexpr xstd::any_ptr make_cannonical( xstd::any_ptr ptr ) { return xstd::any_ptr( int64_t( ptr << sx_bits ) >> sx_bits ); }
+	FORCE_INLINE CONST_FN inline constexpr bool is_cannonical( any_ptr ptr ) { return ( ptr >> ( va_bits - 1 ) ) == 0 || ( int64_t( ptr ) >> ( va_bits - 1 ) ) == -1; }
+	FORCE_INLINE CONST_FN inline constexpr any_ptr make_cannonical( any_ptr ptr ) { return any_ptr( int64_t( ptr << sx_bits ) >> sx_bits ); }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t page_size( int8_t depth ) { return 1ull << ( 12 + ( 9 * depth ) ); }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t page_offset( xstd::any_ptr ptr ) { return ptr & 0xFFF; }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( xstd::any_ptr ptr, int8_t level ) { return ( ptr >> ( 12 + 9 * level ) ) & 511; }
-	FORCE_INLINE CONST_FN inline constexpr uint64_t px_index( xstd::any_ptr ptr ) { return pt_index( ptr, pxe_level ); }
+	FORCE_INLINE CONST_FN inline constexpr uint64_t page_offset( any_ptr ptr ) { return ptr & 0xFFF; }
+	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( any_ptr ptr, int8_t level ) { return ( ptr >> ( 12 + 9 * level ) ) & 511; }
+	FORCE_INLINE CONST_FN inline constexpr uint64_t px_index( any_ptr ptr ) { return pt_index( ptr, pxe_level ); }
 	
 	// Recursive page table indexing.
 	//
@@ -204,7 +204,7 @@ namespace ia32::mem
 			uint64_t coeff = ( base_coeff << sx_bits ) & ~( ( 1ull << ( sx_bits + 12 + 9 * ( pxe_level - depth ) ) ) - 1 );
 			return ( pt_entry_64* ) uint64_t( int64_t( *self_ref_idx * coeff ) >> sx_bits );
 		} else {
-			xstd::any_ptr ptr = pxe_base_div8();
+			any_ptr ptr = pxe_base_div8();
 			if ( xstd::const_condition( depth == pxe_level ) )
 				return ( pt_entry_64* ) ( ptr << 3 );
 			auto shift = 12 + ( pxe_level - depth ) * 9;
@@ -214,7 +214,7 @@ namespace ia32::mem
 
 	// Recursive page table lookup.
 	//
-	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( xstd::any_ptr ptr, int8_t depth = pte_level, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( any_ptr ptr, int8_t depth = pte_level, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 		if ( !self_ref_idx.has_value() ) {
@@ -234,7 +234,7 @@ namespace ia32::mem
 	{ 
 		return locate_page_table( pxe_level, self_ref_idx ) + index; 
 	}
-	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
+	FORCE_INLINE CONST_FN inline std::array<pt_entry_64*, page_table_depth> get_pte_hierarchy( any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
 	{
 		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, c, self_ref_idx ); } );
 	}
@@ -270,7 +270,7 @@ namespace ia32::mem
 		if ( accu ) accu->flags = accumulator.flags;
 		return { entry, n };
 	}
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr, pt_entry_64* accu = nullptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) {
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( any_ptr ptr, pt_entry_64* accu = nullptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) {
 		// Iterate the page tables until the PTE.
 		//
 		int8_t n;
@@ -299,15 +299,15 @@ namespace ia32::mem
 		if ( accu ) accu->flags = accumulator.flags;
 		return { entry, n };
 	}
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx ) { return lookup_pte( ptr, nullptr, self_ref_idx ); }
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( any_ptr ptr, std::optional<uint32_t> self_ref_idx ) { return lookup_pte( ptr, nullptr, self_ref_idx ); }
 
 	// Reverse recursive page table lookup.
 	//
-	FORCE_INLINE CONST_FN inline xstd::any_ptr pte_to_va( xstd::any_ptr pte, int8_t level = pte_level ) 
+	FORCE_INLINE CONST_FN inline any_ptr pte_to_va( any_ptr pte, int8_t level = pte_level ) 
 	{ 
 		return ( ( int64_t( pte ) << ( sx_bits + 12 + ( 9 * level ) - 3 ) ) >> sx_bits ); 
 	}
-	FORCE_INLINE inline std::pair<xstd::any_ptr, int8_t> rlookup_pte( xstd::any_ptr pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE inline std::pair<any_ptr, int8_t> rlookup_pte( any_ptr pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 		// Xor with PXE base ignoring 8-byte offsets.
 		//
@@ -334,7 +334,7 @@ namespace ia32::mem
 
 	// Virtual address validation and translation.
 	//
-	FORCE_INLINE inline bool is_address_valid( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE inline bool is_address_valid( any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 		if ( !is_cannonical( ptr ) ) [[unlikely]]
 			return false;
@@ -344,13 +344,13 @@ namespace ia32::mem
 
 	// Gets the physical address associated with the virtual address.
 	//
-	FORCE_INLINE inline uint64_t get_physical_address( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE inline uint64_t get_physical_address( any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 		auto [pte, depth] = lookup_pte( ptr, self_ref_idx );
 		if ( !pte->present ) return 0;
 		return ( pte->page_frame_number << 12 ) | ( ptr & ( page_size( depth ) - 1 ) );
 	}
-	FORCE_INLINE inline uint64_t get_pfn( xstd::any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE inline uint64_t get_pfn( any_ptr ptr, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 		return get_physical_address( ptr, self_ref_idx ) >> 12;
 	}
@@ -373,7 +373,7 @@ namespace ia32::mem
 	namespace impl
 	{
 		template<bool IpiFlush>
-		FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt )
+		FORCE_INLINE inline void change_protection( any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt )
 		{
 			static constexpr uint64_t all_flags = prot_write | prot_read | prot_no_execute;
 
@@ -395,8 +395,8 @@ namespace ia32::mem
 				ipi_flush_tlb( ptr, length );
 		}
 	};
-	FORCE_INLINE inline void change_protection( xstd::any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt ) { impl::change_protection<true>( ptr, length, mask, self_ref_idx ); }
-	FORCE_INLINE inline void change_protection_no_ipi( xstd::any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt ) { impl::change_protection<false>( ptr, length, mask, self_ref_idx ); }
+	FORCE_INLINE inline void change_protection( any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt ) { impl::change_protection<true>( ptr, length, mask, self_ref_idx ); }
+	FORCE_INLINE inline void change_protection_no_ipi( any_ptr ptr, size_t length, protection_mask mask, std::optional<uint32_t> self_ref_idx = std::nullopt ) { impl::change_protection<false>( ptr, length, mask, self_ref_idx ); }
 
 	// Initialization helper.
 	//

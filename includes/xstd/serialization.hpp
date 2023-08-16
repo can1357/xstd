@@ -223,7 +223,7 @@ namespace xstd
 		// Fields used during serialization.
 		//
 		std::vector<uint8_t> output_stream;
-		std::optional<std::unordered_map<xstd::any_ptr, pointer_record, xstd::hasher<>>> pointers;
+		std::optional<std::unordered_map<any_ptr, pointer_record, xstd::hasher<>>> pointers;
 
 		// Fields used during deserialization.
 		//

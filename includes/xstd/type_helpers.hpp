@@ -1677,6 +1677,10 @@ namespace xstd
 	}
 };
 
+// Expose any_ptr.
+//
+using any_ptr = xstd::any_ptr;
+
 // Expose literals.
 //
 namespace xstd::literals

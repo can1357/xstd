@@ -50,7 +50,7 @@ namespace ia32
 		// Range read-write.
 		// -- Count is in units of DataType, address must be at proper alignment.
 		//
-		FORCE_INLINE void read_range( xstd::any_ptr dst, AddressType src, size_t count ) const 
+		FORCE_INLINE void read_range( any_ptr dst, AddressType src, size_t count ) const 
 		{
 			scope_irql<NO_INTERRUPTS> _g{};
 			DataType* out = dst;
@@ -60,7 +60,7 @@ namespace ia32
 				out[ i ] = read_unsafe( address );
 			}
 		}
-		FORCE_INLINE void write_range( AddressType dst, xstd::any_ptr src, size_t count ) const 
+		FORCE_INLINE void write_range( AddressType dst, any_ptr src, size_t count ) const 
 		{
 			scope_irql<NO_INTERRUPTS> _g{};
 			const DataType* in = src;

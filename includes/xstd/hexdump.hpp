@@ -157,7 +157,7 @@ namespace xstd::fmt
 		}
 		return result;
 	}
-	inline std::string hex_dump( xstd::any_ptr p, size_t n, hex_dump_config cfg = {} )
+	inline std::string hex_dump( any_ptr p, size_t n, hex_dump_config cfg = {} )
 	{
 		return hex_dump( std::string_view{ ( const char* ) p, n }, cfg );
 	}

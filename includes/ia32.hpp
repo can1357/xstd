@@ -25375,8 +25375,8 @@ namespace ia32
 	struct tss
 	{
 		uint32_t reserved_0;
-		std::array<xstd::any_ptr, 3> rsp;
-		std::array<xstd::any_ptr, 8> ist;
+		std::array<any_ptr, 3> rsp;
+		std::array<any_ptr, 8> ist;
 		uint64_t reserved_1;
 		uint16_t reserved_2;
 		uint16_t iopb_offset;
@@ -25473,7 +25473,7 @@ namespace ia32
 			limit_low = lim & 0xFFFF;
 			limit_high = ( lim >> 16 ) & 0xF;
 		}
-		FORCE_INLINE xstd::any_ptr get_offset() const
+		FORCE_INLINE any_ptr get_offset() const
 		{
 			//uint64_t adr = offset_low;
 			//adr |= uint64_t( offset_middle_0 ) << 16;
@@ -25483,7 +25483,7 @@ namespace ia32
 			adr |= xstd::ref_at<uint64_t>( this, 7 ) << 24;
 			return adr;
 		}
-		FORCE_INLINE void set_offset( xstd::any_ptr ptr )
+		FORCE_INLINE void set_offset( any_ptr ptr )
 		{
 			offset_low = ptr & 0xFFFF;
 			offset_middle_0 = ( ptr >> 16 ) & 0xFF;
@@ -25511,7 +25511,7 @@ namespace ia32
 		uint32_t offset_high;
 		uint32_t reserved_2;        // 0
 
-		FORCE_INLINE xstd::any_ptr get_handler() const
+		FORCE_INLINE any_ptr get_handler() const
 		{
 			//uint64_t adr = offset_low;
 			//adr |= uint64_t( offset_middle ) << 16;
@@ -25520,7 +25520,7 @@ namespace ia32
 			adr |= xstd::ref_at<uint64_t>( this, 6 ) << 16;
 			return adr;
 		}
-		FORCE_INLINE void set_handler( xstd::any_ptr ptr )
+		FORCE_INLINE void set_handler( any_ptr ptr )
 		{
 			offset_low = ptr & 0xFFFF;
 			offset_middle = ( ptr >> 16 ) & 0xFFFF;
@@ -25573,14 +25573,14 @@ namespace ia32
 		asm volatile( "mov %0, %%" #reg :: "r" ( f ) : s );      \
 	}
 	_EXPOSE_REG( cr0, cr0,            value.flags,            );
-	_EXPOSE_REG( cr2, xstd::any_ptr,  value.address,          );
+	_EXPOSE_REG( cr2, any_ptr,  value.address,          );
 	_EXPOSE_REG( cr3, cr3,            value.flags,   "memory" );
 	_EXPOSE_REG( cr4, cr4,            value.flags,   "memory" );
 	_EXPOSE_REG( cr8, uint64_t,       value,                  );
-	_EXPOSE_REG( dr0, xstd::any_ptr,  value.address,          );
-	_EXPOSE_REG( dr1, xstd::any_ptr,  value.address,          );
-	_EXPOSE_REG( dr2, xstd::any_ptr,  value.address,          );
-	_EXPOSE_REG( dr3, xstd::any_ptr,  value.address,          );
+	_EXPOSE_REG( dr0, any_ptr,  value.address,          );
+	_EXPOSE_REG( dr1, any_ptr,  value.address,          );
+	_EXPOSE_REG( dr2, any_ptr,  value.address,          );
+	_EXPOSE_REG( dr3, any_ptr,  value.address,          );
 	_EXPOSE_REG( dr4, dr6,            value.flags,            );
 	_EXPOSE_REG( dr6, dr6,            value.flags,            );
 	_EXPOSE_REG( dr5, dr7,            value.flags,            );
@@ -25917,23 +25917,23 @@ namespace ia32
 
 	// GS/FS base wrappers.
 	//
-	_LINKAGE xstd::any_ptr read_gsbase()
+	_LINKAGE any_ptr read_gsbase()
 	{
 		uint64_t value;
 		asm volatile( "rdgsbase %0" : "=r" ( value ) :: );
 		return value;
 	}
-	_LINKAGE void write_gsbase( xstd::any_ptr value )
+	_LINKAGE void write_gsbase( any_ptr value )
 	{
 		asm volatile( "wrgsbase %0" :: "r" ( value.address ) : "memory" );
 	}
-	_LINKAGE xstd::any_ptr read_fsbase()
+	_LINKAGE any_ptr read_fsbase()
 	{
 		uint64_t value;
 		asm volatile( "rdfsbase %0" : "=r" ( value ) :: );
 		return value;
 	}
-	_LINKAGE void write_fsbase( xstd::any_ptr value )
+	_LINKAGE void write_fsbase( any_ptr value )
 	{
 		asm volatile( "wrfsbase %0" :: "r" ( value.address ) : "memory" );
 	}
@@ -26163,18 +26163,18 @@ namespace ia32
 
 	// Memory intrinsics.
 	//
-	_LINKAGE void invlpg( xstd::any_ptr ptr ) { asm volatile( "invlpg %0" :: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void invpcid( invpcid_type type, uint64_t pcid = 0, xstd::any_ptr ptr = nullptr )
+	_LINKAGE void invlpg( any_ptr ptr ) { asm volatile( "invlpg %0" :: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void invpcid( invpcid_type type, uint64_t pcid = 0, any_ptr ptr = nullptr )
 	{
 		invpcid_descriptor desc = { .pcid = pcid, .rsvd = 0, .address = ptr };
 		asm volatile( "invpcid %0, %1" :: "m" ( desc ), "r" ( type ) : "memory" );
 	}
-	_LINKAGE void touch( xstd::any_ptr ptr )
+	_LINKAGE void touch( any_ptr ptr )
 	{
 		uint8_t temp;
 		asm volatile( "movb %1, %0" : "=r" ( temp ) : "m" ( *( char* ) ptr.address ) : );
 	}
-	_LINKAGE void wtouch( xstd::any_ptr ptr )
+	_LINKAGE void wtouch( any_ptr ptr )
 	{
 		asm volatile( "lock orb $0, %0" :: "m" ( *( char* ) ptr.address ) : "flags" );
 	}
@@ -26204,7 +26204,7 @@ namespace ia32
 	// String operations.
 	//
 	template<typename T = uint8_t>
-	_LINKAGE void store_string( xstd::any_ptr dst, T value, size_t count )
+	_LINKAGE void store_string( any_ptr dst, T value, size_t count )
 	{
 		if constexpr ( sizeof( T ) == 1 )
 			asm volatile( "cld; rep stosb" : "+D" ( dst.address ), "+c" ( count ) : "a" ( value ) : "memory", "flags" );
@@ -26218,7 +26218,7 @@ namespace ia32
 			unreachable();
 	}
 	template<typename T = uint8_t>
-	_LINKAGE void copy_string( xstd::any_ptr dst, xstd::any_ptr src, size_t count )
+	_LINKAGE void copy_string( any_ptr dst, any_ptr src, size_t count )
 	{
 		if constexpr ( sizeof( T ) == 1 )
 			asm volatile( "cld; rep movsb" : "+D" ( dst.address ), "+c" ( count ), "+S" ( src.address ) :: "memory", "flags" );
@@ -26232,7 +26232,7 @@ namespace ia32
 			unreachable();
 	}
 	template<typename T = uint8_t>
-	_LINKAGE T load_string( xstd::any_ptr src, size_t count )
+	_LINKAGE T load_string( any_ptr src, size_t count )
 	{
 		T value;
 		if constexpr ( sizeof( T ) == 1 )
@@ -26248,9 +26248,9 @@ namespace ia32
 		return value;
 	}
 	template<typename T = uint8_t>
-	_LINKAGE xstd::any_ptr find_string( xstd::any_ptr begin, T value, size_t count )
+	_LINKAGE any_ptr find_string( any_ptr begin, T value, size_t count )
 	{
-		xstd::any_ptr it = begin;
+		any_ptr it = begin;
 		uint8_t zero_flag;
 		if constexpr ( sizeof( T ) == 1 )
 			asm volatile( "cld; repne scasb" : "=@ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
@@ -26265,9 +26265,9 @@ namespace ia32
 		return ( ( T* ) it ) - zero_flag;
 	}
 	template<typename T = uint8_t>
-	_LINKAGE xstd::any_ptr find_string_not( xstd::any_ptr begin, T value, size_t count )
+	_LINKAGE any_ptr find_string_not( any_ptr begin, T value, size_t count )
 	{
-		xstd::any_ptr it = begin;
+		any_ptr it = begin;
 		uint8_t zero_flag;
 		if constexpr ( sizeof( T ) == 1 )
 			asm volatile( "cld; repe scasb" : "=@ccz" ( zero_flag ), "+D" ( it.address ), "+c" ( count ) : "a" ( value ) : "flags" );
@@ -26282,7 +26282,7 @@ namespace ia32
 		return ( ( T* ) it ) - !zero_flag;
 	}
 	template<typename T = uint8_t>
-	_LINKAGE xstd::any_ptr string_match( xstd::any_ptr a, xstd::any_ptr b, size_t count )
+	_LINKAGE any_ptr string_match( any_ptr a, any_ptr b, size_t count )
 	{
 		uint8_t zero_flag;
 		if constexpr ( sizeof( T ) == 1 )
@@ -26298,7 +26298,7 @@ namespace ia32
 		return ( ( T* ) a ) - !zero_flag;
 	}
 	template<typename T = uint8_t>
-	_LINKAGE xstd::any_ptr string_mismatch( xstd::any_ptr a, xstd::any_ptr b, size_t count )
+	_LINKAGE any_ptr string_mismatch( any_ptr a, any_ptr b, size_t count )
 	{
 		uint8_t zero_flag;
 		if constexpr ( sizeof( T ) == 1 )
@@ -26319,24 +26319,24 @@ namespace ia32
 	_LINKAGE void invd() { asm volatile( "invd" ::: "memory" ); }
 	_LINKAGE void wbinvd() { asm volatile( "wbinvd" ::: "memory" ); }
 	_LINKAGE void wbnoinvd() { asm volatile( "wbnoinvd" ::: "memory" ); }
-	_LINKAGE void clwb( xstd::any_ptr ptr ) { asm volatile( "clwb %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void clflush( xstd::any_ptr ptr ) { asm volatile( "clflush %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void cldemote( xstd::any_ptr ptr ) { asm volatile( "cldemote %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void clflushopt( xstd::any_ptr ptr ) { asm volatile( "clflushopt %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void prefetchw( xstd::any_ptr ptr ) { asm volatile( "prefetchtw %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void prefetch0( xstd::any_ptr ptr ) { asm volatile( "prefetcht0 %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void prefetch1( xstd::any_ptr ptr ) { asm volatile( "prefetcht1 %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void prefetch2( xstd::any_ptr ptr ) { asm volatile( "prefetcht2 %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
-	_LINKAGE void prefetchnt( xstd::any_ptr ptr ) { asm volatile( "prefetchnta %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void clwb( any_ptr ptr ) { asm volatile( "clwb %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void clflush( any_ptr ptr ) { asm volatile( "clflush %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void cldemote( any_ptr ptr ) { asm volatile( "cldemote %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void clflushopt( any_ptr ptr ) { asm volatile( "clflushopt %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void prefetchw( any_ptr ptr ) { asm volatile( "prefetchtw %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void prefetch0( any_ptr ptr ) { asm volatile( "prefetcht0 %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void prefetch1( any_ptr ptr ) { asm volatile( "prefetcht1 %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void prefetch2( any_ptr ptr ) { asm volatile( "prefetcht2 %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
+	_LINKAGE void prefetchnt( any_ptr ptr ) { asm volatile( "prefetchnta %0":: "m" ( *( char* ) ptr.address ) : "memory" ); }
 
-	_LINKAGE void clflushopt_s( xstd::any_ptr ptr )
+	_LINKAGE void clflushopt_s( any_ptr ptr )
 	{
 		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clflushopt )
 			clflushopt( ptr );
 		else
 			clflush( ptr );
 	}
-	_LINKAGE void clwb_s( xstd::any_ptr ptr )
+	_LINKAGE void clwb_s( any_ptr ptr )
 	{
 		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clwb )
 			clwb( ptr );
@@ -26349,7 +26349,7 @@ namespace ia32
 	namespace impl
 	{
 		template<size_t U, typename T>
-		_LINKAGE inline void unroll_for( const T& fn, xstd::any_ptr ptr, size_t count, size_t granularity )
+		_LINKAGE inline void unroll_for( const T& fn, any_ptr ptr, size_t count, size_t granularity )
 		{
 			count += ptr & ( granularity - 1 );
 			size_t n = ( count + ( granularity - 1 ) ) / granularity;
@@ -26364,46 +26364,46 @@ namespace ia32
 				fn( ptr ), ptr += granularity;
 		}
 	}
-	_LINKAGE void invpcid( uint64_t pcid, xstd::any_ptr ptr, size_t n, size_t p = page_size )
+	_LINKAGE void invpcid( uint64_t pcid, any_ptr ptr, size_t n, size_t p = page_size )
 	{
-		impl::unroll_for<8>( [ pcid ] ( xstd::any_ptr it ) { invpcid( invpcid_type::individual, pcid, it ); }, ptr, n, p );
+		impl::unroll_for<8>( [ pcid ] ( any_ptr it ) { invpcid( invpcid_type::individual, pcid, it ); }, ptr, n, p );
 	}
-	_LINKAGE void invlpg( xstd::any_ptr ptr, size_t n, size_t p = page_size )
+	_LINKAGE void invlpg( any_ptr ptr, size_t n, size_t p = page_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { invlpg( it ); }, ptr, n, p );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { invlpg( it ); }, ptr, n, p );
 	}
-	_LINKAGE void touch( xstd::any_ptr ptr, size_t n, size_t p = page_size )
+	_LINKAGE void touch( any_ptr ptr, size_t n, size_t p = page_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { touch( it ); }, ptr, n, p );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { touch( it ); }, ptr, n, p );
 	}
-	_LINKAGE void wtouch( xstd::any_ptr ptr, size_t n, size_t p = page_size )
+	_LINKAGE void wtouch( any_ptr ptr, size_t n, size_t p = page_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { wtouch( it ); }, ptr, n, p );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { wtouch( it ); }, ptr, n, p );
 	}
-	_LINKAGE void clwb( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
+	_LINKAGE void clwb( any_ptr ptr, size_t n, size_t cl = cacheline_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { clwb( it ); }, ptr, n, cl );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { clwb( it ); }, ptr, n, cl );
 	}
-	_LINKAGE void clflush( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
+	_LINKAGE void clflush( any_ptr ptr, size_t n, size_t cl = cacheline_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { clflush( it ); }, ptr, n, cl );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { clflush( it ); }, ptr, n, cl );
 	}
-	_LINKAGE void cldemote( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
+	_LINKAGE void cldemote( any_ptr ptr, size_t n, size_t cl = cacheline_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { cldemote( it ); }, ptr, n, cl );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { cldemote( it ); }, ptr, n, cl );
 	}
-	_LINKAGE void clflushopt( xstd::any_ptr ptr, size_t n, size_t cl = cacheline_size )
+	_LINKAGE void clflushopt( any_ptr ptr, size_t n, size_t cl = cacheline_size )
 	{
-		impl::unroll_for<8>( [ ] ( xstd::any_ptr it ) { clflushopt( it ); }, ptr, n, cl );
+		impl::unroll_for<8>( [ ] ( any_ptr it ) { clflushopt( it ); }, ptr, n, cl );
 	}
-	_LINKAGE void clflushopt_s( xstd::any_ptr ptr, size_t n )
+	_LINKAGE void clflushopt_s( any_ptr ptr, size_t n )
 	{
 		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clflushopt )
 			clflushopt( ptr, n );
 		else
 			clflush( ptr, n );
 	}
-	_LINKAGE void clwb_s( xstd::any_ptr ptr, size_t n )
+	_LINKAGE void clwb_s( any_ptr ptr, size_t n )
 	{
 		if ( static_cpuid_s<7, 0, cpuid_eax_07>.ebx.clwb )
 			clwb( ptr, n );
@@ -26426,18 +26426,18 @@ namespace ia32
 	_LINKAGE std::pair<idt_entry*, size_t> get_idt() 
 	{ 
 		auto desc = read_idtr(); 
-		return { xstd::any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / sizeof( idt_entry ) }; 
+		return { any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / sizeof( idt_entry ) }; 
 	}
 	_LINKAGE std::pair<gdt_entry*, size_t> get_gdt() 
 	{ 
 		auto desc = read_gdtr(); 
-		return { xstd::any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / sizeof( gdt_entry ) }; 
+		return { any_ptr( desc.base_address ), ( size_t( desc.limit ) + 1 ) / sizeof( gdt_entry ) }; 
 	}
-	_LINKAGE void set_idt( xstd::any_ptr base_address, size_t length ) 
+	_LINKAGE void set_idt( any_ptr base_address, size_t length ) 
 	{ 
 		write_idtr( { uint16_t( length * sizeof( idt_entry ) - 1 ), base_address } );
 	}
-	_LINKAGE void set_gdt( xstd::any_ptr base_address, size_t length ) 
+	_LINKAGE void set_gdt( any_ptr base_address, size_t length ) 
 	{ 
 		write_gdtr( { uint16_t( length * sizeof( gdt_entry ) - 1 ), base_address } );
 	}
@@ -26529,13 +26529,13 @@ namespace ia32
 
 	// IP/SP.
 	//
-	_LINKAGE xstd::any_ptr get_sp()
+	_LINKAGE any_ptr get_sp()
 	{
 		uint64_t out;
 		asm( "movq %%rsp, %0": "=r" ( out ) );
 		return out;
 	}
-	_LINKAGE xstd::any_ptr get_ip()
+	_LINKAGE any_ptr get_ip()
 	{
 		uint64_t out;
 		asm volatile( "0: leaq (%%rip), %0" : "=r" ( out ) );
@@ -26770,7 +26770,7 @@ namespace ia32
 		return value.t;
 	}
 	template<typename T> requires ( sizeof( T ) <= 4 )
-	_LINKAGE void read_io( xstd::any_ptr dst, uint16_t adr, size_t count )
+	_LINKAGE void read_io( any_ptr dst, uint16_t adr, size_t count )
 	{
 		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
@@ -26798,7 +26798,7 @@ namespace ia32
 			asm volatile( "out %%al, %%dx"  :: "a" ( value.i8 ),  "d" ( adr ) );
 	}
 	template<typename T> requires ( sizeof( T ) <= 4 )
-	_LINKAGE void write_io( uint16_t adr, xstd::any_ptr dst, size_t count )
+	_LINKAGE void write_io( uint16_t adr, any_ptr dst, size_t count )
 	{
 		if constexpr ( sizeof( T ) > 2 )
 			asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
@@ -26856,7 +26856,7 @@ namespace ia32
 	template<bool IgnoreIF = false>
 	static constexpr uint32_t mwait_ext_v = IgnoreIF ? 1 : 0;
 	
-	_LINKAGE void monitor( xstd::any_ptr adr, uint32_t extensions, uint32_t hints )
+	_LINKAGE void monitor( any_ptr adr, uint32_t extensions, uint32_t hints )
 	{
 		__builtin_ia32_monitor( ( void* ) adr, extensions, hints );
 	}

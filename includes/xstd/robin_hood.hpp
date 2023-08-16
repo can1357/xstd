@@ -799,8 +799,8 @@ struct hash<T*> {
     }
 };
 template <>
-struct hash<xstd::any_ptr> {
-    size_t operator()(xstd::any_ptr ptr) const noexcept {
+struct hash<any_ptr> {
+    size_t operator()(any_ptr ptr) const noexcept {
         return hash_int( ptr );
     }
 };

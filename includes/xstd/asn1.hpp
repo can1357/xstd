@@ -557,7 +557,7 @@ namespace xstd::asn1
 		}
 		return nullptr;
 	}
-	static std::unique_ptr<object> decode( xstd::any_ptr ptr, size_t len )
+	static std::unique_ptr<object> decode( any_ptr ptr, size_t len )
 	{
 		std::string_view rng{ ( char* ) ptr, ( char* ) ptr + len };
 		return decode( rng );

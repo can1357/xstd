@@ -213,7 +213,7 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if ( is_pow2( alignment ) ) {
 #if __has_builtin(__builtin_align_up)
-			if constexpr ( Same<T, xstd::any_ptr> )
+			if constexpr ( Same<T, any_ptr> )
 				return __builtin_align_up( ( void* ) value, alignment );
 			else
 				return __builtin_align_up( value, alignment );
@@ -236,7 +236,7 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if ( is_pow2( alignment ) ) {
 #if __has_builtin(__builtin_align_down)
-			if constexpr ( Same<T, xstd::any_ptr> )
+			if constexpr ( Same<T, any_ptr> )
 				return __builtin_align_down( ( void* ) value, alignment );
 			else
 				return __builtin_align_down( value, alignment );
@@ -257,7 +257,7 @@ namespace xstd
 		using U = convert_uint_t<T>;
 		if ( is_pow2( alignment ) ) {
 #if __has_builtin(__builtin_is_aligned)
-			if constexpr ( Same<T, xstd::any_ptr> )
+			if constexpr ( Same<T, any_ptr> )
 				return __builtin_is_aligned( ( void* ) value, alignment );
 			else
 				return __builtin_is_aligned( value, alignment );

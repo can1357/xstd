@@ -317,7 +317,7 @@ MUST_MATCH( DEBUG_BUILD );
 	#define __forceinline __attribute__((always_inline)) inline
 	#define _ReturnAddress() (__builtin_return_address(0))
 	#ifndef HAS_MS_EXTENSIONS
-		#define _AddressOfReturnAddress() ((xstd::any_ptr)nullptr) // No equivalent, __builtin_frame_address(0) is wrong.
+		#define _AddressOfReturnAddress() ((any_ptr)nullptr) // No equivalent, __builtin_frame_address(0) is wrong.
 	#endif
 #endif
 
