@@ -27459,6 +27459,8 @@ namespace ia32
 	{
 		irql_t prev = 0;
 		bool locked = false;
+
+		scope_irql( std::defer_lock_t ) {}
 		scope_irql( irql_t prev = ( uint8_t ) get_irql() ) { lock( prev ); }
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
@@ -27486,6 +27488,7 @@ namespace ia32
 	{
 		bool prev = false;
 		bool locked = false;
+		scope_irql( std::defer_lock_t ) {}
 		scope_irql( bool prev = interrupts_enabled() ) { lock( prev ); }
 		scope_irql( scope_irql&& ) noexcept = delete;
 		scope_irql( const scope_irql& ) = delete;
