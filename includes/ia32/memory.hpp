@@ -401,6 +401,8 @@ namespace ia32::mem
 		// Returns the raised page_fault exception given the status and the flags.
 		//
 		FORCE_INLINE CONST_FN static constexpr page_fault_exception make_exception( page_fault_exception access, walk_status state, uint16_t flags ) {
+			( void ) flags;
+
 			// Propagate access flags.
 			//
 			page_fault_exception pf = { .flags = 0 };
@@ -437,9 +439,11 @@ namespace ia32::mem
 	//
 	struct walk_base {
 		FORCE_INLINE PURE_FN static pt_entry_64 read_pte( walk_base* s, const walk_parameters& param ) {
+			( void ) param;
 			return *s->ppte;
 		}
 		FORCE_INLINE static void set_pte_flags( walk_base* s, const walk_parameters& param, uint64_t fl ) {
+			( void ) param;
 			if ( xstd::const_condition( !fl ) || ( s->ppte->flags & fl ) == fl ) {
 				return;
 			} else if ( xstd::const_condition( xstd::is_pow2( fl ) ) ) {
@@ -449,12 +453,17 @@ namespace ia32::mem
 			}
 		}
 		FORCE_INLINE static bool next_pte( walk_base* s, const walk_parameters& param, pt_level level ) {
+			( void ) s;
+			( void ) level;
+			( void ) param;
 			return false;
 		}
 		FORCE_INLINE static void phys_write( const walk_parameters& param, uint64_t dst_pa, any_ptr src_va, size_t n ) {
+			( void ) param;
 			memcpy( mem::get_phys_base() + dst_pa, src_va, n );
 		}
 		FORCE_INLINE static void phys_read( const walk_parameters& param, any_ptr dst_va, uint64_t src_pa, size_t n ) {
+			( void ) param;
 			memcpy( dst_va, mem::get_phys_base() + src_pa, n );
 		}
 	
@@ -725,6 +734,7 @@ namespace ia32::mem
 		//
 		FORCE_INLINE inline constexpr bool is_atomic_vop( any_ptr va, size_t n, vm_operator op ) {
 			( void ) op;
+			( void ) va;
 			return n <= 0x1000;
 		}
 
