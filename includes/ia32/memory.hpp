@@ -329,7 +329,6 @@ namespace ia32::mem
 		rsvd_nx,     // - NX bit is not defined.
 		rsvd_large,  // - Large page at invalid level.
 		rsvd_pfn,    // - Physical address has more bits than CPU supports or is misaligned.
-		rsvd_ddirty, // - Directory with dirty bit.
 	};
 
 	// CPU state emulated in the walk.
@@ -522,18 +521,9 @@ namespace ia32::mem
 			if ( flags & pw_assert_valid ) {
 				uint64_t pfn_mask_eff = params.pfn_mask;
 
-				// If describing directory:
-				//
-				if ( into_directory ) {
-					// Dirty bit is reserved1.
-					//
-					if ( !pte.dirty ) {
-						return walk_status::rsvd_ddirty;
-					}
-				}
 				// If describing page:
 				//
-				else {
+				if ( !into_directory ) {
 					// Check if we can have a page of this size:
 					//
 					if ( level > ( params.has_1gb_pages ? pdpte_level : pde_level ) ) {
