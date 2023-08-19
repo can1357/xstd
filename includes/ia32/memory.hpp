@@ -303,6 +303,10 @@ namespace ia32::mem
 		//
 		pw_cpu_nxe_off =       1 << 8, // Emulates EFER.NXE = 0.
 
+		// OS flags.
+		//
+		pw_os_paging =         1 << 9,
+
 		// Presets.
 		//
 		pw_preset_relaxed =    0,
@@ -464,6 +468,13 @@ namespace ia32::mem
 		FORCE_INLINE static void phys_read( const walk_parameters& param, any_ptr dst_va, uint64_t src_pa, size_t n ) {
 			( void ) param;
 			memcpy( dst_va, mem::get_phys_base() + src_pa, n );
+		}
+		COLD static bool try_page_in( walk_base* s, const walk_parameters& param, any_ptr va, walk_status status ) {
+			( void ) s;
+			( void ) param;
+			( void ) va;
+			( void ) status;
+			return false;
 		}
 	
 		// Effective value of the resolved PTE.
@@ -649,15 +660,35 @@ namespace ia32::mem
 		template<typename W = Walker, typename Pa = typename W::parameters>
 		FORCE_INLINE static W perform( any_ptr virtual_address, const Pa& params = {}, uint16_t flags = pw_preset_relaxed ) {
 			const Pa local_params{ params };
-			W walker{ virtual_address };
-			__hint_unroll()
-			for ( int8_t n = pxe_level; n >= pte_level; n-- ) {
-				walker.status = walker.forward( pt_level( n ), local_params, flags );
-				if ( walker.status != walk_status::pending ) {
-					break;
+			for ( size_t paging_attempt = 0;; paging_attempt++ ) {
+				W walker{ virtual_address };
+
+				__hint_unroll()
+				for ( int8_t n = pxe_level; n >= pte_level; n-- ) {
+					walker.status = walker.forward( pt_level( n ), local_params, flags );
+					if ( walker.status != walk_status::pending ) {
+						break;
+					}
 				}
+
+				// If we failed but have OS paging available:
+				//
+				if ( !walker && ( flags & pw_os_paging ) && paging_attempt <= 0xF ) [[unlikely]] {
+					// If not present, or not writable (CoW?):
+					//
+					if ( walker.status == walk_status::not_present || walker.status == walk_status::wp ) [[unlikely]] {
+						// Try paging the address in, retry on success.
+						//
+						if ( W::try_page_in( &walker, local_params, virtual_address, walker.status ) ) {
+							continue;
+						}
+					}
+				}
+
+				// Return the state.
+				//
+				return walker;
 			}
-			return walker;
 		}
 	};
 
@@ -767,48 +798,48 @@ namespace ia32::mem
 				} else {
 					W::phys_write( params, p_base, buffer, n );
 				}
-				return {};
 			}
-
 			// Do a second translation.
 			//
-			walk_base w2 =  W::perform( w1.get_va_end(), params, flags | pw_clamp_pfn );
-			if ( !w2 ) [[unlikely]] {
-				return {
-					.fault_address = w2.virtual_address,
-					.status =        w2.status
-				};
-			}
-			uint64_t p_hi = w2.get_pa();
-			uint64_t p_lo = p_hi - n;
+			else {
+				walk_base w2 =  W::perform( w1.get_va_end(), params, flags | pw_clamp_pfn );
+				if ( !w2 ) [[unlikely]] {
+					return {
+						.fault_address = w2.virtual_address,
+						.status =        w2.status
+					};
+				}
+				uint64_t p_hi = w2.get_pa();
+				uint64_t p_lo = p_hi - n;
 
-			// Do parial copies.
-			//
-			const size_t shift = p_base - p_lo;
-			if constexpr ( Op == vm_operator::read ) {
-				if ( is_small_copy_viable ) {
-					uint8_t* baseline = &tmp[ n ];
-					W::phys_read( params, baseline - shift,     p_lo,         n );
-					W::phys_read( params, baseline + n - shift, p_hi,         n );
-					memcpy( buffer, baseline, n );
+				// Do parial copies.
+				//
+				const size_t shift = p_base - p_lo;
+				if constexpr ( Op == vm_operator::read ) {
+					if ( is_small_copy_viable ) {
+						uint8_t* baseline = &tmp[ n ];
+						W::phys_read( params, baseline - shift,     p_lo,         n );
+						W::phys_read( params, baseline + n - shift, p_hi,         n );
+						memcpy( buffer, baseline, n );
+					} else {
+						W::phys_read( params, buffer,               p_lo + shift, n - shift );
+						W::phys_read( params, buffer + n - shift,   p_hi,         shift );
+					}
 				} else {
-					W::phys_read( params, buffer,               p_lo + shift, n - shift );
-					W::phys_read( params, buffer + n - shift,   p_hi,         shift );
-				}
-			} else {
-				if ( is_small_copy_viable ) {
-					uint8_t* baseline = &tmp[ n ];
-					W::phys_read( params, baseline - shift,     p_lo,                          n );
-					W::phys_read( params, baseline + n - shift, p_hi,                          n );
-					memcpy( baseline, buffer, n );
-					W::phys_write( params, p_lo,                baseline - shift,              n );
-					W::phys_write( params, p_hi,                baseline + n - shift,          n );
-				} else {
-					W::phys_write( params, p_lo + shift,        buffer,                        n - shift );
-					W::phys_write( params, p_hi,                buffer + n - shift,            shift );
+					if ( is_small_copy_viable ) {
+						uint8_t* baseline = &tmp[ n ];
+						W::phys_read( params, baseline - shift,     p_lo,                          n );
+						W::phys_read( params, baseline + n - shift, p_hi,                          n );
+						memcpy( baseline, buffer, n );
+						W::phys_write( params, p_lo,                baseline - shift,              n );
+						W::phys_write( params, p_hi,                baseline + n - shift,          n );
+					} else {
+						W::phys_write( params, p_lo + shift,        buffer,                        n - shift );
+						W::phys_write( params, p_hi,                buffer + n - shift,            shift );
+					}
 				}
 			}
-			return {};
+			return { .fault_address = va + n };
 		}
 
 		// Applies the virtual memory operation in a resumable fashion with no atomicity guarantees.
@@ -847,7 +878,7 @@ namespace ia32::mem
 				//
 				va = copy_limit;
 			}
-			return {};
+			return { .fault_address = va };
 		}
 	};
 

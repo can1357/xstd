@@ -27481,7 +27481,6 @@ namespace ia32
 		FORCE_INLINE void reset() { if ( locked ) unlock();  }
 		FORCE_INLINE ~scope_irql() { reset(); }
 	};
-
 	template<bool relaxed>
 	struct scope_irql<NO_INTERRUPTS, relaxed>
 	{
