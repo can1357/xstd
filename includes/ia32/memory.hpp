@@ -436,7 +436,7 @@ namespace ia32::mem
 			return *s->ppte;
 		}
 		FORCE_INLINE static void set_pte_flags( walk_base* s, const walk_parameters& param, uint64_t fl ) {
-			if ( xstd::const_condition( !fl ) ) {
+			if ( xstd::const_condition( !fl ) || ( s->ppte->flags & fl ) == fl ) {
 				return;
 			} else if ( xstd::const_condition( xstd::is_pow2( fl ) ) ) {
 				xstd::atomic_bit_set( s->ppte->flags, xstd::msb( fl ) );
