@@ -27,6 +27,7 @@ namespace ia32::mem
 
 	// Identity mapping of physical memory, optional.
 	//
+	static constexpr size_t phys_base_padding_pages = 512;
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 	FORCE_INLINE inline void set_phys_base( const void* value ) { __builtin_store_dynamic( "@.physidmap", value ); }
 	FORCE_INLINE CONST_FN inline any_ptr get_phys_base() { return __builtin_fetch_dynamic( "@.physidmap" ); }
@@ -133,6 +134,7 @@ namespace ia32::mem
 	//
 	static constexpr pt_level max_large_page_level = pdpte_level;
 
+
 	// Index of the self referencing page table entry and the bases, physical memory information.
 	//
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
@@ -148,6 +150,15 @@ namespace ia32::mem
 		__builtin_store_dynamic( "@.mmu_pa_bits", ( void* ) ( uint64_t ) value );
 		__builtin_store_dynamic( "@.mmu_pfn_mask", ( void* ) ( xstd::fill_bits( value ) >> 12 ) );
 	}
+
+	FORCE_INLINE CONST_FN inline size_t max_pfn() { return ( size_t ) __builtin_fetch_dynamic( "@.maxpfn" ); }
+	FORCE_INLINE CONST_FN inline size_t max_valid_pfn() { return ( size_t ) __builtin_fetch_dynamic( "@.maxvalidpfn" ); }
+	FORCE_INLINE inline size_t set_max_valid_pfn( size_t value ) {
+		size_t max_pfn = xstd::align_up( value + phys_base_padding_pages, 512 );
+		__builtin_store_dynamic( "@.maxpfn", ( void* ) max_pfn );
+		__builtin_store_dynamic( "@.maxvalidpfn", ( void* ) value );
+		return max_pfn;
+	}
 #else
 	inline pt_entry_64* __pxe_base = nullptr;
 	FORCE_INLINE inline void set_pxe_base( pt_entry_64* value ) { __pxe_base = value; }
@@ -161,9 +172,16 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline uint64_t pfn_mask() { return xstd::fill_bits( ___pa_bits ) >> 12; }
 	FORCE_INLINE CONST_FN inline bitcnt_t pa_bits() { return ___pa_bits; }
 	FORCE_INLINE inline void set_pa_bits( bitcnt_t value ) { ___pa_bits = value; }
+
+	inline size_t ___max_valid_pfn = 0;
+	FORCE_INLINE CONST_FN inline size_t max_pfn() { return xstd::align_up( ___max_valid_pfn + phys_base_padding_pages, 512 ); }
+	FORCE_INLINE CONST_FN inline size_t max_valid_pfn() { return ___max_valid_pfn; }
+	FORCE_INLINE inline size_t set_max_valid_pfn( size_t value ) { 
+		___max_valid_pfn = value; 
+		return xstd::align_up( value + phys_base_padding_pages, 512 );
+	}
 #endif
 	FORCE_INLINE CONST_FN inline bool has_1gb_pages() { return static_cpuid_s<0x80000001, 0, cpuid_eax_80000001>.edx.pages_1gb_available; }
-	FORCE_INLINE CONST_FN inline pt_level get_max_large_page_level() { return has_1gb_pages() ? pdpte_level : pde_level; }
 
 	// Virtual address details.
 	//
@@ -173,8 +191,8 @@ namespace ia32::mem
 	FORCE_INLINE CONST_FN inline constexpr uint64_t page_offset( any_ptr ptr ) { return ptr & 0xFFF; }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t pt_index( any_ptr ptr, int8_t level ) { return ( ptr >> ( 12 + 9 * level ) ) & 511; }
 	FORCE_INLINE CONST_FN inline constexpr uint64_t px_index( any_ptr ptr ) { return pt_index( ptr, pxe_level ); }
-	
-	// Recursive page table indexing.
+
+	// Utilities for self-referencing page-table entry.
 	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* locate_page_table( int8_t depth, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
@@ -211,13 +229,13 @@ namespace ia32::mem
 			return any_ptr( ( ptr >> shift ) << shift );
 		}
 	}
-
-	// Recursive page table lookup.
-	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( any_ptr ptr, int8_t depth = pte_level, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-		pt_entry_64* tbl = locate_page_table( depth, self_ref_idx );
-		return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
+		uintptr_t aligned = ptr.address & ~( 0b111ull << 9 );
+		return ( pt_entry_64* ) (
+			uintptr_t( locate_page_table( depth, self_ref_idx ) ) |
+			( ( aligned << sx_bits ) >> ( sx_bits + 9 + 9 * depth ) )
+		);
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
 	{ 
@@ -227,76 +245,11 @@ namespace ia32::mem
 	{
 		return xstd::make_constant_series<page_table_depth>( [ & ] ( auto c ) { return get_pte( ptr, c, self_ref_idx ); } );
 	}
-
-	// Fast page table lookup, no validation.
-	//
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( std::array<pt_entry_64*, page_table_depth> hierarchy, pt_entry_64* accu = nullptr ) {
-		// Iterate the page tables until the PTE.
-		//
-		int8_t n;
-		pt_entry_64* entry;
-		pt_entry_64  accumulator = { .flags = PT_ENTRY_64_USER_FLAG };
-		__hint_unroll()
-		for ( n = pxe_level; n >= pte_level; n-- ) {
-			// Accumulate access flags.
-			//
-			entry = hierarchy[ n ];
-			auto ventry = *entry;
-			auto xd = accumulator.execute_disable | ventry.execute_disable;
-			auto us = accumulator.user            & ventry.user;
-			accumulator = ventry;
-			accumulator.execute_disable = xd;
-			accumulator.user =            us;
-
-			// Break if not present or large page.
-			//
-			if ( !n || !ventry.present || ( n <= max_large_page_level && ventry.large_page ) )
-				break;
-		}
-
-		// Write accumulator, return result.
-		//
-		if ( accu ) accu->flags = accumulator.flags;
-		return { entry, n };
-	}
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( any_ptr ptr, pt_entry_64* accu = nullptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) {
-		// Iterate the page tables until the PTE.
-		//
-		int8_t n;
-		pt_entry_64* entry;
-		pt_entry_64  accumulator = { .flags = PT_ENTRY_64_USER_FLAG };
-		__hint_unroll()
-		for ( n = pxe_level; n >= pte_level; n-- ) {
-			// Accumulate access flags.
-			//
-			entry = get_pte( ptr, n, self_ref_idx );
-			auto ventry = *entry;
-			auto xd = accumulator.execute_disable | ventry.execute_disable;
-			auto us = accumulator.user            & ventry.user;
-			accumulator = ventry;
-			accumulator.execute_disable = xd;
-			accumulator.user =            us;
-
-			// Break if not present or large page.
-			//
-			if ( !n || !ventry.present || ( n <= max_large_page_level && ventry.large_page ) )
-				break;
-		}
-
-		// Write accumulator, return result.
-		//
-		if ( accu ) accu->flags = accumulator.flags;
-		return { entry, n };
-	}
-	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( any_ptr ptr, std::optional<uint32_t> self_ref_idx ) { return lookup_pte( ptr, nullptr, self_ref_idx ); }
-
-	// Reverse recursive page table lookup.
-	//
 	FORCE_INLINE CONST_FN inline any_ptr pte_to_va( any_ptr pte, int8_t level = pte_level ) 
 	{ 
 		return ( ( int64_t( pte ) << ( sx_bits + 12 + ( 9 * level ) - 3 ) ) >> sx_bits ); 
 	}
-	FORCE_INLINE inline std::pair<any_ptr, int8_t> rlookup_pte( any_ptr pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
+	FORCE_INLINE CONST_FN inline std::pair<any_ptr, int8_t> rlookup_pte( any_ptr pte, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
 		// Xor with PXE base ignoring 8-byte offsets.
 		//
@@ -318,6 +271,613 @@ namespace ia32::mem
 			return { pte_to_va( pte & ~3ull, ( int8_t ) level ), ( int8_t ) level };
 		}
 		return { nullptr, -1 };
+	}
+
+	// Propagates flags from higher-level directory entry into the current one to form "effective" protection flags for a page-walk.
+	//
+	static constexpr uint64_t pte_viral_and = PT_ENTRY_64_USER_FLAG | PT_ENTRY_64_WRITE_FLAG;
+	static constexpr uint64_t pte_viral_or =  PT_ENTRY_64_EXECUTE_DISABLE_FLAG;
+	FORCE_INLINE CONST_FN inline constexpr pt_entry_64 pte_propagate_viral( pt_entry_64 parent, pt_entry_64 current ) {
+		current.flags |= parent.flags & pte_viral_or;
+		current.flags ^= ( current.flags & ~parent.flags ) & pte_viral_and;
+		return current;
+	}
+	
+	// Flags and status for pagewalk.
+	//
+	enum walk_flags : uint16_t {
+		// Emulation flags.
+		//
+		pw_mark_accessed =     1 << 0, // Sets accessed flag.
+		pw_mark_dirty =        1 << 1, // Sets dirty flag. (implies accessed).
+		pw_clamp_pfn =         1 << 2,
+
+		// Assertation flags.
+		//
+		pw_assert_ex =         1 << 3, // Fails if execute disable is set.
+		pw_assert_su =         1 << 4, // Fails if user page.
+		pw_assert_us =         1 << 5, // Fails if supervisor page.
+		pw_assert_wr =         1 << 6, // Fails if read-only page.
+		pw_assert_valid =      1 << 7, // Fails if reserved flags are set.
+
+		// CPU flags.
+		//
+		pw_cpu_nxe_off =       1 << 8, // Emulates EFER.NXE = 0.
+
+		// Presets.
+		//
+		pw_preset_relaxed =    0,
+		pw_preset_request =    pw_clamp_pfn | pw_mark_accessed | pw_assert_valid | pw_mark_dirty
+	};
+	enum class walk_status : int8_t {
+		pending = -1,    // At page directory, recurse deeper (Only valid as a walk step).
+
+		// Page state.
+		//
+		ok = 0,          // Found the page.
+		not_present,     // Not present.
+		
+		// Protection faults.
+		//
+		xd,              // Executed disable violation.
+		wp,              // Write protect violation.
+		cpl,             // US/SU violation.
+		
+		// Reserved flag violations.
+		//
+		rsvd,        // - Pseudo:Range start.
+		rsvd_nx,     // - NX bit is not defined.
+		rsvd_large,  // - Large page at invalid level.
+		rsvd_pfn,    // - Physical address has more bits than CPU supports or is misaligned.
+		rsvd_ddirty, // - Directory with dirty bit.
+	};
+
+	// CPU state emulated in the walk.
+	// - Used to calculate appropriate walk flags and generating #PF exception codes.
+	//
+	struct walk_request {
+		// Special registers.
+		//
+		cr4              cr4 =   { .flags = CR4_SMEP_ENABLE_FLAG };
+		cr0              cr0 =   ia32::smsw();
+		efer_register    efer =  { .flags = IA32_EFER_EXECUTE_DISABLE_BIT_ENABLE_FLAG };
+		rflags           efl =   { .flags = 0 };
+
+		// Source exception for access flags.
+		//
+		page_fault_exception access = { .flags = 0 };
+
+		// Calculates the final walker flags.
+		//
+		FORCE_INLINE CONST_FN uint16_t get_flags( uint16_t wf = pw_preset_request ) const {
+			// If write access:
+			//
+			if ( access.write ) {
+				// Assert WP if user-mode or CR0.WP != 0.
+				//
+				if ( access.user_mode_access || cr0.write_protect ) {
+					wf |= pw_assert_wr;
+				}
+			}
+			// If read or execute:
+			//
+			else {
+				// Clear mark dirty.
+				//
+				wf &= ~pw_mark_dirty;
+
+				// If execute:
+				//
+				if ( access.execute ) {
+					// Assert executable.
+					//
+					wf |= pw_assert_ex;
+
+					// If supervisor and SMEP is enabled, assert su.
+					//
+					if ( !access.user_mode_access && cr4.smep_enable ) {
+						wf |= pw_assert_su;
+					}
+				}
+			}
+
+			// If supervisor and SMAP is enabled, assert su, otherwise assert us if usermode.
+			//
+			if ( access.user_mode_access ) {
+				wf |= pw_assert_us;
+			} else if ( cr4.smap_enable && !efl.alignment_check_flag ) {
+				wf |= pw_assert_su;
+			}
+
+			// Mark NX as reserved EFER.NXE = 0.
+			//
+			if ( !efer.execute_disable_bit_enable ) {
+				wf |= pw_cpu_nxe_off;
+				wf &= ~pw_assert_ex;
+			}
+			return wf;
+		}
+
+		// Returns the raised page_fault exception given the status and the flags.
+		//
+		FORCE_INLINE CONST_FN constexpr page_fault_exception make_exception( walk_status state, uint16_t flags ) const {
+			// Propagate access flags.
+			//
+			page_fault_exception pf = { .flags = 0 };
+			pf.hlat =             access.hlat;
+			pf.sgx =              access.sgx;
+			pf.shadow_stack =     access.shadow_stack;
+			pf.write =            access.write;
+			pf.execute =          access.execute;
+			pf.user_mode_access = access.user_mode_access;
+
+			// Set page flags.
+			//
+			pf.present =                state != walk_status::not_present;
+			pf.reserved_bit_violation = state >= walk_status::rsvd;
+
+			// TODO: protection_key_violation
+			return pf;
+		}
+	};
+
+	// Pagewalk interface base structures.
+	//
+	struct walk_parameters {
+		// Known constants.
+		//
+		uint64_t pfn_mask =      mem::pfn_mask();
+		bool     has_1gb_pages = mem::has_1gb_pages();
+	};
+
+	// Page walker interface.
+	//
+	struct walk_base {
+		FORCE_INLINE PURE_FN static pt_entry_64 read_pte( walk_base* s, const walk_parameters& param ) {
+			return *s->ppte;
+		}
+		FORCE_INLINE static void set_pte_flags( walk_base* s, const walk_parameters& param, uint64_t fl ) {
+			if ( xstd::const_condition( !fl ) ) {
+				return;
+			} else if ( xstd::const_condition( xstd::is_pow2( fl ) ) ) {
+				xstd::atomic_bit_set( s->ppte->flags, xstd::msb( fl ) );
+			} else {
+				std::atomic_ref{ s->ppte->flags }.fetch_or( fl );
+			}
+		}
+		FORCE_INLINE static bool next_pte( walk_base* s, const walk_parameters& param, pt_level level ) {
+			return false;
+		}
+	
+		// Effective value of the resolved PTE.
+		//
+		pt_entry_64  value = { .flags = pte_viral_and };
+
+		// Pointer to the lowest PTE and the level of the entry.
+		//
+		pt_entry_64* ppte = nullptr;
+		pt_level     level = {};
+
+		// Virtual address.
+		//
+		any_ptr      virtual_address = nullptr;
+
+		// Pagewalk status.
+		//
+		walk_status  status = {};
+
+		// Default ctor/move/copy.
+		//
+		constexpr walk_base() = default;
+		constexpr walk_base( walk_base&& ) noexcept = default;
+		constexpr walk_base( const walk_base& ) noexcept = default;
+		constexpr walk_base& operator=( walk_base&& ) noexcept = default;
+		constexpr walk_base& operator=( const walk_base& ) noexcept = default;
+
+		// Parameterized construction.
+		//
+		constexpr walk_base( any_ptr virtual_address ) {
+			this->virtual_address = virtual_address;
+		}
+		
+		// Useful utilities for resolved addresses.
+		//
+		FORCE_INLINE constexpr any_ptr get_va_base() const {
+			size_t psize = mem::page_size( level );
+			return virtual_address & ~( psize - 1 );
+		}
+		FORCE_INLINE constexpr any_ptr get_va_end() const {
+			size_t psize = mem::page_size( level );
+			return ( virtual_address + psize ) & ~( psize - 1 );
+		}
+		FORCE_INLINE constexpr uintptr_t get_pa() const {
+			size_t psize = mem::page_size( level );
+			uintptr_t pa = ( value.page_frame_number << 12 );
+			pa |= virtual_address & ( psize - 1 );
+			return pa;
+		}
+
+		// OK check.
+		//
+		FORCE_INLINE constexpr explicit operator bool() const {
+			return status == walk_status::ok;
+		}
+
+		// Feeds the next entry to the walker, returns the status.
+		//
+		FORCE_INLINE constexpr walk_status step( pt_entry_64 pte, pt_level level, const walk_parameters& params, uint16_t flags = pw_preset_relaxed ) {
+			this->value = ( pte = pte_propagate_viral( this->value, pte ) );
+			this->level = level;
+
+			// Check if present.
+			//
+			if ( !pte.present ) {
+				[[unlikely]];
+				return walk_status::not_present;
+			}
+
+			// Check if reserved bits are set.
+			//
+			const bool into_directory = level != pte_level && !pte.large_page;
+			if ( flags & pw_assert_valid ) {
+				uint64_t pfn_mask_eff = params.pfn_mask;
+
+				// If describing directory:
+				//
+				if ( into_directory ) {
+					// Dirty bit is reserved1.
+					//
+					if ( !pte.dirty ) {
+						return walk_status::rsvd_ddirty;
+					}
+				}
+				// If describing page:
+				//
+				else {
+					// Check if we can have a page of this size:
+					//
+					if ( level > ( params.has_1gb_pages ? pdpte_level : pde_level ) ) {
+						return walk_status::rsvd_large;
+					}
+
+					// Enforce alignment.
+					//
+					pfn_mask_eff >>= ( level * 9 );
+					pfn_mask_eff <<= ( level * 9 );
+				}
+
+				// Check if PFN is invalid.
+				//
+				if ( pte.page_frame_number & ~pfn_mask_eff ) {
+					return walk_status::rsvd_pfn;
+				}
+
+				// Check if protection is valid.
+				//
+				if ( pte.execute_disable && ( flags & pw_cpu_nxe_off ) ) {
+					return walk_status::rsvd_nx;
+				}
+			}
+
+			// Clamp the PFN.
+			//
+			if ( flags & pw_clamp_pfn ) {
+				pte.page_frame_number = std::min<uint64_t>( pte.page_frame_number, max_valid_pfn() );
+			}
+
+			// Continue if entry maps into a page table, ignoring permissions until last level.
+			//
+			if ( into_directory || level > max_large_page_level ) {
+				return walk_status::pending;
+			}
+
+			// Check permissions.
+			//
+			if ( flags & pw_assert_su ) {
+				if ( pte.user ) {
+					return walk_status::cpl;
+				}
+			} else if ( flags & pw_assert_us ) {
+				if ( !pte.user ) {
+					return walk_status::cpl;
+				}
+			}
+			if ( flags & pw_assert_ex ) {
+				if ( pte.execute_disable ) {
+					return walk_status::xd;
+				}
+			} else if ( flags & pw_assert_wr ) {
+				if ( !pte.write ) {
+					return walk_status::wp;
+				}
+			}
+			return walk_status::ok;
+		}
+	};
+	template<typename Walker>
+	struct iwalker : walk_base {
+		template<typename W = Walker, typename Pa = typename W::parameters>
+		FORCE_INLINE walk_status forward( pt_level level, const Pa& params, uint16_t flags = pw_preset_relaxed ) {
+			// Fetch the PTE.
+			//
+			if ( !W::next_pte( ( W* ) this, params, level ) ) {
+				return walk_status::not_present;
+			}
+			// Yield if not done.
+			//
+			auto status = this->step( W::read_pte( ( W* ) this, params ), level, params, flags );
+			if ( status == walk_status::pending ) {
+				if ( level == pte_level ) {
+					unreachable();
+				} else {
+					[[likely]];
+				}
+
+				// Set accessed if relevant.
+				//
+				if ( flags & pw_mark_accessed )
+					W::set_pte_flags( ( W* ) this, params, PT_ENTRY_64_ACCESSED_FLAG );
+				return status;
+			}
+
+			// Set accessed/dirty if relevant.
+			//
+			if ( flags & ( pw_mark_accessed | pw_mark_dirty ) ) {
+				if ( status != walk_status::not_present ) {
+					uint64_t pte_flags = PT_ENTRY_64_ACCESSED_FLAG;
+					//if ( flags & pw_mark_accessed )
+					//	pte_flags |= PT_ENTRY_64_ACCESSED_FLAG;
+					if ( flags & pw_mark_dirty )
+						if ( status == walk_status::ok )
+							pte_flags |= PT_ENTRY_64_DIRTY_FLAG;
+					W::set_pte_flags( ( W* ) this, params, pte_flags );
+				}
+			}
+			return status;
+		}
+
+		// Perform wrapper.
+		//
+		template<typename W = Walker, typename Pa = typename W::parameters>
+		FORCE_INLINE static W perform( any_ptr virtual_address, const Pa& params = {}, uint16_t flags = pw_preset_relaxed ) {
+			const Pa local_params{ params };
+			W walker{ virtual_address };
+			__hint_unroll()
+			for ( int8_t n = pxe_level; n >= pte_level; n-- ) {
+				walker.status = walker.forward( pt_level( n ), local_params, flags );
+				if ( walker.status != walk_status::pending ) {
+					break;
+				}
+			}
+			return walker;
+		}
+	};
+
+	// Self-ref based page walking.
+	//
+	struct walk : iwalker<walk> {
+		struct parameters : walk_parameters {
+			// Self-reference index.
+			//
+			std::optional<uint32_t> self_ref_idx;
+		};
+		FORCE_INLINE static bool next_pte( walk* s, const parameters& param, pt_level level ) {
+			s->ppte = get_pte( s->virtual_address, level, param.self_ref_idx );
+			return true;
+		}
+	};
+	struct prewalk : iwalker<prewalk> {
+		struct parameters : walk_parameters {
+			std::array<pt_entry_64*, page_table_depth> hierarchy;
+		};
+		FORCE_INLINE static bool next_pte( prewalk* s, const parameters& param, pt_level level ) {
+			s->ppte = param.hierarchy[ ( int ) level ];
+			return true;
+		}
+	};
+
+	// Physical memory based page walking.
+	//
+	struct physwalk : iwalker<physwalk> {
+		struct parameters : walk_parameters {
+			// Base of physical memory.
+			//
+			any_ptr  phys_base = mem::get_phys_base();
+
+			// Top level page table.
+			//
+			cr3      directory;
+		};
+
+		FORCE_INLINE static bool next_pte( physwalk* s, const parameters& param, pt_level level ) {
+			pt_entry_64* table;
+			if ( level == pxe_level ) {
+				table = param.phys_base + ( param.directory.address_of_page_directory << 12 );
+			} else {
+				table = param.phys_base + ( s->value.page_frame_number << 12 );
+			}
+			s->ppte = &table[ pt_index( s->virtual_address, level ) ];
+			return true;
+		}
+	};
+
+	// Virtual memory operations on foreign page tables.
+	//
+		// Memory operation result.
+	//
+	struct vm_result {
+		any_ptr     fault_address = {};
+		walk_status status =        {};
+	};
+	enum class vm_operator {
+		read,
+		write,
+		// TODO: XCHG, CMPXCHG, etc.
+	};
+	namespace detail {
+		// Determines if we can execute this virtual memory operation atomically as in, either all globally visible or none on fault.
+		//
+		FORCE_INLINE inline constexpr bool is_atomic_vop( any_ptr va, size_t n, vm_operator op ) {
+			( void ) op;
+			return n <= 0x1000;
+		}
+
+		// Applies the virtual memory operation atomically, assumes the well-behaved check passes.
+		//
+		template<vm_operator Op, typename W, typename Pa = typename W::parameters>
+		FORCE_INLINE inline vm_result apply_vop_atomic( any_ptr buffer, any_ptr va, size_t n, const Pa& params, uint16_t flags ) {
+			// Determine whether or not N can be reduced to a small constant, allocate a temporary buffer at the 
+			// beginning of the function to avoid alloca if so.
+			//
+			const bool is_n_const =           xstd::is_consteval( n );
+			const bool is_small_copy_viable = is_n_const && ( n <= 128 );
+			uint8_t tmp[ ( is_small_copy_viable ? n : 1 ) * 3 - 2 ];
+
+			// Resolve the initial pointer.
+			//
+			walk_base w1 = W::perform( va, params, flags | pw_clamp_pfn );
+			if ( !w1 ) [[unlikely]] {
+				return {
+					.fault_address = w1.virtual_address,
+					.status =        w1.status
+				};
+			}
+			uint8_t* p = get_phys_base() + w1.get_pa();
+
+			// If VA is aligned to the boundary of N, cannot overflow anyway, otherwise check if within boundary, if any of the checks pass, issue a memcpy and move on.
+			//
+			if ( ( is_n_const && xstd::is_pow2( n ) && xstd::is_aligned( va, n ) ) || ( va + n ) <= w1.get_va_end() ) [[likely]] {
+				if constexpr ( Op == vm_operator::read ) {
+					memcpy( buffer, p, n );
+				} else {
+					memcpy( p, buffer, n );
+				}
+				return {};
+			}
+
+			// Do a second translation.
+			//
+			walk_base w2 =  W::perform( w1.get_va_end(), params, flags | pw_clamp_pfn );
+			if ( !w2 ) [[unlikely]] {
+				return {
+					.fault_address = w2.virtual_address,
+					.status =        w2.status
+				};
+			}
+			uint8_t* p_hi = mem::get_phys_base() + w2.get_pa();
+			uint8_t* p_lo = p_hi - n;
+
+			// Do parial copies.
+			//
+			const size_t shift = p - p_lo;
+			if constexpr ( Op == vm_operator::read ) {
+				if ( is_small_copy_viable ) {
+					uint8_t* baseline = &tmp[ n ];
+					memcpy( baseline - shift,     p_lo,         n );
+					memcpy( baseline + n - shift, p_hi,         n );
+					memcpy( buffer,               baseline,     n );
+				} else {
+					memcpy( buffer,               p_lo + shift, n - shift );
+					memcpy( buffer + n - shift,   p_hi,         shift );
+				}
+			} else {
+				if ( is_small_copy_viable ) {
+					uint8_t* baseline = &tmp[ n ];
+					memcpy( baseline - shift,     p_lo,                          n );
+					memcpy( baseline + n - shift, p_hi,                          n );
+					memcpy( baseline,             buffer,                        n );
+					memcpy( p_lo,                 baseline - shift,              n );
+					memcpy( p_hi,                 baseline + n - shift,          n );
+				} else {
+					memcpy( p_lo + shift,         buffer,                        n - shift );
+					memcpy( p_hi,                 buffer + n - shift,            shift );
+				}
+			}
+			return {};
+		}
+
+		// Applies the virtual memory operation in a resumable fashion with no atomicity guarantees.
+		//
+		template<vm_operator Op, typename W, typename Pa = typename W::parameters>
+		COLD inline vm_result apply_vop_resumable( any_ptr buffer, any_ptr va, size_t n, const Pa& params, uint16_t flags ) {
+			any_ptr va_limit = va + n;
+			ptrdiff_t va_to_buffer = buffer - va;
+			while ( va < va_limit ) {
+				// Translate the address, bail if there was an error.
+				//
+				walk_base translation = W::perform( va, params, flags | pw_clamp_pfn );
+				if ( !translation ) [[unlikely]] {
+					return {
+						.fault_address = translation.virtual_address,
+						.status =        translation.status
+					};
+				}
+
+				// Determine the operation limit.
+				//
+				uint8_t* p = get_phys_base() + translation.get_pa();
+				any_ptr page_limit = translation.get_va_end();
+				any_ptr copy_limit = std::min( page_limit, va_limit );
+				size_t  copy_count = copy_limit - va;
+
+				// Apply the operation.
+				//
+				if constexpr ( Op == vm_operator::read ) {
+					memcpy( va + va_to_buffer, p,                 copy_count );
+				} else {
+					memcpy( p,                 va + va_to_buffer, copy_count );
+				}
+
+				// Forward the iterator.
+				//
+				va = copy_limit;
+			}
+			return {};
+		}
+	};
+
+	// Virtual memory operations on foreign page table.
+	//
+	template<vm_operator Op, typename W, typename Pa = typename W::parameters>
+	FORCE_INLINE inline vm_result vm_apply( any_ptr buffer, any_ptr va, size_t n, const Pa& params = {}, uint16_t flags = pw_preset_relaxed ) {
+		if ( detail::is_atomic_vop( va, n, Op ) ) [[likely]] {
+			return detail::apply_vop_atomic<Op, W, Pa>( buffer, va, n,  params, flags );
+		} else {
+			return detail::apply_vop_resumable<Op, W, Pa>( buffer, va, n, params, flags );
+		}
+	}
+
+	// Reads foreign memory.
+	//
+	template<typename W, typename Pa = typename W::parameters>
+	FORCE_INLINE inline vm_result vm_read( any_ptr dst, any_ptr src, size_t n, const Pa& params = {}, uint16_t flags = pw_preset_relaxed ) {
+		return vm_apply<vm_operator::read, W, Pa>( dst, src, n, params, flags );
+	}
+	template<typename W, typename Pa = typename W::parameters>
+	FORCE_INLINE inline vm_result vm_write( any_ptr dst, any_ptr src, size_t n, const Pa& params = {}, uint16_t flags = pw_preset_relaxed ) {
+		return vm_apply<vm_operator::write, W, Pa>( src, dst, n, params, flags );
+	}
+
+
+	// Fast page table lookup, no validation.
+	//
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( std::array<pt_entry_64*, page_table_depth> hierarchy, pt_entry_64* accu = nullptr )
+	{
+		auto walk = prewalk::perform( nullptr, { .hierarchy = hierarchy } );
+		if ( accu )
+			accu->flags = walk.value.flags;
+		return { walk.ppte, walk.level };
+	}
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( any_ptr ptr, pt_entry_64* accu = nullptr, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
+	{
+		auto walk = walk::perform( ptr, { .self_ref_idx = self_ref_idx } );
+		if ( accu )
+			accu->flags = walk.value.flags;
+		return { walk.ppte, walk.level };
+	}
+	FORCE_INLINE PURE_FN inline std::pair<pt_entry_64*, int8_t> lookup_pte( any_ptr ptr, std::optional<uint32_t> self_ref_idx ) 
+	{ 
+		return lookup_pte( ptr, nullptr, self_ref_idx ); 
 	}
 
 	// Virtual address validation and translation.
