@@ -307,7 +307,8 @@ namespace ia32::mem
 		// Presets.
 		//
 		pw_preset_relaxed =    0,
-		pw_preset_request =    pw_clamp_pfn | pw_mark_accessed | pw_assert_valid | pw_mark_dirty
+		pw_preset_strict =     pw_assert_valid | pw_clamp_pfn,
+		pw_preset_emulator =   pw_preset_strict | pw_mark_accessed | pw_mark_dirty
 	};
 	enum class walk_status : int8_t {
 		pending = -1,    // At page directory, recurse deeper (Only valid as a walk step).
@@ -337,8 +338,8 @@ namespace ia32::mem
 	struct walk_request {
 		// Special registers.
 		//
-		cr4              cr4 =   { .flags = CR4_SMEP_ENABLE_FLAG };
-		cr0              cr0 =   ia32::smsw();
+		cr4              cr4 =   { .flags = CR4_SMAP_ENABLE_FLAG | CR4_SMEP_ENABLE_FLAG };
+		cr0              cr0 =   { .flags = CR0_WRITE_PROTECT_FLAG };
 		efer_register    efer =  { .flags = IA32_EFER_EXECUTE_DISABLE_BIT_ENABLE_FLAG };
 		rflags           efl =   { .flags = 0 };
 
@@ -348,7 +349,7 @@ namespace ia32::mem
 
 		// Calculates the final walker flags.
 		//
-		FORCE_INLINE CONST_FN uint16_t get_flags( uint16_t wf = pw_preset_request ) const {
+		FORCE_INLINE CONST_FN uint16_t get_flags( uint16_t wf = pw_preset_emulator ) const {
 			// If write access:
 			//
 			if ( access.write ) {
@@ -399,7 +400,7 @@ namespace ia32::mem
 
 		// Returns the raised page_fault exception given the status and the flags.
 		//
-		FORCE_INLINE CONST_FN constexpr page_fault_exception make_exception( walk_status state, uint16_t flags ) const {
+		FORCE_INLINE CONST_FN static constexpr page_fault_exception make_exception( page_fault_exception access, walk_status state, uint16_t flags ) {
 			// Propagate access flags.
 			//
 			page_fault_exception pf = { .flags = 0 };
@@ -417,6 +418,9 @@ namespace ia32::mem
 
 			// TODO: protection_key_violation
 			return pf;
+		}
+		FORCE_INLINE CONST_FN constexpr page_fault_exception make_exception( walk_status state, uint16_t flags ) const {
+			return make_exception( access, state, flags );
 		}
 	};
 
@@ -446,6 +450,12 @@ namespace ia32::mem
 		}
 		FORCE_INLINE static bool next_pte( walk_base* s, const walk_parameters& param, pt_level level ) {
 			return false;
+		}
+		FORCE_INLINE static void phys_write( const walk_parameters& param, uint64_t dst_pa, any_ptr src_va, size_t n ) {
+			memcpy( mem::get_phys_base() + dst_pa, src_va, n );
+		}
+		FORCE_INLINE static void phys_read( const walk_parameters& param, any_ptr dst_va, uint64_t src_pa, size_t n ) {
+			memcpy( dst_va, mem::get_phys_base() + src_pa, n );
 		}
 	
 		// Effective value of the resolved PTE.
@@ -698,6 +708,12 @@ namespace ia32::mem
 	struct vm_result {
 		any_ptr     fault_address = {};
 		walk_status status =        {};
+
+		// OK check.
+		//
+		FORCE_INLINE constexpr explicit operator bool() const {
+			return status == walk_status::ok;
+		}
 	};
 	enum class vm_operator {
 		read,
@@ -732,15 +748,15 @@ namespace ia32::mem
 					.status =        w1.status
 				};
 			}
-			uint8_t* p = get_phys_base() + w1.get_pa();
+			uint64_t p_base = w1.get_pa();
 
 			// If VA is aligned to the boundary of N, cannot overflow anyway, otherwise check if within boundary, if any of the checks pass, issue a memcpy and move on.
 			//
 			if ( ( is_n_const && xstd::is_pow2( n ) && xstd::is_aligned( va, n ) ) || ( va + n ) <= w1.get_va_end() ) [[likely]] {
 				if constexpr ( Op == vm_operator::read ) {
-					memcpy( buffer, p, n );
+					W::phys_read( params, buffer, p_base, n );
 				} else {
-					memcpy( p, buffer, n );
+					W::phys_write( params, p_base, buffer, n );
 				}
 				return {};
 			}
@@ -754,33 +770,33 @@ namespace ia32::mem
 					.status =        w2.status
 				};
 			}
-			uint8_t* p_hi = mem::get_phys_base() + w2.get_pa();
-			uint8_t* p_lo = p_hi - n;
+			uint64_t p_hi = w2.get_pa();
+			uint64_t p_lo = p_hi - n;
 
 			// Do parial copies.
 			//
-			const size_t shift = p - p_lo;
+			const size_t shift = p_base - p_lo;
 			if constexpr ( Op == vm_operator::read ) {
 				if ( is_small_copy_viable ) {
 					uint8_t* baseline = &tmp[ n ];
-					memcpy( baseline - shift,     p_lo,         n );
-					memcpy( baseline + n - shift, p_hi,         n );
-					memcpy( buffer,               baseline,     n );
+					W::phys_read( params, baseline - shift,     p_lo,         n );
+					W::phys_read( params, baseline + n - shift, p_hi,         n );
+					memcpy( buffer, baseline, n );
 				} else {
-					memcpy( buffer,               p_lo + shift, n - shift );
-					memcpy( buffer + n - shift,   p_hi,         shift );
+					W::phys_read( params, buffer,               p_lo + shift, n - shift );
+					W::phys_read( params, buffer + n - shift,   p_hi,         shift );
 				}
 			} else {
 				if ( is_small_copy_viable ) {
 					uint8_t* baseline = &tmp[ n ];
-					memcpy( baseline - shift,     p_lo,                          n );
-					memcpy( baseline + n - shift, p_hi,                          n );
-					memcpy( baseline,             buffer,                        n );
-					memcpy( p_lo,                 baseline - shift,              n );
-					memcpy( p_hi,                 baseline + n - shift,          n );
+					W::phys_read( params, baseline - shift,     p_lo,                          n );
+					W::phys_read( params, baseline + n - shift, p_hi,                          n );
+					memcpy( baseline, buffer, n );
+					W::phys_write( params, p_lo,                baseline - shift,              n );
+					W::phys_write( params, p_hi,                baseline + n - shift,          n );
 				} else {
-					memcpy( p_lo + shift,         buffer,                        n - shift );
-					memcpy( p_hi,                 buffer + n - shift,            shift );
+					W::phys_write( params, p_lo + shift,        buffer,                        n - shift );
+					W::phys_write( params, p_hi,                buffer + n - shift,            shift );
 				}
 			}
 			return {};
@@ -805,7 +821,7 @@ namespace ia32::mem
 
 				// Determine the operation limit.
 				//
-				uint8_t* p = get_phys_base() + translation.get_pa();
+				uint64_t p = translation.get_pa();
 				any_ptr page_limit = translation.get_va_end();
 				any_ptr copy_limit = std::min( page_limit, va_limit );
 				size_t  copy_count = copy_limit - va;
@@ -813,9 +829,9 @@ namespace ia32::mem
 				// Apply the operation.
 				//
 				if constexpr ( Op == vm_operator::read ) {
-					memcpy( va + va_to_buffer, p,                 copy_count );
+					W::phys_read(  params, va + va_to_buffer, p,                 copy_count );
 				} else {
-					memcpy( p,                 va + va_to_buffer, copy_count );
+					W::phys_write( params, p,                 va + va_to_buffer, copy_count );
 				}
 
 				// Forward the iterator.
