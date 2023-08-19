@@ -46,7 +46,7 @@ namespace xstd::file
 		// Region details.
 		//
 		std::filesystem::path origin = {};
-		const T* address = nullptr;
+		T* address = nullptr;
 		size_t length = 0;
 #if WINDOWS_TARGET
 		void* file_handle = impl::invalid_handle_value;
@@ -80,14 +80,14 @@ namespace xstd::file
 
 		// Observers.
 		//
-		const T* begin() const { return address; }
-		const T* end() const { return address + length; }
-		const T* data() const { return address; }
+		T* begin() const { return address; }
+		T* end() const { return address + length; }
+		T* data() const { return address; }
 		size_t size() const { return length; }
 		bool empty() const { return !size(); }
 		auto rbegin() const { return std::reverse_iterator{ end() }; }
 		auto rend() const { return std::reverse_iterator{ begin() }; }
-		const T& operator[]( size_t n ) const { return data()[ n ]; }
+		T& operator[]( size_t n ) const { return data()[ n ]; }
 		const std::filesystem::path& path() const { return origin; }
 
 		// Conversion to bool.
@@ -116,77 +116,125 @@ namespace xstd::file
 		}
 	};
 
-	template<TriviallyCopyable T = uint8_t>
-	static inline io_result<view<T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 )
-	{
-		// Get file size and validate it.
-		//
-		std::error_code ec;
-		size_t file_length = std::filesystem::file_size( path, ec );
-		if ( ec ) return { io_state::bad_file };
-		if ( file_length % sizeof( T ) ) return { io_state::invalid_alignment };
-		
-		size_t moffset = offset * sizeof( T );
-		size_t mlength = count * sizeof( T );
-		if ( file_length < ( moffset + mlength ) )
-			return { io_state::reading_beyond_end };
-		
-		if ( !mlength )
-			mlength = file_length - moffset;
-		size_t tcount = mlength / sizeof( T );
-
-		// Create the view.
-		//
-		io_result<view<T>> result;
-		auto& fview = result.emplace();
-
-#if WINDOWS_TARGET
-		// Open a handle to the file.
-		//
-		fview.origin = path;
-		fview.file_handle = CreateFileW(
-			path.c_str(),
-			0x80000000, //GENERIC_READ,
-			0x7, //FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-			nullptr,
-			0x3, //OPEN_EXISTING,
-			0,
-			nullptr
-		);
-		fview.length = tcount;
-		if ( fview.file_handle != impl::invalid_handle_value )
-		{
-			// Map the file.
+	namespace detail {
+		template<TriviallyCopyable T>
+		inline io_result<view<T>> create_mapping( const std::filesystem::path& path, size_t count, size_t offset, bool copy_on_write = true ) {
+			// Get file size and validate it.
 			//
-			fview.mapping_handle = CreateFileMappingFromApp(
-				fview.file_handle,
+			std::error_code ec;
+			size_t file_length = std::filesystem::file_size( path, ec );
+			if ( ec ) return { io_state::bad_file };
+			if ( file_length % sizeof( T ) ) return { io_state::invalid_alignment };
+		
+			size_t moffset = offset * sizeof( T );
+			size_t mlength = count * sizeof( T );
+			if ( file_length < ( moffset + mlength ) )
+				return { io_state::reading_beyond_end };
+		
+			if ( !mlength )
+				mlength = file_length - moffset;
+			size_t tcount = mlength / sizeof( T );
+
+			// Create the view.
+			//
+			io_result<view<T>> result;
+			auto& fview = result.emplace();
+
+	#if WINDOWS_TARGET
+			uint32_t file_access;
+			uint32_t mapping_access;
+			uint32_t view_access;
+			if constexpr ( std::is_const_v<T> ) {
+				file_access =    0x80000000; // GENERIC_READ
+				mapping_access = 0x2;        // PAGE_READONLY
+				view_access =    0x4;        // FILE_MAP_READ
+			} else if ( copy_on_write ) {
+				file_access =    0x80000000; // GENERIC_READ
+				mapping_access = 0x2;        // PAGE_READONLY
+				view_access =    0x1;        // FILE_MAP_COPY
+			} else {
+				file_access =    0xC0000000; // GENERIC_READ | GENERIC_WRITE
+				mapping_access = 0x4;        // PAGE_READWRITE 
+				view_access =    0x2;        // FILE_MAP_WRITE
+			}
+
+			// Open a handle to the file.
+			//
+			fview.origin = path;
+			fview.file_handle = CreateFileW(
+				path.c_str(),
+				file_access,
+				0x7, //FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 				nullptr,
-				0x2, //PAGE_READONLY,
+				0x3, //OPEN_EXISTING,
 				0,
 				nullptr
 			);
-			fview.address = ( T* ) MapViewOfFileFromApp(
-				fview.mapping_handle,
-				0x4, //SECTION_MAP_READ,
-				moffset,
-				mlength
-			);
-		}
-#else
-		// Open a handle to the file.
-		//
-		fview.origin = path;
-		fview.fd = open( path.string().c_str(), 0 /*O_RDONLY*/ );
-		fview.length = tcount;
-		if ( fview.fd != -1 )
-		{
-			// Map the file.
+			fview.length = tcount;
+			if ( fview.file_handle != impl::invalid_handle_value )
+			{
+				// Map the file.
+				//
+				fview.mapping_handle = CreateFileMappingFromApp(
+					fview.file_handle,
+					nullptr,
+					mapping_access,
+					0,
+					nullptr
+				);
+				fview.address = ( T* ) MapViewOfFileFromApp(
+					fview.mapping_handle,
+					view_access,
+					moffset,
+					mlength
+				);
+			}
+	#else
+			uint32_t file_access;
+			uint32_t map_prot;
+			uint32_t map_share;
+			if constexpr ( std::is_const_v<T> ) {
+				file_access =  0x0; // O_RDONLY
+				map_prot =     0x1; // PROT_READ
+				map_share =    0x1; // MAP_SHARED
+			} else if ( copy_on_write ) {
+				file_access =  0x0; // O_RDONLY
+				map_prot =     0x3; // PROT_READ | PROT_WRITE
+				map_share =    0x2; // MAP_PRIVATE
+			} else {
+				file_access =  0x2; // O_RDWR
+				map_prot =     0x3; // PROT_READ | PROT_WRITE
+				map_share =    0x1; // MAP_SHARED
+			}
+
+			// Open a handle to the file.
 			//
-			fview.address = ( const T* ) mmap( nullptr, mlength, 1 /*PROT_READ*/, 1 /*MAP_SHARED*/, fview.fd, ( int ) moffset );
+			fview.origin = path;
+			fview.fd = open( path.string().c_str(), file_access );
+			fview.length = tcount;
+			if ( fview.fd != -1 )
+			{
+				// Map the file.
+				//
+				fview.address = ( const T* ) mmap( nullptr, mlength, map_prot, map_share, fview.fd, ( int ) moffset );
+			}
+	#endif
+			if ( !fview.address )
+				result.raise( io_state::bad_file );
+			return result;
 		}
-#endif
-		if ( !fview.address )
-			result.raise( io_state::bad_file );
-		return result;
+	};
+
+	template<TriviallyCopyable T = uint8_t>
+	static io_result<view<const T>> map_view( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 ) {
+		return detail::create_mapping<const T>( path, count, offset );
+	}
+	template<TriviallyCopyable T = uint8_t>
+	static io_result<view<T>> map_cow( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 ) {
+		return detail::create_mapping<T>( path, count, offset, true );
+	}
+	template<TriviallyCopyable T = uint8_t>
+	static io_result<view<T>> map( const std::filesystem::path& path, size_t count = 0, size_t offset = 0 ) {
+		return detail::create_mapping<T>( path, count, offset );
 	}
 };
