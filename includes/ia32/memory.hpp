@@ -136,8 +136,8 @@ namespace ia32::mem
 	// Index of the self referencing page table entry and the bases, physical memory information.
 	//
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
-	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
-	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return ( uint64_t ) __builtin_fetch_dynamic( "@.pxe_base" ); }
+	FORCE_INLINE inline void set_pxe_base( pt_entry_64* value ) { __builtin_store_dynamic( "@.pxe_base", ( void* ) value ); }
+	FORCE_INLINE CONST_FN inline pt_entry_64* pxe_base() { return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.pxe_base" ); }
 
 	FORCE_INLINE inline void set_self_ref_index( uint64_t value ) { __builtin_store_dynamic( "@.self_ref_idx", ( void* ) value ); }
 	FORCE_INLINE CONST_FN inline uint64_t self_ref_index() { return ( uint64_t ) __builtin_fetch_dynamic( "@.self_ref_idx" ); }
@@ -149,9 +149,9 @@ namespace ia32::mem
 		__builtin_store_dynamic( "@.mmu_pfn_mask", ( void* ) ( xstd::fill_bits( value ) >> 12 ) );
 	}
 #else
-	inline uint64_t __pxe_base_div_8 = 0;
-	FORCE_INLINE inline void set_pxe_base_div8( uint64_t value ) { __pxe_base_div_8 = value; }
-	FORCE_INLINE CONST_FN inline uint64_t pxe_base_div8() { return __pxe_base_div_8; }
+	inline pt_entry_64* __pxe_base = nullptr;
+	FORCE_INLINE inline void set_pxe_base( pt_entry_64* value ) { __pxe_base = value; }
+	FORCE_INLINE CONST_FN inline pt_entry_64* pxe_base() { return __pxe_base; }
 
 	inline uint64_t __self_ref_index = 0;
 	FORCE_INLINE inline void set_self_ref_index( uint64_t value ) { __self_ref_index = value; }
@@ -181,10 +181,10 @@ namespace ia32::mem
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 		if ( !self_ref_idx.has_value() ) {
 			switch ( depth ) {
+				case pxe_level:    return pxe_base();
 #if XSTD_IA32_LA57
-				case pml5e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml5e" );
-#endif
 				case pml4e_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pml4e" );
+#endif
 				case pdpte_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pdpte" );
 				case pde_level:	 return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pde" );
 				case pte_level:    return ( pt_entry_64* ) __builtin_fetch_dynamic( "@.tbl_pte" );
@@ -204,11 +204,11 @@ namespace ia32::mem
 			uint64_t coeff = ( base_coeff << sx_bits ) & ~( ( 1ull << ( sx_bits + 12 + 9 * ( pxe_level - depth ) ) ) - 1 );
 			return ( pt_entry_64* ) uint64_t( int64_t( *self_ref_idx * coeff ) >> sx_bits );
 		} else {
-			any_ptr ptr = pxe_base_div8();
+			any_ptr ptr = pxe_base();
 			if ( xstd::const_condition( depth == pxe_level ) )
-				return ( pt_entry_64* ) ( ptr << 3 );
+				return ptr;
 			auto shift = 12 + ( pxe_level - depth ) * 9;
-			return ( pt_entry_64* ) ( ( ptr >> ( shift - 3 ) ) << shift );
+			return any_ptr( ( ptr >> shift ) << shift );
 		}
 	}
 
@@ -216,19 +216,8 @@ namespace ia32::mem
 	//
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( any_ptr ptr, int8_t depth = pte_level, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-#if __has_xcxx_builtin(__builtin_fetch_dynamic)
-		if ( !self_ref_idx.has_value() ) {
-			pt_entry_64* tbl = locate_page_table( depth );
-			return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
-		}
-#endif
-		uint64_t base = pxe_base_div8();
-		if ( self_ref_idx.has_value() ) {
-			base = uint64_t( locate_page_table( pxe_level, *self_ref_idx ) ) >> 3;
-		}
-		auto important_bits = ( page_table_depth - depth ) * 9;
-		uint64_t tmp = shrd( base, ptr >> ( 12 + 9 * depth ), important_bits );
-		return ( pt_entry_64* ) rotlq( tmp, important_bits + 3 );
+		pt_entry_64* tbl = locate_page_table( depth, self_ref_idx );
+		return &tbl[ ( ptr << sx_bits ) >> ( sx_bits + 12 + 9 * depth ) ];
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
 	{ 
@@ -311,15 +300,14 @@ namespace ia32::mem
 	{
 		// Xor with PXE base ignoring 8-byte offsets.
 		//
-		uint64_t base = pxe_base_div8();
+		uintptr_t base = uintptr_t( pxe_base() );
 		if ( self_ref_idx.has_value() ) {
-			base = uint64_t( locate_page_table( pxe_level, *self_ref_idx ) ) >> 3;
+			base = uintptr_t( locate_page_table( pxe_level, *self_ref_idx ) );
 		}
-		base ^= pte >> 3;
-
+		
 		// Count the highest bit mismatching, set lowest bit to optimize against tzcnt with 0.
 		//
-		bitcnt_t mismatch = xstd::msb( base | 0x1 );
+		bitcnt_t mismatch = xstd::msb( ( ( base ^ pte ) >> 3 ) | 0x1 );
 
 		// If first mismatch is below the PXE level:
 		// 
@@ -403,14 +391,13 @@ namespace ia32::mem
 	inline void init( uint32_t idx )
 	{
 		set_self_ref_index( idx );
-		set_pxe_base_div8( uint64_t( locate_page_table( pxe_level, idx ) ) >> 3 );
+		set_pxe_base( locate_page_table( pxe_level, idx ) );
 		set_pa_bits( std::max<bitcnt_t>( ( bitcnt_t ) static_cpuid_s<0x80000008, 0, cpuid_eax_80000008>.eax.number_of_physical_address_bits, 48 ) );
 
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
 #if XSTD_IA32_LA57
-		__builtin_store_dynamic( "@.tbl_pml5e", locate_page_table( pml5e_level, idx ) );
-#endif
 		__builtin_store_dynamic( "@.tbl_pml4e", locate_page_table( pml4e_level, idx ) );
+#endif
 		__builtin_store_dynamic( "@.tbl_pdpte", locate_page_table( pdpte_level, idx ) );
 		__builtin_store_dynamic( "@.tbl_pde", locate_page_table( pde_level, idx ) );
 		__builtin_store_dynamic( "@.tbl_pte", locate_page_table( pte_level, idx ) );
