@@ -231,11 +231,10 @@ namespace ia32::mem
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pte( any_ptr ptr, int8_t depth = pte_level, std::optional<uint32_t> self_ref_idx = std::nullopt )
 	{
-		uintptr_t aligned = ptr.address & ~( 0b111ull << 9 );
-		return ( pt_entry_64* ) (
-			uintptr_t( locate_page_table( depth, self_ref_idx ) ) |
-			( ( aligned << sx_bits ) >> ( sx_bits + 9 + 9 * depth ) )
-		);
+		uintptr_t aligned = ptr.address;
+		uintptr_t offset = ( aligned << sx_bits ) >> ( sx_bits + 9 + 9 * depth );
+		offset &= ~7ull;
+		return ( pt_entry_64* ) ( uintptr_t( locate_page_table( depth, self_ref_idx ) ) + offset );
 	}
 	FORCE_INLINE CONST_FN inline pt_entry_64* get_pxe_by_index( uint32_t index, std::optional<uint32_t> self_ref_idx = std::nullopt ) 
 	{ 
