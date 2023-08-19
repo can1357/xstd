@@ -208,10 +208,10 @@ namespace xstd
 	// Alignment helper.
 	//
 	template<typename T>
-	FORCE_INLINE CONST_FN inline constexpr T align_up( T value, size_t alignment )
+	FORCE_INLINE CONST_FN inline constexpr T align_up( T value, size_t alignment, bool safe = false )
 	{
 		using U = convert_uint_t<T>;
-		if ( is_pow2( alignment ) ) {
+		if ( !safe || is_pow2( alignment ) ) {
 #if __has_builtin(__builtin_align_up)
 			if constexpr ( Same<T, any_ptr> )
 				return __builtin_align_up( ( void* ) value, alignment );
@@ -231,10 +231,10 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE CONST_FN inline constexpr T align_down( T value, size_t alignment )
+	FORCE_INLINE CONST_FN inline constexpr T align_down( T value, size_t alignment, bool safe = false )
 	{
 		using U = convert_uint_t<T>;
-		if ( is_pow2( alignment ) ) {
+		if ( !safe || is_pow2( alignment ) ) {
 #if __has_builtin(__builtin_align_down)
 			if constexpr ( Same<T, any_ptr> )
 				return __builtin_align_down( ( void* ) value, alignment );
@@ -252,10 +252,10 @@ namespace xstd
 		}
 	}
 	template<typename T>
-	FORCE_INLINE CONST_FN inline constexpr bool is_aligned( T value, size_t alignment )
+	FORCE_INLINE CONST_FN inline constexpr bool is_aligned( T value, size_t alignment, bool safe = false )
 	{
 		using U = convert_uint_t<T>;
-		if ( is_pow2( alignment ) ) {
+		if ( !safe || is_pow2( alignment ) ) {
 #if __has_builtin(__builtin_is_aligned)
 			if constexpr ( Same<T, any_ptr> )
 				return __builtin_is_aligned( ( void* ) value, alignment );
