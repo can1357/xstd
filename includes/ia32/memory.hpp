@@ -524,6 +524,10 @@ namespace ia32::mem
 			pa |= virtual_address & ( psize - 1 );
 			return pa;
 		}
+		FORCE_INLINE constexpr uintptr_t get_pa_end() const {
+			size_t psize = mem::page_size( level );
+			return ( value.page_frame_number << 12 ) + psize;
+		}
 
 		// OK check.
 		//
@@ -789,11 +793,12 @@ namespace ia32::mem
 					.status =        w1.status
 				};
 			}
-			uint64_t p_base = w1.get_pa();
+			uint64_t p_base =  w1.get_pa();
+			uint64_t p_limit = w1.get_pa_end();
 
 			// If VA is aligned to the boundary of N, cannot overflow anyway, otherwise check if within boundary, if any of the checks pass, issue a memcpy and move on.
 			//
-			if ( ( is_n_const && xstd::is_pow2( n ) && xstd::is_aligned( va, n ) ) || ( va + n ) <= w1.get_va_end() ) [[likely]] {
+			if ( ( is_n_const && xstd::is_pow2( n ) && xstd::is_aligned( va, n ) ) || ( p_base + n ) <= p_limit ) [[likely]] {
 				if constexpr ( Op == vm_operator::read ) {
 					W::phys_read( params, buffer, p_base, n );
 				} else {
@@ -811,7 +816,7 @@ namespace ia32::mem
 					};
 				}
 				uint64_t p_hi = w2.get_pa();
-				uint64_t p_lo = p_hi - n;
+				uint64_t p_lo = p_limit - n;
 
 				// Do parial copies.
 				//
