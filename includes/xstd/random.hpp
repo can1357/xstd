@@ -138,7 +138,7 @@ namespace xstd {
 		if constexpr ( Same<I, bool> ) {
 			return ( seed & 1 ) ? min : max;
 		} else {
-			return min + uniform_integer( seed, S( max - min ) );
+			return min + uniform_integer( seed, S( S(max) - S(min) ) );
 		}
 	}
 

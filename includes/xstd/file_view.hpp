@@ -40,7 +40,7 @@ namespace xstd::file
 	};
 #endif
 
-	template<TriviallyCopyable T = uint8_t>
+	template<TriviallyCopyable T = const uint8_t>
 	struct view
 	{
 		// Region details.

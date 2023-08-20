@@ -393,28 +393,32 @@ namespace xstd
 
 	// Prints an error message and breaks the execution.
 	//
+#ifdef XSTD_CON_ERROR_REDIRECT
+#if XSTD_CON_ERROR_NOMSG
+	template<typename... Tx>
+	FORCE_INLINE inline void error [[noreturn]] ( const char*, Tx&&... ) {
+		XSTD_CON_ERROR_REDIRECT();
+		unreachable();
+	}
+#else
+	template<typename... Tx>
+	COLD NO_INLINE inline void error [[noreturn]] ( const char* fmt_str, Tx&&... ps ) {
+		std::string buffer = fmt::str( fmt_str, std::forward<Tx>( ps )... );
+		XSTD_CON_ERROR_REDIRECT( buffer.c_str() );
+		unreachable();
+	}
+	FORCE_INLINE inline void error [[noreturn]] ( const char* msg ) {
+		XSTD_CON_ERROR_REDIRECT( msg );
+		unreachable();
+	}
+#endif
+#else
 	template<typename... Tx>
 	COLD NO_INLINE inline void error [[noreturn]] ( const char* fmt_str, Tx&&... ps )
 	{
 		// If there is an active hook, call into it, else add formatting and print.
 		//
-#ifdef XSTD_CON_ERROR_REDIRECT
-	#if XSTD_CON_ERROR_NOMSG
-		XSTD_CON_ERROR_REDIRECT();
-	#else
-		if constexpr ( sizeof...( Tx ) != 0 )
-		{
-			std::string buffer = fmt::str( fmt_str, std::forward<Tx>( ps )... );
-			XSTD_CON_ERROR_REDIRECT( buffer.c_str() );
-		}
-		else
-		{
-			XSTD_CON_ERROR_REDIRECT( fmt_str );
-		}
-	#endif
-		// If no error messages are requested:
-		//
-#elif XSTD_CON_ERROR_NOMSG
+#if XSTD_CON_ERROR_NOMSG
 		// Throw an exception if we can.
 		//
 	#if !XSTD_NO_EXCEPTIONS
@@ -472,4 +476,5 @@ namespace xstd
 		exit( -1 );
 #endif
 	}
+#endif
 };
