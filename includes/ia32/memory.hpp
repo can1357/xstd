@@ -511,22 +511,22 @@ namespace ia32::mem
 		// Useful utilities for resolved addresses.
 		//
 		FORCE_INLINE constexpr any_ptr get_va_base() const {
-			size_t psize = mem::page_size( level );
-			return virtual_address & ~( psize - 1 );
+			return virtual_address & ~( mem::page_size( level ) - 1 );
 		}
 		FORCE_INLINE constexpr any_ptr get_va_end() const {
 			size_t psize = mem::page_size( level );
 			return ( virtual_address + psize ) & ~( psize - 1 );
 		}
+		FORCE_INLINE constexpr uintptr_t get_pa_base() const {
+			return value.page_frame_number << 12;
+		}
 		FORCE_INLINE constexpr uintptr_t get_pa() const {
-			size_t psize = mem::page_size( level );
-			uintptr_t pa = ( value.page_frame_number << 12 );
-			pa |= virtual_address & ( psize - 1 );
+			uintptr_t pa = get_pa_base();
+			pa |= virtual_address & ( mem::page_size( level ) - 1 );
 			return pa;
 		}
 		FORCE_INLINE constexpr uintptr_t get_pa_end() const {
-			size_t psize = mem::page_size( level );
-			return ( value.page_frame_number << 12 ) + psize;
+			return get_pa_base() + mem::page_size( level );
 		}
 
 		// OK check.

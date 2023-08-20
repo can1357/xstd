@@ -25833,13 +25833,13 @@ namespace ia32
 	_LINKAGE rflags read_flags_low()
 	{
 		register uint8_t result asm( "ah" );
-		asm( "sahf" : "=r"( result ) );
+		asm( "lahf" : "=r"( result ) );
 		return { .flags = result };
 	}
 	_LINKAGE void write_flags_low( rflags flags )
 	{
 		register uint8_t input asm( "ah" ) = ( uint8_t ) flags.flags;
-		asm volatile( "lahf" :: "r"( input ) : "flags" );
+		asm volatile( "sahf" :: "r"( input ) : "flags" );
 	}
 	_LINKAGE void set_ac( bool flag )
 	{
