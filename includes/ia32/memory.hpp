@@ -740,9 +740,7 @@ namespace ia32::mem
 		}
 	};
 
-	// Virtual memory operations on foreign page tables.
-	//
-		// Memory operation result.
+	// Memory operation result.
 	//
 	struct vm_result {
 		any_ptr     fault_address = {};
@@ -754,6 +752,9 @@ namespace ia32::mem
 			return status == walk_status::ok;
 		}
 	};
+	
+	// Virtual memory operations on foreign page tables.
+	//
 	enum class vm_operator {
 		read,
 		write,
