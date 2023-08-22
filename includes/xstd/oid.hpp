@@ -99,7 +99,10 @@ namespace xstd
 		// Default construction / copy.
 		//
 		inline constexpr oid() = default;
-		inline constexpr oid( const oid& ) = default;
+		inline constexpr oid(oid&&) noexcept = default;
+		inline constexpr oid(const oid&) = default;
+		inline constexpr oid& operator=(oid&&) noexcept = default;
+		inline constexpr oid& operator=(const oid&) = default;
 
 		// Appends a digit.
 		//

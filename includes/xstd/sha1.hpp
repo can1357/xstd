@@ -137,7 +137,7 @@ namespace xstd
 			if ( std::is_constant_evaluated() )
 			{
 				using array_t = std::array<uint8_t, sizeof( T )>;
-				array_t arr = bit_cast< array_t >( data );
+				array_t arr = xstd::bit_cast< array_t >( data );
 				add_bytes( arr.data(), arr.size() );
 			}
 			else
