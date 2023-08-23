@@ -146,9 +146,15 @@ namespace xstd
 			}
 		}
 
+		// Update wrapper.
+		//
+		template<typename T>
+		FORCE_INLINE constexpr basic_sha& update(const T& data) noexcept { this->add_bytes<T>(data); return *this; };
+		FORCE_INLINE constexpr basic_sha& update(const uint8_t* data, size_t n) { this->add_bytes(data, n); return *this; }
+
 		// Finalization of the hash.
 		//
-		FORCE_INLINE constexpr auto& finalize() noexcept
+		FORCE_INLINE constexpr basic_sha& finalize() noexcept
 		{
 			if ( finalized() ) return *this;
 			

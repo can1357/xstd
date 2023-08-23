@@ -57,9 +57,15 @@ namespace xstd
 			}
 		}
 
+		// Update wrapper.
+		//
+		template<typename T>
+		FORCE_INLINE constexpr fnv1a& update(const T& data) noexcept { this->add_bytes<T>(data); return *this; };
+		FORCE_INLINE constexpr fnv1a& update(const uint8_t* data, size_t n) { this->add_bytes(data, n); return *this; }
+
 		// Finalization of the hash.
 		//
-		constexpr void finalize() noexcept {}
+		constexpr fnv1a& finalize() noexcept { return *this; }
 		constexpr V digest() const noexcept { return value; }
 
 		// Explicit conversions.

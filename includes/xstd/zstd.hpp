@@ -45,7 +45,16 @@ namespace xstd::zstd
 		FORCE_INLINE constexpr operator const size_t&() const noexcept { return value; }
 		FORCE_INLINE constexpr bool is_success() const noexcept { return int64_t( size_t( value ) ) >= 0; }
 		FORCE_INLINE constexpr bool is_error() const noexcept { return int64_t( size_t( value ) ) < 0; }
-		std::string to_string() const { return int64_t( value ) >= 0 ? XSTD_ESTR( "Ok" ) : xstd::fmt::str( XSTD_ESTR( "ZSTD Error: -%llu" ), uint64_t( -int64_t( value ) ) ); }
+		std::string to_string() const { 
+			if (int64_t(value) >= 0) 
+				return XSTD_ESTR("Ok");
+			const char* name = ZSTD_getErrorName(value);
+			if (name) {
+				return xstd::fmt::str(XSTD_ESTR("ZSTD Error: %s"), name);
+			} else {
+				return xstd::fmt::str(XSTD_ESTR("ZSTD Error: -%llu"), uint64_t(-int64_t(value)));
+			}
+		}
 	};
 
 	// Result type.

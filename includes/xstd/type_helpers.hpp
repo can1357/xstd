@@ -708,32 +708,6 @@ namespace xstd
 #endif
 	}
 
-	// Misaligned memory helpers.
-	//
-	template<typename T>
-	FORCE_INLINE inline T load_misaligned( const void* p )
-	{
-#if GNU_COMPILER
-		struct wrapper { T value; } __attribute__((packed));
-		return ( ( const wrapper* ) p )->value;
-#else
-		using wrapper = std::array<char, sizeof( T )>;
-		return bit_cast< T >( *( const wrapper* ) p );
-#endif
-	}
-
-	template<typename T>
-	FORCE_INLINE inline void store_misaligned( void* p, T r )
-	{
-#if GNU_COMPILER
-		struct wrapper { T value; } __attribute__((packed));
-		( ( wrapper* ) p )->value = r;
-#else
-		using wrapper = std::array<char, sizeof( T )>;
-		*( wrapper* ) p = bit_cast< wrapper >( r );
-#endif
-	}
-
 	// Extracts types from a parameter pack.
 	//
 #if !CLANG_COMPILER
@@ -838,6 +812,30 @@ namespace xstd
 		return *( const To* ) &src;
 	}
 #endif
+
+	// Misaligned memory helpers.
+	//
+	template<typename T>
+	FORCE_INLINE inline T load_misaligned( const void* p ) {
+#if GNU_COMPILER
+		struct wrapper { T value; } __attribute__( ( packed ) );
+		return ( (const wrapper*) p )->value;
+#else
+		using wrapper = std::array<char, sizeof( T )>;
+		return xstd::bit_cast<T>( *(const wrapper*) p );
+#endif
+	}
+
+	template<typename T>
+	FORCE_INLINE inline void store_misaligned( void* p, T r ) {
+#if GNU_COMPILER
+		struct wrapper { T value; } __attribute__( ( packed ) );
+		( (wrapper*) p )->value = r;
+#else
+		using wrapper = std::array<char, sizeof( T )>;
+		*(wrapper*) p = xstd::bit_cast<wrapper>( r );
+#endif
+	}
 
 	template<typename T>
 	concept Bitcastable = requires( T x ) { xstd::bit_cast<std::array<uint8_t, sizeof( T )>, T >( x ); };
