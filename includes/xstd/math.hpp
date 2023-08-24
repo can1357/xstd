@@ -748,7 +748,13 @@ namespace xstd::math
 		}
 		return { fifsgn( a.x, b.x ), fifsgn( a.y, b.y ), fifsgn( a.z, b.z ), fifsgn( a.w, b.w ) };
 	}
-	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_sqrt( const vec4_t<F>& vec ) { return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; }
+	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_sqrt( const vec4_t<F>& vec ) {
+#if __has_vector_builtin(__builtin_elementwise_sqrt)
+		if ( !std::is_constant_evaluated() )
+			return vec4_t<F>::from_xvec( xvec<F, 4>{ std::in_place, __builtin_elementwise_sqrt( vec.to_xvec()._nat ) } );
+#endif
+		return { fsqrt( vec.x ), fsqrt( vec.y ), fsqrt( vec.z ), fsqrt( vec.w ) }; 
+	}
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_pow( const vec4_t<F>& a, F x ) { return { fpow( a.x, x ), fpow( a.y, x ), fpow( a.z, x ), fpow( a.w, x ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline vec4_t<F> vec_pow( const vec4_t<F>& a, const vec4_t<F>& b ) { return { fpow( a.x, b.x ), fpow( a.y, b.y ), fpow( a.z, b.z ), fpow( a.w, b.w ) }; }
 	template<Float F = fp_t> CONST_FN FORCE_INLINE inline constexpr vec4_t<F> vec_mod( const vec4_t<F>& x, F y ) { return x - vec_floor( x * rcp( y ) ) * y; }
