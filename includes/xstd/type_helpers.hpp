@@ -972,7 +972,7 @@ namespace xstd
 			if constexpr ( Bitcastable<T> )
 			{
 				auto vb = to_bytes( b );
-				a = bit_cast< T >( vb );
+				a = xstd::bit_cast< T >( vb );
 				return;
 			}
 		}
@@ -988,8 +988,8 @@ namespace xstd
 			{
 				auto va = to_bytes( a );
 				auto vb = to_bytes( b );
-				a = bit_cast< T >( vb );
-				b = bit_cast< T >( va );
+				a = xstd::bit_cast< T >( vb );
+				b = xstd::bit_cast< T >( va );
 				return;
 			}
 		}
