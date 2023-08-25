@@ -131,14 +131,3 @@ static consteval xstd::sha256_t operator""_sha256( const char* data, size_t ) {
 	}
 	return result;
 }
-
-// Make it std::hashable.
-//
-namespace std
-{
-	template<>
-	struct hash<xstd::sha256>
-	{
-		constexpr size_t operator()( const xstd::sha256& value ) const { return ( size_t ) value.as64(); }
-	};
-};

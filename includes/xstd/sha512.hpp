@@ -121,14 +121,3 @@ static consteval xstd::sha512_t operator""_sha512( const char* data, size_t ) {
 	}
 	return result;
 }
-
-// Make it std::hashable.
-//
-namespace std
-{
-	template<>
-	struct hash<xstd::sha512>
-	{
-		constexpr size_t operator()( const xstd::sha512& value ) const { return ( size_t ) value.as64(); }
-	};
-};

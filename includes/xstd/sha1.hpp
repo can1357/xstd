@@ -25,9 +25,6 @@ namespace xstd
 {
 	// Common SHA implementation.
 	//
-	struct sha_custom_iv_t {};
-	static constexpr sha_custom_iv_t sha_custom_iv = {};
-
 	template<typename Traits>
 	struct basic_sha
 	{
@@ -49,14 +46,9 @@ namespace xstd
 		constexpr basic_sha() noexcept
 			: iv{ Traits::default_iv } {}
 
-		// Result construction.
-		//
-		constexpr basic_sha( value_type result ) noexcept
-			: iv{ result }, input_length( std::string::npos ) {}
-
 		// Custom IV construction.
 		//
-		constexpr basic_sha( value_type iv, sha_custom_iv_t ) noexcept
+		constexpr basic_sha( value_type iv ) noexcept
 			: iv{ iv } {}
 
 		// Default copy/move.
@@ -344,9 +336,11 @@ static consteval xstd::sha1_t operator""_sha1( const char* data, size_t ) {
 //
 namespace std
 {
-	template<>
-	struct hash<xstd::sha1>
+	template<typename T>
+	struct hash<xstd::basic_sha<T>>
 	{
-		constexpr size_t operator()( const xstd::sha1& value ) const { return ( size_t ) value.as64(); }
+		constexpr size_t operator()( const xstd::basic_sha<T>& value ) const { 
+			return ( size_t ) value.as64(); 
+		}
 	};
 };
