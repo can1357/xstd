@@ -163,20 +163,20 @@ namespace xstd
 
 	// Common XXHASH implementation.
 	//
-	template<typename T>
+	template<typename U>
 	struct basic_xxhash
 	{
-		using traits =     xxhash_traits<T>;
-		using value_type = T;
-		using block_type = std::array<T, 4>;
-		static constexpr size_t block_size =  sizeof( T ) * 4;
-		static constexpr size_t digest_size = sizeof( T );
+		using traits =     xxhash_traits<U>;
+		using value_type = U;
+		using block_type = std::array<U, 4>;
+		static constexpr size_t block_size =  sizeof( U ) * 4;
+		static constexpr size_t digest_size = sizeof( U );
 		
 		// Crypto state.
 		//
 		size_t                               input_length = 0;
-		std::array<T, 4>                     iv = {};
-		std::array<uint8_t, sizeof( T ) * 4> leftover = {};
+		std::array<U, 4>                     iv = {};
+		std::array<uint8_t, sizeof( U ) * 4> leftover = {};
 
 		// Default seed connstruction.
 		//
@@ -208,16 +208,16 @@ namespace xstd
 		// Skips to next block.
 		//
 		FORCE_INLINE constexpr void compress( const uint8_t* block ) {
-			std::array<T, 4> data;
+			std::array<U, 4> data;
 			if ( std::is_constant_evaluated() ) {
-				for ( T& v : data ) {
-					T n = 0;
-					for ( size_t j = 0; j != sizeof( T ); j++ )
-						n |= T( *block++ ) << ( 8 * j );
+				for ( U& v : data ) {
+					U n = 0;
+					for ( size_t j = 0; j != sizeof( U ); j++ )
+						n |= U( *block++ ) << ( 8 * j );
 					v = n;
 				}
 			} else {
-				data = *( const std::array<T, 4>* ) block;
+				data = *( const std::array<U, 4>* ) block;
 			}
 			iv = traits::vec_round( iv, data );
 		}
