@@ -22,13 +22,31 @@ namespace xstd
 		static constexpr uint32_t prime_4 = 0x27D4EB2FU;
 		static constexpr uint32_t prime_5 = 0x165667B1U;
 
-		static constexpr uint32_t round( uint32_t acc, uint32_t input ) {
+		FORCE_INLINE static constexpr uint32_t round( uint32_t acc, uint32_t input ) {
 			acc += input * prime_2;
 			acc = rotl( acc, 13 );
 			acc *= prime_1;
 			return acc;
 		}
-		static constexpr uint32_t avalanche( uint32_t hash ) {
+		FORCE_INLINE static constexpr std::array<uint32_t, 4> vec_round( std::array<uint32_t, 4> acc, std::array<uint32_t, 4> input ) {
+#if XSTD_VECTOR_EXT && CLANG_COMPILER
+			using vec = native_vector<uint32_t, 4>;
+			vec vacc = xstd::bit_cast<vec>( acc );
+			vec vinp = xstd::bit_cast<vec>( input );
+			vinp *= prime_2;
+			vacc += vinp;
+			vacc = ( vacc << 13 ) | ( vacc >> ( 32 - 13 ) );
+			vacc *= prime_1;
+			return xstd::bit_cast<std::array<uint32_t, 4>>( vacc );
+#else
+			for ( size_t i = 0; i != 4; i++ ) input[ i ] *= prime_2;
+			for ( size_t i = 0; i != 4; i++ ) acc[ i ] += input[ i ];
+			for ( size_t i = 0; i != 4; i++ ) acc[ i ] = rotl( acc[ i ], 13 );
+			for ( size_t i = 0; i != 4; i++ ) acc[ i ] *= prime_1;
+			return acc;
+#endif
+		}
+		FORCE_INLINE static constexpr uint32_t avalanche( uint32_t hash ) {
 			hash ^= hash >> 15;
 			hash *= prime_2;
 			hash ^= hash >> 13;
@@ -36,7 +54,7 @@ namespace xstd
 			hash ^= hash >> 16;
 			return hash;
 		}
-		static constexpr uint32_t digest( std::array<uint32_t, 4> iv, size_t len, const uint8_t* leftover ) {
+		FORCE_INLINE static constexpr uint32_t digest( std::array<uint32_t, 4> iv, size_t len, const uint8_t* leftover ) {
 			uint32_t hash;
 			if ( len >= 16 ) {
 				hash = rotl( iv[ 0 ], 1 )
@@ -73,13 +91,31 @@ namespace xstd
 		static constexpr uint64_t prime_4 = 0x85EBCA77C2B2AE63ULL;
 		static constexpr uint64_t prime_5 = 0x27D4EB2F165667C5ULL;
 
-		static constexpr uint64_t round( uint64_t acc, uint64_t input ) {
+		FORCE_INLINE static constexpr uint64_t round( uint64_t acc, uint64_t input ) {
 			acc += input * prime_2;
 			acc = rotl( acc, 31 );
 			acc *= prime_1;
 			return acc;
 		}
-		static constexpr uint64_t avalanche( uint64_t hash ) {
+		FORCE_INLINE static constexpr std::array<uint64_t, 4> vec_round( std::array<uint64_t, 4> acc, std::array<uint64_t, 4> input ) {
+#if XSTD_VECTOR_EXT && CLANG_COMPILER
+			using vec = native_vector<uint64_t, 4>;
+			vec vacc = xstd::bit_cast<vec>( acc );
+			vec vinp = xstd::bit_cast<vec>( input );
+			vinp *= prime_2;
+			vacc += vinp;
+			vacc = ( vacc << 31 ) | ( vacc >> ( 64 - 31 ) );
+			vacc *= prime_1;
+			return xstd::bit_cast<std::array<uint64_t, 4>>( vacc );
+#else
+			for ( size_t i = 0; i != 4; i++ ) input[ i ] *= prime_2;
+			for ( size_t i = 0; i != 4; i++ ) acc[ i ] += input[ i ];
+			for ( size_t i = 0; i != 4; i++ ) acc[ i ] = rotl( acc[ i ], 31 );
+			for ( size_t i = 0; i != 4; i++ ) acc[ i ] *= prime_1;
+			return acc;
+#endif
+		}
+		FORCE_INLINE static constexpr uint64_t avalanche( uint64_t hash ) {
 			hash ^= hash >> 33;
 			hash *= prime_2;
 			hash ^= hash >> 29;
@@ -87,14 +123,15 @@ namespace xstd
 			hash ^= hash >> 32;
 			return hash;
 		}
-		static constexpr uint64_t digest( std::array<uint64_t, 4> iv, size_t len, const uint8_t* leftover ) {
+		FORCE_INLINE static constexpr uint64_t digest( std::array<uint64_t, 4> iv, size_t len, const uint8_t* leftover ) {
 			uint64_t hash;
 			if ( len >= 32 ) {
 				hash = rotl( iv[ 0 ], 1 ) + rotl( iv[ 1 ], 7 ) + rotl( iv[ 2 ], 12 ) + rotl( iv[ 3 ], 18 );
-				hash = ( hash ^ round( 0, iv[ 0 ] ) ) * prime_1 + prime_4;
-				hash = ( hash ^ round( 0, iv[ 1 ] ) ) * prime_1 + prime_4;
-				hash = ( hash ^ round( 0, iv[ 2 ] ) ) * prime_1 + prime_4;
-				hash = ( hash ^ round( 0, iv[ 3 ] ) ) * prime_1 + prime_4;
+				iv = vec_round( { 0, 0, 0, 0 }, iv );
+				hash = ( hash ^ iv[ 0 ] ) * prime_1 + prime_4;
+				hash = ( hash ^ iv[ 1 ] ) * prime_1 + prime_4;
+				hash = ( hash ^ iv[ 2 ] ) * prime_1 + prime_4;
+				hash = ( hash ^ iv[ 3 ] ) * prime_1 + prime_4;
 			} else {
 				hash = iv[ 2 ] /* == seed */ + prime_5;
 			}
@@ -182,12 +219,7 @@ namespace xstd
 			} else {
 				data = *( const std::array<T, 4>* ) block;
 			}
-
-			std::array<T, 4> ivt = iv;
-			for ( size_t i = 0; i != 4; i++ ) {
-				ivt[ i ] = traits::round( ivt[ i ], data[ i ] );
-			}
-			iv = ivt;
+			iv = traits::vec_round( iv, data );
 		}
 		FORCE_INLINE constexpr void next_block() {
 			compress( leftover.data() );
