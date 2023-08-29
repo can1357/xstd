@@ -307,7 +307,7 @@ namespace ia32::pci
 	//
 	inline xstd::spinlock device_list_lock = {};
 	inline std::vector<device> device_list = {};
-	RINLINE inline const std::vector<device>& get_device_list( bool force_update = false )
+	FORCE_INLINE inline const std::vector<device>& get_device_list( bool force_update = false )
 	{
 		std::lock_guard _g{ device_list_lock };
 		if ( force_update || device_list.empty() )
