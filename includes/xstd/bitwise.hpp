@@ -56,14 +56,14 @@ namespace xstd
 		if ( !std::is_constant_evaluated() ) {
 #if MS_COMPILER && AMD64_TARGET
 			if constexpr ( sizeof( T ) <= 4 )
-				return ( bitcnt_t ) __popcnt( v );
+				return (bitcnt_t) __popcnt( v );
 			else
-				return ( bitcnt_t ) __popcnt64( v );
+				return (bitcnt_t) __popcnt64( v );
 #elif __has_builtin(__builtin_popcount)
 			if constexpr ( sizeof( T ) <= 4 )
-				return ( bitcnt_t ) __builtin_popcount( v );
+				return (bitcnt_t) __builtin_popcount( v );
 			else
-				return ( bitcnt_t ) __builtin_popcountll( v );
+				return (bitcnt_t) __builtin_popcountll( v );
 #endif
 		}
 
@@ -80,6 +80,20 @@ namespace xstd
 			x = ( ( ( x + ( x >> 4 ) ) & 0x0F0F0F0F0F0F0F0Full ) * 0x0101010101010101ull ) >> 56u;
 			return bitcnt_t( x );
 		}
+	}
+	template<Integral T = uint64_t>
+	FORCE_INLINE CONST_FN inline constexpr bool bit_parity( T v ) {
+		// Optimized using intrinsics if not const evaluated.
+		//
+		if ( !std::is_constant_evaluated() ) {
+#if __has_builtin(__builtin_parity)
+			if constexpr ( sizeof( T ) <= 4 )
+				return ( bool ) __builtin_parity( v );
+			else
+				return ( bool ) __builtin_parityll( v );
+#endif
+		}
+		return ( popcnt( v ) & 1 ) == 1;
 	}
 	template<Integral I>
 	FORCE_INLINE CONST_FN inline constexpr I bit_reverse( I value ) {
@@ -843,6 +857,17 @@ namespace xstd
 	{
 		if constexpr ( Signed<T> ) return ( int64_t ) imm;
 		else                       return ( uint64_t ) imm;
+	}
+
+	// Signed/Unsigned bit-cast.
+	//
+	template<typename T>
+	FORCE_INLINE CONST_FN inline constexpr std::make_signed_t<T> as_signed( T value ) {
+		return xstd::bit_cast<std::make_signed_t<T>>( value );
+	}
+	template<typename T>
+	FORCE_INLINE CONST_FN inline constexpr std::make_unsigned_t<T> as_unsigned( T value ) {
+		return xstd::bit_cast<std::make_unsigned_t<T>>( value );
 	}
 
 	// Zero extends the given integer.

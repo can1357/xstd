@@ -33,6 +33,8 @@
 #include <typeinfo>
 #include <atomic>
 #include <array>
+#include <tuple>
+#include <numeric>
 
 // [[Configuration]]
 // XSTD_ESTR: Easy to override macro to control any error strings emitted into binary, must return a C string.
@@ -515,6 +517,30 @@ FORCE_INLINE CONST_FN static constexpr uint64_t umulh( uint64_t x, uint64_t y ) 
 	umul128( x, y, &h );
 	return h;
 }
+FORCE_INLINE static uint64_t udiv128( uint64_t dividend_hi, uint64_t dividend_lo, uint64_t divisor, uint64_t* rem ) {
+#if AMD64_TARGET
+	uint64_t a = dividend_lo, d = dividend_hi;
+	asm( "div %[o]" : "+a"( a ), "+d"( d ) : [o] "c"( divisor ) );
+	*rem = d;
+	return a;
+#else
+	uint128_t dividend = ( uint128_t( dividend_hi ) << 64 ) + dividend_lo;
+	*rem = uint64_t( dividend % divisor );
+	return uint64_t( dividend / divisor );
+#endif
+}
+FORCE_INLINE static int64_t div128( int64_t dividend_hi, int64_t dividend_lo, int64_t divisor, int64_t* rem ) {
+#if AMD64_TARGET
+	int64_t a = dividend_lo, d = dividend_hi;
+	asm( "idiv %[o]" : "+a"( a ), "+d"( d ) : [o] "c"( divisor ) );
+	*rem = d;
+	return a;
+#else
+	int128_t dividend = int128_t( ( uint128_t( (uint64_t) dividend_hi ) << 64 ) + uint64_t( dividend_lo ) );
+	*rem = int64_t( dividend % divisor );
+	return int64_t( dividend / divisor );
+#endif
+}
 #else
 FORCE_INLINE static constexpr uint64_t umul128( uint64_t x, uint64_t y, uint64_t* hi ) {
 	if ( std::is_constant_evaluated() ) {
@@ -579,6 +605,12 @@ FORCE_INLINE static constexpr uint64_t umulh( uint64_t x, uint64_t y ) {
 	}
 	return __umulh( x, y );
 }
+FORCE_INLINE static uint64_t udiv128( uint64_t dividend_hi, uint64_t dividend_lo, uint64_t divisor, uint64_t* rem ) {
+	return _udiv128( dividend_hi, dividend_lo, divisor, rem );
+}
+FORCE_INLINE static int64_t div128( int64_t dividend_hi, int64_t dividend_lo, int64_t divisor, int64_t* rem ) {
+	return _div128( dividend_hi, dividend_lo, divisor, rem );
+}
 #endif
 
 // Checked integer operations.
@@ -638,6 +670,69 @@ FORCE_INLINE CONST_FN constexpr std::pair<T, bool> mul_checked( T x, T y ) {
 	}
 #endif
 	return { r, f };
+}
+template<typename T>
+FORCE_INLINE CONST_FN constexpr std::tuple<T/*quot*/, T/*rem*/, bool> div_checked( T dividend_hi, T dividend_lo, T divisor ) {
+	
+	// Divisor is 0.
+	//
+	if ( divisor == 0 ) 
+		return { T(), T(), true };
+
+	constexpr T minv = ( std::numeric_limits<T>::min )( );
+	constexpr T maxv = ( std::numeric_limits<T>::max )( );
+	
+	// If unsigned:
+	//
+	if constexpr ( !std::is_signed_v<T> ) {
+		// Extend to U64.
+		//
+		if constexpr ( sizeof( T ) != 8 ) {
+			uint64_t dividend = dividend_lo;
+			dividend += uint64_t( dividend_hi ) << ( sizeof( T ) * 8 );
+			uint64_t q = dividend / divisor;
+			uint64_t r = dividend % divisor;
+			return { T( q ), T( r ), q > maxv };
+		} else {
+			if ( dividend_hi >= divisor ) {
+				return { T(), T(), true };
+			} else {
+				uint64_t rem;
+				uint64_t quot = udiv128( dividend_hi, dividend_lo, divisor, &rem );
+				return { quot, rem, false };
+			}
+		}
+	} else {
+		// Extend to I64.
+		//
+		if constexpr ( sizeof( T ) != 8 ) {
+			int64_t dividend = int64_t( dividend_hi ) << ( sizeof( T ) * 8 );
+			dividend += uint64_t( ( std::make_unsigned_t<T> ) dividend_lo );
+			int64_t q = dividend / divisor;
+			int64_t r = dividend % divisor;
+			return { T( q ), T( r ), !( minv <= q && q <= maxv ) };
+		} else {
+			int64_t da = divisor < 0 ? -divisor : +divisor;
+			if ( dividend_hi < 0 ) {
+				int64_t min_hi = ( ( -( da + ( divisor > 0 ) ) >> 1 ) );
+				int64_t min_lo = da & 1 ? INT64_MIN : 0;
+				if ( divisor > 0 ) min_lo -= da;
+				auto htest = dividend_hi + ( uint64_t( dividend_lo ) > uint64_t( min_lo ) );
+				if ( htest <= min_hi )
+					return { T(), T(), true };
+			} else {
+				int64_t max_hi = ( ( da >> 1 ) );
+				int64_t max_lo = da & 1 ? INT64_MIN : 0;
+				if ( divisor < 0 ) max_lo += da;
+				auto htest = dividend_hi - ( uint64_t( dividend_lo ) < uint64_t( max_lo ) );
+				if ( htest >= max_hi )
+					return { T(), T(), true };
+			}
+			int64_t rem;
+			int64_t quot = div128( dividend_hi, dividend_lo, divisor, &rem );
+			return { quot, rem, false };
+		}
+	}
 }
 
 // Declare rotation.
