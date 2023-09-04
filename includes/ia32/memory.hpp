@@ -134,7 +134,6 @@ namespace ia32::mem
 	//
 	static constexpr pt_level max_large_page_level = pdpte_level;
 
-
 	// Index of the self referencing page table entry and the bases, physical memory information.
 	//
 #if __has_xcxx_builtin(__builtin_fetch_dynamic)
@@ -181,7 +180,6 @@ namespace ia32::mem
 		return xstd::align_up( value + phys_base_padding_pages, 512 );
 	}
 #endif
-	FORCE_INLINE CONST_FN inline bool has_1gb_pages() { return static_cpuid_s<0x80000001, 0, cpuid_eax_80000001>.edx.pages_1gb_available; }
 
 	// Virtual address details.
 	//
@@ -435,7 +433,6 @@ namespace ia32::mem
 		// Known constants.
 		//
 		uint64_t pfn_mask =      mem::pfn_mask();
-		bool     has_1gb_pages = mem::has_1gb_pages();
 	};
 
 	// Page walker interface.
@@ -559,7 +556,7 @@ namespace ia32::mem
 				if ( !into_directory ) {
 					// Check if we can have a page of this size:
 					//
-					if ( level > ( params.has_1gb_pages ? pdpte_level : pde_level ) ) {
+					if ( level > max_large_page_level ) {
 						return walk_status::rsvd_large;
 					}
 
