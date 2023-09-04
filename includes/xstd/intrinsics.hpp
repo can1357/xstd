@@ -715,14 +715,14 @@ FORCE_INLINE CONST_FN constexpr std::tuple<T/*quot*/, T/*rem*/, bool> div_checke
 			int64_t da = divisor < 0 ? -divisor : +divisor;
 			if ( dividend_hi < 0 ) {
 				int64_t min_hi = ( ( -( da + ( divisor > 0 ) ) >> 1 ) );
-				int64_t min_lo = da & 1 ? INT64_MIN : 0;
+				int64_t min_lo = da & 1 ? minv : 0;
 				if ( divisor > 0 ) min_lo -= da;
 				auto htest = dividend_hi + ( uint64_t( dividend_lo ) > uint64_t( min_lo ) );
 				if ( htest <= min_hi )
 					return { T(), T(), true };
 			} else {
 				int64_t max_hi = ( ( da >> 1 ) );
-				int64_t max_lo = da & 1 ? INT64_MIN : 0;
+				int64_t max_lo = da & 1 ? minv : 0;
 				if ( divisor < 0 ) max_lo += da;
 				auto htest = dividend_hi - ( uint64_t( dividend_lo ) < uint64_t( max_lo ) );
 				if ( htest >= max_hi )

@@ -320,6 +320,14 @@ namespace xstd
 			return success() ? std::move( result ).value() : std::move( o );
 		}
 
+		// Optional conversion.
+		//
+		constexpr std::optional<value_type> to_optional() const {
+			if ( fail() ) 
+				return std::nullopt;
+			return result.value();
+		}
+
 		// Accessors.
 		//
 		constexpr decltype( auto ) operator->()
