@@ -459,10 +459,11 @@ namespace ia32::smbios
 			auto& tbl_entry = result.entries.emplace_back( hdr->type, entry{} ).second;
 			tbl_entry.data = { range.data() + sizeof( entry_header ), range.data() + hdr->length };
 			range.remove_prefix( hdr->length );
-			auto strings = parse_strings( range );
-			if ( !strings && !lenient )
+			if ( auto strings = parse_strings( range ) ) {
+				tbl_entry.strings = std::move( strings ).value();
+			} else if ( !lenient ) {
 				return xstd::exception{ XSTD_ESTR( "Failed parsing SMBIOS entry strings." ) };
-			tbl_entry.strings = std::move( strings ).value();
+			}
 		}
 		return result;
 	}
