@@ -25799,7 +25799,7 @@ namespace ia32
 	static constexpr size_t hv_vendor_uid_idx = 1;
 	enum class hv_vendor : char {
 		vmware =     "VMwareVMware"[ hv_vendor_uid_idx ],
-		hyperv =     "Microsoft HV"[ hv_vendor_uid_idx ],
+		hyperv =     "Microsoft Hv"[ hv_vendor_uid_idx ],
 		kvm =        "KVMKVMKVM"   [ hv_vendor_uid_idx ],
 		freebsd =    "bhyve bhyve "[ hv_vendor_uid_idx ],
 		parallels =  "prl hyperv"  [ hv_vendor_uid_idx ],

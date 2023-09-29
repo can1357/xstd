@@ -767,13 +767,12 @@ namespace xstd
 	struct serializer<O>
 	{
 		using T = decltype( std::declval<O&>().tie() );
-	
-		static void apply( serialization& ctx, const O& value )
-		{
-			auto tied = const_cast< O& >( value ).tie();
+
+		static void apply( serialization& ctx, const O& value ) {
+			auto tied = const_cast<O&>( value ).tie();
 			if constexpr ( std::tuple_size_v<T> != 0 ) {
 				make_constant_series<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> ) {
-					if constexpr ( std::is_same_v<std::decay_t<std::tuple_element_t<N ,T>>, version_bump_t> ) {
+					if constexpr ( std::is_same_v<std::decay_t<std::tuple_element_t<N, T>>, version_bump_t> ) {
 						ctx.version++;
 					} else {
 						serialize( ctx, std::get<N>( tied ) );
@@ -781,9 +780,7 @@ namespace xstd
 				} );
 			}
 		}
-		static O reflect( serialization& ctx )
-		{
-			O value = {};
+		static void reflect( O& value, serialization& ctx ) {
 			auto tied = value.tie();
 			if constexpr ( std::tuple_size_v<T> != 0 ) {
 				make_constant_search<std::tuple_size_v<T>>( [ & ] <auto N> ( const_tag<N> ) {
@@ -796,6 +793,11 @@ namespace xstd
 					}
 				} );
 			}
+		}
+		template<typename _O = O>
+		static _O reflect( serialization& ctx ) {
+			_O value = {};
+			reflect( value, ctx );
 			return value;
 		}
 	};
