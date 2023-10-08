@@ -90,120 +90,26 @@ namespace xstd::ws
 
 	// Masking helper.
 	//
-	inline void masked_copy( uint8_t* __restrict dst, const uint8_t* __restrict src, size_t len, uint32_t key )
+	template<bool Vectorize = true>
+	inline void masked_copy( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key )
 	{
+		uint8_t* __restrict       dst = ( uint8_t * __restrict ) _dst;
+		const uint8_t* __restrict src = ( const uint8_t * __restrict ) _src;
+
 		if ( !key )
 			return ( void ) memcpy( dst, src, len );
-		
-		size_t it = 0;
-#if XSTD_VECTOR_EXT
-		using vec = max_vec_t<uint32_t>;
-		if ( len >= sizeof( vec ) ) [[likely]]
-		{
-			// Broadcast the key.
-			//
-			vec key_vector = vec::broadcast( key );
 
-			// Process 5x vectors.
-			//
-			for ( ; ( it + ( sizeof( vec ) * 5 ) ) <= len; it += sizeof( vec ) * 5 )
-			{
-				vec v0 = vec::load( src + it + sizeof( vec ) * 0 ) ^ key_vector;
-				vec v1 = vec::load( src + it + sizeof( vec ) * 1 ) ^ key_vector;
-				vec v2 = vec::load( src + it + sizeof( vec ) * 2 ) ^ key_vector;
-				vec v3 = vec::load( src + it + sizeof( vec ) * 3 ) ^ key_vector;
-				vec v4 = vec::load( src + it + sizeof( vec ) * 4 ) ^ key_vector;
-				store_misaligned<vec>( dst + it + sizeof( vec ) * 0, v0 );
-				store_misaligned<vec>( dst + it + sizeof( vec ) * 1, v1 );
-				store_misaligned<vec>( dst + it + sizeof( vec ) * 2, v2 );
-				store_misaligned<vec>( dst + it + sizeof( vec ) * 3, v3 );
-				store_misaligned<vec>( dst + it + sizeof( vec ) * 4, v4 );
-			}
-
-			// Process 1x vector.
-			//
-			for ( ; ( it + sizeof( vec ) ) <= len; it += sizeof( vec ) )
-			{
-				vec v0 = vec::load( src + it ) ^ key_vector;
-				store_misaligned<vec>( dst + it, v0 );
-			}
-
-			// Process the remaining bytes:
-			//
-			if ( it != len )
-			{
-				// Overlap a final vector.
-				//
-				it = len - sizeof( vec );
-				
-				// Rotate the key according to the position.
-				//
-				uint32_t key_pos = ( it & 3 ) * 8;
-				key_vector = ( key_vector >> key_pos ) | ( key_vector << ( 32 - key_pos ) );
-
-				// Store the final masked data.
-				//
-				vec v0 = vec::load( src + it ) ^ key_vector;
-				store_misaligned<vec>( dst + it, v0 );
-			}
-			return;
-		}
-#endif
-		if ( len >= 4 ) [[likely]]
-		{
-			// Process 1x u32.
-			//
-			for ( ; ( it + 4 ) <= len; it += 4 )
-				*( uint32_t* ) &dst[ it ] = *( const uint32_t* ) &src[ it ] ^ key;
-		
-			// Process the remaining bytes:
-			//
-			if ( it != len )
-			{
-				// Overlap a final u32.
-				//
-				it = len - 4;
-
-				// Rotate the key according to the position.
-				//
-				uint32_t key_pos = ( it & 3 ) * 8;
-				key = ( key >> key_pos ) | ( key << ( 32 - key_pos ) );
-
-				// Store the final masked data.
-				//
-				*( uint32_t* ) &dst[ it ] = *( const uint32_t* ) &src[ it ] ^ key;
-			}
-			return;
-		}
-
-		// Execute at the byte level.
-		//
+		if constexpr ( Vectorize ) {
 #if CLANG_COMPILER
-  #pragma clang loop unroll(disable)
+	#pragma clang loop vectorize(enable) vectorize_width(4)
 #endif
-		for( ; it != len; it++ )
-		{
-			dst[ it ] = src[ it ] ^ uint8_t( key & 0xFF );
-			key = rotr( key, 8 );
-		}
-	}
-	template<bool Vectorize>
-	inline void mask_buffer( uint8_t* __restrict buffer, size_t len, uint32_t key )
-	{
-		if ( !key )
-			return;
-		if ( Vectorize && len > 4 )
-			return masked_copy( buffer, buffer, len, key );
-
-		// Execute at the byte level.
-		//
-#if CLANG_COMPILER
-  #pragma clang loop unroll(disable)
-#endif
-		for ( size_t it = 0; it != len; it++ )
-		{
-			buffer[ it ] ^= uint8_t( key & 0xFF );
-			key = rotr( key, 8 );
+			for ( size_t it = 0; it != len; it++ ) {
+				dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
+			}
+		} else {
+			for ( size_t it = 0; it != len; it++ ) {
+				dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
+			}
 		}
 	}
 
@@ -501,9 +407,9 @@ namespace xstd::ws
 				co_return;
 			}
 
-			// Mask the data in-place.
+			// Mask the data.
 			//
-			mask_buffer<true>( data.data(), data.size(), hdr.mask_key );
+			masked_copy( data.data(), data.data(), data.size(), hdr.mask_key );
 
 			// If control frame, handle seperately and continue.
 			//
@@ -544,7 +450,7 @@ namespace xstd::ws
 				//
 				if ( hdr.is_control_frame() )
 				{
-					mask_buffer<false>( data.data(), data.size(), hdr.mask_key );
+					masked_copy( data.data(), data.data(), data.size(), hdr.mask_key );
 					switch ( hdr.op )
 					{
 						case opcode::ping: 

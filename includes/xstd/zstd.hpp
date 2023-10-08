@@ -172,4 +172,108 @@ namespace xstd::zstd
 			return decompress( &*std::begin( cont ), std::size( cont ) * sizeof( iterable_val_t<T> ) );
 		}
 	};
+
+	// Streaming counterparts.
+	//
+	struct cstream : ccontext {
+		std::vector<uint8_t> output;
+
+		cstream( int level = XSTD_ZSTD_DEFAULT_LEVEL ) { 
+			ZSTD_initCStream( this->ctx.get(), level ); 
+		}
+		cstream( cstream&& ) noexcept = default;
+		cstream& operator=( cstream&& ) noexcept = default;
+
+		result<std::span<uint8_t>> stream( std::span<const uint8_t> data, bool end ) {
+			result<std::span<uint8_t>> ret;
+			size_t increment =    ZSTD_CStreamOutSize();
+			size_t current_size = 0;
+
+			ZSTD_inBuffer in{ data.data(), data.size(), 0 };
+			while ( true ) {
+				// If we reached the end, flush or end.
+				//
+				auto directive = ZSTD_e_continue;
+				if ( in.pos >= in.size ) {
+					in.size = in.pos = 0;
+					directive = end ? ZSTD_e_end : ZSTD_e_flush;
+				}
+
+				// Allocate one block in the output.
+				//
+				xstd::uninitialized_resize( output, current_size + increment );
+
+				// Try compressing.
+				//
+				ZSTD_outBuffer out{ &output[ current_size ], increment, 0 };
+				ret.status = ZSTD_compressStream2( this->ctx.get(), &out, &in, directive );
+				if ( ret.status.is_error() ) return ret;
+
+				// Increment the length.
+				//
+				current_size += out.pos;
+
+				// If input data is exhausted, theres no more data coming out, and we already entered flushing phase break.
+				//
+				if ( !ret.status && directive != ZSTD_e_continue ) {
+					break;
+				}
+			}
+
+			// Return the span.
+			//
+			xstd::shrink_resize( output, current_size );
+			if ( output.capacity() > std::max( 4 * increment, output.size() * 2 ) ) {
+				output.shrink_to_fit();
+			}
+			ret.emplace( output );
+			return ret;
+		}
+	};
+	struct dstream : dcontext {
+		std::vector<uint8_t> output;
+
+		dstream() { ZSTD_initDStream( this->ctx.get() ); }
+		dstream( dstream&& ) noexcept = default;
+		dstream& operator=( dstream&& ) noexcept = default;
+
+		result<std::span<uint8_t>> stream( std::span<const uint8_t> data ) {
+			result<std::span<uint8_t>> ret;
+			size_t increment =    ZSTD_DStreamOutSize();
+			size_t current_size = 0;
+
+			ZSTD_inBuffer in{ data.data(), data.size(), 0 };
+			while ( true ) {
+				// Allocate one block in the output.
+				//
+				xstd::uninitialized_resize( output, current_size + increment );
+
+				// Try compressing.
+				//
+				ZSTD_outBuffer out{ &output[ current_size ],  increment, 0 };
+				ret.status = ZSTD_decompressStream( this->ctx.get(), &out, &in );
+				if ( ret.status.is_error() ) return ret;
+
+				// Increment the length.
+				//
+				current_size += out.pos;
+
+				// `input.pos < input.size`, some input remaining and caller should provide remaining input
+				if ( in.pos < in.size ) continue;
+				// `output.pos < output.size`, decoder finished and flushed all remaining buffers.
+				if ( out.pos < out.size ) break;
+				// `output.pos == output.size`, potentially uncflushed data present in the internal buffers
+				if ( !ret.status ) break;
+			}
+
+			// Return the span.
+			//
+			xstd::shrink_resize( output, current_size );
+			if ( output.capacity() > std::max( 4 * increment, output.size() * 2 ) ) {
+				output.shrink_to_fit();
+			}
+			ret.emplace( output );
+			return ret;
+		}
+	};
 };

@@ -112,87 +112,69 @@ namespace xstd
 				return data_in;
 			}
 		}
-		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
-		FORCE_INLINE constexpr tinyjambu& update( size_t rounds, unit_type framebits, T* io, size_t count, bool reverse = false )
+		template<typename T, typename O> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
+		FORCE_INLINE constexpr tinyjambu& update( size_t rounds, unit_type framebits, const T* in, O out, size_t count, bool reverse = false )
 		{
-			if constexpr ( sizeof( T ) == sizeof( unit_type ) )
-			{
-				while ( count-- )
-				{
-					unit_type res = update_single( rounds, framebits, *io, reverse );
-					if constexpr ( !Const<T> )
-						*io = res;
-					io++;
+			if constexpr ( sizeof( T ) == sizeof( unit_type ) ) {
+				for ( size_t i = 0; i != count; i++ ) {
+					unit_type res = update_single( rounds, framebits, in[ i ], reverse );
+					if constexpr ( !std::is_same_v<std::nullptr_t, O> ) 
+						out[ i ] = res;
 				}
-			}
-			else
-			{
+			} else {
 				// Optimize into unit-granularity updates if not constexpr:
 				//
-				if ( !std::is_constant_evaluated() )
-				{
-					while ( count >= sizeof( unit_type ) )
-					{
-						unit_type res = update_single( rounds, framebits, *( const unit_type* ) io, reverse );
-						if constexpr ( !Const<T> )
-							*( unit_type* ) io = res;
-						io += sizeof( unit_type );
-						count -= sizeof( unit_type );
+				if ( !std::is_constant_evaluated() ) {
+					size_t unit_count = count / sizeof( unit_type );
+					if constexpr ( !std::is_same_v<std::nullptr_t, O> ) {
+						update( rounds, framebits, (const unit_type*) in, (unit_type*) out, unit_count, reverse );
+						out += unit_count * sizeof( unit_type );
 					}
+					else {
+						update( rounds, framebits, (const unit_type*) in, nullptr, unit_count, reverse );
+					}
+					in += unit_count * sizeof( unit_type );
+					count &= ( sizeof( unit_type ) - 1 );
 				}
 
 				// Until we reach the end:
 				//
-				T* end = io + count;
-				while ( io != end )
-				{
+				while ( count ) {
 					// Fill a unit zero-extended and update.
 					//
 					unit_type u = 0;
-					size_t n;
-					if ( std::is_constant_evaluated() )
-					{
-						for ( n = 0; io != end && n != sizeof( unit_type ); n++, io++ )
-							u |= unit_type( ( uint8_t ) ( *io ) ) << ( n * 8 );
-					}
-					else
-					{
-						n = std::min<size_t>( end - io, 4 );
-						switch ( n )
-						{
-							case 1: *( std::array<uint8_t, 1>* ) &u = *( const std::array<uint8_t, 1>* ) io; break;
-							case 2: *( std::array<uint8_t, 2>* ) &u = *( const std::array<uint8_t, 2>* ) io; break;
-							case 3: *( std::array<uint8_t, 3>* ) & u = *( const std::array<uint8_t, 3>* ) io; break;
-							//case 4: *( std::array<uint8_t, 4>* ) &u = *( std::array<uint8_t, 4>* ) io;
+					size_t n = std::min<size_t>( count, sizeof( unit_type ) );
+					if ( std::is_constant_evaluated() ) {
+						for ( size_t i = 0; i != n; i++ )
+							u |= unit_type( (uint8_t) in[ i ] ) << ( i * 8 );
+					} else {
+						switch ( n ) {
+							case 1: *( std::array<uint8_t, 1>* ) &u = *( const std::array<uint8_t, 1>* ) in; break;
+							case 2: *( std::array<uint8_t, 2>* ) &u = *( const std::array<uint8_t, 2>* ) in; break;
+							case 3: *( std::array<uint8_t, 3>* ) &u = *( const std::array<uint8_t, 3>* ) in; break;
 							default: unreachable();
 						}
-						io += n;
 					}
-					u = update_single( rounds, framebits, u, reverse, ( unit_type ) ( ( 1ull << ( n * 8 ) ) - 1 ) );
+					in += n;
+					u = update_single( rounds, framebits, u, reverse, (unit_type) ( ( 1ull << ( n * 8 ) ) - 1 ) );
 
-					// If there is an output, write it byte by byte.
+					// If there is an output, write it similarly.
 					//
-					if constexpr ( !Const<T> )
-					{
-						io -= n;
-						if ( std::is_constant_evaluated() )
-						{
+					if constexpr ( !std::is_same_v<std::nullptr_t, O> ) {
+						if ( std::is_constant_evaluated() ) {
 							for ( size_t i = 0; i != n; i++ )
-								*io++ = uint8_t( ( u >> ( 8 * i ) ) & 0xFF );
-						}
-						else
-						{
-							switch ( n )
-							{
-								case 1: *( std::array<uint8_t, 1>* ) io = *( std::array<uint8_t, 1>* ) &u; break;
-								case 2: *( std::array<uint8_t, 2>* ) io = *( std::array<uint8_t, 2>* ) &u; break;
-								case 3: *( std::array<uint8_t, 3>* ) io = *( std::array<uint8_t, 3>* ) &u; break;
-								//case 4: *( std::array<uint8_t, 4>* ) io = *( std::array<uint8_t, 4>* ) &u;
+								out[ i ] = uint8_t( ( u >> ( 8 * i ) ) & 0xFF );
+						} else {
+							switch ( n ) {
+								case 1: *( std::array<uint8_t, 1>* ) out = *( std::array<uint8_t, 1>* ) &u; break;
+								case 2: *( std::array<uint8_t, 2>* ) out = *( std::array<uint8_t, 2>* ) &u; break;
+								case 3: *( std::array<uint8_t, 3>* ) out = *( std::array<uint8_t, 3>* ) &u; break;
 								default: unreachable();
 							}
-							io += n;
 						}
+						out += n;
 					}
+					count -= n;
 				}
 			}
 			return *this;
@@ -210,89 +192,31 @@ namespace xstd
 
 			// Introduce IV into the state.
 			//
-			return update( rounds_1, framebits_iv, iv, num );
+			return update( rounds_1, framebits_iv, iv, nullptr, num );
 		}
 		FORCE_INLINE constexpr tinyjambu& reset( const default_iv_type& iv ) { return reset( iv.data(), iv.size() ); }
 
-		// Appends associated data.
+		// Encryption, decryption and associated data.
 		//
 		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
-		FORCE_INLINE constexpr tinyjambu& associate( const T* data, size_t num )
-		{
-			return update( rounds_1, framebits_ad, data, num, false );
-		}
-
-		// Encryption and decryption.
-		//
-		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
-		FORCE_INLINE constexpr tinyjambu& encrypt( T* data, size_t num )
-		{
-			return update( rounds_2, framebits_pc, data, num, false );
+		FORCE_INLINE constexpr tinyjambu& associate( const T* data, size_t num ) {
+			return update( rounds_1, framebits_ad, data, nullptr, num, false );
 		}
 		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
-		FORCE_INLINE constexpr tinyjambu& decrypt( T* data, size_t num )
-		{
-			return update( rounds_2, framebits_pc, data, num, true );
+		FORCE_INLINE constexpr tinyjambu& encrypt( T* data, size_t num ) {
+			return update( rounds_2, framebits_pc, data, data, num, false );
 		}
-		
-		// Primitives.
-		//
-		template<typename T, typename... Tx>
-		FORCE_INLINE constexpr tinyjambu& associate( const T* data, const Tx*... rest )
-		{
-			if ( !std::is_constant_evaluated() )
-			{
-				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
-				associate( ( const E* ) data, sizeof( T ) / sizeof( E ) );
-			}
-			else
-			{
-				using A = std::array<uint8_t, sizeof( T )>;
-				A value = bit_cast<A>( *data );
-				associate( value.data(), value.size() );
-			}
-			if constexpr ( sizeof...( Tx ) )
-				associate<Tx...>( rest... );
-			return *this;
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
+		FORCE_INLINE constexpr tinyjambu& decrypt( T* data, size_t num ) {
+			return update( rounds_2, framebits_pc, data, data, num, true );
 		}
-
-		template<typename T, typename... Tx>
-		FORCE_INLINE constexpr tinyjambu& decrypt( T* data, Tx*... rest )
-		{
-			if ( !std::is_constant_evaluated() )
-			{
-				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
-				decrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
-			}
-			else
-			{
-				using A = std::array<uint8_t, sizeof( T )>;
-				A value = bit_cast< A >( *data );
-				decrypt( value.data(), value.size() );
-				*data = bit_cast< T >( value );
-			}
-			if constexpr ( sizeof...( Tx ) )
-				decrypt<Tx...>( rest... );
-			return *this;
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
+		FORCE_INLINE constexpr tinyjambu& encrypt( T* out, const T* in, size_t num ) {
+			return update( rounds_2, framebits_pc, in, out, num, false );
 		}
-		template<typename T, typename... Tx>
-		FORCE_INLINE constexpr tinyjambu& encrypt( T* data, Tx*... rest )
-		{
-			if ( !std::is_constant_evaluated() )
-			{
-				using E = std::conditional_t<( sizeof( T ) % sizeof( unit_type ) ) == 0, unit_type, uint8_t>;
-				encrypt( ( E* ) data, sizeof( T ) / sizeof( E ) );
-			}
-			else 
-			{
-				using A = std::array<uint8_t, sizeof( T )>;
-				A value = bit_cast< A >( *data );
-				encrypt( value.data(), value.size() );
-				*data = bit_cast< T >( value );
-			}
-			if constexpr ( sizeof...( Tx ) )
-				encrypt<Tx...>( rest... );
-			return *this;
+		template<typename T> requires( sizeof( T ) == 1 || sizeof( T ) == sizeof( unit_type ) )
+		FORCE_INLINE constexpr tinyjambu& decrypt( T* out, const T* in, size_t num ) {
+			return update( rounds_2, framebits_pc, in, out, num, true );
 		}
 
 		// Tag calculation.
