@@ -87,30 +87,55 @@ namespace xstd::ws
 		uint8_t masked : 1;
 	};
 	static constexpr size_t max_net_header_size = sizeof( net_header ) + sizeof( uint64_t ) + sizeof( uint32_t );
+	static constexpr size_t header_length( size_t packet_size, bool masked ) {
+		size_t result = sizeof( net_header );
+		result += packet_size > length_extend_u16 ? 2 : 0;
+		result += packet_size > UINT16_MAX        ? 6 : 0;
+		result += masked                          ? 4 : 0;
+		return result;
+	}
 
 	// Masking helper.
 	//
-	template<bool Vectorize = true>
-	inline void masked_copy( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key )
-	{
+	static void masked_copy( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key ) {
 		uint8_t* __restrict       dst = ( uint8_t * __restrict ) _dst;
 		const uint8_t* __restrict src = ( const uint8_t * __restrict ) _src;
 
-		if ( !key )
-			return ( void ) memcpy( dst, src, len );
-
-		if constexpr ( Vectorize ) {
-#if CLANG_COMPILER
-	#pragma clang loop vectorize(enable) vectorize_width(4)
-#endif
-			for ( size_t it = 0; it != len; it++ ) {
-				dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
-			}
-		} else {
-			for ( size_t it = 0; it != len; it++ ) {
-				dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
-			}
+		if ( !key ) {
+			if ( dst != src )
+				memcpy( dst, src, len );
+			return;
 		}
+
+#if CLANG_COMPILER
+#pragma clang loop vectorize(enable)
+#endif
+		for ( size_t it = 0; it != len; it++ ) {
+			dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
+		}
+	}
+	static void masked_copy_bwd( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key ) {
+		uint8_t* __restrict       dst = ( uint8_t * __restrict ) _dst;
+		const uint8_t* __restrict src = ( const uint8_t * __restrict ) _src;
+
+		if ( !key ) {
+			if ( dst != src )
+				memmove( dst, src, len );
+			return;
+		}
+
+#if CLANG_COMPILER
+#pragma clang loop vectorize(enable)
+#endif
+		for ( size_t it = len - 1; ptrdiff_t( it ) >= 0; it-- ) {
+			dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
+		}
+	}
+	static void masked_move( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key ) {
+		if ( _dst > _src )
+			return masked_copy_bwd( _dst, _src, len, key );
+		else
+			return masked_copy( _dst, _src, len, key );
 	}
 
 	// Parsed packet header.
@@ -130,6 +155,7 @@ namespace xstd::ws
 		// State helpers.
 		//
 		bool is_control_frame() const { return is_control_opcode( op ); }
+		size_t header_length() const { return ws::header_length( length, mask_key != 0 ); }
 	};
 
 	// Reads a packet header from the given stream. 

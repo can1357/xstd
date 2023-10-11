@@ -41,7 +41,7 @@ namespace xstd::http
 
 	// HTTP methods.
 	//
-	enum method_id
+	enum method_id : uint8_t
 	{
 		GET,
 		HEAD,
@@ -52,7 +52,7 @@ namespace xstd::http
 		OPTIONS,
 		TRACE,
 		PATCH,
-		maximum,
+		INVALID,
 	};
 	static constexpr std::string_view method_map[] = {
 		"GET",
@@ -67,16 +67,25 @@ namespace xstd::http
 	};
 	static constexpr auto hash_method( std::string_view method )
 	{
-		uint64_t value = 0;
-		for ( size_t n = 0; n != 8 && n != method.size(); n++ )
-			value |= 0x20 | ( uint64_t( n ) << ( 8 * n ) );
-		value ^= 0xfa7c0c5;
-		return ~value;
+		uint32_t tmp = 0x811c9dc5;
+		for( auto c : method ) {
+			tmp = ( ( tmp ^ c ) | 0x20 ) * 0x01000193;
+		}
+		return tmp;
 	}
 	static constexpr auto method_hashmap = make_constant_series<std::size( method_map )>( [ ] <size_t N> ( const_tag<N> )
 	{
 		return hash_method( method_map[ N ] );
 	} );
+	static constexpr method_id find_method( std::string_view name ) {
+
+		auto method_hash = hash_method( name );
+		auto it = std::find( method_hashmap.begin(), method_hashmap.end(), method_hash );
+		if ( it == method_hashmap.end() )
+			return method_id::INVALID;
+		else
+			return method_id( it - method_hashmap.begin() );
+	}
 
 	// Define the header map.
 	//
@@ -107,6 +116,10 @@ namespace xstd::http
 			// Read the line.
 			//
 			size_t i = input.find( "\r\n" );
+			if ( i == 0 ) {
+				input.remove_prefix( 2 );
+				return true;
+			}
 			if ( i == std::string::npos )
 				break;
 			std::string_view line = input.substr( 0, i );
@@ -123,11 +136,10 @@ namespace xstd::http
 			using V = typename T::mapped_type;
 			std::string_view key = line.substr( 0, key_end );
 			std::string_view value = line.substr( key_end + 2 );
-			if ( !headers.emplace( K{ key }, V{ value } ).second )
-				return false;
+			headers[ K{ key } ] = V{ value };
 			input.remove_prefix( i + 2 );
 		}
-		return true;
+		return false;
 	}
 	inline bool skip_headers( std::string_view& input )
 	{
@@ -157,7 +169,7 @@ namespace xstd::http
 	template<RequestHeader T>
 	inline void write( std::vector<uint8_t>& output, const T& header )
 	{
-		dassert( header.method < method_id::maximum );
+		dassert( header.method < method_id::INVALID );
 		auto& method = method_map[ size_t( header.method ) ];
 		output.insert( output.end(), method.begin(), method.end() );
 		output.insert( output.end(), ' ' );
@@ -178,20 +190,18 @@ namespace xstd::http
 
 		// Check the HTTP version and erase the suffix.
 		//
-		if ( !line.ends_with( " HTTP/1.1\r\n" ) )
+		if ( !line.ends_with( " HTTP/1.1" ) )
 			return false;
-		line.remove_suffix( strlen( " HTTP/1.1\r\n" ) );
+		line.remove_suffix( strlen( " HTTP/1.1" ) );
 
 		// Read the method and hash the name.
 		//
 		size_t method_end = line.find( ' ' );
 		if ( method_end == std::string::npos )
 			return false;
-		auto method_hash = hash_method( line.substr( 0, method_end ) );
-		auto it = std::find( method_hashmap.begin(), method_hashmap.end(), method_hash );
-		if ( it == method_hashmap.end() )
+		header.method = find_method( line.substr( 0, method_end ) );
+		if ( header.method == method_id::INVALID )
 			return false;
-		header.method = method_id( it - method_hashmap.begin() );
 		line.remove_prefix( method_end + 1 );
 
 		// Finally read the path and remove the line from the input.
@@ -222,9 +232,6 @@ namespace xstd::http
 	template<ResponseHeader T>
 	inline void write( std::vector<uint8_t>& output, const T& header )
 	{
-		dassert( header.method < method_id::maximum );
-		auto& method = method_map[ size_t( header.method ) ];
-
 		constexpr std::string_view version = "HTTP/1.1 ";
 		output.insert( output.end(), version.begin(), version.end() );
 
@@ -412,12 +419,6 @@ namespace xstd::http
 			//
 			if ( header_only )
 				return retval;
-
-			// Skip the newline.
-			//
-			if ( !input.starts_with( "\r\n" ) )
-				return std::nullopt;
-			input.remove_prefix( 2 );
 
 			// Get content length.
 			//
