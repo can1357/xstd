@@ -236,9 +236,9 @@ namespace xstd::http
 		output.insert( output.end(), version.begin(), version.end() );
 
 		std::array<char, 4> status = {
-			'0' + char( int( header.status / 100 ) % 10 ),
-			'0' + char( int( header.status / 10 ) % 10 ),
-			'0' + char( int( header.status / 1 ) % 10 ),
+			char( '0' + ( int( header.status / 100 ) % 10 ) ),
+			char( '0' + ( int( header.status / 10 ) % 10 ) ),
+			char( '0' + ( int( header.status / 1 ) % 10 ) ),
 			' '
 		};
 		output.insert( output.end(), status.begin(), status.end() );
