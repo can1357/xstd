@@ -213,11 +213,12 @@ namespace xstd::zstd
 		
 		// Feeds the entire chunk to the stream.
 		//
-		result<> stream( std::vector<uint8_t>& dst, std::span<const uint8_t> src, bool end = false ) {
+		result<> stream( std::vector<uint8_t>& dst, std::span<const uint8_t> src, bool flush = true, bool end = false ) {
+			end = end && flush;
 			size_t skip =   dst.size();
 			size_t result = out_size;
 			while ( true ) {
-				bool flushed = src.empty();
+				bool flushed = src.empty() || !flush;
 				uninitialized_resize( dst, dst.size() + result );
 
 				std::span buffer = std::span{ dst }.subspan( skip );
@@ -233,9 +234,9 @@ namespace xstd::zstd
 
 		// Feeds the entire chunk to the stream using a temporary buffer.
 		//
-		result<std::span<uint8_t>> stream( std::span<const uint8_t> data, bool end = false ) {
+		result<std::span<uint8_t>> stream( std::span<const uint8_t> data, bool flush = true, bool end = false ) {
 			output.clear();
-			if ( auto st = stream( output, data, end ); st.fail() )
+			if ( auto st = stream( output, data, flush, end ); st.fail() )
 				return st.status;
 			if ( output.capacity() > std::max<size_t>( 4 * out_size, output.size() * 2 ) ) {
 				output.shrink_to_fit();
@@ -249,7 +250,7 @@ namespace xstd::zstd
 		static constexpr size_t in_size =  ZSTD_BLOCKSIZE_MAX + 4;
 		static constexpr size_t out_size = ZSTD_BLOCKSIZE_MAX;
 
-		dstream() { ZSTD_initDStream( this->ctx.get() ); }
+		dstream( [[maybe_unused]] int level = 0 ) { ZSTD_initDStream( this->ctx.get() ); }
 		dstream( dstream&& ) noexcept = default;
 		dstream& operator=( dstream&& ) noexcept = default;
 		
@@ -280,11 +281,11 @@ namespace xstd::zstd
 
 		// Feeds the entire chunk to the stream.
 		//
-		result<> stream( std::vector<uint8_t>& dst, std::span<const uint8_t> src ) {
+		result<> stream( std::vector<uint8_t>& dst, std::span<const uint8_t> src, bool flush = true, [[maybe_unused]] bool _end = false ) {
 			size_t skip =   dst.size();
 			size_t result = out_size;
 			while ( true ) {
-				bool flushed = src.empty();
+				bool flushed = src.empty() || !flush;
 				uninitialized_resize( dst, dst.size() + result );
 
 				std::span buffer = std::span{ dst }.subspan( skip );
@@ -300,9 +301,9 @@ namespace xstd::zstd
 
 		// Feeds the entire chunk to the stream using a temporary buffer.
 		//
-		result<std::span<uint8_t>> stream( std::span<const uint8_t> data ) {
+		result<std::span<uint8_t>> stream( std::span<const uint8_t> data, bool flush = true, [[maybe_unused]] bool _end = false ) {
 			output.clear();
-			if ( auto st = stream( output, data ); st.fail() )
+			if ( auto st = stream( output, data, flush ); st.fail() )
 				return st.status;
 			if ( output.capacity() > std::max<size_t>( 4 * out_size, output.size() * 2 ) ) {
 				output.shrink_to_fit();

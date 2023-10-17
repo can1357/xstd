@@ -89,9 +89,9 @@ namespace xstd::ws
 	static constexpr size_t max_net_header_size = sizeof( net_header ) + sizeof( uint64_t ) + sizeof( uint32_t );
 	static constexpr size_t header_length( size_t packet_size, bool masked ) {
 		size_t result = sizeof( net_header );
-		result += packet_size > length_extend_u16 ? 2 : 0;
-		result += packet_size > UINT16_MAX        ? 6 : 0;
-		result += masked                          ? 4 : 0;
+		result += packet_size >= length_extend_u16 ? 2 : 0;
+		result += packet_size > UINT16_MAX         ? 6 : 0;
+		result += masked                           ? 4 : 0;
 		return result;
 	}
 
