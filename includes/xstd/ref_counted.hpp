@@ -50,6 +50,10 @@ namespace xstd
 		constexpr ref( const ref<Ty>& o ) : ref( o.ptr, true ) {}
 		template<typename Ty> requires ( std::is_base_of_v<T, Ty> && std::has_virtual_destructor_v<T> )
 		constexpr ref( ref<Ty>&& o ) : ref( o.release(), false ) {}
+		template<typename Ty>
+		explicit ref( const ref<Ty>& o ) : ref( (store_type*) o.ptr, true ) {}
+		template<typename Ty>
+		explicit ref( ref<Ty>&& o ) : ref( (store_type*) o.release(), false ) {}
 
 		// Reset and release.
 		//
