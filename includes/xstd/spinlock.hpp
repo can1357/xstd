@@ -256,13 +256,13 @@ namespace xstd
 		{ 
 			auto cid = CidGetter{}();
 			if constexpr ( sizeof( cid ) == 8 )
-				return 1 + ( uint64_t ) bit_cast< uint64_t >( cid );
+				return 1 + ( uint64_t ) xstd::bit_cast< uint64_t >( cid );
 			else if constexpr ( sizeof( cid ) == 4 )
-				return 1 + ( uint64_t ) bit_cast< uint32_t >( cid );
+				return 1 + ( uint64_t ) xstd::bit_cast< uint32_t >( cid );
 			else if constexpr ( sizeof( cid ) == 2 )
-				return 1 + ( uint64_t ) bit_cast< uint16_t >( cid );
+				return 1 + ( uint64_t ) xstd::bit_cast< uint16_t >( cid );
 			else if constexpr ( sizeof( cid ) == 1 )
-				return 1 + ( uint64_t ) bit_cast< uint8_t >( cid );
+				return 1 + ( uint64_t ) xstd::bit_cast< uint8_t >( cid );
 			else
 				static_assert( sizeof( cid ) == -1, "Invalid CID type." );
 		}
