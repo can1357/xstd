@@ -332,13 +332,13 @@ namespace xstd::zstd {
 		template<typename D = vec_buffer>
 		inline result<D> apply( std::span<const uint8_t> input ) {
 			result<D> output;
-			output.status = this->template append_into<T>( output.result.emplace(), input ).status;
+			output.status = this->template append_into<D>( output.result.emplace(), input ).status;
 			return output;
 		}
 		template<typename D = vec_buffer>
 		inline result<D> apply( const void* input, size_t len ) {
 			result<D> output;
-			output.status = this->template append_into<T>( output.result.emplace(), { (const uint8_t*) input, len } ).status;
+			output.status = this->template append_into<D>( output.result.emplace(), { (const uint8_t*) input, len } ).status;
 			return output;
 		}
 

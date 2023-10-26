@@ -92,7 +92,7 @@ namespace xstd::encode
 			//
 			std::vector<uint8_t> result;
 			size_t group_count = ( str.size() + dictionary.group_size_out() - 1 ) / dictionary.group_size_out();
-			uninitialized_resize( result, group_count * dictionary.group_size_in() + 1 );
+			result.resize( group_count * dictionary.group_size_in() + 1 );
 			uint8_t* rit = result.data();
 
 			// Read each group:

@@ -223,6 +223,12 @@ namespace xstd::ws
 		buffer = it;
 		return 0;
 	}
+	static int read( std::span<const uint8_t>& buffer, header& hdr ) {
+		std::string_view sv{ (char*) buffer.data(), buffer.size() };
+		bool ok = read( sv, hdr );
+		buffer = { (const uint8_t*) sv.data(), sv.size() };
+		return ok;
+	}
 	inline size_t write( uint8_t* buffer, const header& hdr )
 	{
 		size_t length = 0;

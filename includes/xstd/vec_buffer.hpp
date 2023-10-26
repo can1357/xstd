@@ -217,6 +217,12 @@ namespace xstd {
 			m_end = pend;
 			return pend;
 		}
+
+		// Resize as shrink with user guarantee.
+		//
+		FORCE_INLINE constexpr void mm_shrink_resize( size_t n ) {
+			m_end = m_beg + n;
+		}
 	public:
 
 		// Default constructor and size constructor.
@@ -280,6 +286,9 @@ namespace xstd {
 		//
 		FORCE_INLINE constexpr void resize( size_t n ) {
 			mm_resize( n );
+		}
+		FORCE_INLINE constexpr void shrink_resize( size_t n ) {
+			mm_shrink_resize( n );
 		}
 		FORCE_INLINE constexpr void reserve( size_t n ) {
 			mm_reserve( n );
@@ -411,10 +420,4 @@ namespace xstd {
 		//
 		FORCE_INLINE constexpr ~vec_buffer() { mm_free(); }
 	};
-	FORCE_INLINE inline constexpr void uninitialized_resize( vec_buffer& ref, size_t length ) {
-		ref.resize( length );
-	}
-	FORCE_INLINE inline constexpr void shrink_resize( vec_buffer& ref, size_t length ) {
-		ref.pop( ref.size() -  length );
-	}
 };

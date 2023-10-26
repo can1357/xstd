@@ -1601,65 +1601,67 @@ namespace xstd
 	template<typename T, typename A>
 	using swap_allocator_t = typename swap_allocator<T, A>::type;
 
-	// Optimized helpers for STL containers.
+	// Optimized helpers for STL-like containers.
 	//
-	template<typename T>
-	FORCE_INLINE inline constexpr void uninitialized_resize( std::vector<T>& ref, size_t length )
-	{
-		if ( !std::is_constant_evaluated() )
-		{
-#if USING_MS_STL && defined(__XSTD_NO_BIG_ALLOC_SENTINEL)
-			if constexpr ( !Same<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) )
-			{
-				auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) ref;
-				size_t capacity = vec._Myend - vec._Myfirst;
-				if ( capacity >= length ) [[likely]]
-				{
+	template<typename T> 
+	concept ShrinkResizable = requires( T && x ) { x.shrink_resize( 0 ); };
+
+	template<typename C>
+	FORCE_INLINE inline constexpr void shrink_resize( C& ref, size_t length ) {
+		if constexpr ( ShrinkResizable<C> ) {
+			ref.shrink_resize( length );
+			return;
+		}
+
+		if ( !std::is_constant_evaluated() ) {
+#if USING_MS_STL
+			if constexpr ( StdVector<C> ) {
+				using T = iterable_val_t<C>;
+				if constexpr ( !std::is_same_v<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) ) {
+					auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) ref;
 					vec._Mylast = vec._Myfirst + length;
+					return;
 				}
-				else
-				{
-					size_t new_capacity = std::max( length, capacity + ( capacity >> 1 ) );
-					T* buffer = ( T* ) realloc( vec._Myfirst, new_capacity * sizeof( T ) );
-					vec._Myfirst = buffer;
-					vec._Mylast =  buffer + length;
-					vec._Myend =   buffer + new_capacity;
+			}
+#endif
+			size_t prev_length = std::size( ref );
+			assume( prev_length >= length );
+		}
+
+		ref.resize( length );
+	}
+	template<typename C>
+	FORCE_INLINE inline constexpr void uninitialized_resize( C& ref, size_t length ) {
+		if ( !std::is_constant_evaluated() ) {
+#if USING_MS_STL
+			if constexpr ( StdVector<C> ) {
+				using T = iterable_val_t<C>;
+				if constexpr ( !std::is_same_v<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) ) {
+					auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) ref;
+#ifdef __XSTD_NO_BIG_ALLOC_SENTINEL
+					size_t capacity = vec._Myend - vec._Myfirst;
+					if ( capacity < length ) [[unlikely]] {
+						size_t new_capacity = length + ( capacity >> 1 );
+						T* buffer = (T*) realloc( vec._Myfirst, new_capacity * sizeof( T ) );
+						vec._Myfirst = buffer;
+						vec._Mylast =  buffer + length;
+						vec._Myend =   buffer + new_capacity;
+					}
+#else
+					ref.reserve( length );
+#endif
+					vec._Mylast = vec._Myfirst + length;
+					return;
 				}
-				return;
 			}
 #endif
 		}
-		ref.resize( length );
-	}
-	template<typename Container>
-	FORCE_INLINE inline constexpr void shrink_resize( Container& ref, size_t length )
-	{
-		if ( std::is_constant_evaluated() )
-			return ref.resize( length );
-		
-		size_t prev_length = ref.size();
-		assume( prev_length >= length );
 		ref.resize( length );
 	}
 	template<typename T>
-	FORCE_INLINE inline constexpr std::vector<T> make_uninitialized_vector( size_t length )
-	{
-		if ( !std::is_constant_evaluated() )
-		{
-#if USING_MS_STL && defined(__XSTD_NO_BIG_ALLOC_SENTINEL)
-			if constexpr ( !Same<T, bool> && sizeof( std::vector<T> ) == sizeof( std::_Vector_val<std::_Simple_types<T>> ) )
-			{
-				std::vector<T> result = {};
-				auto& vec = ( std::_Vector_val<std::_Simple_types<T>>& ) result;
-				vec._Myfirst = ( T* ) malloc( length * sizeof( T ) );
-				vec._Mylast  = vec._Myfirst + length;
-				vec._Myend =   vec._Myfirst + length;
-				return result;
-			}
-#endif
-		}
+	FORCE_INLINE inline constexpr std::vector<T> make_uninitialized_vector( size_t length ) {
 		std::vector<T> result = {};
-		result.resize( length );
+		uninitialized_resize( result, length );
 		return result;
 	}
 };
