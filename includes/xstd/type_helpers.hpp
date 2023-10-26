@@ -336,17 +336,6 @@ namespace xstd
 	template<typename T> concept StdString =       is_specialization_v<std::basic_string, T>;
 	template<typename T> concept StdStringView =   is_specialization_v<std::basic_string_view, T>;
 	template<typename T> concept InitializerList = is_specialization_v<std::initializer_list, T>;
-	template<typename T>
-	concept ContiguousContainer =
-		StdSpan<T> || 
-		StdStringView<T> || 
-		InitializerList<T> ||
-		StdArray<T> || 
-		Array<T> ||
-		Array<std::remove_cvref_t<T>> ||
-		StdVector<T> || 
-		StdString<T> ||
-		SmallVector<T>;
 
 	// Checks if the given lambda can be evaluated in compile time.
 	//
@@ -517,7 +506,7 @@ namespace xstd
 	template<typename T>
 	concept Iterable = requires( T&& v ) { std::begin( v ); std::end( v ); };
 	template<typename T>
-	concept ContiguousIterable = ContiguousContainer<std::remove_cvref_t<T>>;
+	concept ContiguousIterable = requires( T && v ) { std::data( v ); std::begin( v ); std::end( v ); };
 
 	template<typename T>
 	using iterator_t = decltype( std::begin( std::declval<T&>() ) );

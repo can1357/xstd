@@ -316,8 +316,8 @@ namespace xstd::zstd {
 		inline result<> into( std::span<uint8_t> output, std::span<const uint8_t> input ) {
 			return into( output.data(), output.size(), input.data(), input.size() );
 		}
-		template<typename T = vec_buffer>
-		inline result<> append_into( T& output, std::span<const uint8_t> input ) {
+		template<typename D = vec_buffer>
+		inline result<> append_into( D& output, std::span<const uint8_t> input ) {
 			size_t skip = std::size( output );
 			size_t alloc = frame_upperbound( input );
 			uninitialized_resize( output, alloc + skip );
@@ -329,15 +329,15 @@ namespace xstd::zstd {
 			}
 			return result;
 		}
-		template<typename T = vec_buffer>
-		inline result<T> apply( std::span<const uint8_t> input ) {
-			result<T> output;
+		template<typename D = vec_buffer>
+		inline result<D> apply( std::span<const uint8_t> input ) {
+			result<D> output;
 			output.status = this->template append_into<T>( output.result.emplace(), input ).status;
 			return output;
 		}
-		template<typename T = vec_buffer>
-		inline result<T> apply( const void* input, size_t len ) {
-			result<T> output;
+		template<typename D = vec_buffer>
+		inline result<D> apply( const void* input, size_t len ) {
+			result<D> output;
 			output.status = this->template append_into<T>( output.result.emplace(), { (const uint8_t*) input, len } ).status;
 			return output;
 		}
@@ -347,8 +347,8 @@ namespace xstd::zstd {
 		inline status stream( std::span<uint8_t>& dst, std::span<const uint8_t>& src, bool end = false, size_t step = out_size ) {
 			return xstd::zstd::stream( this->get(), dst, src, end, step );
 		}
-		template<typename T = vec_buffer>
-		inline result<> stream_into( T& dst, std::span<const uint8_t> src, bool flush = true, bool end = false, size_t step = out_size ) {
+		template<typename D = vec_buffer>
+		inline result<> stream_into( D& dst, std::span<const uint8_t> src, bool flush = true, bool end = false, size_t step = out_size ) {
 			end = end && flush;
 			size_t skip = std::size( dst );
 			size_t result = step;
