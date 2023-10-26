@@ -97,9 +97,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\statistics.hpp">
       <Filter>Numeric</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tcp.hpp">
-      <Filter>Network</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\http.hpp">
       <Filter>Network</Filter>
     </ClInclude>

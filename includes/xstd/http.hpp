@@ -5,7 +5,6 @@
 #include <string_view>
 #include <unordered_map>
 #include "generator.hpp"
-#include "tcp.hpp"
 #include "text.hpp"
 #include "assert.hpp"
 
@@ -457,40 +456,4 @@ namespace xstd::http
 			return retval;
 		}
 	};
-
-	// Sends a request through the TCP socket.
-	//
-	inline void send( tcp::client& socket, method_id method, std::string_view path, header_list headers, std::span<const uint8_t> body = {} )
-	{
-		socket.write( request_view{ .meta = { method, path }, .headers = headers, .body = body }.write() );
-	}
-
-	// Wrappers for the most common methods.
-	//
-	inline void get( tcp::client& socket, std::string_view path, header_list headers, std::span<const uint8_t> body = {} )
-	{
-		send( socket, method_id::GET, path, headers, body );
-	}
-	inline void post( tcp::client& socket, std::string_view path, header_list headers, std::span<const uint8_t> body = {} )
-	{
-		send( socket, method_id::POST, path, headers, body );
-	}
-
-	// Parses HTTP responses.
-	//
-	inline generator<response> parser( tcp::client& socket, bool header_only = false )
-	{
-		while ( true )
-		{
-			auto view = co_await socket.recv();
-			if ( view.empty() )
-				co_return;
-
-			if ( auto result = response::parse( view, header_only ) )
-			{
-				socket.forward_to( view );
-				co_yield *result;
-			}
-		}
-	}
 };
