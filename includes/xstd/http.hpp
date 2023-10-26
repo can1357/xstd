@@ -8,12 +8,11 @@
 #include "text.hpp"
 #include "assert.hpp"
 
-namespace xstd::http
+namespace xstd::http 
 {
 	// Status categories.
 	//
-	enum class status_category : uint8_t
-	{
+	enum class status_category : uint8_t {
 		none =          0,
 		informational = 1,
 		success =       2,
@@ -21,16 +20,14 @@ namespace xstd::http
 		client_error =  4,
 		server_error =  5,
 	};
+
 	// Traits of the status code.
 	//
-	static constexpr status_category get_status_category( uint32_t status_code ) 
-	{ 
+	static constexpr status_category get_status_category( uint32_t status_code ) { 
 		return status_category( status_code / 100 ); 
 	}
-	static constexpr bool is_success( uint32_t status_code ) 
-	{ 
-		switch ( get_status_category( status_code ) )
-		{
+	static constexpr bool is_success( uint32_t status_code )  { 
+		switch ( get_status_category( status_code ) ) {
 			case status_category::success:
 			case status_category::informational: return true;
 			default:                             return false;
@@ -40,8 +37,7 @@ namespace xstd::http
 
 	// HTTP methods.
 	//
-	enum method_id : uint8_t
-	{
+	enum method_id : uint8_t {
 		GET,
 		HEAD,
 		POST,
@@ -64,24 +60,21 @@ namespace xstd::http
 		"TRACE",
 		"PATCH"
 	};
-	static constexpr auto hash_method( std::string_view method )
-	{
+	static constexpr auto hash_method( std::string_view method ) {
 		uint32_t tmp = 0x811c9dc5;
 		for( auto c : method ) {
 			tmp = ( ( tmp ^ c ) | 0x20 ) * 0x01000193;
 		}
 		return tmp;
 	}
-	static constexpr auto method_hashmap = make_constant_series<std::size( method_map )>( [ ] <size_t N> ( const_tag<N> )
-	{
+	static constexpr auto method_hashmap = make_constant_series<std::size( method_map )>( [ ] <size_t N> ( const_tag<N> ) {
 		return hash_method( method_map[ N ] );
 	} );
 	static constexpr method_id find_method( std::string_view name ) {
-
 		auto method_hash = hash_method( name );
 		auto it = std::find( method_hashmap.begin(), method_hashmap.end(), method_hash );
 		if ( it == method_hashmap.end() )
-			return method_id::INVALID;
+			return INVALID;
 		else
 			return method_id( it - method_hashmap.begin() );
 	}
@@ -97,32 +90,43 @@ namespace xstd::http
 	// Declare the I/O helpers.
 	//
 	template<typename T> requires ( HeaderMap<T> || Same<header_list, T> || Same<header_span, T> )
-	inline void write( std::vector<uint8_t>& output, const T& headers )
-	{
-		for ( auto& [key, value] : headers )
-		{
-			output.insert( output.end(), key.begin(), key.end() );
-			output.insert( output.end(), { ':', ' ' } );
-			output.insert( output.end(), value.begin(), value.end() );
-			output.insert( output.end(), { '\r', '\n' } );
+	inline void write( std::vector<uint8_t>& output, const T& headers ) {
+		for ( auto& [key, value] : headers ) {
+			if ( !value.empty() ) {
+				output.insert( output.end(), key.begin(), key.end() );
+				output.insert( output.end(), { ':', ' ' } );
+				output.insert( output.end(), value.begin(), value.end() );
+				output.insert( output.end(), { '\r', '\n' } );
+			}
 		}
 	}
 	template<HeaderMap T>
-	inline bool read( std::string_view& input, T& headers )
-	{
-		while ( true )
-		{
-			// Read the line.
-			//
-			size_t i = input.find( "\r\n" );
-			if ( i == 0 ) {
+	inline bool read( std::string_view& input, T& headers ) {
+		using K = typename T::key_type;
+		using V = typename T::mapped_type;
+
+		// Find the end of headers, if not reached yet, fail.
+		//
+		auto end = input.find( "\r\n\r\n" );
+		if ( end == std::string::npos ) {
+			// No headers.
+			if ( input.starts_with( "\r\n" ) ) {
 				input.remove_prefix( 2 );
 				return true;
 			}
+			return false;
+		}
+		
+		// Parse each line:
+		//
+		std::string_view header_str = input.substr( 0, end + 2 );
+		while ( !header_str.empty() ) {
+			size_t i = header_str.find( "\r\n" );
 			if ( i == std::string::npos )
-				break;
-			std::string_view line = input.substr( 0, i );
-
+				return false;
+			std::string_view line = header_str.substr( 0, i );
+			header_str.remove_prefix( i + 2 );
+			
 			// Find the ending of the key.
 			//
 			size_t key_end = line.find( ": " );
@@ -131,43 +135,42 @@ namespace xstd::http
 
 			// Insert the key-value pair and remove the line.
 			//
-			using K = typename T::key_type;
-			using V = typename T::mapped_type;
-			std::string_view key = line.substr( 0, key_end );
+			std::string_view key =   line.substr( 0, key_end );
 			std::string_view value = line.substr( key_end + 2 );
 			headers[ K{ key } ] = V{ value };
-			input.remove_prefix( i + 2 );
 		}
-		return false;
-	}
-	inline bool skip_headers( std::string_view& input )
-	{
-		size_t i = input.find( "\r\n\r\n" );
-		if ( i == std::string::npos )
-			return false;
-		input.remove_prefix( i + 4 );
+
+		// Remove the entire list, indicate success.
+		//
+		input.remove_prefix( end + 4 );
 		return true;
+	}
+	template<HeaderMap T>
+	inline bool read( std::span<const uint8_t>& input, T& headers ) {
+		std::string_view sv{ (char*) input.data(), input.size() };
+		bool ok = read( sv, headers );
+		input = { (const uint8_t*) sv.data(), sv.size() };
+		return ok;
 	}
 
 	// Define the request header.
 	//
 	struct request_header
 	{
-		method_id method = GET;
-		std::string path = { '/' };
+		method_id   method = GET;
+		std::string path = "/";
 	};
 	struct request_header_view
 	{
-		method_id method;
-		std::string_view path;
+		method_id        method = GET;
+		std::string_view path = "/";
 	};
 	template<typename T> concept RequestHeader = Same<T, request_header> || Same<T, request_header_view>;
 
 	// Declare the I/O helpers.
 	//
 	template<RequestHeader T>
-	inline void write( std::vector<uint8_t>& output, const T& header )
-	{
+	inline void write( std::vector<uint8_t>& output, const T& header ) {
 		dassert( header.method < method_id::INVALID );
 		auto& method = method_map[ size_t( header.method ) ];
 		output.insert( output.end(), method.begin(), method.end() );
@@ -179,8 +182,7 @@ namespace xstd::http
 		output.insert( output.end(), version.begin(), version.end() );
 	}
 	template<RequestHeader T>
-	inline bool read( std::string_view& input, T& header )
-	{
+	inline bool read( std::string_view& input, T& header ) {
 		// Read the line.
 		//
 		size_t i = input.find( "\r\n" );
@@ -210,6 +212,13 @@ namespace xstd::http
 		input.remove_prefix( i + 2 );
 		return true;
 	}
+	template<RequestHeader T>
+	inline bool read( std::span<const uint8_t>& input, T& headers ) {
+		std::string_view sv{ (char*) input.data(), input.size() };
+		bool ok = read( sv, headers );
+		input = { (const uint8_t*) sv.data(), sv.size() };
+		return ok;
+	}
 
 	// Define the response header.
 	//
@@ -221,8 +230,8 @@ namespace xstd::http
 	};
 	struct response_header_view
 	{
-		uint32_t status;
-		std::string_view message;
+		uint32_t status = 200;
+		std::string_view message = {};
 	};
 	template<typename T> concept ResponseHeader = Same<T, response_header> || Same<T, response_header_view>;
 
@@ -245,8 +254,7 @@ namespace xstd::http
 		output.insert( output.end(), { '\r', '\n' } );
 	}
 	template<ResponseHeader T>
-	inline bool read( std::string_view& input, T& header )
-	{
+	inline bool read( std::string_view& input, T& header ) {
 		// Read the line.
 		//
 		size_t i = input.find( "\r\n" );
@@ -274,6 +282,13 @@ namespace xstd::http
 		input.remove_prefix( i + 2 );
 		return true;
 	}
+	template<ResponseHeader T>
+	inline bool read( std::span<const uint8_t>& input, T& headers ) {
+		std::string_view sv{ (char*) input.data(), input.size() };
+		bool ok = read( sv, headers );
+		input = { (const uint8_t*) sv.data(), sv.size() };
+		return ok;
+	}
 
 	// Implement the decoding for chunked input. Reads as many chunks as possible from rx-buffer
 	// into the output, returns false on failure and true on success. If rx buffer is not empty 
@@ -282,8 +297,7 @@ namespace xstd::http
 	template<typename T> 
 	concept Buffer = Same<T, std::string> || Same<T, std::string_view> || Same<T, std::vector<uint8_t>> || Same<T, std::vector<char>>;
 	template<Buffer T1, Buffer T2>
-	inline bool decode_chunked( T1& output, T2& rx_buffer )
-	{
+	inline bool decode_chunked( T1& output, T2& rx_buffer ) {
 		output.reserve( rx_buffer.size() );
 
 		bool status = true;
@@ -332,18 +346,30 @@ namespace xstd::http
 
 		// Remove the read parts from the buffer and return the status.
 		//
-		if ( buffer_view.empty() )
-		{
+		if ( buffer_view.empty() ) {
 			rx_buffer = {};
-		}
-		else
-		{
+		} else {
 			if constexpr ( Same<T2, std::string_view> )
 				rx_buffer.remove_prefix( buffer_view.data() - rx_buffer.data() );
 			else
 				rx_buffer.erase( rx_buffer.begin(), rx_buffer.begin() + ( buffer_view.data() - ( char* ) rx_buffer.data() ) );
 		}
 		return status;
+	}
+
+	// Body writer.
+	//
+	inline void end( std::vector<uint8_t>& output, std::span<const uint8_t> body = {} ) {
+		// If there is a body, set Content-Length, terminate header list, write the body.
+		//
+		if ( !body.empty() ) {
+			char buffer[ 128 ];
+			int length = sprintf_s( buffer, "Content-Length: %llu\r\n\r\n", body.size() );
+			output.insert( output.end(), &buffer[ 0 ], &buffer[ length ] );
+			output.insert( output.end(), body.begin(), body.end() );
+		} else {
+			output.insert( output.end(), { '\r', '\n' } );
+		}
 	}
 
 	// Describes a HTTP request.
@@ -361,28 +387,12 @@ namespace xstd::http
 
 		// Formats the header and the body.
 		//
-		std::vector<uint8_t> write( bool content_length_set = false ) const
+		std::vector<uint8_t> write() const
 		{
-			// Write the request header and the common headers.
-			//
 			std::vector<uint8_t> output = {};
-			output.reserve( body.size() + 512 );
 			http::write( output, meta );
 			http::write( output, headers );
-
-			// If there is a body and Content-Length is not set, do so.
-			//
-			if ( !body.empty() && !content_length_set )
-			{
-				char buffer[ 128 ];
-				int length = sprintf_s( buffer, "Content-Length: %llu\r\n", body.size() );
-				output.insert( output.end(), &buffer[ 0 ], &buffer[ length ] );
-			}
-
-			// Finalize header list, write the body.
-			//
-			output.insert( output.end(), { '\r', '\n' } );
-			output.insert( output.end(), body.begin(), body.end() );
+			http::end( output, body );
 			return output;
 		}
 	};
@@ -403,8 +413,7 @@ namespace xstd::http
 
 		// Parses a response given the received message.
 		//
-		static std::optional<response> parse( std::string_view& input, bool header_only = false )
-		{
+		static std::optional<response> parse( std::string_view& input, bool header_only = false ) {
 			// Parse the base headers.
 			//
 			std::optional<response> retval = {};
@@ -437,8 +446,7 @@ namespace xstd::http
 				// This is a oneshot decoder, for more specialized use cases user should use the underlying details.
 				//
 				if ( auto it = result.headers.find( "Transfer-Encoding" ); it != result.headers.end() && !istrcmp( it->second, "chunked" ) )
-				{
-					
+				{	
 					if ( !decode_chunked( result.body, input ) || input.empty() )
 						return std::nullopt;
 					if ( result.body.size() != result.content_length )

@@ -119,7 +119,9 @@ namespace xstd {
 		
 		// Amortization calculation.
 		FORCE_INLINE static constexpr size_t mm_amortize( size_t used, size_t offset = 0 ) {
-			return used + ( used >> 1 ) + offset + 128;
+			used = used + ( used >> 1 ) + offset;
+			used >>= 4;
+			return ++used << 4;
 		}
 
 		// Resize/reserve/shrink/unshift.

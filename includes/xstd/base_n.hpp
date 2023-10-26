@@ -14,7 +14,7 @@ namespace xstd::encode
 		inline constexpr std::array<char, 0x100> reverse_dictionary( const char( &v )[ N ] )
 		{
 			std::array<char, 0x100> res = { -1 };
-			for ( size_t n = 0; n != N; n++ )
+			for ( size_t n = 0; n != ( N - 2 ); n++ )
 				res[ ( uint8_t ) v[ n ] ] = ( char ) n;
 			return res;
 		}
@@ -22,7 +22,7 @@ namespace xstd::encode
 		inline constexpr std::array<char, 0x100> forward_dictionary( const char( &v )[ N ] )
 		{
 			std::array<char, 0x100> res = { -1 };
-			for ( size_t n = 0; n != N; n++ )
+			for ( size_t n = 0; n != ( N - 1 ); n++ )
 				res[ n ] = v[ n ];
 			return res;
 		}
@@ -85,14 +85,14 @@ namespace xstd::encode
 		template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
 		inline std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const Dc& dictionary )
 		{
-			if ( ( str.length() % dictionary.group_size_out() ) != 0 )
+			if ( dictionary.fill() && ( str.length() % dictionary.group_size_out() ) != 0 )
 				return {};
 
 			// Calculate the group count and reserve the output.
 			//
 			std::vector<uint8_t> result;
-			size_t group_count = str.size() / dictionary.group_size_out();
-			result.resize( group_count * dictionary.group_size_in() + 1 );
+			size_t group_count = ( str.size() + dictionary.group_size_out() - 1 ) / dictionary.group_size_out();
+			uninitialized_resize( result, group_count * dictionary.group_size_in() + 1 );
 			uint8_t* rit = result.data();
 
 			// Read each group:
@@ -128,13 +128,12 @@ namespace xstd::encode
 					break;
 				}
 			}
-			result.resize( rit - result.data() );
+			shrink_resize( result, rit - result.data() );
 			return result;
 		}
 	};
 	template<String S, bool bit_rev = true, typename Dc = dictionary<64>>
-	inline std::vector<uint8_t> rbase_n( S&& str, const Dc& dictionary )
-	{
+	inline std::vector<uint8_t> rbase_n( S&& str, const Dc& dictionary ) {
 		return impl::rbase_n( string_view_t<S>{ str }, dictionary );
 	}
 
@@ -196,10 +195,8 @@ namespace xstd::encode
 		result.resize( rit - result.data() );
 		return result;
 	}
-
 	template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>, ContiguousIterable T = const std::initializer_list<uint8_t>&>
-	inline std::basic_string<C> base_n( T&& c, const Dc& dictionary )
-	{
+	inline std::basic_string<C> base_n( T&& c, const Dc& dictionary ) {
 		return base_n<C, bit_rev, Dc>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), dictionary );
 	}
 
@@ -217,4 +214,20 @@ namespace xstd::encode
 		 "0123456789"
 		 "-_\0"
 	};
+	template<typename C = char, bool bit_rev = true, ContiguousIterable T = const std::initializer_list<uint8_t>&>
+	inline std::basic_string<C> base64( T&& c ) {
+		return base_n<C, bit_rev>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), base64_dictionary );
+	}
+	template<typename C = char, bool bit_rev = true, ContiguousIterable T = const std::initializer_list<uint8_t>&>
+	inline std::basic_string<C> base64_url( T&& c ) {
+		return base_n<C, bit_rev>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), base64url_dictionary );
+	}
+	template<String S, bool bit_rev = true>
+	inline std::vector<uint8_t> rbase64( S&& str ) {
+		return impl::rbase_n( string_view_t<S>{ str }, base64_dictionary );
+	}
+	template<String S, bool bit_rev = true>
+	inline std::vector<uint8_t> rbase64_url( S&& str ) {
+		return impl::rbase_n( string_view_t<S>{ str }, base64url_dictionary );
+	}
 };
