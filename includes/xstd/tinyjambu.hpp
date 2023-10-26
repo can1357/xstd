@@ -47,9 +47,9 @@ namespace xstd
 		FORCE_INLINE inline static constexpr std::array<unit_type, C> generate_iv()
 		{
 			if ( std::is_constant_evaluated() )
-				return make_random_n<unit_type, C>();
-			else
 				return make_crandom_n<unit_type, C>();
+			else
+				return make_srandom_n<unit_type, C>();
 		}
 		FORCE_INLINE inline static constexpr key_type generate_key() { return generate_iv<key_size>(); }
 
@@ -221,8 +221,7 @@ namespace xstd
 
 		// Tag calculation.
 		//
-		FORCE_INLINE constexpr tag_type finalize()
-		{
+		FORCE_INLINE constexpr tag_type finalize() {
 			return { update_single( rounds_2, framebits_fi ), update_single( rounds_1, framebits_fi ) };
 		}
 	};

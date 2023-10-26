@@ -108,7 +108,7 @@ namespace xstd {
 		// Rotate until mantissa is at the bottom, add 0.5 to shift from [-0.5, +0.5] to [0.0, 1.0].
 		//
 		v = rotl( v, mantissa_bits );
-		return bit_cast< F >( U( v ) ) + 0.5;
+		return bit_cast< F >( U( v ) ) + F( 0.5 );
 	}
 	template<Unsigned S> requires ( sizeof( S ) >= sizeof( double ) )
 	FORCE_INLINE CONST_FN inline constexpr double uniform_real( S v, double min, double max )

@@ -337,18 +337,14 @@ MUST_MATCH( DEBUG_BUILD );
 namespace xstd
 {
 	template<typename T>
-	FORCE_INLINE static constexpr bool is_consteval( T value ) noexcept
-	{
+	FORCE_INLINE static constexpr bool is_consteval( T value ) noexcept {
 #if __has_builtin(__builtin_constant_p)
 		return __builtin_constant_p( value );
 #else
 		return std::is_constant_evaluated();
 #endif
 	}
-	FORCE_INLINE static constexpr bool const_condition( bool value ) noexcept
-	{
-		return is_consteval( value ) && value;
-	}
+	FORCE_INLINE static constexpr bool const_condition( bool value ) noexcept { return is_consteval( value ) && value; }
 };
 
 // Define assume() / unreachable() / debugbreak() / fastfail(x).
@@ -457,6 +453,68 @@ FORCE_INLINE static task_priority_t get_task_priority()
 #endif
 	assume( value <= 0xF );
 	return value;
+}
+
+// Cycle counter.
+//
+FORCE_INLINE static uint64_t read_cycle_counter() {
+	uint64_t val = 0;
+#if __has_builtin(__builtin_readcyclecounter)
+	val = __builtin_readcyclecounter();
+#elif AMD64_TARGET && GNU_COMPILER
+	uint32_t low, high;
+	asm( "rdtsc" : "=a"( low ), "=d"( high ) );
+	val = low | ( uint64_t( high ) << 32 );
+#elif AMD64_TARGET && MS_COMPILER
+	val = __rdtsc();
+#elif ARM64_TARGET
+	asm( "mrs %0, cntvct_el0" : "=r"( val ) );
+#else
+	static std::atomic<uint64_t> ctr = 0;
+	val = ctr++;
+#endif
+	return val;
+}
+
+// Gets a pseudo thread identifier in a fast way.
+//
+FORCE_INLINE static size_t get_thread_uid() {
+#if AMD64_TARGET
+	#if WINDOWS_TARGET || OSX_TARGET
+		#if __has_builtin(__builtin_ia32_rdgsbase64)
+			return __builtin_ia32_rdgsbase64();
+		#elif MS_COMPILER
+			return _readgsbase_u64();
+		#else
+			size_t id;
+			asm( "rdgsbase %0" : "=r" ( id ) );
+			return id;
+		#endif
+	#else
+		#if __has_builtin(__builtin_ia32_rdfsbase64)
+			return __builtin_ia32_rdfsbase64();
+		#elif MS_COMPILER
+			return _readfsbase_u64();
+		#else
+			size_t id;
+			asm( "rdfsbase %0" : "=r" ( id ) );
+			return id;
+		#endif
+	#endif
+#elif __has_builtin(__builtin_thread_pointer)
+	return (size_t) __builtin_thread_pointer();
+#elif ARM64_TARGET
+	size_t tid;
+	#if RC_OSX
+		asm( "mrs %0, tpidrro_el0" : "=r"( tid ) );
+	#else
+		asm( "mrs %0, tpidr_el0" : "=r"( tid ) );
+	#endif
+	return tid;
+#else
+	static thread_local char __id;
+	return (size_t) &__id;
+#endif
 }
 
 // Declare some compiler dependant features.
