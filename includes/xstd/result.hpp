@@ -36,17 +36,14 @@ namespace xstd
 
 		// Wrappers allowing union-like access whilist staying constexpr.
 		//
-		inline constexpr void set_value( const char* new_value, bool allocated )
-		{
+		inline constexpr void set_value( const char* new_value, bool allocated ) {
 			full_value = new_value;
 			alloc_flag = allocated;
 		}
-		inline constexpr const char* get_value() const noexcept
-		{
+		inline constexpr const char* get_value() const noexcept {
 			return full_value;
 		}
-		inline constexpr bool is_allocated() const noexcept
-		{
+		inline constexpr bool is_allocated() const noexcept {
 			if ( !std::is_constant_evaluated() )
 				return alloc_flag;
 			else
@@ -57,10 +54,12 @@ namespace xstd
 		//
 		inline constexpr exception() {}
 		inline constexpr exception( std::nullptr_t ) {}
+		inline constexpr exception( std::nullopt_t ) {}
 		inline constexpr exception( const char* str ) { set_value( str, false ); }
 
 		// Construction from string.
 		//
+		inline exception( std::string_view str ) { assign_string( str.data(), str.length() ); }
 		inline exception( const std::string& str ) { assign_string( str.data(), str.length() ); }
 		COLD void assign_string( const char* data, size_t length = std::string::npos )
 		{
@@ -136,6 +135,33 @@ namespace xstd
 		inline constexpr auto begin() const { return get().begin(); }
 		inline constexpr auto end() const { return get().end(); }
 		inline std::string to_string() const { return c_str(); }
+
+		// value_or implementation.
+		//
+		template<typename... Tx>
+		inline constexpr exception value_or( Tx&&... args ) const& {
+			if ( has_value() ) {
+				return exception{ *this };
+			} else {
+				return exception{ std::forward<Tx>( args )... };
+			}
+		}
+		template<typename... Tx>
+		inline constexpr exception value_or( Tx&&... args ) & {
+			if ( has_value() ) {
+				return exception{ *this };
+			} else {
+				return exception{ std::forward<Tx>( args )... };
+			}
+		}
+		template<typename... Tx>
+		inline constexpr exception value_or( Tx&&... args ) && {
+			if ( has_value() ) {
+				return exception{ std::move( *this ) };
+			} else {
+				return exception{ std::forward<Tx>( args )... };
+			}
+		}
 	};
 
 	// Status traits.
