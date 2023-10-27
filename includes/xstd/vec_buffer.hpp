@@ -39,8 +39,14 @@ namespace xstd {
 				if ( count ) // This check is actually asserted by caller, only to prevent errors in compilers with no cxpr heap by introducing runtime condition.
 					result = new uint8_t[ count ]();
 			} else {
-				if ( !const_condition( !count ) ) // This check is actually asserted by caller, only optimizing codegen if known at compile time.
+				// This check is actually asserted by caller, only optimizing codegen if known at compile time.
+				if ( !const_condition( !count ) ) {
+#ifdef XSTD_VECBUF_ALLOC
+					result = (uint8_t*) XSTD_VECBUF_ALLOC( nullptr, count );
+#else
 					result = (uint8_t*) malloc( count );
+#endif
+				}
 			}
 			return result;
 		}
@@ -51,7 +57,11 @@ namespace xstd {
 			} else {
 				if ( const_condition( prev == nullptr ) )
 					return;
+#ifdef XSTD_VECBUF_ALLOC
+				if ( prev ) XSTD_VECBUF_ALLOC( prev, 0 );
+#else
 				free( prev );
+#endif
 			}
 		}
 		FORCE_INLINE static constexpr uint8_t* reallocate( uint8_t* prev, size_t size, size_t prev_size ) {
@@ -72,7 +82,11 @@ namespace xstd {
 				}
 				deallocate( prev );
 			} else {
+#ifdef XSTD_VECBUF_ALLOC
+				result = (uint8_t*) XSTD_VECBUF_ALLOC( prev, size );
+#else
 				result = (uint8_t*) realloc( prev, size );
+#endif
 			}
 			return result;
 		}
@@ -114,8 +128,6 @@ namespace xstd {
 			return base;
 		}
 		constexpr void mm_free() {
-			if ( const_condition( !m_base ) )
-				return;
 			detail::deallocate( m_base );
 			m_base = m_limit = m_beg = m_end = nullptr;
 		}
