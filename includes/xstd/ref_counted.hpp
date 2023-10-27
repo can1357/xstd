@@ -74,6 +74,10 @@ namespace xstd
 		constexpr T& operator*() const { return *ptr; }
 		constexpr T* get() const { return ptr; }
 
+		// Comparison.
+		//
+		constexpr auto operator<=>( const ref& ) const = default;
+
 		// Reference helpers.
 		//
 		size_t inc_ref() const { 
@@ -102,6 +106,14 @@ namespace xstd
 	template<typename T>
 	struct ref_counted : ref_counted_base
 	{
+		void inc_ref() const {
+			this->ref_count++;
+		}
+		template<typename Ty = T>
+		void dec_ref() const {
+			if ( !--this->ref_count )
+				delete const_cast<Ty*>( static_cast<const Ty*>( this ) );
+		}
 		template<typename Ty = T>
 		ref<Ty> add_ref() {  
 			return ref<Ty>{ static_cast<Ty*>( this ) };
