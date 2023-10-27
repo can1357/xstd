@@ -1608,6 +1608,13 @@ namespace xstd
 
 	template<typename C>
 	FORCE_INLINE inline constexpr void shrink_resize( C& ref, size_t length ) {
+#if DEBUG_BUILD
+		if ( !std::is_constant_evaluated() ) {
+			if ( std::size( ref ) < length )
+				fastfail( 0 );
+		}
+#endif
+
 		if constexpr ( ShrinkResizable<C> ) {
 			ref.shrink_resize( length );
 			return;

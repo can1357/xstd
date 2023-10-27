@@ -1,6 +1,7 @@
 #pragma once
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
+#include "assert.hpp"
 
 namespace xstd {
 	// Utilities.
@@ -33,15 +34,15 @@ namespace xstd {
 			return detail::shift_fwd( at, count, -(ptrdiff_t) shift );
 		}
 		FORCE_INLINE static constexpr uint8_t* allocate( size_t count ) {
+			uint8_t* result = nullptr;
 			if ( std::is_constant_evaluated() ) {
 				if ( count ) // This check is actually asserted by caller, only to prevent errors in compilers with no cxpr heap by introducing runtime condition.
-					return new uint8_t[ count ]();
-				return nullptr;
+					result = new uint8_t[ count ]();
 			} else {
-				if ( const_condition( !count ) ) // This check is actually asserted by caller, only optimizing codegen if known at compile time.
-					return nullptr;
-				return (uint8_t*) malloc( count );
+				if ( !const_condition( !count ) ) // This check is actually asserted by caller, only optimizing codegen if known at compile time.
+					result = (uint8_t*) malloc( count );
 			}
+			return result;
 		}
 		FORCE_INLINE static constexpr void deallocate( uint8_t* prev ) {
 			if ( std::is_constant_evaluated() ) {
@@ -62,17 +63,18 @@ namespace xstd {
 
 			// If constexpr:
 			//
+			uint8_t* result;
 			if ( std::is_constant_evaluated() ) {
-				uint8_t* result = allocate( size );
+				result = allocate( size );
 				if ( prev ) {
 					if ( size != 0 )
 						detail::copy( result, prev, std::min( size, prev_size ) );
 				}
 				deallocate( prev );
-				return result;
 			} else {
-				return (uint8_t*) realloc( prev, size );
+				result = (uint8_t*) realloc( prev, size );
 			}
+			return result;
 		}
 	};
 
@@ -104,6 +106,7 @@ namespace xstd {
 		// Assigns a newly allocated memory region.
 		FORCE_INLINE constexpr uint8_t* __restrict mm_reshape( size_t used, size_t total, size_t offset = 0 ) {
 			auto base = ( uint8_t* ) detail::reallocate( mm_base(), total, mm_capacity() );
+
 			m_beg =   base + offset;
 			m_end =   base + offset + used;
 			m_base =  base;
@@ -115,6 +118,13 @@ namespace xstd {
 				return;
 			detail::deallocate( m_base );
 			m_base = m_limit = m_beg = m_end = nullptr;
+		}
+
+		// Valdation.
+		FORCE_INLINE constexpr void mm_validate() const {
+			dassert( m_base <= m_limit );
+			dassert( m_base <= m_beg && m_beg <= m_limit );
+			dassert( m_base <= m_end && m_end <= m_limit );
 		}
 		
 		// Amortization calculation.
@@ -132,10 +142,12 @@ namespace xstd {
 			if ( ( m_beg + req_capacity ) > mm_limit() ) {
 				// Try eating dropped partition, or realloc.
 				//
-				if ( ( mm_base() + req_capacity ) < mm_limit() )
+				size_t offset = mm_offset();
+				if ( ( m_beg + req_capacity - offset ) < mm_limit() )
 					mm_drop_offset();
 				else
-					mm_reshape( mm_active(), mm_amortize( req_capacity ), mm_offset() );
+					mm_reshape( mm_active(), mm_amortize( req_capacity, offset ), offset );
+				mm_validate();
 			}
 		}
 		FORCE_INLINE constexpr void mm_resize( size_t req_size ) {
@@ -143,6 +155,7 @@ namespace xstd {
 				mm_reserve( req_size );
 			}
 			m_end = m_beg + req_size;
+			mm_validate();
 		}
 		NO_INLINE constexpr void mm_shrink() {
 			if ( size_t used = mm_active() ) {
@@ -151,6 +164,7 @@ namespace xstd {
 			} else {
 				mm_free();
 			}
+			mm_validate();
 		}
 		FORCE_INLINE constexpr void mm_drop_offset() {
 			if ( size_t offset = mm_offset() ) {
@@ -158,6 +172,7 @@ namespace xstd {
 				detail::shift_bwd( m_beg, length, offset );
 				m_beg  = m_base;
 				m_end  = m_base + length;
+				mm_validate();
 			}
 		}
 
@@ -165,6 +180,7 @@ namespace xstd {
 		//
 		FORCE_INLINE constexpr void mm_clear() {
 			m_beg = m_end = mm_base();
+			mm_validate();
 		}
 
 		// Appends [n] bytes to the arena and returns the pointer.
@@ -195,26 +211,29 @@ namespace xstd {
 				result = m_beg;
 				detail::shift_fwd( result + consumed_off, copy_len, n );
 			}
+			mm_validate();
 			return result;
 		}
 
 		// Removes [n] bytes from the beginning and returns the ephemeral pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict mm_shift( size_t n ) {
-			if ( mm_active() < n ) [[unlikely]]
+		FORCE_INLINE constexpr uint8_t* __restrict mm_shift( size_t n, bool unchecked = false ) {
+			if ( !unchecked && mm_active() < n ) [[unlikely]]
 				return nullptr;
 			uint8_t* pbeg = m_beg;
 			m_beg  = pbeg + n;
+			mm_validate();
 			return pbeg;
 		}
 
 		// Removes [n] bytes from the end and returns the ephemeral pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict mm_pop( size_t n ) {
-			if ( mm_active() < n ) [[unlikely]]
+		FORCE_INLINE constexpr uint8_t* __restrict mm_pop( size_t n, bool unchecked = false ) {
+			if ( !unchecked && mm_active() < n ) [[unlikely]]
 				return nullptr;
 			uint8_t* pend = m_end - n;
 			m_end = pend;
+			mm_validate();
 			return pend;
 		}
 
@@ -222,6 +241,11 @@ namespace xstd {
 		//
 		FORCE_INLINE constexpr void mm_shrink_resize( size_t n ) {
 			m_end = m_beg + n;
+			mm_validate();
+		}
+		FORCE_INLINE constexpr void mm_shrink_resize_reverse( size_t n ) {
+			m_beg = m_end - n;
+			mm_validate();
 		}
 	public:
 
@@ -290,6 +314,9 @@ namespace xstd {
 		FORCE_INLINE constexpr void shrink_resize( size_t n ) {
 			mm_shrink_resize( n );
 		}
+		FORCE_INLINE constexpr void shrink_resize_reverse( size_t n ) {
+			mm_shrink_resize_reverse( n );
+		}
 		FORCE_INLINE constexpr void reserve( size_t n ) {
 			mm_reserve( n );
 		}
@@ -355,18 +382,18 @@ namespace xstd {
 
 		// Removes [count] bytes from the beginning and returns the ephemeral pointer / copies the data.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict shift( size_t count ) {
-			return mm_shift( count );
+		FORCE_INLINE constexpr uint8_t* __restrict shift( size_t count, bool unchecked = true ) {
+			return mm_shift( count, unchecked );
 		}
-		FORCE_INLINE constexpr bool shift_range( std::span<uint8_t> data ) {
-			auto src = shift( data.size() );
+		FORCE_INLINE constexpr bool shift_range( std::span<uint8_t> data, bool unchecked = true ) {
+			auto src = shift( data.size(), unchecked );
 			if ( !src ) [[unlikely]] 
 				return data.empty();
 			detail::copy( data.data(), src, data.size() );
 			return true;
 		}
-		FORCE_INLINE constexpr vec_buffer shift_range( size_t n ) {
-			auto src = shift( n );
+		FORCE_INLINE constexpr vec_buffer shift_range( size_t n, bool unchecked = true ) {
+			auto src = shift( n, unchecked );
 			if ( !src ) return {};
 
 			vec_buffer result{};
@@ -379,21 +406,24 @@ namespace xstd {
 			}
 			return result;
 		}
+		FORCE_INLINE constexpr uint8_t* __restrict shift_if( size_t count ) { return shift( count, false ); }
+		FORCE_INLINE constexpr void shift_range_if( std::span<uint8_t> data ) { ( void ) shift_range( data, false ); }
+		FORCE_INLINE constexpr vec_buffer shift_range_if( size_t count ) { return shift_range( count, false ); }
 
 		// Removes [count] bytes from the end and returns the ephemeral pointer / copies the data.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict pop( size_t count ) {
-			return mm_pop( count );
+		FORCE_INLINE constexpr uint8_t* __restrict pop( size_t count, bool unchecked = true ) {
+			return mm_pop( count, unchecked );
 		}
-		FORCE_INLINE constexpr bool pop_range( std::span<uint8_t> data ) {
-			auto src = pop( data.size() );
+		FORCE_INLINE constexpr bool pop_range( std::span<uint8_t> data, bool unchecked = true ) {
+			auto src = pop( data.size(), unchecked );
 			if ( !src ) [[unlikely]] 
 				return data.empty();
 			detail::copy( data.data(), src, data.size() );
 			return true;
 		}
-		FORCE_INLINE constexpr vec_buffer pop_range( size_t n ) {
-			auto src = pop( n );
+		FORCE_INLINE constexpr vec_buffer pop_range( size_t n, bool unchecked = true ) {
+			auto src = pop( n, unchecked );
 			if ( !src ) return {};
 
 			vec_buffer result{};
@@ -406,6 +436,9 @@ namespace xstd {
 			}
 			return result;
 		}
+		FORCE_INLINE constexpr uint8_t* __restrict pop_if( size_t count ) { return pop( count, false ); }
+		FORCE_INLINE constexpr void pop_range_if( std::span<uint8_t> data ) { (void) pop_range( data, false ); }
+		FORCE_INLINE constexpr vec_buffer pop_range_if( size_t count ) { return pop_range( count, false ); }
 
 		// Span generation.
 		//
