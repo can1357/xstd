@@ -2196,7 +2196,7 @@ namespace xstd::math
 		return vec3_t<F>{ 1 - ( v + w ), v, w };
 	}
 };
-inline constexpr fp_t operator""_deg( long double deg ) { return xstd::math::to_rad( deg ); }
-inline constexpr fp_t operator""_deg( unsigned long long int deg ) { return xstd::math::to_rad( deg ); }
+inline constexpr fp_t operator""_deg( long double deg ) { return (fp_t) xstd::math::to_rad( deg ); }
+inline constexpr fp_t operator""_deg( unsigned long long int deg ) { return (fp_t) xstd::math::to_rad( deg ); }
 #undef fp_t
 #undef VEC_MATRIX_CONTRACT

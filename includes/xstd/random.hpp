@@ -97,7 +97,7 @@ namespace xstd {
 		// returned compared to the previous one which leads to equal distribution 
 		// between exponential levels.
 		//
-		constexpr bitcnt_t exponent_seed_bits = std::min<size_t>( 31, sizeof( S ) * 8 - ( mantissa_bits + 1 ) );
+		constexpr bitcnt_t exponent_seed_bits = ( bitcnt_t ) std::min<size_t>( 31, sizeof( S ) * 8 - ( mantissa_bits + 1 ) );
 		uint32_t exponent = exponent_0 - lsb( uint32_t( v ) | ( 1u << exponent_seed_bits ) );
 
 		// Clear and replace the exponent bits.
@@ -138,7 +138,7 @@ namespace xstd {
 		if constexpr ( Same<I, bool> ) {
 			return ( seed & 1 ) ? min : max;
 		} else {
-			return min + uniform_integer( seed, S( S(max) - S(min) ) );
+			return min + (I) uniform_integer( seed, S( S(max) - S(min) ) );
 		}
 	}
 

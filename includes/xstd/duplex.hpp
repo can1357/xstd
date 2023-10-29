@@ -13,7 +13,7 @@ namespace xstd {
 
 		// Pause state.
 		//
-	private:
+	protected:
 		int16_t pause_count = 0;
 		int16_t cork_count = 0;
 	public:
@@ -29,7 +29,7 @@ namespace xstd {
 
 		// Stream has finished the written data, more data can be written directly. (e.g. TCP write buffer end).
 		//
-		virtual void on_drain( size_t hint ) {}
+		virtual void on_drain( xstd::vec_buffer& data, size_t hint ) {}
 
 		// Stream closed (e.g. TCP connect / reset).
 		//
@@ -39,7 +39,7 @@ namespace xstd {
 		// duplex will buffer any leftovers, where controller should manually consume again if the
 		// intention was to defer its processing.
 		//
-		virtual void on_input( std::span<const uint8_t>& data ) {}
+		virtual void on_input( xstd::vec_buffer& data ) {}
 	};
 
 	// Stream state.
@@ -53,7 +53,11 @@ namespace xstd {
 
 	// Stream source.
 	//
+	struct duplex_user;
 	struct duplex : ref_counted<duplex> {
+		friend struct duplex_user;
+		mutable xstd::recursive_xspinlock<2> mtx;
+
 		// Interface implemented by the underlying source.
 		//
 	protected:
@@ -64,33 +68,32 @@ namespace xstd {
 		// Internal state.
 		//
 	private:
-		mutable xstd::recursive_xspinlock<2> mtx;
 		duplex_state         state =    duplex_state::opening;
 		duplex_consumer*     consumer = nullptr;
 		xstd::exception      close_reason = {};
 		std::atomic<int16_t> cork_count = 0;
+		bool                 needs_drain = false;
 
 		// Recv/Send buffers.
 		//
 		xstd::vec_buffer  recv_buffer = {};
 		xstd::vec_buffer  send_buffer = {};
 
-		// Implement an interface similar to that of consumer but also including buffering.
+		// Implement an interface similar to that of consumer but also including buffering for the implementor's use.
 		//
-	protected:
+	public:
 		void on_ready() {
 			std::unique_lock lock{ mtx };
 			dassert( state == duplex_state::opening );
 			state = duplex_state::ready;
-			if ( consumer )
+			if ( consumer ) {
 				consumer->on_ready();
-		}
-		void on_drain( size_t hint = std::dynamic_extent ) {
-			std::unique_lock lock{ mtx };
-			hint -= flush_write( hint );
-			if ( hint && consumer ) {
-				consumer->on_drain( hint );
 			}
+		}
+		size_t on_drain( size_t hint = std::dynamic_extent ) {
+			std::unique_lock lock{ mtx };
+			needs_drain = false;
+			return flush_write( hint );
 		}
 		void on_close( const exception& ex ) {
 			std::unique_lock lock{ mtx };
@@ -101,29 +104,19 @@ namespace xstd {
 				}
 			}
 		}
-		void on_input( std::span<const uint8_t> data ) {
+		void on_input( std::span<const uint8_t> data, bool force_buffer = false ) {
 			std::unique_lock lock{ mtx };
-			if ( paused() ) {
-				recv_buffer.append_range( data );
-				return;
-			}
-			if ( recv_buffer ) {
-				recv_buffer.append_range( data );
-				flush_read();
-			} else {
-				consumer->on_input( data );
-				recv_buffer.append_range( data );
+			recv_buffer.append_range( data );
+			if ( !force_buffer && consumer ) {
+				if ( !consumer->paused() )
+					consumer->on_input( recv_buffer );
 			}
 		}
-	public:
+
 		// Corking.
 		//
 		bool corked() const { 
 			return cork_count.load( std::memory_order::relaxed ) > 0; 
-		}
-		bool paused() const {
-			auto c = std::atomic_ref{ consumer }.load( std::memory_order::relaxed );
-			return !c || c->paused(); 
 		}
 		bool cork() {
 			return !cork_count++; 
@@ -131,7 +124,6 @@ namespace xstd {
 		bool uncork() {
 			if ( --cork_count )
 				return false;
-			std::unique_lock lock{ mtx };
 			flush_write();
 			return true;
 		}
@@ -173,7 +165,9 @@ namespace xstd {
 			if ( !try_close() ) {
 				state = duplex_state::closed;
 				auto ref = this->add_ref();
-				if ( consumer ) consumer->on_close( close_reason );
+				if ( consumer ) {
+					consumer->on_close( close_reason );
+				}
 				ref->terminate();
 			}
 		}
@@ -189,105 +183,72 @@ namespace xstd {
 			}
 			state = duplex_state::closed;
 			auto ref = this->add_ref();
-			if ( consumer ) consumer->on_close( close_reason );
+			if ( consumer ) {
+				consumer->on_close( close_reason );
+			}
 			ref->terminate();
 		}
 
 		// Reads more data from the stream.
 		//
-		void flush_read( size_t hint = std::dynamic_extent ) {
+		void flush_read() {
 			std::unique_lock lock{ mtx };
-			if ( paused() ) return;
-
-			hint = std::min( recv_buffer.size(), hint );
-			std::span<const uint8_t> range{ recv_buffer.subspan( 0, hint ) };
-			consumer->on_input( range );
-			hint -= range.size();
-			recv_buffer.shift( hint );
-			if ( recv_buffer.empty() ) {
-				recv_buffer.clear();
+			if ( consumer ) {
+				if ( !consumer->paused() )
+					consumer->on_input( recv_buffer );
 			}
 		}
 
-		// Outputs more data to the stream, returns the number of bytes removed from the internal buffer.
+		// Outputs more data to the stream.
 		//
-		size_t flush_write( size_t hint = std::dynamic_extent ) {
+		bool flush_write( size_t watermark_hint = std::dynamic_extent, bool force = false ) {
 			std::unique_lock lock{ mtx };
-			if ( state != duplex_state::ready || corked() )
-				return 0;
-			
-			hint = std::min( send_buffer.size(), hint );
-			if ( hint ) {
-				std::span<const uint8_t> range{ send_buffer.subspan( 0, hint ) };
-				try_output( range );
-				hint -= range.size();
-				send_buffer.shift( hint );
-				if ( send_buffer.empty() ) {
-					send_buffer.clear();
+
+			// Read more from the consumer.
+			//
+			if ( watermark_hint >= send_buffer.size() ) {
+				if ( consumer ) {
+					consumer->on_drain( this->send_buffer, watermark_hint - send_buffer.size() );
 				}
 			}
-			return hint;
+
+			if ( state != duplex_state::ready || corked() || ( !force && needs_drain ) ) {
+				return false;
+			}
+
+			std::span<const uint8_t> range{ send_buffer };
+			try_output( range );
+			needs_drain = !range.empty();
+			if ( range.empty() ) {
+				send_buffer.clear();
+				return true;
+			} else {
+				send_buffer.shrink_resize_reverse( range.size() );
+				return false;
+			}
 		}
 
 		// Writes data to the stream, returns true if data did not require buffering.
 		//
-		bool write( std::span<const uint8_t> data ) {
+		bool write( std::span<const uint8_t> data, bool force_buffer = false ) {
 			std::unique_lock lock{ mtx };
-			if ( state >= duplex_state::closing ) {
+			if ( state == duplex_state::closed ) {
 				return true;
 			}
-			if ( state != duplex_state::opening && !send_buffer && !corked() ) {
+			force_buffer = force_buffer || corked() || state == duplex_state::opening || needs_drain;
+			if ( send_buffer || force_buffer ) {
+				send_buffer.append_range( data );
+				if ( force_buffer ) return false;
+				return flush_write( 0 );
+			} else {
 				try_output( data );
-			}
-			if ( !data.empty() ) {
+				needs_drain = !data.empty();
+				if ( !needs_drain ) {
+					return true;
+				}
 				send_buffer.append_range( data );
 				return false;
 			}
-			return true;
-		}
-		bool write( xstd::vec_buffer data ) {
-			std::unique_lock lock{ mtx };
-			if ( state >= duplex_state::closing ) {
-				return true;
-			}
-			if ( state != duplex_state::opening && !send_buffer && !corked() ) {
-				std::span<const uint8_t> range{ data };
-				try_output( range );
-				data.shrink_resize_reverse( range.size() );
-			}
-			if ( !data.empty() ) {
-				if ( !send_buffer )
-					send_buffer = std::move( data );
-				else
-					send_buffer.append_range( data );
-				return false;
-			}
-			return true;
-		}
-
-		// Acquires the stream for a new consumer / detaches from the current one.
-		//
-		xstd::exception set_consumer( duplex_consumer* new_consumer ) {
-			std::unique_lock lock{ mtx };
-			if ( !new_consumer ) {
-				auto prev = std::exchange( consumer, nullptr );
-				if ( prev && prev->cork_count > 0 )
-					this->uncork();
-				return {};
-			} else if ( state > duplex_state::closing ) {
-				return close_reason;
-			} else if ( consumer ) {
-				return XSTD_ESTR( "stream is already being consumed" );
-			}
-
-			consumer = new_consumer;
-			if ( new_consumer->cork_count > 0 )
-				this->cork();
-			if ( state == duplex_state::ready ) {
-				new_consumer->on_ready();
-				this->flush_read();
-			}
-			return std::nullopt;
 		}
 
 		// Virtual destructor.
@@ -297,24 +258,44 @@ namespace xstd {
 
 	// Stream user.
 	//
-	template<typename T = duplex> requires std::is_base_of_v<duplex, T>
 	struct duplex_user : duplex_consumer {
+	public:
+		const ref<duplex> stream;
+		xstd::recursive_xspinlock<2>& mtx;
+	private:
+		std::unique_lock<xstd::recursive_xspinlock<2>> _ctor_lock{ mtx };
+		duplex_state _pending_state;
 	protected:
-		ref<T> stream = nullptr;
-		
+		duplex_user( ref<duplex> dup ) : stream( std::move( dup ) ), mtx( stream->mtx ) {
+			fassert( !stream->consumer );
+			stream->consumer = this;
+			_pending_state = stream->state;
+		}
+		void begin() {
+			if ( _pending_state == duplex_state::closing || _pending_state == duplex_state::closed ) {
+				this->on_close( stream->close_reason );
+			} else if ( _pending_state == duplex_state::ready ) {
+				this->on_ready();
+			}
+			_ctor_lock.unlock();
+		}
+		void end() {
+			stream->consumer = nullptr;
+			if ( stream.ref_count() == 1 )
+				stream->destroy();
+		}
+
 	public:
 		bool cork() {
 			if ( cork_count++ )
 				return false;
-			if ( stream )
-				stream->cork();
+			stream->cork();
 			return true;
 		}
 		bool uncork() {
 			if ( --cork_count )
 				return false;
-			if ( stream )
-				stream->uncork();
+			stream->uncork();
 			return true;
 		}
 		bool pause() {
@@ -323,34 +304,13 @@ namespace xstd {
 		bool unpause() {
 			if ( --pause_count )
 				return false;
-			if ( stream )
-				stream->flush_read();
+			stream->flush_read();
 			return true;
-		}
-
-		// Changes the bound stream.
-		//
-		xstd::exception bind( ref<T> new_stream ) {
-			if ( stream == new_stream )
-				return {};
-			if ( auto err = new_stream->set_consumer( this ) )
-				return err;
-			if ( stream && stream.ref_count() == 1 ) {
-				stream->destroy();
-			}
-			stream = std::move( new_stream );
-			return {};
-		}
-		void unbind() {
-			if ( stream && stream.ref_count() == 1 ) {
-				stream->destroy();
-				stream = {};
-			}
 		}
 
 	public:
 		~duplex_user() {
-			this->unbind();
+			this->end();
 		}
 	};
 };

@@ -13,7 +13,7 @@ namespace xstd
 	template<typename T>
 	struct ref
 	{
-		struct wrapper : T, ref_counted_base { using T::T; };
+		struct wrapper : ref_counted_base, T { using T::T; };
 		using store_type = std::conditional_t<HasBase<ref_counted_base, T>, T, wrapper>;
 
 		store_type* ptr = nullptr;

@@ -650,8 +650,8 @@ namespace xstd
 		}
 		static std::array<T, N> reflect( serialization& ctx )
 		{
-			std::aligned_storage_t<sizeof( std::array<T, N> ), alignof( std::array<T, N> )> tmp;
-			auto& result = ( std::array<T, N>& ) tmp;
+			alignas( std::array<T, N> ) char _space[ sizeof( std::array<T, N> ) ];
+			auto& result = *( std::array<T, N>* ) & _space[ 0 ];
 
 			if constexpr ( Trivial<T> && !Pointer<T> )
 			{
@@ -660,7 +660,7 @@ namespace xstd
 			else
 			{
 				for ( size_t i = 0; i != N; i++ )
-					new ( &result[ i ] ) T( ctx.read<T>() );
+					std::construct_at( &result[ i ], ctx.read<T>() );
 			}
 			return std::move( result );
 		}
