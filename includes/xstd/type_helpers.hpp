@@ -386,7 +386,7 @@ namespace xstd
 	template<typename F>
 	struct function_traits
 	{
-		static constexpr bool is_valid = false;
+		static constexpr bool is_valid =  false;
 		static constexpr bool is_vararg = false;
 		static constexpr bool is_lambda = false;
 	};
@@ -396,14 +396,17 @@ namespace xstd
 	template<typename R, typename... Tx>
 	struct function_traits<R(*)(Tx...)>
 	{
-		static constexpr bool is_valid = true;
+		static constexpr bool is_valid =  true;
 		static constexpr bool is_vararg = false;
 		static constexpr bool is_lambda = false;
 
-		using return_type = R;
-		using arguments =   std::tuple<Tx...>;
-		using owner =       void;
-		using normal_form = R( Tx... );
+		using return_type =        R;
+		using owner =              void;
+		using arguments =          std::tuple<Tx...>;
+		using invoke_arguments =   std::tuple<Tx...>;
+
+		template<typename F>
+		FORCE_INLINE static constexpr decltype( auto ) pack( F&& func ) { return std::forward<F>( func ); }
 	};
 	template<typename R, typename... Tx>
 	struct function_traits<R(*)(Tx..., ...)> : function_traits<R(*)(Tx...)>
@@ -416,44 +419,70 @@ namespace xstd
 	template<typename C, typename R, typename... Tx>
 	struct function_traits<R(C::*)(Tx...)>
 	{
-		static constexpr bool is_valid = true;
+		static constexpr bool is_valid =  true;
 		static constexpr bool is_vararg = false;
 		static constexpr bool is_lambda = false;
 
-		using return_type = R;
-		using arguments =   std::tuple<Tx...>;
-		using owner =       C;
-		using normal_form = R( Tx... );
-	};
-	template<typename C, typename R, typename... Tx>
-	struct function_traits<R(C::*)(Tx..., ...)> : function_traits<R(C::*)(Tx...)>
-	{
-		static constexpr bool is_vararg = true;
+		using return_type =        R;
+		using owner =              C;
+		using arguments =          std::tuple<Tx...>;
+		using invoke_arguments =   std::tuple<C*, Tx...>;
+
+		template<typename F>
+		FORCE_INLINE static constexpr auto pack( F&& func ) {
+			return [ func = std::forward<F>( func ) ] <typename... Ty> ( C* self, Ty&&... args ) mutable FORCE_INLINE -> R {
+				return ( self->*( std::forward<F>( func ) ) )( std::forward<Ty>( args )... );
+			};
+		}
 	};
 	template<typename C, typename R, typename... Tx>
 	struct function_traits<R(C::*)(Tx...) const>
 	{
-		static constexpr bool is_valid = true;
+		static constexpr bool is_valid =  true;
 		static constexpr bool is_vararg = false;
 		static constexpr bool is_lambda = false;
 
-		using return_type = R;
-		using arguments =   std::tuple<Tx...>;
-		using owner =       const C;
-		using normal_form = R( Tx... );
+		using return_type =      R;
+		using owner =            const C;
+		using arguments =        std::tuple<Tx...>;
+		using invoke_arguments = std::tuple<const C*, Tx...>;
+		
+		template<typename F>
+		FORCE_INLINE static constexpr auto pack( F&& func ) {
+			return [ func = std::forward<F>( func ) ] <typename... Ty> ( const C* self, Ty&&... args ) mutable FORCE_INLINE -> R {
+				return ( self->*( std::forward<F>( func ) ) )( std::forward<Ty>( args )... );
+			};
+		}
 	};
 	template<typename C, typename R, typename... Tx>
-	struct function_traits<R(C::*)(Tx..., ...) const> : function_traits<R(C::*)(Tx...) const>
-	{
-		static constexpr bool is_vararg = true;
-	};
+	struct function_traits<R(C::*)(Tx..., ...)> : function_traits<R(C::*)(Tx...)> { static constexpr bool is_vararg = true; };
+	template<typename C, typename R, typename... Tx>
+	struct function_traits<R(C::*)(Tx..., ...) const> : function_traits<R(C::*)(Tx...) const> { static constexpr bool is_vararg = true; };
 
 	// Lambdas or callables.
 	//
 	template<typename F> concept CallableObject = requires{ MemberFunction<decltype(&F::operator())>; };
-	template<CallableObject F> struct function_traits<F> : function_traits<decltype( &F::operator() )> 
-	{ 
-		static constexpr bool is_lambda = true;
+	template<CallableObject T>
+	struct function_traits<T> {
+		using subtraits = function_traits<decltype( &T::operator() )>;
+		
+		static constexpr bool is_valid =     true;
+		static constexpr bool is_vararg =    subtraits::is_vararg;
+		static constexpr bool is_lambda =    true;
+
+		using return_type =      typename subtraits::return_type;
+		using owner =            void;
+		using arguments =        typename subtraits::arguments;
+		using invoke_arguments = typename subtraits::arguments;
+		
+		template<typename F>
+		FORCE_INLINE static constexpr decltype( auto ) pack( F&& func ) { return std::forward<F>( func ); }
+	};
+	template<auto V>
+	struct function_traits<const_tag<V>> : function_traits<decltype(V)> {
+		FORCE_INLINE static constexpr decltype( auto ) pack( const_tag<V> ) { 
+			return function_traits<decltype( V )>::pack( V );
+		}
 	};
 	template<typename F> concept Function =        function_traits<F>::is_valid;
 	template<typename F> concept Lambda =          function_traits<F>::is_lambda;
@@ -1165,7 +1194,7 @@ namespace xstd
 		{
 			if constexpr ( Void<decltype( f( const_tag<( Ti ) 0>{} ) ) > )
 			{
-				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
+				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto&& self ) FORCE_INLINE
 				{
 					f( tag );
 					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
@@ -1179,7 +1208,7 @@ namespace xstd
 #if MS_COMPILER
 				// Needs to be default initializable on MSVC, fuck this.
 				Tp arr = {};
-				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
+				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self ) FORCE_INLINE
 				{
 					std::get<X>( arr ) = f( tag );
 					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
@@ -1199,7 +1228,7 @@ namespace xstd
 
 			if constexpr ( Void<R> )
 			{
-				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self )
+				auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self ) FORCE_INLINE
 				{
 					f( tag );
 					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
@@ -1212,7 +1241,7 @@ namespace xstd
 #if MS_COMPILER
 				// Needs to be default initializable on MSVC, fuck this.
 				std::array<R, sizeof...( I )> arr = {};
-				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self )
+				auto assign = [ & ] <Ti X> ( const_tag<X> tag, auto&& self ) FORCE_INLINE
 				{
 					std::get<X>( arr ) = f( tag );
 					if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )
@@ -1228,7 +1257,7 @@ namespace xstd
 		template<typename Ti, typename T, Ti... I>
 		FLATTEN FORCE_INLINE inline constexpr bool make_constant_search( T&& f, [[maybe_unused]] std::integer_sequence<Ti, I...> seq )
 		{
-			auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self ) {
+			auto eval = [ & ] <Ti X> ( const_tag<X> tag, auto && self ) FORCE_INLINE {
 				if ( f( tag ) )
 					return true;
 				else if constexpr ( ( X + 1 ) != ( sizeof...( I ) ) )

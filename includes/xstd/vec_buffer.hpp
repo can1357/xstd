@@ -269,6 +269,9 @@ namespace xstd {
 			m_limit = m_beg + n;
 			m_end =   m_beg + n;
 		}
+		FORCE_INLINE constexpr vec_buffer( size_t n, uint8_t fill ) : vec_buffer( n ) {
+			std::fill_n( m_beg, n, fill );
+		}
 
 		// Move by swap.
 		//
@@ -340,6 +343,9 @@ namespace xstd {
 		}
 		FORCE_INLINE constexpr void reset() {
 			mm_free();
+		}
+		FORCE_INLINE constexpr void drop_offset() {
+			mm_drop_offset();
 		}
 		FORCE_INLINE constexpr std::tuple<uint8_t*, uint8_t*, uint8_t*, uint8_t*> release() {
 			auto abeg = mm_base();
