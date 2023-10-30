@@ -292,6 +292,8 @@ namespace xstd {
 		// Copy by allocation.
 		//
 		FORCE_INLINE constexpr vec_buffer( std::span<const uint8_t> data ) { assign_range( data ); }
+		FORCE_INLINE constexpr vec_buffer( const uint8_t* beg, const uint8_t* end ) { assign_range( std::span{ beg, end } ); }
+		FORCE_INLINE constexpr vec_buffer( const uint8_t* beg, size_t size ) { assign_range( std::span{ beg, beg + size } ); }
 		FORCE_INLINE constexpr vec_buffer( const vec_buffer& other ) : vec_buffer( std::span{ other } ) {}
 		FORCE_INLINE constexpr vec_buffer& operator=( const vec_buffer& other ) {
 			if ( this == &other ) return *this;

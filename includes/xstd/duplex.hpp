@@ -3,6 +3,14 @@
 #include "vec_buffer.hpp"
 #include "spinlock.hpp"
 #include "ref_counted.hpp"
+#include "time.hpp"
+
+// [[Configuration]]
+// XSTD_IO_TPR: Task priority for I/O streams.
+//
+#ifndef XSTD_IO_TPR
+	#define XSTD_IO_TPR 2
+#endif
 
 namespace xstd {
 	// Stream consumer.
@@ -51,12 +59,33 @@ namespace xstd {
 		closed =  3,
 	};
 
+	// Stream statistics.
+	//
+	struct duplex_stats {
+		size_t drain_count = 0;
+		size_t drain_wait_count = 0;
+
+		size_t send_count = 0;
+		size_t write_count = 0;
+		size_t bytes_sent = 0;
+		size_t bytes_written = 0;
+
+		size_t recv_count = 0;
+		size_t read_count = 0;
+		size_t bytes_recv = 0;
+		size_t bytes_read = 0;
+
+		xstd::timestamp create_time = xstd::time::now();
+		xstd::timestamp ready_time = {};
+		xstd::timestamp close_time = {};
+	};
+
 	// Stream source.
 	//
 	struct duplex_user;
 	struct duplex : ref_counted<duplex> {
 		friend struct duplex_user;
-		mutable xstd::recursive_xspinlock<2> mtx;
+		mutable xstd::recursive_xspinlock<XSTD_IO_TPR> mtx;
 
 		// Interface implemented by the underlying source.
 		//
@@ -70,9 +99,10 @@ namespace xstd {
 	private:
 		duplex_state         state =    duplex_state::opening;
 		duplex_consumer*     consumer = nullptr;
-		xstd::exception      close_reason = {};
+		xstd::exception      error = {};
 		std::atomic<int16_t> cork_count = 0;
 		bool                 needs_drain = false;
+		duplex_stats         stats = {};
 
 		// Recv/Send buffers.
 		//
@@ -86,18 +116,21 @@ namespace xstd {
 			std::unique_lock lock{ mtx };
 			dassert( state == duplex_state::opening );
 			state = duplex_state::ready;
+			stats.ready_time = xstd::time::now();
 			if ( consumer ) {
 				consumer->on_ready();
 			}
 		}
 		size_t on_drain( size_t hint = std::dynamic_extent ) {
 			std::unique_lock lock{ mtx };
+			++stats.drain_count;
 			needs_drain = false;
 			return flush_write( hint );
 		}
 		void on_close( const exception& ex ) {
 			std::unique_lock lock{ mtx };
 			if ( state != duplex_state::closed ) {
+				stats.close_time = xstd::time::now();
 				state = duplex_state::closed;
 				if ( consumer ) {
 					consumer->on_close( ex );
@@ -106,10 +139,16 @@ namespace xstd {
 		}
 		void on_input( std::span<const uint8_t> data, bool force_buffer = false ) {
 			std::unique_lock lock{ mtx };
+			stats.recv_count++;
+			stats.bytes_recv += data.size();
 			recv_buffer.append_range( data );
 			if ( !force_buffer && consumer ) {
-				if ( !consumer->paused() )
+				if ( !consumer->paused() ) {
+					stats.read_count++;
+					size_t count = recv_buffer.size();
 					consumer->on_input( recv_buffer );
+					stats.bytes_read += count - recv_buffer.size();
+				}
 			}
 		}
 
@@ -147,26 +186,29 @@ namespace xstd {
 		xstd::exception get_error() const {
 			std::unique_lock lock{ mtx };
 			if ( state >= duplex_state::closing ) {
-				return close_reason;
+				return error;
 			} else {
 				return std::nullopt;
 			}
 		}
+		duplex_stats get_stats() const {
+			std::unique_lock lock{ mtx };
+			return stats;
+		}
 
 		// Closes the stream.
 		//
-		void close( xstd::exception reason = XSTD_ESTR( "stream closed" ) ) {
+		void close() {
 			std::unique_lock lock{ mtx };
 			if ( state >= duplex_state::closing ) {
 				return;
 			}
-			close_reason = std::move( reason );
 			state = duplex_state::closing;
 			if ( !try_close() ) {
 				state = duplex_state::closed;
 				auto ref = this->add_ref();
 				if ( consumer ) {
-					consumer->on_close( close_reason );
+					consumer->on_close( error );
 				}
 				ref->terminate();
 			}
@@ -174,17 +216,17 @@ namespace xstd {
 
 		// Destroys the stream.
 		//
-		void destroy( xstd::exception reason = XSTD_ESTR( "stream closed" ) ) {
+		void destroy( xstd::exception reason = XSTD_ESTR( "stream destroyed" ) ) {
 			std::unique_lock lock{ mtx };
 			if ( state == duplex_state::closed ) {
 				return;
 			} else if ( state != duplex_state::closing ) {
-				close_reason = std::move( reason );
+				error = std::move( reason );
 			}
 			state = duplex_state::closed;
 			auto ref = this->add_ref();
 			if ( consumer ) {
-				consumer->on_close( close_reason );
+				consumer->on_close( error );
 			}
 			ref->terminate();
 		}
@@ -194,8 +236,12 @@ namespace xstd {
 		void flush_read() {
 			std::unique_lock lock{ mtx };
 			if ( consumer ) {
-				if ( !consumer->paused() )
+				if ( !consumer->paused() ) {
+					stats.read_count++;
+					size_t count = recv_buffer.size();
 					consumer->on_input( recv_buffer );
+					stats.bytes_read += count - recv_buffer.size();
+				}
 			}
 		}
 
@@ -208,17 +254,24 @@ namespace xstd {
 			//
 			if ( watermark_hint >= send_buffer.size() ) {
 				if ( consumer ) {
+					++stats.write_count;
+					size_t count = send_buffer.size();
 					consumer->on_drain( this->send_buffer, watermark_hint - send_buffer.size() );
+					count = send_buffer.size() - count;
+					stats.bytes_written += count;
 				}
 			}
 
-			if ( state != duplex_state::ready || corked() || ( !force && needs_drain ) ) {
+			if ( ( state != duplex_state::ready && state != duplex_state::closing ) || corked() || ( !force && needs_drain ) ) {
 				return false;
 			}
 
 			std::span<const uint8_t> range{ send_buffer };
+			++stats.send_count;
 			try_output( range );
+			stats.bytes_sent += send_buffer.size() - range.size();
 			needs_drain = !range.empty();
+			if ( needs_drain ) ++stats.drain_wait_count;
 			if ( range.empty() ) {
 				send_buffer.clear();
 				return true;
@@ -235,17 +288,21 @@ namespace xstd {
 			if ( state == duplex_state::closed ) {
 				return true;
 			}
+			++stats.write_count;
+			stats.bytes_written += data.size();
 			force_buffer = force_buffer || corked() || state == duplex_state::opening || needs_drain;
 			if ( send_buffer || force_buffer ) {
 				send_buffer.append_range( data );
 				if ( force_buffer ) return false;
 				return flush_write( 0 );
 			} else {
+				size_t count = data.size();
+				++stats.send_count;
 				try_output( data );
+				stats.bytes_sent += count - data.size();
 				needs_drain = !data.empty();
-				if ( !needs_drain ) {
-					return true;
-				}
+				if ( needs_drain ) ++stats.drain_wait_count;
+				else return true;
 				send_buffer.append_range( data );
 				return false;
 			}
@@ -261,9 +318,9 @@ namespace xstd {
 	struct duplex_user : duplex_consumer {
 	public:
 		const ref<duplex> stream;
-		xstd::recursive_xspinlock<2>& mtx;
+		xstd::recursive_xspinlock<XSTD_IO_TPR>& mtx;
 	private:
-		std::unique_lock<xstd::recursive_xspinlock<2>> _ctor_lock{ mtx };
+		std::unique_lock<xstd::recursive_xspinlock<XSTD_IO_TPR>> _ctor_lock{ mtx };
 		duplex_state _pending_state;
 	protected:
 		duplex_user( ref<duplex> dup ) : stream( std::move( dup ) ), mtx( stream->mtx ) {
@@ -273,7 +330,7 @@ namespace xstd {
 		}
 		void begin() {
 			if ( _pending_state == duplex_state::closing || _pending_state == duplex_state::closed ) {
-				this->on_close( stream->close_reason );
+				this->on_close( stream->error );
 			} else if ( _pending_state == duplex_state::ready ) {
 				this->on_ready();
 			}

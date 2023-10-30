@@ -480,7 +480,7 @@ namespace xstd
 	};
 	template<auto V>
 	struct function_traits<const_tag<V>> : function_traits<decltype(V)> {
-		FORCE_INLINE static constexpr decltype( auto ) pack( const_tag<V> ) { 
+		FORCE_INLINE static constexpr auto pack( const_tag<V> ) {
 			return function_traits<decltype( V )>::pack( V );
 		}
 	};

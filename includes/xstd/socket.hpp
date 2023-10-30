@@ -419,7 +419,7 @@ namespace xstd::net {
 
 		protected:
 			void raise_errno( const char* fmt, socket_error e = detail::get_last_error( -1 ) ) {
-				close( { fmt, e } );
+				destroy( { fmt, e } );
 			}
 			bool assert_errno( const char* fmt, socket_error e ) {
 				if ( !e ) [[likely]] {
@@ -549,7 +549,7 @@ namespace xstd::net {
 								s->open_time = time;
 								s->on_ready();
 							} else if ( time > s->open_time ) {
-								s->close( XSTD_ESTR( "connection timeout" ) );
+								s->destroy( XSTD_ESTR( "connection timeout" ) );
 							}
 						} else {
 							if ( FD_ISSET( f, &wr_watch ) ) {
@@ -718,7 +718,7 @@ namespace xstd::net {
 #if XSTD_LWIP
 	// Global net lock, replaces LWIP core lock.
 	//
-	inline static xstd::recursive_xspinlock<2> g_lock = {};
+	inline static xstd::recursive_xspinlock<XSTD_IO_TPR> g_lock = {};
 	
 	// Implement DNS resolution.
 	//
@@ -803,7 +803,7 @@ namespace xstd::net {
 			pcb = tcp_new();
 			if ( !pcb ) {
 				lock.unlock();
-				this->close( XSTD_ESTR( "failed to create a socket" ) );
+				this->destroy( XSTD_ESTR( "failed to create a socket" ) );
 				return;
 			}
 
