@@ -84,6 +84,8 @@ namespace xstd {
 		xstd::timestamp create_time = xstd::time::now();
 		xstd::timestamp ready_time = {};
 		xstd::timestamp close_time = {};
+		xstd::timestamp last_recv_time = create_time;
+		xstd::timestamp last_send_time = create_time;
 	};
 
 	// Stream source.
@@ -92,6 +94,7 @@ namespace xstd {
 	struct duplex : ref_counted<duplex> {
 		friend struct duplex_user;
 		mutable io_mutex mtx;
+		duplex_stats     stats = {};
 
 		// Interface implemented by the underlying source.
 		//
@@ -108,7 +111,6 @@ namespace xstd {
 		xstd::exception      error = {};
 		std::atomic<int16_t> cork_count = 0;
 		bool                 needs_drain = false;
-		duplex_stats         stats = {};
 
 		// Recv/Send buffers.
 		//
@@ -146,6 +148,7 @@ namespace xstd {
 		void on_input( std::span<const uint8_t> data, bool force_buffer = false ) {
 			std::unique_lock lock{ mtx };
 			stats.recv_count++;
+			stats.last_recv_time = xstd::time::now();
 			stats.bytes_recv += data.size();
 			recv_buffer.append_range( data );
 			if ( !force_buffer && consumer ) {
@@ -280,6 +283,7 @@ namespace xstd {
 			++stats.send_count;
 			size_t count = send_buffer.size();
 			bool needs_drain_explicit = try_output( send_buffer );
+			stats.last_send_time = xstd::time::now();
 			stats.bytes_sent += count - send_buffer.size();
 			if ( send_buffer.empty() ) {
 				needs_drain = needs_drain_explicit;

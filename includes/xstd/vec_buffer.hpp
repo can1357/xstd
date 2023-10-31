@@ -388,6 +388,12 @@ namespace xstd {
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
 		}
+		FORCE_INLINE constexpr void push_back( uint8_t value ) {
+			*push( 1 ) = value;
+		}
+		FORCE_INLINE constexpr uint8_t& __restrict emplace_back( uint8_t value ) {
+			return ( *push( 1 ) = value );
+		}
 
 		// Prepends [count] bytes to the arena and returns the pointer.
 		//
@@ -398,6 +404,12 @@ namespace xstd {
 			auto dst = unshift( data.size() );
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
+		}
+		FORCE_INLINE constexpr void push_front( uint8_t value ) {
+			*unshift( 1 ) = value;
+		}
+		FORCE_INLINE constexpr uint8_t& __restrict emplace_front( uint8_t value ) {
+			return ( *unshift( 1 ) = value );
 		}
 
 		// Removes [count] bytes from the beginning and returns the ephemeral pointer / copies the data.

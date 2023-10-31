@@ -175,11 +175,11 @@ namespace xstd
 
 	// Encodes the given u64 in index format into a vector.
 	//
-	FORCE_INLINE inline void encode_index( std::vector<uint8_t>& out, uint64_t value )
+	template<typename Cont>
+	FORCE_INLINE inline void encode_index( Cont& out, uint64_t value )
 	{
 		size_t pos = out.size();
-		out.resize( pos + max_index_length );
-
+		uninitialized_resize( out, pos + max_index_length );
 		pos += encode_index( out.data() + pos, value );
 		shrink_resize( out, pos );
 	}
