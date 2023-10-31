@@ -182,6 +182,7 @@ namespace xstd::zstd {
 		return int64_t( status ) > 0 ? std::max( min_step, status ) : status;
 	}
 	inline static status stream( decompressor_ c, std::span<uint8_t>& dst, std::span<const uint8_t>& src, bool end = false, size_t min_step = 0 ) {
+		(void) end;
 		ZSTD_inBuffer in{ src.data(), src.size(), 0 };
 		ZSTD_outBuffer out{ dst.data(), dst.size(), 0 };
 		size_t retval = ZSTD_decompressStream( c, &out, &in );
