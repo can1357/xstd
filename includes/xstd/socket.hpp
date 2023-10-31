@@ -362,29 +362,27 @@ namespace xstd::net {
 				}
 #endif
 			}
-			void socket_send( std::span<const uint8_t>& buffer, int flags = 0 ) {
+			void socket_send( xstd::vec_buffer& buffer, int flags = 0 ) {
 #if XSTD_WINSOCK
-				if ( buffer.size() > UINT32_MAX )
-					buffer = buffer.subspan( 0, (size_t) UINT32_MAX );
+				uint32_t write_count = buffer.size() > 0xffffffffu ? 0xffffffffu : uint32_t( buffer.size() );
 				DWORD  count = 0;
-				WSABUF bufdesc = { (uint32_t) buffer.size(), (char*) buffer.data() };
+				WSABUF bufdesc = { write_count, (char*) buffer.data() };
 				if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
 					if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
 						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
 						return;
 					}
 				}
-				buffer = buffer.subspan( count );
+				buffer.shift( count );
 #else
-				if ( buffer.size() > INT32_MAX )
-					buffer = buffer.subspan( 0, (size_t) INT32_MAX );
-				if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int) buffer.size(), flags ); result == -1 ) [[unlikely]] {
+				uint32_t write_count = buffer.size() > 0x7fffffffu ? 0x7fffffffu : uint32_t( buffer.size() );
+				if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
 					if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
 						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
 						return;
 					}
 				} else {
-					buffer = buffer.subspan( (uint32_t) result );
+					buffer.shift( (uint32_t) result );
 				}
 #endif
 				evt_wr = true;
@@ -707,8 +705,9 @@ namespace xstd::net {
 		bool try_close() override {
 			return false;
 		}
-		void try_output( std::span<const uint8_t>& data ) override {
+		bool try_output( xstd::vec_buffer& data ) override {
 			this->socket_send( data );
+			return false;
 		}
 	};
 #endif
@@ -889,10 +888,11 @@ namespace xstd::net {
 			// TODO: Flush remaining data.
 			return false;
 		}
-		void try_output( std::span<const uint8_t>& data ) override {
+		bool try_output( xstd::vec_buffer& data ) override {
 			std::unique_lock lock{ g_lock };
 			size_t offset = tcpi_write( data.data(), data.size(), 0 );
-			data = data.subspan( offset );
+			data.shift( offset );
+			return false;
 		}
 
 	private:

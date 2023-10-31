@@ -21,20 +21,8 @@
 using bitcnt_t = int;
 namespace xstd
 {
-	// Micro-optimized implementation details to trick MSVC into actually optimizing it, like Clang :).
-	//
 	namespace impl
 	{
-		template<typename To, typename T>
-		FORCE_INLINE CONST_FN inline constexpr bool const_demote( T value )
-		{
-			return const_condition( To( value ) == value );
-		}
-		template<typename To, typename T1, typename T2>
-		FORCE_INLINE CONST_FN inline constexpr bool const_demote_and( T1 a, T2 b )
-		{
-			return const_demote<To>( a & b ) || const_demote<To>( a ) || const_demote<To>( b );
-		}
 #if !CLANG_COMPILER
 		inline constexpr auto bit_reverse_lookup_table = xstd::make_constant_series<0x100>( [] <int N> ( const_tag<N> )
 		{
@@ -699,18 +687,6 @@ namespace xstd
 	template<Integral I = uint64_t>
 	FORCE_INLINE CONST_FN inline constexpr I bit_pext( I value, I mask )
 	{
-		// Constant operand size demotion.
-		//
-		if constexpr ( sizeof( I ) > 1 )
-			if ( impl::const_demote_and<uint8_t>( value, mask ) )
-				return ( I ) bit_pext<uint8_t>( ( uint8_t ) value, ( uint8_t ) mask );
-		if constexpr ( sizeof( I ) > 2 )
-			if ( impl::const_demote_and<uint16_t>( value, mask ) )
-				return ( I ) bit_pext<uint16_t>( ( uint16_t ) value, ( uint16_t ) mask );
-		if constexpr ( sizeof( I ) > 4 )
-			if ( impl::const_demote_and<uint32_t>( value, mask ) )
-				return ( I ) bit_pext<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
-
 #if XSTD_HW_PDEP_PEXT && !defined(__INTELLISENSE__)
 		if ( !std::is_constant_evaluated() )
 		{
@@ -741,18 +717,6 @@ namespace xstd
 	template<Integral I = uint64_t>
 	FORCE_INLINE CONST_FN inline constexpr I bit_pdep( I value, I mask )
 	{
-		// Constant operand size demotion.
-		//
-		if constexpr ( sizeof( I ) > 1 )
-			if ( impl::const_demote<uint8_t>( mask ) )
-				return ( I ) bit_pdep<uint8_t>( ( uint8_t ) value, ( uint8_t ) mask );
-		if constexpr ( sizeof( I ) > 2 )
-			if ( impl::const_demote<uint16_t>( mask ) )
-				return ( I ) bit_pdep<uint16_t>( ( uint16_t ) value, ( uint16_t ) mask );
-		if constexpr ( sizeof( I ) > 4 )
-			if ( impl::const_demote<uint32_t>( mask ) )
-				return ( I ) bit_pdep<uint32_t>( ( uint32_t ) value, ( uint32_t ) mask );
-
 #if XSTD_HW_PDEP_PEXT && !defined(__INTELLISENSE__)
 		if ( !std::is_constant_evaluated() )
 		{
