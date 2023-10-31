@@ -125,7 +125,7 @@ namespace xstd::net {
 		bool await_suspend( std::coroutine_handle<> hnd );
 		xstd::result<ipv4> await_resume() const { return std::move( result ); }
 	};
-	using fn_dns_hook = bool(*)( dns_query_awaitable* );
+	using fn_dns_hook = bool(*)( dns_query_awaitable*, std::coroutine_handle<> );
 	inline fn_dns_hook g_dns_hook = nullptr;
 
 	// Standard options.
@@ -596,7 +596,7 @@ namespace xstd::net {
 				//
 				if ( !list_pos++ ) [[unlikely]] {
 					lg.unlock();
-					std::thread( [p = this] { p->runner_thread(); } ).detach();
+					xstd::chore( [p = this] { p->runner_thread(); } );
 				}
 				return true;
 			}
@@ -620,7 +620,7 @@ namespace xstd::net {
 	//
 	inline bool dns_query_awaitable::await_suspend( std::coroutine_handle<> hnd ) {
 		if ( !no_hook && g_dns_hook ) {
-			return g_dns_hook( this );
+			return g_dns_hook( this, hnd );
 		}
 
 		// Initialize network stack.
@@ -737,7 +737,7 @@ namespace xstd::net {
 	//
 	inline bool dns_query_awaitable::await_suspend( std::coroutine_handle<> hnd ) {
 		if ( !no_hook && g_dns_hook ) {
-			return g_dns_hook( this );
+			return g_dns_hook( this, hnd );
 		}
 		this->continuation = hnd;
 
