@@ -11,14 +11,17 @@
 // XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the std::future<> waits.
 //
 #ifndef XSTD_OS_EVENT_PRIMITIVE
-#include <future>
+#include <mutex>
+#include <condition_variable>
 namespace xstd
 {
 	struct event_primitive
 	{
-		std::promise<void> promise;
-		std::future<void> future;
-		inline event_primitive() { reset(); }
+		mutable std::condition_variable cv;
+		mutable std::mutex mtx;
+		bool notified = false;
+
+		event_primitive() {}
 
 		// Implement the interface.
 		// - void wait() const
@@ -31,20 +34,27 @@ namespace xstd
 		//
 		inline void wait() const
 		{
-			future.wait();
+			std::unique_lock lock{ mtx };
+			if ( notified ) return;
+			cv.wait( lock );
 		}
 		inline bool wait_for( long long milliseconds ) const
 		{
-			return future.wait_for( time::milliseconds{ milliseconds } ) == std::future_status::ready;
+			std::unique_lock lock{ mtx };
+			if ( notified ) return true;
+			return cv.wait_for( lock, time::milliseconds{ milliseconds } ) == std::cv_status::no_timeout;
 		}
 		inline void reset()
 		{
-			promise = {};
-			future = promise.get_future();
+			notified = false;
 		}
 		inline void notify() 
 		{ 
-			promise.set_value(); 
+			std::unique_lock lock{ mtx };
+			if ( !notified ) {
+				notified = true;
+				cv.notify_all();
+			}
 		}
 
 		inline auto handle() const { return this; }
