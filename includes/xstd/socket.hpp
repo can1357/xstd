@@ -590,7 +590,7 @@ namespace xstd::net {
 				// Set the entry.
 				//
 				list[list_pos] = fdd;
-				fdd->add_ref();
+				fdd->inc_ref();
 
 				// If it was not running, start.
 				//
