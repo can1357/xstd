@@ -8,6 +8,7 @@
 #include "time.hpp"
 #include "spinlock.hpp"
 #include "chore.hpp"
+#include "task.hpp"
 
 // Detect the underlying system libraries.
 //
@@ -109,8 +110,25 @@ namespace xstd::net {
 
 	// DNS resolver types and the global hook.
 	//
-	using fn_dns_callback = void(*)( void* ctx, const char* hostname, ipv4 addr, const exception& err );
-	using fn_dns_hook =     bool(*)( const char* hostname, fn_dns_callback cb, void* ctx );
+	struct dns_query_awaitable {
+		// Input.
+		//
+		const char* hostname;
+		bool no_hook;
+
+		// Output.
+		//
+		mutable xstd::result<ipv4> result = {};
+		std::coroutine_handle<> continuation = nullptr;
+
+		bool await_ready() const { return false; }
+		bool await_suspend( std::coroutine_handle<> hnd );
+		xstd::result<ipv4> await_resume() const { return std::move( result ); }
+	};
+	inline dns_query_awaitable query_dns_a( const char* hostname, bool no_hook = false ) {
+		return dns_query_awaitable{ hostname, no_hook };
+	}
+	using fn_dns_hook = bool(*)( dns_query_awaitable* );
 	inline fn_dns_hook g_dns_hook = nullptr;
 
 	// Standard options.
@@ -511,7 +529,7 @@ namespace xstd::net {
 
 					// Issue the select call, ignore errors since it may be caused by socket being closed.
 					//
-					int res = select( fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
+					int res = select( ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
 					auto time = xstd::time::now();
 
 					// For each socket we were watching:
@@ -603,19 +621,16 @@ namespace xstd::net {
 
 	// Implement DNS resolution.
 	//
-	inline void query_dns_a( const char* hostname, fn_dns_callback cb, void* ctx, bool no_hook = false ) {
-		// First try the hook.
-		//
-		if ( auto* hk = no_hook ? nullptr : g_dns_hook ) {
-			if ( hk( hostname, cb, ctx ) ) {
-				return;
-			}
+	inline bool dns_query_awaitable::await_suspend( std::coroutine_handle<> hnd ) {
+		if ( !no_hook && g_dns_hook ) {
+			return g_dns_hook( this );
 		}
 
 		// Initialize network stack.
 		//
 		if ( auto err = detail::init_networking() ) {
-			return cb( ctx, hostname, {}, { XSTD_ESTR( "failed to init net: %d",err ) } );
+			this->result.raise( xstd::exception{ XSTD_ESTR( "failed to init net: %d" ), err } );
+			return false;
 		}
 
 		// Create the hints.
@@ -632,7 +647,8 @@ namespace xstd::net {
 		//
 		addrinfo* result = nullptr;
 		if ( auto err = getaddrinfo( hostname, nullptr, &hints, &result ) ) {
-			return cb( ctx, hostname, {}, { XSTD_ESTR( "failed to query dns: %d",err ) } );
+			this->result.raise( xstd::exception{ XSTD_ESTR( "failed to query dns: %d" ), err } );
+			return false;
 		}
 		ipv4 ip = {};
 		for ( auto i = result; i; i = i->ai_next ) {
@@ -643,7 +659,8 @@ namespace xstd::net {
 			}
 		}
 		freeaddrinfo( result );
-		return cb( ctx, hostname, ip, {} );
+		this->result.emplace( ip );
+		return false;
 	}
 
 	// TCP implementation.
@@ -717,54 +734,30 @@ namespace xstd::net {
 #if XSTD_LWIP
 	// Global net lock, replaces LWIP core lock.
 	//
-	inline static xstd::recursive_xspinlock<XSTD_IO_TPR> g_lock = {};
+	inline static io_mutex g_lock = {};
 	
 	// Implement DNS resolution.
 	//
-	inline void query_dns_a( const char* hostname, fn_dns_callback cb, void* ctx, bool no_hook = false ) {
-		// First try the hook.
-		//
-		if ( auto* hk = no_hook ? nullptr : g_dns_hook ) {
-			if ( hk( hostname, cb, ctx ) ) {
-				return;
-			}
+	inline bool dns_query_awaitable::await_suspend( std::coroutine_handle<> hnd ) {
+		if ( !no_hook && g_dns_hook ) {
+			return g_dns_hook( this );
 		}
+		this->continuation = hnd;
 
-		// Create the request packet.
-		//
-		struct req_t {
-			std::string     hostname;
-			fn_dns_callback cb = nullptr;
-			void*           ctx = nullptr;
-			ipv4            result = {};
-		};
-		auto req = std::make_unique<req_t>();
-		req->hostname = hostname;
-		req->cb =       cb;
-		req->ctx =      ctx;
-
-		// With LWIP lock:
-		//
 		std::unique_lock lock{ g_lock };
-		err_t err = dns_gethostbyname_addrtype( req->hostname.c_str(), req->result.lwip(), [](const char* hostname, const ip_addr_t* ipaddr, void* callback_arg) {
-			std::unique_ptr<req_t> req{(req_t*) callback_arg};
-			req->cb( req->ctx, hostname, ipaddr, {} );
-		}, ctx, LWIP_DNS_ADDRTYPE_IPV4 );
-		lock.unlock();
+		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char* hostname, const ip_addr_t* ipaddr, void* callback_arg ) {
+			auto* ctx = ( (dns_query_awaitable*) callback_arg );
+			ctx->result.emplace( ipaddr );
+			xstd::chore( ctx->continuation );
+		}, this, LWIP_DNS_ADDRTYPE_IPV4 );
 
-		// If in progress, release the data we allocated, it will be completed async.
-		//
 		if ( err == ERR_INPROGRESS ) {
-			req.release();
-			return;
-		}
-
-		// Otherwise call the callback.
-		//
-		if ( err ) {
-			return cb( ctx, hostname, {}, { XSTD_ESTR( "failed to query dns: %d", err ) } );
+			return true;
+		} else if ( err ) {
+			this->result.raise( xstd::exception{ XSTD_ESTR( "failed to query dns: %d" ), err } );
+			return false;
 		} else {
-			return cb( ctx, hostname, req->result, {} );
+			return false;
 		}
 	}
 
