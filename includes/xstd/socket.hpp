@@ -526,7 +526,7 @@ namespace xstd::net {
 
 					// Issue the select call, ignore errors since it may be caused by socket being closed.
 					//
-					int res = select( ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
+					select( ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
 					auto time = xstd::time::now();
 
 					// For each socket we were watching:

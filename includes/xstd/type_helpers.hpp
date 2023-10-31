@@ -430,7 +430,7 @@ namespace xstd
 
 		template<typename F>
 		FORCE_INLINE static constexpr auto pack( F&& func ) {
-			return [ func = std::forward<F>( func ) ] <typename... Ty> ( C* self, Ty&&... args ) FORCE_INLINE mutable -> R {
+			return [ func = std::forward<F>( func ) ] <typename... Ty> ( C* self, Ty&&... args ) mutable -> R {
 				return ( self->*( std::forward<F>( func ) ) )( std::forward<Ty>( args )... );
 			};
 		}
@@ -449,7 +449,7 @@ namespace xstd
 		
 		template<typename F>
 		FORCE_INLINE static constexpr auto pack( F&& func ) {
-			return [ func = std::forward<F>( func ) ] <typename... Ty> ( const C* self, Ty&&... args ) FORCE_INLINE mutable -> R {
+			return [ func = std::forward<F>( func ) ] <typename... Ty> ( const C* self, Ty&&... args ) mutable -> R {
 				return ( self->*( std::forward<F>( func ) ) )( std::forward<Ty>( args )... );
 			};
 		}

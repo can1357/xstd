@@ -43,17 +43,24 @@ namespace xstd {
 
 		// Stream has finished the written data, more data can be written directly. (e.g. TCP write buffer end).
 		//
-		virtual void on_drain( xstd::vec_buffer& data, size_t hint ) {}
+		virtual void on_drain( xstd::vec_buffer& data,  size_t hint ) {
+			(void) data;
+			(void) hint;
+		}
 
 		// Stream closed (e.g. TCP connect / reset).
 		//
-		virtual void on_close( const exception& ex ) {}
+		virtual void on_close( const exception& ex ) {
+			(void) ex;
+		}
 
 		// Stream is outputting data, if controller does not consume it by changing its range,
 		// duplex will buffer any leftovers, where controller should manually consume again if the
 		// intention was to defer its processing.
 		//
-		virtual void on_input( xstd::vec_buffer& data ) {}
+		virtual void on_input( xstd::vec_buffer& data ) {
+			(void) data;
+		}
 	};
 
 	// Stream state.
