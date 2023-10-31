@@ -125,9 +125,6 @@ namespace xstd::net {
 		bool await_suspend( std::coroutine_handle<> hnd );
 		xstd::result<ipv4> await_resume() const { return std::move( result ); }
 	};
-	inline dns_query_awaitable query_dns_a( const char* hostname, bool no_hook = false ) {
-		return dns_query_awaitable{ hostname, no_hook };
-	}
 	using fn_dns_hook = bool(*)( dns_query_awaitable* );
 	inline fn_dns_hook g_dns_hook = nullptr;
 
@@ -1024,4 +1021,17 @@ namespace xstd::net {
 		}
 	};
 #endif
+
+	// Functional wrappers.
+	//
+	namespace connect {
+		inline ref<net::tcp> tcp( ipv4 adr, uint16_t port, socket_options opts = {} ) {
+			return make_refc<net::tcp>( adr, port, std::move( opts ) );
+		}
+	};
+	namespace dns {
+		inline net::dns_query_awaitable query_a( const char* hostname, bool no_hook = false ) {
+			return { hostname, no_hook };
+		}
+	};
 };

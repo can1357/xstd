@@ -107,7 +107,7 @@ namespace xstd {
 		FORCE_INLINE constexpr size_t mm_active() const { return m_end - m_beg; }
 
 		// Returns the allocation limits.
-		FORCE_INLINE constexpr uint8_t* __restrict mm_base() const { return m_base; }
+		FORCE_INLINE constexpr uint8_t* mm_base() const { return m_base; }
 		FORCE_INLINE constexpr uint8_t* mm_limit() const { return m_limit; }
 
 		// Returns the number of bytes after [m_end] that can be used.
@@ -118,7 +118,7 @@ namespace xstd {
 		FORCE_INLINE constexpr size_t mm_offset() const { return m_beg - mm_base(); }
 
 		// Assigns a newly allocated memory region.
-		FORCE_INLINE constexpr uint8_t* __restrict mm_reshape( size_t used, size_t total, size_t offset = 0 ) {
+		FORCE_INLINE constexpr uint8_t* mm_reshape( size_t used, size_t total, size_t offset = 0 ) {
 			auto base = ( uint8_t* ) detail::reallocate( mm_base(), total, mm_capacity() );
 
 			m_beg =   base + offset;
@@ -197,7 +197,7 @@ namespace xstd {
 
 		// Appends [n] bytes to the arena and returns the pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict mm_append( size_t n ) {
+		FORCE_INLINE constexpr uint8_t* mm_append( size_t n ) {
 			size_t pos = mm_active();
 			mm_resize( n + pos );
 			return m_beg + pos;
@@ -206,7 +206,7 @@ namespace xstd {
 
 		// Prepends [n] bytes to the arena and returns the pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict mm_prepend( size_t n ) {
+		FORCE_INLINE constexpr uint8_t* mm_prepend( size_t n ) {
 			// Consume all the offset.
 			//
 			size_t consumed_off = std::min( mm_offset(), n );
@@ -229,7 +229,7 @@ namespace xstd {
 
 		// Removes [n] bytes from the beginning and returns the ephemeral pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict mm_shift( size_t n, bool unchecked = false ) {
+		FORCE_INLINE constexpr uint8_t* mm_shift( size_t n, bool unchecked = false ) {
 			if ( !unchecked && mm_active() < n ) [[unlikely]]
 				return nullptr;
 			uint8_t* pbeg = m_beg;
@@ -240,7 +240,7 @@ namespace xstd {
 
 		// Removes [n] bytes from the end and returns the ephemeral pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict mm_pop( size_t n, bool unchecked = false ) {
+		FORCE_INLINE constexpr uint8_t* mm_pop( size_t n, bool unchecked = false ) {
 			if ( !unchecked && mm_active() < n ) [[unlikely]]
 				return nullptr;
 			uint8_t* pend = m_end - n;
@@ -303,24 +303,24 @@ namespace xstd {
 
 		// Observers.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict data() { return begin(); }
-		FORCE_INLINE constexpr const uint8_t* __restrict data() const { return begin(); }
-		FORCE_INLINE constexpr uint8_t* __restrict begin() { return m_beg; }
-		FORCE_INLINE constexpr const uint8_t* __restrict begin() const { return m_beg; }
+		FORCE_INLINE constexpr uint8_t* data() { return begin(); }
+		FORCE_INLINE constexpr const uint8_t* data() const { return begin(); }
+		FORCE_INLINE constexpr uint8_t* begin() { return m_beg; }
+		FORCE_INLINE constexpr const uint8_t* begin() const { return m_beg; }
 		FORCE_INLINE constexpr uint8_t* end() { return m_end; }
 		FORCE_INLINE constexpr const uint8_t* end() const { return m_end; }
 		FORCE_INLINE constexpr size_t size() const { return end() - begin(); }
 		FORCE_INLINE constexpr size_t capacity() const { return mm_capacity(); }
 		FORCE_INLINE constexpr size_t max_size() const { return SIZE_MAX; }
 		FORCE_INLINE constexpr bool empty() const { return m_beg == m_end; }
-		FORCE_INLINE constexpr uint8_t& __restrict at( size_t n ) { return data()[ n ]; }
-		FORCE_INLINE constexpr const uint8_t& __restrict at( size_t n ) const { return data()[ n ]; }
+		FORCE_INLINE constexpr uint8_t& at( size_t n ) { return data()[ n ]; }
+		FORCE_INLINE constexpr const uint8_t& at( size_t n ) const { return data()[ n ]; }
 		FORCE_INLINE constexpr uint8_t& front() { return *begin(); }
 		FORCE_INLINE constexpr const uint8_t& front() const { return *begin(); }
 		FORCE_INLINE constexpr uint8_t& back() { return end()[ -1 ]; }
 		FORCE_INLINE constexpr const uint8_t& back() const { return end()[ -1 ]; }
-		FORCE_INLINE constexpr uint8_t& __restrict operator[]( size_t n ) { return at( n ); }
-		FORCE_INLINE constexpr const uint8_t& __restrict operator[]( size_t n ) const { return at( n ); }
+		FORCE_INLINE constexpr uint8_t& operator[]( size_t n ) { return at( n ); }
+		FORCE_INLINE constexpr const uint8_t& operator[]( size_t n ) const { return at( n ); }
 		FORCE_INLINE constexpr explicit operator bool() const { return !empty(); }
 
 		// Mutators.
@@ -357,7 +357,7 @@ namespace xstd {
 			m_base = m_limit = m_beg = m_end = nullptr;
 			return { abeg, dbeg, dend, aend };
 		}
-		FORCE_INLINE constexpr uint8_t* __restrict insert_range( const uint8_t* it, std::span<const uint8_t> data ) {
+		FORCE_INLINE constexpr uint8_t* insert_range( const uint8_t* it, std::span<const uint8_t> data ) {
 			uint8_t* dst;
 			if ( it == end() ) {
 				dst = mm_append( data.size() );
@@ -380,10 +380,10 @@ namespace xstd {
 
 		// Appends [count] bytes to the arena and returns the pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict push( size_t count ) {
+		FORCE_INLINE constexpr uint8_t* push( size_t count ) {
 			return mm_append( count );
 		}
-		FORCE_INLINE constexpr uint8_t* __restrict append_range( std::span<const uint8_t> data ) {
+		FORCE_INLINE constexpr uint8_t* append_range( std::span<const uint8_t> data ) {
 			auto dst = push( data.size() );
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
@@ -391,16 +391,16 @@ namespace xstd {
 		FORCE_INLINE constexpr void push_back( uint8_t value ) {
 			*push( 1 ) = value;
 		}
-		FORCE_INLINE constexpr uint8_t& __restrict emplace_back( uint8_t value ) {
+		FORCE_INLINE constexpr uint8_t& emplace_back( uint8_t value ) {
 			return ( *push( 1 ) = value );
 		}
 
 		// Prepends [count] bytes to the arena and returns the pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict unshift( size_t count ) {
+		FORCE_INLINE constexpr uint8_t* unshift( size_t count ) {
 			return mm_prepend( count );
 		}
-		FORCE_INLINE constexpr uint8_t* __restrict prepend_range( std::span<const uint8_t> data ) {
+		FORCE_INLINE constexpr uint8_t* prepend_range( std::span<const uint8_t> data ) {
 			auto dst = unshift( data.size() );
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
@@ -408,13 +408,13 @@ namespace xstd {
 		FORCE_INLINE constexpr void push_front( uint8_t value ) {
 			*unshift( 1 ) = value;
 		}
-		FORCE_INLINE constexpr uint8_t& __restrict emplace_front( uint8_t value ) {
+		FORCE_INLINE constexpr uint8_t& emplace_front( uint8_t value ) {
 			return ( *unshift( 1 ) = value );
 		}
 
 		// Removes [count] bytes from the beginning and returns the ephemeral pointer / copies the data.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict shift( size_t count, bool unchecked = true ) {
+		FORCE_INLINE constexpr uint8_t* shift( size_t count, bool unchecked = true ) {
 			return mm_shift( count, unchecked );
 		}
 		FORCE_INLINE constexpr bool shift_range( std::span<uint8_t> data, bool unchecked = true ) {
@@ -438,13 +438,13 @@ namespace xstd {
 			}
 			return result;
 		}
-		FORCE_INLINE constexpr uint8_t* __restrict shift_if( size_t count ) { return shift( count, false ); }
+		FORCE_INLINE constexpr uint8_t* shift_if( size_t count ) { return shift( count, false ); }
 		FORCE_INLINE constexpr void shift_range_if( std::span<uint8_t> data ) { ( void ) shift_range( data, false ); }
 		FORCE_INLINE constexpr vec_buffer shift_range_if( size_t count ) { return shift_range( count, false ); }
 
 		// Removes [count] bytes from the end and returns the ephemeral pointer / copies the data.
 		//
-		FORCE_INLINE constexpr uint8_t* __restrict pop( size_t count, bool unchecked = true ) {
+		FORCE_INLINE constexpr uint8_t* pop( size_t count, bool unchecked = true ) {
 			return mm_pop( count, unchecked );
 		}
 		FORCE_INLINE constexpr bool pop_range( std::span<uint8_t> data, bool unchecked = true ) {
@@ -468,7 +468,7 @@ namespace xstd {
 			}
 			return result;
 		}
-		FORCE_INLINE constexpr uint8_t* __restrict pop_if( size_t count ) { return pop( count, false ); }
+		FORCE_INLINE constexpr uint8_t* pop_if( size_t count ) { return pop( count, false ); }
 		FORCE_INLINE constexpr void pop_range_if( std::span<uint8_t> data ) { (void) pop_range( data, false ); }
 		FORCE_INLINE constexpr vec_buffer pop_range_if( size_t count ) { return pop_range( count, false ); }
 
