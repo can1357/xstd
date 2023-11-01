@@ -105,9 +105,9 @@ namespace xstd
 	// Wrappers around std::this_thread::sleep_*.
 	//
 	template<Duration T>
-	static void sleep_for( T&& d ) { std::this_thread::sleep_for( std::forward<T>( d ) ); }
+	static void sleep_for( T d ) { std::this_thread::sleep_for( d ); }
 	template<Timestamp T>
-	static void sleep_until( T&& d ) { std::this_thread::sleep_until( std::forward<T>( d ) ); }
+	static void sleep_until( T d ) { std::this_thread::sleep_until( d ); }
 
 	// Times the callable given and returns pair [result, duration] if it has 
 	// a return value or just [duration].

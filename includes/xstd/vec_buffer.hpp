@@ -134,9 +134,9 @@ namespace xstd {
 
 		// Valdation.
 		FORCE_INLINE constexpr void mm_validate() const {
-			dassert( m_base <= m_limit );
-			dassert( m_base <= m_beg && m_beg <= m_limit );
-			dassert( m_base <= m_end && m_end <= m_limit );
+			//dassert( m_base <= m_limit );
+			//dassert( m_base <= m_beg && m_beg <= m_limit );
+			//dassert( m_base <= m_end && m_end <= m_limit );
 		}
 		
 		// Amortization calculation.

@@ -206,8 +206,8 @@ namespace xstd
 
 		// No copy allowed.
 		//
-		inline unique_coroutine( const unique_coroutine& ) = delete;
-		inline unique_coroutine& operator=( const unique_coroutine& ) = delete;
+		unique_coroutine( const unique_coroutine& ) = delete;
+		unique_coroutine& operator=( const unique_coroutine& ) = delete;
 
 		// Move by swap.
 		//

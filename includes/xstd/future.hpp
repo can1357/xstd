@@ -421,7 +421,7 @@ namespace xstd
 		void signal_async()
 		{
 			if ( auto h = signal(); h != noop_coroutine() )
-				xstd::chore( h );
+				xstd::chore( std::move( h ) );
 		}
 
 		// Resolution of the promise value.
