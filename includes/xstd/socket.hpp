@@ -160,7 +160,7 @@ namespace xstd::net {
 
 	// Global net lock, only protects the FDD list in Berkeley mode.
 	//
-	inline xstd::spinlock g_lock = {};
+	alignas( 64 ) inline xstd::spinlock g_lock = {};
 	namespace detail {
 		// Wrappers around functions differring between WSA / Berkeley standards.
 		//
@@ -377,30 +377,31 @@ namespace xstd::net {
 				}
 #endif
 			}
-			void socket_send( xstd::vec_buffer& buffer, int flags = 0 ) {
+			bool socket_send( xstd::vec_buffer& buffer, int flags = 0 ) {
+				uint32_t write_count = buffer.size() > opt.sendbuf ? opt.sendbuf : uint32_t( buffer.size() );
+				uint32_t count = 0;
 #if XSTD_WINSOCK
-				uint32_t write_count = buffer.size() > 0xffffffffu ? 0xffffffffu : uint32_t( buffer.size() );
-				DWORD  count = 0;
 				WSABUF bufdesc = { write_count, (char*) buffer.data() };
-				if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
+				if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, (DWORD*) &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
 					if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
 						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
-						return;
+						count = 0;
 					}
 				}
-				buffer.shift( count );
 #else
-				uint32_t write_count = buffer.size() > 0x7fffffffu ? 0x7fffffffu : uint32_t( buffer.size() );
 				if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
 					if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
 						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
-						return;
+					} else {
+						count = write_count;
 					}
 				} else {
-					buffer.shift( (uint32_t) result );
+					count = (uint32_t) result;
 				}
 #endif
+				buffer.shift( count );
 				evt_wr = true;
+				return false;
 			}
 
 			// Sets options.
@@ -720,8 +721,7 @@ namespace xstd::net {
 			return false;
 		}
 		bool try_output( xstd::vec_buffer& data ) override {
-			this->socket_send( data );
-			return false;
+			return this->socket_send( data );
 		}
 	};
 #endif
@@ -731,7 +731,7 @@ namespace xstd::net {
 #if XSTD_LWIP
 	// Global net lock, replaces LWIP core lock.
 	//
-	inline static io_mutex g_lock = {};
+	alignas( 64 ) inline static io_mutex g_lock = {};
 	
 	// Implement DNS resolution.
 	//
@@ -745,7 +745,8 @@ namespace xstd::net {
 		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char* hostname, const ip_addr_t* ipaddr, void* callback_arg ) {
 			auto* ctx = ( (dns_query_awaitable*) callback_arg );
 			ctx->result.emplace( ipaddr );
-			xstd::chore( ctx->continuation );
+			if ( ctx->continuation )
+				xstd::chore( std::move( ctx->continuation ) );
 		}, this, LWIP_DNS_ADDRTYPE_IPV4 );
 
 		if ( err == ERR_INPROGRESS ) {

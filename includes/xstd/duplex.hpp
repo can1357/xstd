@@ -108,7 +108,7 @@ namespace xstd {
 	protected:
 		virtual void terminate() {}
 		virtual bool try_close() { return false; }
-		virtual bool try_output( vec_buffer& data ) { return false; }
+		virtual bool try_output( vec_buffer& ) { return false; }
 
 		// Internal state.
 		//
@@ -271,14 +271,23 @@ namespace xstd {
 
 			// Read more from the consumer.
 			//
-			if ( watermark_hint >= send_buffer.size() ) {
+			bool buffer_empty = !send_buffer;
+			if ( buffer_empty || watermark_hint >= send_buffer.size() ) {
 				if ( consumer ) {
 					++stats.write_count;
 					size_t count = send_buffer.size();
 					consumer->on_drain( this->send_buffer, watermark_hint - send_buffer.size() );
 					count = send_buffer.size() - count;
 					stats.bytes_written += count;
+					buffer_empty = count == 0;
 				}
+			}
+
+			// If buffer is still empty, skip.
+			//
+			if ( buffer_empty ) {
+				needs_drain = false;
+				return true;
 			}
 
 			// If not open yet, corked, or needs drain skip.
