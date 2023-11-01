@@ -137,8 +137,8 @@ namespace xstd::net {
 	struct socket_options {
 		xstd::duration                conn_timeout = 5s;
 		xstd::duration                linger =       30s;
-		size_t                        recvbuf =      512_kb;
-		size_t                        sendbuf =      256_kb;
+		uint32_t                      recvbuf =      512_kb;
+		uint32_t                      sendbuf =      256_kb;
 		bool                          nodelay =      true;
 		bool                          timestamps =   false;
 		bool                          reuse =        true;
