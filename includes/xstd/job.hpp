@@ -34,12 +34,12 @@ namespace xstd {
 		struct awaiter {
 			unique_coroutine<promise_type> handle;
 
-			FORCE_INLINE inline bool await_ready() { return false; }
-			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) {
+			FORCE_INLINE inline bool await_ready() noexcept { return false; }
+			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) noexcept {
 				handle.promise().continuation = hnd;
 				return handle.hnd;
 			}
-			FORCE_INLINE inline T&& await_resume() const {
+			FORCE_INLINE inline T&& await_resume() const noexcept {
 				std::optional<T>& optional = handle.promise().placement;
 				bool set = optional.has_value();
 				assume( set );
@@ -86,12 +86,12 @@ namespace xstd {
 		};
 		struct awaiter {
 			unique_coroutine<promise_type> handle;
-			FORCE_INLINE inline bool await_ready() { return false; }
-			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) {
+			FORCE_INLINE inline bool await_ready() noexcept { return false; }
+			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) noexcept {
 				handle.promise().continuation = hnd;
 				return handle.hnd;
 			}
-			FORCE_INLINE inline void await_resume() const {}
+			FORCE_INLINE inline void await_resume() const noexcept {}
 		};
 
 		// Coroutine handle and the internal constructor.
@@ -120,7 +120,7 @@ namespace xstd {
 	// Make move-awaitable.
 	//
 	template<typename T>
-	FORCE_INLINE inline auto operator co_await( job<T>&& ref ) -> typename job<T>::awaiter {
+	FORCE_INLINE inline auto operator co_await( job<T>&& ref ) noexcept -> typename job<T>::awaiter {
 		return { std::move( ref.handle ) };
 	}
 };

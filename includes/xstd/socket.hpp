@@ -269,7 +269,7 @@ namespace xstd::net {
 
 			// Event flags.
 			//
-			std::atomic<bool> evt_wr = true;
+			std::atomic<int> evt_wr = 1;
 
 			// Constructed by protocol.
 			//
@@ -399,8 +399,8 @@ namespace xstd::net {
 					count = (uint32_t) result;
 				}
 #endif
+				evt_wr++;
 				buffer.shift( count );
-				evt_wr = true;
 				return false;
 			}
 
@@ -463,10 +463,6 @@ namespace xstd::net {
 				socket_t   fd[ fd_per_thread ];
 				fd_set     rd_watch, wr_watch, er_watch;
 
-				struct timeval timeout = {};
-				timeout.tv_sec =  1;
-				timeout.tv_usec = 0;
-
 				while ( true ) {
 					FD_ZERO( &rd_watch );
 					FD_ZERO( &wr_watch );
@@ -488,8 +484,10 @@ namespace xstd::net {
 									count++;
 									FD_SET( efd, &rd_watch );
 									FD_SET( efd, &er_watch );
-									if ( e->evt_wr.exchange( false ) )
+									if ( e->evt_wr.load( std::memory_order::relaxed ) > 0 ) {
+										--e->evt_wr;
 										FD_SET( efd, &wr_watch );
+									}
 								} else {
 									e->dec_ref();
 									e = nullptr;
@@ -527,6 +525,9 @@ namespace xstd::net {
 
 					// Issue the select call, ignore errors since it may be caused by socket being closed.
 					//
+					struct timeval timeout = {};
+					timeout.tv_sec = 0;
+					timeout.tv_usec = uint32_t( 50ms / 1us );
 					select( ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
 					auto time = xstd::time::now();
 
