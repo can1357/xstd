@@ -31,28 +31,41 @@ namespace xstd
 	//
 	struct TRIVIAL_ABI exception
 	{
-		const char* full_value = nullptr;
-		bool alloc_flag = false;
+		union {
+			const char* _str = nullptr;
+			struct {
+				uint64_t _ptr_rem :   63;
+				uint64_t _allocated : 1;
+			};
+		};
 
 		// Wrappers allowing union-like access whilist staying constexpr.
 		//
 		inline constexpr void set_value( const char* new_value, bool allocated ) {
-			full_value = new_value;
-			alloc_flag = allocated;
+			if ( !std::is_constant_evaluated() ) {
+				_ptr_rem =   (uint64_t) new_value;
+				_allocated = allocated ? 1 : 0;
+			} else {
+				_str = new_value;
+			}
 		}
 		inline constexpr const char* get_value() const noexcept {
-			return full_value;
+			if ( !std::is_constant_evaluated() ) {
+				return (const char*) ( (uint64_t) ( int64_t( _ptr_rem << 1 ) >> 1 ) );
+			} else {
+				return _str;
+			}
 		}
 		inline constexpr bool is_allocated() const noexcept {
 			if ( !std::is_constant_evaluated() )
-				return alloc_flag;
+				return _allocated;
 			else
 				return false;
 		}
 
 		// Construction from string literal.
 		//
-		inline constexpr exception() {}
+		inline constexpr exception() = default;
 		inline constexpr exception( std::nullptr_t ) {}
 		inline constexpr exception( std::nullopt_t ) {}
 		inline constexpr exception( const char* str ) { set_value( str, false ); }
@@ -61,14 +74,15 @@ namespace xstd
 		//
 		inline exception( std::string_view str ) { assign_string( str.data(), str.length() ); }
 		inline exception( const std::string& str ) { assign_string( str.data(), str.length() ); }
-		COLD void assign_string( const char* data, size_t length = std::string::npos )
-		{
-			if ( length == std::string::npos )
-				length = strlen( data );
-			char* res = new char[ length + 1 ];
-			std::copy( data, data + length, res );
+		NO_INLINE void assign_string( const char* data, size_t length ) {
+			char* res;
+			if ( _allocated ) {
+				res = (char*) realloc( (char*) get_value(), length + 1 );
+			} else {
+				res = (char*) malloc( length + 1 );
+			}
+			memcpy( res, data, length );
 			res[ length ] = 0;
-			reset();
 			set_value( res, true );
 		}
 		
@@ -77,10 +91,13 @@ namespace xstd
 		template<typename... Tx> requires ( sizeof...( Tx ) > 0 )
 		inline exception( const char* fmt, Tx&&... args ) { assign_fmt( fmt, std::forward<Tx>( args )... ); }
 		template<typename... Tx>
-		COLD void assign_fmt( const char* fmt, Tx&&... args )
-		{
-			std::string buffer{ xstd::fmt::str( fmt, std::forward<Tx>( args )... ) };
-			assign_string( buffer.data(), buffer.length() );
+		NO_INLINE void assign_fmt( const char* fmt, Tx&&... args ) {
+			char* base = nullptr;
+			if ( _allocated ) {
+				base = (char*) get_value();
+			}
+			xstd::fmt::into( [&]( size_t length ) { return ( base = (char*) realloc( base, length + 1 ) ); }, fmt, std::forward<Tx>( args )... );
+			set_value( base, true );
 		}
 
 		// Copy and move.
@@ -89,43 +106,35 @@ namespace xstd
 		inline constexpr exception( exception&& other ) noexcept { swap( other ); }
 		inline constexpr exception& operator=( const exception& other ) { assign( other ); return *this; }
 		inline constexpr exception& operator=( exception&& other ) noexcept { swap( other ); return *this; }
-		inline constexpr void swap( exception& o )
-		{
-			std::swap( full_value, o.full_value );
-			std::swap( alloc_flag, o.alloc_flag );
+		inline constexpr void swap( exception& o ) {
+			std::swap( _str, o._str );
 		}
-		inline constexpr void assign( const exception& o )
-		{
-			if ( !std::is_constant_evaluated() )
-			{
+		inline constexpr void assign( const exception& o ) {
+			if ( !std::is_constant_evaluated() ) {
 				if ( o.is_allocated() )
-					return assign_string( o.c_str() );
-				else if ( is_allocated() )
-					reset();
+					return assign_string( o.c_str(), strlen( o.c_str() ) );
+				else if ( is_allocated() && _str != o._str )
+					free( (void*) get_value() );
 			}
-			full_value = o.full_value;
-			alloc_flag = o.alloc_flag;
+			_str = o._str;
 		}
 
 		// Deallocate on deconstruction.
 		//
-		inline constexpr void reset()
-		{
-			if ( !std::is_constant_evaluated() )
-			{
+		inline constexpr void reset() {
+			if ( !std::is_constant_evaluated() ) {
 				if ( is_allocated() )
-					delete[] get_value();
+					free( (void*) get_value() );
 			}
-			full_value = nullptr;
-			alloc_flag = false;
+			_str = nullptr;
 		}
 		inline constexpr ~exception() { reset(); }
 
 		// Observers.
 		//
-		inline constexpr bool has_value() const { return full_value; }
+		inline constexpr bool has_value() const { return _str != nullptr; }
 		inline constexpr explicit operator bool() const { return has_value(); }
-		inline constexpr const char* c_str() const { return full_value ? get_value() : ""; }
+		inline constexpr const char* c_str() const { return _str ? get_value() : ""; }
 		inline constexpr const char* data() const { return c_str(); }
 		inline constexpr std::string_view get() const { return c_str(); }
 		inline constexpr size_t size() const { return get().size(); };

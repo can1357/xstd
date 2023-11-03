@@ -469,8 +469,7 @@ namespace xstd::fmt
 	// Used to allow use of any type in combination with "%(l)s".
 	//
 	template<typename B, typename T>
-	inline auto fix_parameter( B& buffer, T&& x )
-	{
+	inline auto fix_parameter( B& buffer, T&& x ) {
 		using base_type = std::decay_t<T>;
 		
 		if constexpr ( CustomStringConvertible<base_type> )
@@ -487,41 +486,58 @@ namespace xstd::fmt
 			return type_tag<T>{}; // Error.
 	}
 
+	// nprintf wrapper.
+	//
+	template<typename... T>
+	FORCE_INLINE static int nsprintf( char* o, size_t n, const char* f, T... args ) {
+		return snprintf( o, n, f, args... );
+	}
+	template<typename... T>
+	FORCE_INLINE static int nsprintf( wchar_t* o, size_t n, const wchar_t* f, T... args ) {
+		return swprintf( o, n, f, args... );
+	}
+
 	// Returns a formatted string.
 	//
 	template<typename C, typename F, typename... Tx>
-	FORCE_INLINE inline std::basic_string<C> vstr( F&& provider, const C* fmt_str, Tx&&... ps )
-	{
-		if constexpr ( sizeof...( Tx ) > 0 )
-		{
-			auto print_to_buffer = [ & ] ( const C* fmt_str, auto&&... args )
-			{
-				static constexpr size_t small_capacity = is_using_ms_stl() ? 15 / sizeof( C ) : 0;
+	FORCE_INLINE static std::basic_string_view<C> into( F&& allocator, const C* fmt_str, Tx&&... ps ) {
+		using char_traits = std::char_traits<C>;
+
+		if constexpr ( sizeof...( Tx ) > 0 ) {
+			auto print_to_buffer = [&]( const C* fmt_str, auto&&... args ) FORCE_INLINE {
+				C small_buffer[ 32 ];
+				int n = nsprintf( &small_buffer[ 0 ], 32, fmt_str, args... );
+				if ( n < 0 ) n = 0;
 				
-				std::basic_string<C> result( small_capacity, C{} );
-				result.resize( provider( result.data(), result.size() + 1, fmt_str, args... ) );
-				if ( result.size() > small_capacity )
-					provider( result.data(), result.size() + 1, fmt_str, args... );
+				C* buffer = allocator( size_t( n ) );
+				std::basic_string_view<C> result = { buffer, buffer + n };
+				if ( n <= 31 ) {
+					char_traits::copy( buffer, small_buffer, size_t( n + 1 ) );
+				} else {
+					nsprintf( buffer, n + 1, fmt_str, args... );
+				}
 				return result;
 			};
-
 			impl::format_buffer_for<std::decay_t<Tx>...> buf = {};
 			return print_to_buffer( fmt_str, fix_parameter( buf, std::forward<Tx>( ps ) )... );
-		}
-		else
-		{
-			return fmt_str;
+		} else {
+			size_t n = char_traits::length( fmt_str );
+			C* buffer = allocator( n );
+			char_traits::copy( buffer, fmt_str, n );
+			return { buffer, buffer + n };
 		}
 	}
 	template<typename... Tx>
-	inline std::string str( const char* fmt_str, Tx&&... ps )
-	{ 
-		return vstr<char>( [ ] <typename... T> ( char* o, size_t n, const char* f, T... args ) { return snprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
+	inline std::string str( const char* fmt_str, Tx&&... ps ) {
+		std::string result;
+		into( [ & ]( size_t n ) FORCE_INLINE { result.resize( n ); return result.data(); }, fmt_str, std::forward<Tx>( ps )... );
+		return result;
 	}
 	template<typename... Tx>
-	inline std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps )
-	{ 
-		return vstr<wchar_t>( [] <typename... T> ( wchar_t* o, size_t n, const wchar_t* f, T... args ) { return swprintf( o, n, f, args... ); }, fmt_str, std::forward<Tx>( ps )... );
+	inline std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps ) { 
+		std::wstring result;
+		into( [ & ]( size_t n ) FORCE_INLINE { result.resize( n ); return result.data(); }, fmt_str, std::forward<Tx>( ps )... );
+		return result;
 	}
 };
 #undef HAS_RTTI
