@@ -732,7 +732,7 @@ namespace xstd::net {
 #if XSTD_LWIP
 	// Global net lock, replaces LWIP core lock.
 	//
-	alignas( 64 ) inline static io_mutex g_lock = {};
+	alignas( 64 ) inline io_mutex g_lock = {};
 	
 	// Implement DNS resolution.
 	//
@@ -843,15 +843,8 @@ namespace xstd::net {
 				} else {
 					tcp_clear_flags( pcb, TF_NODELAY );
 				}
-#if LWIP_TCP_TIMESTAMPS
-				if ( opt.timestamps ) {
-					tcp_set_flags( pcb, TF_TIMESTAMP );
-				} else {
-					tcp_clear_flags( pcb, TF_TIMESTAMP );
-				}
-#else
-				opt.timestamps = false;
-#endif
+				opt.timestamps = LWIP_TCP_TIMESTAMPS;
+
 				if ( opt.keepalive ) {
 					pcb->keep_idle = ( uint32_t ) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
 					ip_set_option( pcb, SOF_KEEPALIVE );
@@ -869,9 +862,9 @@ namespace xstd::net {
 		//
 	protected:
 		void terminate() override {
-			std::unique_lock lock{ g_lock };
 			if ( auto prev_pcb = std::exchange( this->pcb, nullptr ) ) {
 				tcp_arg( prev_pcb, nullptr ); // Do not recurse.
+				std::unique_lock lock{ g_lock };
 				if ( tcp_close( prev_pcb ) != ERR_OK )
 					tcp_abort( prev_pcb );
 			}
@@ -917,8 +910,8 @@ namespace xstd::net {
 				// Try writing in increasingly smaller sizes.
 				//
 				err_t status;
-				do {
-					status = tcp_write( pcb, (char*) data + offset, (uint16_t) frag, TCP_WRITE_FLAG_COPY | ( ( last && ( offset + frag ) == length ) ? 0 : TCP_WRITE_FLAG_MORE ) );
+				while ( true ) {
+					status = tcp_write( pcb, (char*) data + offset, (uint16_t) frag, TCP_WRITE_FLAG_COPY );
 					if ( status != ERR_MEM ) {
 						break;
 					} else {
@@ -929,9 +922,14 @@ namespace xstd::net {
 							break;
 						} else {
 							frag >>= 1;
+							if ( frag < 256 ) {
+								frag = 0;
+								status = ERR_OK;
+								break;
+							}
 						}
 					}
-				} while ( false );
+				}
 
 				// If error, fail.
 				//
@@ -945,6 +943,7 @@ namespace xstd::net {
 					offset += frag;
 				}
 			}
+			tcp_output( pcb );
 			return offset;
 		}
 		err_t tcpi_close( xstd::exception ex, tcp_pcb* tpcb ) {
@@ -976,9 +975,12 @@ namespace xstd::net {
 			if ( cli ) {
 				if ( cli->opening() && cli->open_time > xstd::time::now() ) {
 					return cli->tcpi_close( XSTD_ESTR( "connection timed out" ), tpcb );
-				} else if ( cli->is_send_buffering() && tcp_sndbuf( tpcb ) ) {
+				}
+				if ( cli->is_send_buffering() ) {
 					cli->on_drain( tcp_sndbuf( tpcb ) );
 				}
+				tcp_output( tpcb );
+				return cli->pcb ? ERR_OK : ERR_ABRT;
 			}
 			return ERR_OK;
 		}
@@ -1007,6 +1009,7 @@ namespace xstd::net {
 		}
 		static err_t sock_sent( tcp* cli, tcp_pcb* tpcb, u16_t len ) {
 			if ( cli ) {
+				tcp_output( tpcb );
 				cli->on_drain( tcp_sndbuf( tpcb ) );
 				return cli->pcb ? ERR_OK : ERR_ABRT;
 			}

@@ -128,7 +128,8 @@ namespace xstd {
 			return base;
 		}
 		constexpr void mm_free() {
-			detail::deallocate( m_base );
+			if ( m_base )
+				detail::deallocate( m_base );
 			m_base = m_limit = m_beg = m_end = nullptr;
 		}
 

@@ -280,7 +280,7 @@ namespace xstd {
 					consumer->on_drain( this->send_buffer, watermark_hint - send_buffer.size() );
 					count = send_buffer.size() - count;
 					stats.bytes_written += count;
-					buffer_empty = count == 0;
+					buffer_empty = buffer_empty && count == 0;
 				}
 			}
 

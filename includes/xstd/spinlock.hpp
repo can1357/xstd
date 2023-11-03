@@ -373,12 +373,10 @@ namespace xstd
 			}
 		}
 		FORCE_INLINE void lock( task_priority_t prev ) {
-			uint64_t this_cid = get_cid();
-
 			// If we're not recursing:
 			//
 			uint64_t expected = owner_cid();
-			if ( expected != this_cid ) {
+			if ( expected != get_cid() ) {
 				while ( true ) {
 					// Wait until there's no owner.
 					//
@@ -389,8 +387,8 @@ namespace xstd
 
 					// If we could acquire, break.
 					//
-					set_task_priority( Tpr );
-					if ( underlying_lock::owner.compare_exchange_strong( expected, this_cid, std::memory_order::acquire ) )
+					set_task_priority( Tpr ); 
+					if ( underlying_lock::owner.compare_exchange_strong( expected, get_cid(), std::memory_order::acquire ) )
 						break;
 					set_task_priority( prev );
 				}
