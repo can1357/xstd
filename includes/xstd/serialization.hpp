@@ -14,10 +14,18 @@
 
 namespace xstd
 {
+	template<typename T>
+	concept TrivialForSerialization = 
+		TriviallyCopyable<T> && 
+		TriviallyDestructable<T> && 
+		DefaultConstructible<T> && 
+		TriviallyCopyAssignable<T> &&
+		!Tuple<T>;
+
 	namespace impl
 	{
 		template<typename T>
-		concept SafeObj = !Void<T> && ( Trivial<T> || Final<T> );
+		concept SafeObj = !Void<T> && ( TrivialForSerialization<T> || Final<T> );
 
 		// Magic tables for encoding/decoding of the indices.
 		//
@@ -418,7 +426,7 @@ namespace xstd
 
 	// Implement it for trivials, atomics, iterables, tuples, variants, hash type and optionals.
 	//
-	template<Trivial T> requires ( DefaultSerialized<T> && !Integral<T> )
+	template<TrivialForSerialization T> requires ( DefaultSerialized<T> && !Integral<T> )
 	struct serializer<T>
 	{
 		static void apply( serialization& ctx, const T& value )
@@ -493,7 +501,7 @@ namespace xstd
 			return T{ deserialize<typename T::value_type>( ctx ) };
 		}
 	};
-	template<Iterable T> requires ( DefaultSerialized<T> && !Trivial<T> && !StdArray<T> )
+	template<Iterable T> requires ( DefaultSerialized<T> && !TrivialForSerialization<T> && !StdArray<T> )
 	struct serializer<T>
 	{
 		static void apply( serialization& ctx, const T& value )
@@ -617,7 +625,7 @@ namespace xstd
 
 	// Acceleration for std::basic_string, std::vector<trivial>, std::array<trivial>.
 	//
-	template<Trivial T> requires ( !Pointer<T> )
+	template<TrivialForSerialization T> requires ( !Pointer<T> )
 	struct serializer<std::vector<T>>
 	{
 		static void apply( serialization& ctx, const std::vector<T>& value )
@@ -638,7 +646,7 @@ namespace xstd
 	{
 		static void apply( serialization& ctx, const std::array<T, N>& value )
 		{
-			if constexpr ( Trivial<T> && !Pointer<T> )
+			if constexpr ( TrivialForSerialization<T> && !Pointer<T> )
 			{
 				ctx.write( value.data(), N * sizeof( T ) );
 			}
@@ -653,7 +661,7 @@ namespace xstd
 			alignas( std::array<T, N> ) char _space[ sizeof( std::array<T, N> ) ];
 			auto& result = *( std::array<T, N>* ) & _space[ 0 ];
 
-			if constexpr ( Trivial<T> && !Pointer<T> )
+			if constexpr ( TrivialForSerialization<T> && !Pointer<T> )
 			{
 				ctx.read( result.data(), N * sizeof( T ) );
 			}
