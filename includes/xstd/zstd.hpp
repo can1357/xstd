@@ -427,11 +427,11 @@ namespace xstd::zstd {
 	inline result<T> compress( const void* input, size_t len, int level = default_level, zformat fmt = default_format ) {
 		return get_temporal<compressor>( level, fmt )->template apply<T>( input, len );
 	}
-	inline result<> decompress_from( std::span<uint8_t> output, std::span<const uint8_t> input, int level = default_level, zformat fmt = default_format ) {
+	inline result<> decompress_into( std::span<uint8_t> output, std::span<const uint8_t> input, int level = default_level, zformat fmt = default_format ) {
 		return get_temporal<decompressor>( level, fmt )->into( output, input );
 	}
 	template<typename T = vec_buffer>
-	inline result<> decompress_from( T& output, std::span<const uint8_t> input, int level = default_level, zformat fmt = default_format ) {
+	inline result<> decompress_into( T& output, std::span<const uint8_t> input, int level = default_level, zformat fmt = default_format ) {
 		return get_temporal<decompressor>( level, fmt )->append_into( output, input );
 	}
 	template<typename T = vec_buffer>

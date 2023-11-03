@@ -743,7 +743,7 @@ namespace xstd::net {
 		this->continuation = hnd;
 
 		std::unique_lock lock{ g_lock };
-		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char* hostname, const ip_addr_t* ipaddr, void* callback_arg ) {
+		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char*, const ip_addr_t* ipaddr, void* callback_arg ) {
 			auto* ctx = ( (dns_query_awaitable*) callback_arg );
 			ctx->result.emplace( ipaddr );
 			if ( ctx->continuation )
@@ -891,7 +891,7 @@ namespace xstd::net {
 		// Error type handlers.
 		//
 		void raise_errno( const char* fmt, err_t e ) {
-			close( { fmt, (int) e } );
+			destroy( { fmt, (int) e } );
 		}
 		bool assert_errno( const char* fmt, err_t e ) {
 			if ( !e ) [[likely]] {
