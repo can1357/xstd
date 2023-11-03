@@ -135,6 +135,7 @@ namespace xstd {
 			if ( consumer ) {
 				consumer->on_ready();
 			}
+			this->flush_write();
 		}
 		size_t on_drain( size_t hint = std::dynamic_extent ) {
 			std::unique_lock lock{ mtx };
