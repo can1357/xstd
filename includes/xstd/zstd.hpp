@@ -322,7 +322,7 @@ namespace xstd::zstd {
 			size_t skip = std::size( output );
 			size_t alloc = frame_upperbound( input );
 			uninitialized_resize( output, alloc + skip );
-			result<> result = into( std::span{ output }, input );
+			result<> result = into( std::span{ output }.subspan( skip ), input);
 			if ( result.fail() ) {
 				shrink_resize( output, skip );
 			} else {
