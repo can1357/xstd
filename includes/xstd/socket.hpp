@@ -528,7 +528,7 @@ namespace xstd::net {
 					struct timeval timeout = {};
 					timeout.tv_sec = 0;
 					timeout.tv_usec = uint32_t( 50ms / 1us );
-					select( ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
+					select( 1 + ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
 					auto time = xstd::time::now();
 
 					// For each socket we were watching:
