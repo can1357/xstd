@@ -346,6 +346,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\job.hpp">
       <Filter>Coroutines</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\wait_list.hpp">
+      <Filter>Containers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

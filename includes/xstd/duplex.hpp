@@ -25,15 +25,6 @@ namespace xstd {
 	struct duplex_consumer {
 		friend struct duplex;
 
-		// Pause state.
-		//
-	protected:
-		int16_t pause_count = 0;
-		int16_t cork_count = 0;
-	public:
-		bool paused() const { return pause_count > 0; }
-		bool corked() const { return cork_count > 0; }
-
 		// Interface implemented by the consumer.
 		//
 	protected:
@@ -116,7 +107,6 @@ namespace xstd {
 		duplex_state         state =    duplex_state::opening;
 		duplex_consumer*     consumer = nullptr;
 		xstd::exception      error = {};
-		std::atomic<int16_t> cork_count = 0;
 		bool                 needs_drain = false;
 
 		// Recv/Send buffers.
@@ -160,28 +150,11 @@ namespace xstd {
 			stats.bytes_recv += data.size();
 			recv_buffer.append_range( data );
 			if ( !force_buffer && consumer ) {
-				if ( !consumer->paused() ) {
-					stats.read_count++;
-					size_t count = recv_buffer.size();
-					consumer->on_input( recv_buffer );
-					stats.bytes_read += count - recv_buffer.size();
-				}
+				stats.read_count++;
+				size_t count = recv_buffer.size();
+				consumer->on_input( recv_buffer );
+				stats.bytes_read += count - recv_buffer.size();
 			}
-		}
-
-		// Corking.
-		//
-		bool corked() const { 
-			return cork_count.load( std::memory_order::relaxed ) > 0; 
-		}
-		bool cork() {
-			return !cork_count++; 
-		}
-		bool uncork() {
-			if ( --cork_count )
-				return false;
-			flush_write();
-			return true;
 		}
 
 		// Observers.
@@ -253,12 +226,10 @@ namespace xstd {
 		void flush_read() {
 			std::unique_lock lock{ mtx };
 			if ( consumer ) {
-				if ( !consumer->paused() ) {
-					stats.read_count++;
-					size_t count = recv_buffer.size();
-					consumer->on_input( recv_buffer );
-					stats.bytes_read += count - recv_buffer.size();
-				}
+				stats.read_count++;
+				size_t count = recv_buffer.size();
+				consumer->on_input( recv_buffer );
+				stats.bytes_read += count - recv_buffer.size();
 			}
 		}
 
@@ -293,7 +264,7 @@ namespace xstd {
 
 			// If not open yet, corked, or needs drain skip.
 			//
-			if ( state == duplex_state::opening || corked() || needs_drain ) {
+			if ( state == duplex_state::opening || needs_drain ) {
 				return false;
 			}
 
@@ -358,29 +329,6 @@ namespace xstd {
 			stream->consumer = nullptr;
 			if ( stream.ref_count() == 1 )
 				stream->destroy();
-		}
-
-	public:
-		bool cork() {
-			if ( cork_count++ )
-				return false;
-			stream->cork();
-			return true;
-		}
-		bool uncork() {
-			if ( --cork_count )
-				return false;
-			stream->uncork();
-			return true;
-		}
-		bool pause() {
-			return !pause_count++;
-		}
-		bool unpause() {
-			if ( --pause_count )
-				return false;
-			stream->flush_read();
-			return true;
 		}
 
 	public:

@@ -34,8 +34,8 @@ namespace xstd
 		union {
 			const char* _str = nullptr;
 			struct {
-				uint64_t _ptr_rem :   63;
 				uint64_t _allocated : 1;
+				int64_t  _snptr     : 63;
 			};
 		};
 
@@ -43,7 +43,7 @@ namespace xstd
 		//
 		inline constexpr void set_value( const char* new_value, bool allocated ) {
 			if ( !std::is_constant_evaluated() ) {
-				_ptr_rem =   (uint64_t) new_value;
+				_snptr =     (int64_t) (uint64_t) new_value;
 				_allocated = allocated ? 1 : 0;
 			} else {
 				_str = new_value;
@@ -51,7 +51,7 @@ namespace xstd
 		}
 		inline constexpr const char* get_value() const noexcept {
 			if ( !std::is_constant_evaluated() ) {
-				return (const char*) ( (uint64_t) ( int64_t( _ptr_rem << 1 ) >> 1 ) );
+				return (const char*) uint64_t( _snptr );
 			} else {
 				return _str;
 			}

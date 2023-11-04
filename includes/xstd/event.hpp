@@ -11,178 +11,114 @@
 // XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the std::future<> waits.
 //
 #ifndef XSTD_OS_EVENT_PRIMITIVE
+
+#if WINDOWS_TARGET
+#pragma comment(lib, "ntdll.lib")
+extern "C" {
+	__declspec( dllimport ) int32_t NtCreateEvent( void** EventHandle, unsigned int DesiredAccess, void* ObjectAttributes, unsigned int EventType, unsigned char InitialState );
+	__declspec( dllimport ) int32_t NtWaitForSingleObject( void* Handle, unsigned char Alertable, long long* Timeout );
+	__declspec( dllimport ) int32_t NtSetEvent( void* EventHandle, long* PreviousState );
+	__declspec( dllimport ) int32_t NtClearEvent( void* EventHandle );
+	__declspec( dllimport ) int32_t NtClose( void* Handle );
+};
+
+namespace xstd {
+	struct event_primitive {
+		using handle_type = void*;
+
+		handle_type hnd;
+
+		event_primitive() { NtCreateEvent( &hnd, 0x2000000, nullptr, 0, false ); }
+		~event_primitive() { NtClose( hnd ); }
+		inline void wait() const { NtWaitForSingleObject( hnd, false, nullptr ); }
+		inline bool wait_for( long long milliseconds ) const {
+			auto ticks = milliseconds * -10000;
+			return !NtWaitForSingleObject( hnd, false, &ticks );
+		}
+		inline void reset() { NtClearEvent( hnd ); }
+		inline void notify() { NtSetEvent( hnd, nullptr ); }
+		inline bool peek() const { return wait_for( 0 ); }
+		inline handle_type handle() const { return hnd; }
+		static event_primitive& from_handle( handle_type& evt ) { return *(event_primitive*) &evt; }
+	};
+};
+#else
 #include <mutex>
 #include <condition_variable>
-namespace xstd
-{
-	struct event_primitive
-	{
+namespace xstd {
+	struct event_primitive {
+		using handle_type = event_primitive*;
+
 		mutable std::condition_variable cv;
 		mutable std::mutex mtx;
-		bool notified = false;
+		bool state = false;
 
 		event_primitive() {}
+		~event_primitive() {}
 
-		// Implement the interface.
-		// - void wait() const
-		// - bool wait_for( ms ) const
-		// - void reset()
-		// - void notify()
-		// - auto handle() const
-		// - static void wait_from_handle( handle_t )
-		// - static bool wait_from_handle( handle_t, ms )
-		//
-		inline void wait() const
-		{
+		inline void wait() const {
 			std::unique_lock lock{ mtx };
-			if ( notified ) return;
+			if ( state ) return;
 			cv.wait( lock );
 		}
-		inline bool wait_for( long long milliseconds ) const
-		{
+		inline bool wait_for( long long milliseconds ) const {
 			std::unique_lock lock{ mtx };
-			if ( notified ) return true;
+			if ( state ) return true;
 			return cv.wait_for( lock, time::milliseconds{ milliseconds } ) == std::cv_status::no_timeout;
 		}
-		inline void reset()
-		{
-			notified = false;
+		inline void reset() {
+			state = false;
 		}
-		inline void notify() 
-		{ 
+		inline void notify() {
 			std::unique_lock lock{ mtx };
-			if ( !notified ) {
-				notified = true;
+			if ( !state ) {
+				state = true;
 				cv.notify_all();
 			}
 		}
-
-		inline auto handle() const { return this; }
-		static void wait_from_handle( const event_primitive* handle ) { return handle->wait(); }
-		static bool wait_from_handle( const event_primitive* handle, long long milliseconds ) { return handle->wait_for( milliseconds ); }
+		inline bool peek() const {
+			return state;
+		}
+		inline handle_type handle() const { return (handle_type) this; }
+		static event_primitive& from_handle( handle_type& evt ) { return *evt; }
 	};
 };
+#endif
+
 #else
 namespace xstd { using event_primitive = XSTD_OS_EVENT_PRIMITIVE; };
 #endif
 
 namespace xstd
 {
-	// Event handle type.
-	//
-	using event_handle =    std::decay_t<decltype( std::declval<event_primitive>().handle() )>;
+	using event_handle = typename event_primitive::handle_type;
 
 	// Wrap the event primitive with a easy to check flag.
 	//
-	struct event_base
+	struct event
 	{
 		event_primitive primitive = {};
 
 		// Default constructible.
 		//
-		inline event_base() {};
+		inline event() {}
 
 		// No copy/move.
 		//
-		event_base( event_base&& ) noexcept = delete;
-		event_base( const event_base& ) = delete;
-		event_base& operator=( event_base&& ) noexcept = delete;
-		event_base& operator=( const event_base& ) = delete;
+		event( event&& ) noexcept = delete;
+		event( const event& ) = delete;
+		event& operator=( event&& ) noexcept = delete;
+		event& operator=( const event& ) = delete;
 
-		// Handle resolves into the event primitive.
+		// Re-export the real interface.
 		//
 		inline event_handle handle() const { return primitive.handle(); }
-
-		// Wrap all functions with a flag to reduce latency and to prevent races in the primitive.
-		// & 1 = signalled
-		// & 2 = resetting
-		//
-		std::atomic<uint16_t> flag = 0;
-		
-		// Checks whether or nor the event is signalled.
-		//
-		inline bool signalled() const { return flag.load( std::memory_order::relaxed ) & 1; }
-
-		// Tries to reset the event flag, fails if already reset.
-		//
-		inline bool reset()
-		{
-			// Expect signalled flag and try to acquire the reset ownership.
-			//
-			uint16_t expected = 1;
-			if ( flag.compare_exchange_strong( expected, 1 | 2, std::memory_order::seq_cst ) )
-			{
-				// Reset the primitive, then reset the flag.
-				//
-				primitive.reset();
-				flag.store( 0, std::memory_order::release );
-				return true;
-			}
-			return false;
-		}
-		
-		// Tries to set the event flag, fails if already set.
-		// - If relaxed parameter is set, it is assumed that this event will be never reset and a simpler approach will be taken.
-		//
-		inline bool notify( bool relaxed = false )
-		{
-			if ( relaxed )
-			{
-				if ( bit_set( flag, 0 ) ) [[unlikely]]
-					return false;
-				primitive.notify();
-				return true;
-			}
-			else
-			{
-				uint16_t expected = flag.load( std::memory_order::relaxed );
-				while ( true )
-				{
-					// If we exchange succesfully, notify and indicate success.
-					//
-					if ( !expected && flag.compare_exchange_strong( expected, 1, std::memory_order::seq_cst ) ) [[likely]]
-					{
-						primitive.notify();
-						return true;
-					}
-
-					// Fail if already notified.
-					//
-					if ( expected == 1 )
-						return false;
-
-					// Spin while in-between states (2 / 3).
-					//
-					yield_cpu();
-					expected = flag.load( std::memory_order::relaxed );
-					continue;
-				}
-			}
-		}
-
-		// Waits for the event to be set.
-		//
-		inline void wait() const
-		{
-			if ( signalled() ) 
-				return;
-			primitive.wait();
-		}
-		inline bool wait_for( long long milliseconds ) const
-		{
-			if ( signalled() ) 
-				return true;
-			return primitive.wait_for( milliseconds );
-		}
-
-		// Wait for wrapper.
-		//
+		inline bool peek() const { return primitive.peek(); }
+		inline void reset() { primitive.reset(); }
+		inline void notify() { primitive.notify(); }
+		inline void wait() const { primitive.wait(); }
+		inline bool wait_for( long long milliseconds ) const { return primitive.wait_for( milliseconds ); }
 		template<Duration T> 
-		bool wait_for( T duration ) const { return wait_for( duration / 1ms ); }
+		inline bool wait_for( T duration ) const { return wait_for( duration / 1ms ); }
 	};
-	using event = std::shared_ptr<event_base>;
-
-	// Creates an event object.
-	//
-	inline event make_event() { return std::make_shared<event_base>(); }
 };

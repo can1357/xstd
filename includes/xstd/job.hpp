@@ -41,12 +41,11 @@ namespace xstd {
 			}
 			FORCE_INLINE inline T&& await_resume() const noexcept {
 				std::optional<T>& optional = handle.promise().placement;
-				bool set = optional.has_value();
-				assume( set );
-				if ( !set ) unreachable();
+				strong_assume( optional.has_value() );
 				return std::move( optional ).value();
 			}
 		};
+		inline awaiter operator co_await() && noexcept { return { std::move( handle ) }; }
 
 		// Coroutine handle and the internal constructor.
 		//
@@ -93,6 +92,7 @@ namespace xstd {
 			}
 			FORCE_INLINE inline void await_resume() const noexcept {}
 		};
+		inline awaiter operator co_await() && noexcept { return { std::move( handle ) }; }
 
 		// Coroutine handle and the internal constructor.
 		//
@@ -116,11 +116,4 @@ namespace xstd {
 		FORCE_INLINE void launch() { handle.release().resume(); }
 		FORCE_INLINE void operator()() { launch(); }
 	};
-
-	// Make move-awaitable.
-	//
-	template<typename T>
-	FORCE_INLINE inline auto operator co_await( job<T>&& ref ) noexcept -> typename job<T>::awaiter {
-		return { std::move( ref.handle ) };
-	}
 };

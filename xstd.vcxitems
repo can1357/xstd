@@ -114,6 +114,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\utf.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\vec_buffer.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\wait_list.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\xvector.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\xxhash.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\zstd.hpp" />

@@ -12,37 +12,40 @@ namespace xstd
 	template<typename T>
 	concept XMutex = requires{ typename T::underlying_lock; task_priority_t( T::task_priority ); };
 
+	// No-op lock.
+	//
+	struct noop_lock {
+		constexpr bool try_lock() { return true; }
+		constexpr void unlock() {}
+		constexpr bool locked() const { return false; }
+		constexpr void lock() {}
+	};
+
 	// Basic spinlock.
 	//
-	struct spinlock
-	{
+	struct spinlock {
 		std::atomic<uint16_t> value = 0;
 
-		FORCE_INLINE bool try_lock()
-		{
+		FORCE_INLINE bool try_lock() {
 #if AMD64_TARGET
 			return bit_set( value, 0 ) == 0;
 #else
 			return value.exchange( 1, std::memory_order::acquire ) == 0;
 #endif
 		}
-		FORCE_INLINE void unlock()
-		{
+		FORCE_INLINE void unlock() {
 			dassert( value );
 			value.store( 0, std::memory_order::release );
 		}
-		FORCE_INLINE bool locked() const
-		{
+		FORCE_INLINE bool locked() const {
 #if AMD64_TARGET
 			return bit_test( value, 0 );
 #else
 			return value.load( std::memory_order::relaxed ) != 0;
 #endif
 		}
-		FORCE_INLINE void lock()
-		{
-			while ( !try_lock() ) [[unlikely]]
-			{
+		FORCE_INLINE void lock() {
+			while ( !try_lock() ) [[unlikely]] {
 				do
 					yield_cpu();
 				while ( locked() );
@@ -59,7 +62,7 @@ namespace xstd
 
 		FORCE_INLINE underlying_lock& unwrap() { return *this; }
 		FORCE_INLINE const underlying_lock& unwrap() const { return *this; }
-
+		
 		FORCE_INLINE bool try_lock( task_priority_t prev ) {
 			set_task_priority( Tpr );
 			if ( underlying_lock::try_lock() ) return true;
@@ -73,14 +76,12 @@ namespace xstd
 		FORCE_INLINE bool locked() const {
 			return underlying_lock::locked();
 		}
-
 		FORCE_INLINE void lock( task_priority_t prev ) {
 			while ( true ) {
 				set_task_priority( Tpr );
 				if ( underlying_lock::try_lock() ) [[likely]]
 					return;
 				set_task_priority( prev );
-
 				do
 					yield_cpu();
 				while ( underlying_lock::locked() );
@@ -397,83 +398,6 @@ namespace xstd
 			// Increment depth and return.
 			//
 			++underlying_lock::depth;
-		}
-	};
-
-	// Upgrade guard.
-	//
-	template<typename T>
-	struct upgrade_guard
-	{
-		T* pmutex;
-		bool owns;
-		
-		// All constructors in STL style and the destructor releasing the lock where relevant.
-		//
-		upgrade_guard()                             : pmutex( nullptr ), owns( false ) {}
-		upgrade_guard( T& ref )                     : pmutex( &ref ),    owns( false ) { lock(); }
-		upgrade_guard( T& ref, std::adopt_lock_t )  : pmutex( &ref ),    owns( true )  {}
-		upgrade_guard( T& ref, std::defer_lock_t )  : pmutex( &ref ),    owns( false ) {}
-		upgrade_guard( T& ref, std::try_to_lock_t ) : pmutex( &ref ),    owns( false ) { try_lock(); }
-		~upgrade_guard() { if ( owns ) unlock(); }
-
-		// No copy.
-		//
-		upgrade_guard( const upgrade_guard& ) = delete;
-		upgrade_guard& operator=( const upgrade_guard& ) = delete;
-
-		// Move by exchange.
-		//
-		upgrade_guard( upgrade_guard&& o ) noexcept : pmutex( std::exchange( o.pmutex, nullptr ) ), owns( std::exchange( o.owns, false ) ) {}
-		upgrade_guard& operator=( upgrade_guard&& o )
-		{
-			unlock();
-			pmutex = std::exchange( o.pmutex, nullptr );
-			owns = std::exchange( o.owns, false );
-			return *this;
-		}
-
-		// STL interface.
-		//
-		void lock()
-		{
-			dassert( !owns && pmutex );
-			pmutex->upgrade();
-			owns = true;
-		}
-		bool try_lock()
-		{
-			dassert( !owns && pmutex );
-			owns = pmutex->try_upgrade();
-			return owns;
-		}
-		void unlock()
-		{
-			dassert( owns && pmutex );
-			pmutex->downgrade();
-			owns = false;
-		}
-		void swap( upgrade_guard& o ) noexcept
-		{
-			std::swap( pmutex, o.pmutex );
-			std::swap( owns, o.owns );
-		}
-		T* release() noexcept
-		{
-			owns = false;
-			return std::exchange( pmutex, nullptr );
-		}
-		bool owns_lock() const noexcept
-		{
-			return owns;
-		}
-		explicit operator bool() const noexcept
-		{
-			return owns;
-		}
-		T* mutex() const noexcept
-		{
-			return pmutex;
 		}
 	};
 };

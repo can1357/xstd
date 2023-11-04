@@ -12,7 +12,7 @@ namespace xstd
 		//
 		struct timer_base
 		{
-			event_base signal_event = {};
+			event signal_event = {};
 			duration interval;
 			bool canceled = false;
 

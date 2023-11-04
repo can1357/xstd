@@ -351,7 +351,8 @@ namespace xstd
 //
 #if MS_COMPILER
 	#define assume(...) __assume(__VA_ARGS__)
-	#define unreachable() __assume(0)
+	#define unreachable()      __assume(0)
+	#define unreachable_opt()  unreachable()
 	#define debugbreak() __debugbreak()
 	FORCE_INLINE static void fastfail [[noreturn]] ( int status )
 	{
@@ -368,10 +369,13 @@ namespace xstd
 
 
 	#if __has_builtin(__builtin_unreachable)
-		#define unreachable() __builtin_unreachable()
+		#define unreachable_opt() __builtin_unreachable()
+		#define unreachable()     __builtin_unreachable()
 	#elif __has_builtin(__builtin_trap)
+		#define unreachable_opt() assume(false)
 		#define unreachable() __builtin_trap();
 	#else
+		#define unreachable_opt() assume(false)
 		#define unreachable() { *(int*)0 = 0; }
 	#endif
 
@@ -403,6 +407,17 @@ namespace xstd
 	}
 #endif
 
+// Strong assume, allows side effects.
+//
+#define strong_assume(...) do {			   \
+	bool _usr_cond = bool( __VA_ARGS__ );  \
+	assume( _usr_cond );				   \
+	if ( !_usr_cond ) {					   \
+		unreachable_opt();				   \
+	}									   \
+	(void) _usr_cond;					   \
+} while ( false );						   
+
 // Define yield for busy loops.
 //
 FORCE_INLINE constexpr static void yield_cpu()
@@ -426,9 +441,18 @@ FORCE_INLINE constexpr static void yield_cpu()
 // Define task priority.
 // [[Configuration]] 
 //  - XSTD_HAS_TASK_PRIORITY: If set enables task priority, by default set if kernel target.
+//  - XSTD_SYNC_TPR: Generic task priority for sync, I/O streams, sockets, etc.
+//
 using task_priority_t = uintptr_t;
 #ifndef XSTD_HAS_TASK_PRIORITY
 	#define XSTD_HAS_TASK_PRIORITY KERNEL_TARGET
+#endif
+#ifndef XSTD_SYNC_TPR
+	#if XSTD_HAS_TASK_PRIORITY
+		#define XSTD_SYNC_TPR 2
+	#else
+		#define XSTD_SYNC_TPR 0
+	#endif
 #endif
 FORCE_INLINE static void set_task_priority( [[maybe_unused]] task_priority_t value )
 {

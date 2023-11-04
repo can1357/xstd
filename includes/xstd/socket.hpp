@@ -904,7 +904,6 @@ namespace xstd::net {
 				//
 				size_t  frag = length - offset;
 				frag = std::min<size_t>( frag, 0xFFFF );
-				frag = std::min<size_t>( frag, tcp_sndbuf( pcb ) );
 				if ( !frag ) break;
 				
 				// Try writing in increasingly smaller sizes.

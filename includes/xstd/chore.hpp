@@ -147,7 +147,7 @@ namespace xstd
 #else
 		std::thread( [ fn = std::forward<T>( fn ), evt ]() mutable
 		{
-			event_primitive::wait_from_handle( evt );
+			(void) event_primitive::from_handle( evt ).wait();
 			fn();
 		} ).detach();
 #endif
@@ -169,7 +169,7 @@ namespace xstd
 #else
 		std::thread( [ fn = std::forward<T>( fn ), evt, timeout ]() mutable
 		{
-			( void ) event_primitive::wait_from_handle( evt, timeout / 1ms );
+			( void ) event_primitive::from_handle( evt ).wait_for( timeout / 1ms );
 			fn();
 		} ).detach();
 #endif

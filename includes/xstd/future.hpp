@@ -7,25 +7,13 @@
 #include "hashable.hpp"
 #include "formatting.hpp"
 #include "time.hpp"
+#include "wait_list.hpp"
 #include <vector>
-
-// [[Configuration]]
-// XSTD_PROMISE_TASK_PRIORITY: Task priority set when acquiring promise related locks.
-//
-#ifndef XSTD_PROMISE_TASK_PRIORITY
-	#define XSTD_PROMISE_TASK_PRIORITY 2
-#endif
 
 namespace xstd
 {
 	namespace impl
 	{
-		struct wait_block
-		{
-			wait_block* volatile next = nullptr;
-			xstd::event_base     event = {};
-		};
-
 		template<typename T>
 		inline const basic_result<T, xstd::exception> timeout_result_v{ in_place_failure_t{}, XSTD_ESTR( "Promise timed out." ) };
 
@@ -39,98 +27,6 @@ namespace xstd
 			else
 				return xstd::static_default{};
 		}
-
-		// Small vector implementation.
-		//
-		static constexpr size_t in_place_continuation_count = 8;
-		struct continuation_vector
-		{
-			// In-place buffer.
-			//
-			coroutine_handle<>  ibuffer[ in_place_continuation_count ] = {};
-
-			// Vector descriptor.
-			//
-			uint32_t            length =   0;
-			uint32_t            reserved = in_place_continuation_count;
-			coroutine_handle<>* first =    &ibuffer[ 0 ];
-
-			// No move/copy, default constructed.
-			//
-			constexpr continuation_vector() = default;
-			continuation_vector( const continuation_vector& ) = delete;
-			continuation_vector& operator=( const continuation_vector& ) = delete;
-
-			// Checks whether or not it holds an externally allocated buffer.
-			//
-			FORCE_INLINE bool inplace() const { return first == &ibuffer[ 0 ]; }
-
-			// Make iterable.
-			//
-			FORCE_INLINE size_t size() const { return length; }
-			FORCE_INLINE size_t capacity() const { return reserved; }
-			FORCE_INLINE bool empty() const { return size() == 0; }
-			FORCE_INLINE coroutine_handle<>* begin() { return &first[ 0 ]; }
-			FORCE_INLINE const coroutine_handle<>* begin() const { return &first[ 0 ]; }
-			FORCE_INLINE coroutine_handle<>* end() { return &first[ length ]; }
-			FORCE_INLINE const coroutine_handle<>* end() const { return &first[ length ]; }
-			FORCE_INLINE coroutine_handle<> operator[]( size_t n ) const { return first[ n ]; }
-
-			// Pushes back an entry.
-			//
-			FORCE_INLINE void push( coroutine_handle<> value )
-			{
-				// If it does not fit within the current buffer:
-				//
-				if ( length >= reserved ) [[unlikely]]
-				{
-					// Allocate a new buffer.
-					//
-					reserved += reserved << 1;
-					coroutine_handle<>* buffer = new coroutine_handle<>[ reserved ];
-					std::copy_n( first, length, buffer );
-
-					// Free the previous one and assign the new one.
-					//
-					if ( !inplace() )
-						delete[] first;
-					first = buffer;
-				}
-				first[ length++ ] = value;
-			}
-
-			// Finds an entry by value and removes it.
-			//
-			FORCE_INLINE bool pop( coroutine_handle<> value )
-			{
-				auto it = std::find( begin(), end(), value );
-				if ( it == end() ) [[unlikely]]
-					return false;
-				for ( ; ( it + 1 ) != end(); it++ )
-					*it = *( it + 1 );
-				--length;
-				return true;
-			}
-
-			// Remove all entries.
-			//
-			FORCE_INLINE void clear()
-			{
-				if ( !inplace() )
-					delete[] first;
-				first = &ibuffer[ 0 ];
-				length = 0;
-				reserved = in_place_continuation_count;
-			}
-
-			// Free the buffer on destruction.
-			//
-			FORCE_INLINE ~continuation_vector()
-			{
-				if ( !inplace() ) 
-					delete[] first;
-			}
-		};
 
 		// Atomic integer with constexpr fallback and relaxed rules.
 		//
@@ -224,16 +120,15 @@ namespace xstd
 
 		// Lock guarding continuation list and the event list.
 		//
-		mutable xspinlock<XSTD_PROMISE_TASK_PRIORITY> state_lock = {};
+		mutable xspinlock<XSTD_SYNC_TPR>        state_lock = {};
 
 		// Promise state.
 		//
 		impl::atomic_integral<uint16_t>         state = { 0 };
 
-		// Event and the continuation list.
+		// Wait list.
 		//
-		mutable impl::wait_block*               events = nullptr;
-		mutable impl::continuation_vector       continuation = {};
+		mutable wait_list                       waits = {};
 
 		// Result.
 		//
@@ -262,41 +157,23 @@ namespace xstd
 		promise_base( std::in_place_t, Promise* promise, uint32_t initial_ref_count = impl::owner_flag )
 			: refs( initial_ref_count ), coro( coroutine_handle<Promise>::from_promise( *promise ) ) {}
 
-		// Wait block helpers.
+
+		// Wait block helper.
 		//
-		bool register_wait_block( impl::wait_block& wb ) const
-		{
+		bool register_wait( awakable awk, int32_t& hnd ) const {
 			// Acquire the state lock, if already finished fail.
 			//
 			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
-
-			// Link the wait block and return.
-			//
-			wb.next = events;
-			events = &wb;
+			hnd = waits.listen( awk );
+			if ( hnd < 0 )
+				return false;
 			return true;
 		}
-		bool deregister_wait_block( impl::wait_block& wb ) const
-		{
-			// Acquire the state lock, if event is already signalled, return.
-			//
+		bool deregister_wait( int32_t hnd ) const {
 			std::lock_guard g{ state_lock };
-			if ( wb.event.signalled() )
-				return false;
-
-			// Find the entry before our entry, unlink and return.
-			//
-			for ( auto it = ( impl::wait_block* ) &events; it; it = it->next )
-			{
-				if ( it->next == &wb )
-				{
-					it->next = wb.next;
-					return true;
-				}
-			}
-			xstd::error( XSTD_ESTR( "Corrupt wait list." ) );
+			return waits.unlisten( hnd );
 		}
 
 		// Waits for the event to be complete.
@@ -305,12 +182,12 @@ namespace xstd
 		{
 			if ( finished() ) [[likely]]
 				return unrace();
-
-			impl::wait_block wb = {};
-			if ( !register_wait_block( wb ) )
+			
+			int32_t hnd; event evt = {};
+			if ( !register_wait( evt, hnd ) )
 				return unrace();
 			
-			wb.event.wait();
+			evt.wait();
 			return result;
 		}
 		basic_result<T, S> wait_move()
@@ -318,11 +195,11 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return std::move( *( unrace(), &result ) );
 
-			impl::wait_block wb = {};
-			if ( !register_wait_block( wb ) )
+			int32_t hnd; event evt = {};
+			if ( !register_wait( evt, hnd ) )
 				return std::move( *( unrace(), &result ) );
 
-			wb.event.wait();
+			evt.wait();
 			return std::move( result );
 		}
 		const basic_result<T, S>& wait_for( duration time ) const
@@ -330,11 +207,11 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return unrace();
 
-			impl::wait_block wb = {};
-			if ( !register_wait_block( wb ) )
+			int32_t hnd; event evt = {};
+			if ( !register_wait( evt, hnd ) )
 				return unrace();
 
-			if ( wb.event.wait_for( time ) || !deregister_wait_block( wb ) )
+			if ( evt.wait_for( time ) || !deregister_wait( hnd ) )
 				return result;
 			else
 				return impl::timeout_result<T, S>();
@@ -344,11 +221,11 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return std::move( *( unrace(), &result ) );
 
-			impl::wait_block wb = {};
-			if ( !register_wait_block( wb ) )
+			event evt = {}; int32_t hnd;
+			if ( !register_wait( evt, hnd ) )
 				return std::move( *( unrace(), &result ) );
 
-			if ( wb.event.wait_for( time ) || !deregister_wait_block( wb ) )
+			if ( evt.wait_for( time ) || !deregister_wait( hnd ) )
 				return std::move( result );
 			else
 				return impl::timeout_result<T, S>();
@@ -360,69 +237,27 @@ namespace xstd
 		{
 			if ( finished() ) [[likely]]
 				return false;
-
 			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
-			continuation.push( h );
-			return true;
+			return waits.listen( h ) >= 0;
 		}
 		bool unlisten( coroutine_handle<> h ) const
 		{
 			if ( finished() ) [[likely]]
 				return false;
-
 			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
-			if ( !continuation.pop( h ) ) [[unlikely]]
-				xstd::error( XSTD_ESTR( "Corrupt continuation list." ) );
+			if ( waits.unlisten( h ) < 0 ) [[unlikely]]
+				xstd::error( XSTD_ESTR( "Corrupt wait list." ) );
 			return true;
 		}
 
 		// Signals the event, runs all continuation entries.
 		//
-		[[nodiscard]] coroutine_handle<> signal()
-		{
-			task_priority_t prev_tp;
-			{
-				std::lock_guard g{ state_lock };
-				prev_tp = g.priority();
-
-				// Notify all events.
-				//
-				auto it = std::exchange( events, nullptr );
-				while ( it )
-				{
-					auto* evt = &it->event;
-					it = it->next;
-					evt->notify( true );
-				}
-			}
-
-			// If there are any continuation entries:
-			//
-			coroutine_handle<> cnt = noop_coroutine();
-			if ( !continuation.empty() )
-			{
-				// If task priority is raised, schedule every instance via ::chore, otherwise 
-				// schedule every instance but the first via ::chore and continue from the first one.
-				//
-				if ( !prev_tp )  cnt = continuation[ 0 ];
-				else             xstd::chore( continuation[ 0 ] );
-
-				for ( uint32_t n = 1; n != continuation.size(); n++ )
-					xstd::chore( continuation[ n ] );
-
-				continuation.clear();
-			}
-			return cnt;
-		}
-		void signal_async()
-		{
-			if ( auto h = signal(); h != noop_coroutine() )
-				xstd::chore( std::move( h ) );
-		}
+		[[nodiscard]] coroutine_handle<> signal() { return waits.signal(); }
+		void signal_async() { waits.signal_async(); }
 
 		// Resolution of the promise value.
 		//
