@@ -231,9 +231,12 @@ namespace xstd::fmt
 	// Implement converters for STL wrappers.
 	//
 	template<>
-	struct string_formatter<std::monostate>
-	{
+	struct string_formatter<std::monostate> {
 		FORCE_INLINE inline std::string operator()( std::monostate ) const { return as_string(); }
+	};
+	template<>
+	struct string_formatter<std::nullopt_t> {
+		FORCE_INLINE inline std::string operator()( std::nullopt_t ) const { return "nullopt"; }
 	};
 	template<StringConvertible... Tx>
 	struct string_formatter<std::variant<Tx...>>
@@ -283,7 +286,7 @@ namespace xstd::fmt
 		FORCE_INLINE inline std::string operator()( const std::optional<T>& value ) const
 		{
 			if ( value ) return as_string( value.value() );
-			else         return "nullopt";
+			else         return as_string( std::nullopt );
 		}
 	};
 	template<StringConvertible T>

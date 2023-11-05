@@ -160,20 +160,26 @@ namespace xstd
 
 		// Wait block helper.
 		//
-		bool register_wait( awakable awk, int32_t& hnd ) const {
+		bool register_wait( wait_block& blk, int32_t& hnd ) const {
 			// Acquire the state lock, if already finished fail.
 			//
 			std::lock_guard g{ state_lock };
 			if ( finished() ) [[unlikely]]
 				return false;
-			hnd = waits.listen( awk );
+			hnd = waits.listen( blk.get_handle() );
 			if ( hnd < 0 )
 				return false;
 			return true;
 		}
-		bool deregister_wait( int32_t hnd ) const {
-			std::lock_guard g{ state_lock };
-			return waits.unlisten( hnd );
+		bool deregister_wait( wait_block& blk, int32_t hnd ) const {
+			std::unique_lock g{ state_lock };
+			if ( !waits.unlisten( hnd ) ) {
+				g.unlock();
+				blk.wait();
+				return false;
+			} else {
+				return true;
+			}
 		}
 
 		// Waits for the event to be complete.
@@ -184,11 +190,11 @@ namespace xstd
 				return unrace();
 			
 			int32_t hnd;
-			auto&& evt = get_temporary_event();
-			if ( !register_wait( evt, hnd ) )
+			wait_block wb = {};
+			if ( !register_wait( wb, hnd ) )
 				return unrace();
 			
-			evt.wait();
+			wb.wait();
 			return result;
 		}
 		basic_result<T, S> wait_move()
@@ -197,11 +203,11 @@ namespace xstd
 				return std::move( *( unrace(), &result ) );
 				
 			int32_t hnd;
-			auto&& evt = get_temporary_event();
-			if ( !register_wait( evt, hnd ) )
+			wait_block wb = {};
+			if ( !register_wait( wb, hnd ) )
 				return std::move( *( unrace(), &result ) );
 
-			evt.wait();
+			wb.wait();
 			return std::move( result );
 		}
 		const basic_result<T, S>& wait_for( duration time ) const
@@ -210,11 +216,11 @@ namespace xstd
 				return unrace();
 				
 			int32_t hnd;
-			auto&& evt = get_temporary_event();
-			if ( !register_wait( evt, hnd ) )
+			wait_block wb = {};
+			if ( !register_wait( wb, hnd ) )
 				return unrace();
 
-			if ( evt.wait_for( time ) || !deregister_wait( hnd ) )
+			if ( wb.wait_for( time ) || !deregister_wait( wb, hnd ) )
 				return result;
 			else
 				return impl::timeout_result<T, S>();
@@ -225,11 +231,11 @@ namespace xstd
 				return std::move( *( unrace(), &result ) );
 				
 			int32_t hnd;
-			auto&& evt = get_temporary_event();
-			if ( !register_wait( evt, hnd ) )
+			wait_block wb = {};
+			if ( !register_wait( wb, hnd ) )
 				return std::move( *( unrace(), &result ) );
 
-			if ( evt.wait_for( time ) || !deregister_wait( hnd ) )
+			if ( wb.wait_for( time ) || !deregister_wait( wb, hnd ) )
 				return std::move( result );
 			else
 				return impl::timeout_result<T, S>();

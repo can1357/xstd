@@ -6,85 +6,6 @@
 #include "chore.hpp"
 
 namespace xstd {
-	// Structure representing a union of primitives that can receive signals.
-	//
-	struct TRIVIAL_ABI awakable {
-		union {
-			uint64_t value = 0;
-			struct {
-				uint64_t sync : 1;
-				int64_t  ptr : 63;
-			};
-		};
-
-		// Default and move ctors.
-		//
-		constexpr awakable() = default;
-		constexpr awakable( std::nullptr_t ) {}
-		constexpr awakable( awakable&& o ) noexcept = default;
-		constexpr awakable& operator=( awakable&& o ) noexcept = default;
-		constexpr awakable( const awakable& ) = default;
-		constexpr awakable& operator=( const awakable& ) = default;
-
-		// Comparison.
-		//
-		constexpr bool operator<( const awakable& o ) const { return value < o.value; }
-		constexpr bool operator==( const awakable& o ) const { return value == o.value; }
-
-		// Construction from the primitives.
-		//
-		awakable( event_handle evt ) { bind( evt ); }
-		awakable( const event& evt ) { bind( evt ); }
-		awakable( const event_primitive& evt ) { bind( evt ); }
-		awakable( coroutine_handle<> hnd ) { bind( hnd ); }
-
-		// Binding.
-		//
-		void reset() { value = 0; }
-		void bind( event_handle evt ) { sync = true; ptr = (int64_t) (uint64_t) evt; }
-		void bind( const event& evt ) { return bind( evt.handle() ); }
-		void bind( const event_primitive& evt ) { return bind( evt.handle() ); }
-		void bind( coroutine_handle<> hnd ) { sync = false; ptr = (int64_t) (uint64_t) hnd.address(); }
-		constexpr void swap( awakable& o ) { std::swap( value, o.value ); }
-
-		// Observers.
-		//
-		bool is_event() const { return ptr && sync; }
-		bool is_coroutine() const { return ptr && !sync; }
-		void* address() const { return (void*) (uint64_t) ptr; }
-		event_handle get_event() const { return sync ? (event_handle) this->address() : nullptr; }
-		coroutine_handle<> get_coroutine() const { return sync ? nullptr : coroutine_handle<>::from_address( this->address() ); }
-		constexpr bool pending() const { return value != 0; }
-		constexpr explicit operator bool() const { return pending(); }
-
-		// Signalling.
-		//
-		FORCE_INLINE bool signal( coroutine_handle<>* sync_hnd ) {
-			awakable target{ std::move( *this ) };
-			if ( auto evt = target.get_event() ) {
-				event_primitive::from_handle( evt ).notify();
-				return true;
-			} else if ( auto coro = target.get_coroutine() ) {
-				if ( sync_hnd && !*sync_hnd )
-					*sync_hnd = coro;
-				else
-					chore( std::move( coro ) );
-				return true;
-			}
-			return false;
-		}
-		[[nodiscard]] FORCE_INLINE coroutine_handle<> signal() {
-			coroutine_handle<> continuation = {};
-			signal( &continuation );
-			return continuation ? continuation : noop_coroutine();
-		}
-		bool operator()() {
-			coroutine_handle<> continuation = {};
-			if ( !signal( &continuation ) ) return false;
-			if ( continuation )             continuation.resume();
-			return true;
-		}
-	};
 
 	// Wait list implementation.
 	//
@@ -103,11 +24,11 @@ namespace xstd {
 		// Array of entries, reserved count is implicit from geometric allocation.
 		// Indices are immutable.
 		//
-		std::array<awakable, I>  inline_list = { nullptr };
-		awakable*                extern_list = nullptr;
-		LockType                 lock;
-		uint32_t                 next_index : 31 = 0;
-		uint32_t                 settled    : 1 = 0;
+		std::array<coroutine_handle<>, I>  inline_list = { nullptr };
+		coroutine_handle<>*                extern_list = nullptr;
+		LockType                           lock;
+		uint32_t                           next_index : 31 = 0;
+		uint32_t                           settled    : 1 = 0;
 
 		static constexpr int32_t get_capacity_from_size( int32_t size ) {
 			if ( size <= I ) {
@@ -116,28 +37,28 @@ namespace xstd {
 				return (int32_t) ( std::bit_ceil( (uint32_t) size ) - I );
 			}
 		}
-		awakable& ref_at( int32_t n ) {
+		coroutine_handle<>& ref_at( int32_t n ) {
 			if ( n < I ) {
 				return inline_list[ n ];
 			} else {
 				return extern_list[ n - I ];
 			}
 		}
-		awakable& alloc_at( int32_t n ) {
+		coroutine_handle<>& alloc_at( int32_t n ) {
 			if ( n < I ) {
 				return inline_list[ n ];
 			} else {
 				size_t old_capacity = get_capacity_from_size( n );
 				size_t new_capacity = get_capacity_from_size( n + 1 );
 				if ( old_capacity != new_capacity ) {
-					extern_list = (awakable*) realloc( extern_list, sizeof( awakable ) * new_capacity );
+					extern_list = (coroutine_handle<>*) realloc( extern_list, sizeof( coroutine_handle<> ) * new_capacity );
 					std::fill( extern_list + old_capacity, extern_list + new_capacity, nullptr );
 				}
 				return extern_list[ n - I ];
 			}
 		}
 		template<typename F>
-		void for_each( F&& fn, awakable* ext, int32_t count ) {
+		void for_each( F&& fn, coroutine_handle<>* ext, int32_t count ) {
 			for ( auto& e : this->inline_list )
 				if ( e ) fn( e );
 			for ( int32_t i = I; i < count; i++ )
@@ -149,8 +70,11 @@ namespace xstd {
 			auto alloc = std::exchange( extern_list, nullptr );
 			this->settled = true;
 			this->next_index = 0;
-			this->for_each( [&]( awakable& e ) {
-				e.signal( hnd );
+			this->for_each( [&]( coroutine_handle<>& e ) {
+				if ( hnd && !*hnd )
+					*hnd = e;
+				else
+					chore( std::move( e ) );
 				e = nullptr;
 			}, alloc, count );
 			if ( alloc )
@@ -160,7 +84,7 @@ namespace xstd {
 		// - Registrar interface.
 		// Adds a new listener, returns the handle assigned for it or < 0 on failure.
 		//
-		int32_t listen( awakable a ) {
+		int32_t listen( coroutine_handle<> a ) {
 			if ( is_settled() ) return -1;
 			std::lock_guard _g{ lock };
 			if ( is_settled() ) return -1;
@@ -175,11 +99,12 @@ namespace xstd {
 			std::lock_guard _g{ lock };
 			if ( !( 0 <= idx && idx < next_index ) )
 				return false;
-			return std::exchange( ref_at( idx ), nullptr ).pending();
+			ref_at( idx ) = nullptr;
+			return true;
 		}
 		// Removes a listener by its entry type, returns false on failure.
 		//
-		bool unlisten( awakable a ) {
+		bool unlisten( coroutine_handle<> a ) {
 			if ( !a || is_settled() ) return false;
 			std::lock_guard _g{ lock };
 			for ( int32_t i = 0; i != next_index; i++ ) {
@@ -198,19 +123,19 @@ namespace xstd {
 		// Registers a wait block and starts waiting inline.
 		//
 		void wait() {
-			auto&& evt = get_temporary_event();
-			if ( listen( evt ) >= 0 ) {
-				evt.wait();
+			wait_block wb = {};
+			if ( listen( wb.get_handle() ) >= 0 ) {
+				wb.wait();
 			}
 		}
 		bool wait_for( duration time ) {
-			auto&& evt = get_temporary_event();
-			if ( int32_t idx = listen( evt ); idx >= 0 ) {
-				if ( !evt.wait_for( time / 1ms ) ) {
+			wait_block wb = {};
+			if ( int32_t idx = listen( wb.get_handle() ); idx >= 0 ) {
+				if ( !wb.wait_for( time ) ) {
 					if ( unlisten( idx ) ) {
 						return false;
 					}
-					evt.wait();
+					wb.wait();
 				}
 			}
 			return true;
@@ -221,9 +146,7 @@ namespace xstd {
 			basic_wait_list& list;
 			bool ok = false;
 
-			bool await_ready() const {
-				return list.is_settled();
-			}
+			bool await_ready() const { return false; }
 			bool await_suspend( coroutine_handle<> hnd ) {
 				ok = list.listen( hnd ) >= 0;
 				return ok;

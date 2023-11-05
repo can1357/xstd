@@ -236,6 +236,28 @@ namespace xstd
 		//
 		FORCE_INLINE ~unique_coroutine() { reset(); }
 	};
+
+	// Coroutine header type.
+	// - Works on MSVC/GCC/Clang.
+	//
+#if MS_COMPILER || GNU_COMPILER || CLANG_COMPILER
+	#define XSTD_CORO_KNOWN_STRUCT 1
+	template<typename Promise = void>
+	struct coroutine_struct {
+		void ( *fn_resume )( void* ) = nullptr;
+		void ( *fn_destroy )( void* ) = nullptr;
+		//Promise promise;
+
+		static coroutine_struct& from_address( void* adr ) noexcept { return *(coroutine_struct*) adr; }
+		static coroutine_struct& from_handle( coroutine_handle<> hnd ) noexcept { return from_address( hnd.address() ); }
+
+		void* address() const noexcept { return (void*) this; }
+		coroutine_handle<Promise> handle() const noexcept { return coroutine_handle<Promise>::from_address( address() ); }
+
+		constexpr bool is_done() const { return fn_resume == nullptr; }
+		constexpr void set_done() { fn_resume = nullptr; }
+	};
+#endif
 	
 	// Helper to get the promise from a coroutine handle.
 	//

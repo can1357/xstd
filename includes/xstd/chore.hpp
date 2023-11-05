@@ -89,14 +89,19 @@ namespace xstd
 		template<>
 		struct function_store<coroutine_handle<>>
 		{
-			static void __cdecl run( void* adr )
-			{
+#if XSTD_CORO_KNOWN_STRUCT
+			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<> hnd ) {
+				auto& coro = coroutine_struct<>::from_handle( hnd );
+				return { coro.fn_resume, &coro };
+			}
+#else
+			static void __cdecl run( void* adr ) {
 				coroutine_handle<>::from_address( adr ).resume();
 			}
-			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<> hnd )
-			{
+			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<> hnd ) {
 				return { &run, hnd.address() };
 			}
+#endif
 		};
 		template<NonVoid P> struct function_store<coroutine_handle<P>> : function_store<coroutine_handle<>>{};
 
