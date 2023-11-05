@@ -14,7 +14,7 @@ namespace xstd
 	{
 		struct promise_type
 		{
-			event_base receive_event = {};
+			event receive_event = {};
 			std::atomic<void*> recepient = nullptr;
 			std::optional<T>* store;
 

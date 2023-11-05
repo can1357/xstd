@@ -6,17 +6,11 @@
 #include "time.hpp"
 #include <mutex>
 
-// [[Configuration]]
-// XSTD_IO_TPR: Task priority for I/O streams.
-//
-#ifndef XSTD_IO_TPR
-	#define XSTD_IO_TPR 2
-#endif
 namespace xstd {
 #if KERNEL_TARGET
-	using io_mutex = recursive_xspinlock<2>;
+	using io_mutex =       xstd::recursive_xspinlock<2>;
 #else
-	using io_mutex = std::recursive_mutex;
+	using io_mutex =       std::recursive_mutex;
 #endif
 
 	// Stream consumer.

@@ -9,8 +9,13 @@
 
 // [[Configuration]]
 // XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the std::future<> waits.
+// XSTD_EVENT_THREAD_LOCAL: Set if we can use threadlocal events for immediately waited upon events.
 //
 #ifndef XSTD_OS_EVENT_PRIMITIVE
+#ifndef XSTD_EVENT_THREAD_LOCAL
+	#define XSTD_EVENT_THREAD_LOCAL XSTD_USE_THREAD_LOCAL
+#endif
+
 
 #if WINDOWS_TARGET
 #pragma comment(lib, "ntdll.lib")
@@ -121,4 +126,18 @@ namespace xstd
 		template<Duration T> 
 		inline bool wait_for( T duration ) const { return wait_for( duration / 1ms ); }
 	};
+
+	// Temporary events.
+	//
+#if XSTD_EVENT_THREAD_LOCAL
+	inline thread_local event g_temporary_event = {};
+	inline event& get_temporary_event() {
+		g_temporary_event.reset();
+		return g_temporary_event;
+	}
+#else
+	inline event get_temporary_event() {
+		return {};
+	}
+#endif
 };

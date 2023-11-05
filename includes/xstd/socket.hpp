@@ -730,7 +730,7 @@ namespace xstd::net {
 	// Definition via LWIP:
 	//
 #if XSTD_LWIP
-	// Global net lock, replaces LWIP core lock.
+	// Global net lock as the LWIP core lock.
 	//
 	alignas( 64 ) inline io_mutex g_lock = {};
 	
@@ -740,17 +740,16 @@ namespace xstd::net {
 		if ( !no_hook && g_dns_hook ) {
 			return g_dns_hook( this, hnd );
 		}
-		this->continuation = hnd;
-
 		std::unique_lock lock{ g_lock };
 		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char*, const ip_addr_t* ipaddr, void* callback_arg ) {
 			auto* ctx = ( (dns_query_awaitable*) callback_arg );
 			ctx->result.emplace( ipaddr );
 			if ( ctx->continuation )
-				xstd::chore( std::move( ctx->continuation ) );
+				xstd::chore( ctx->continuation );
 		}, this, LWIP_DNS_ADDRTYPE_IPV4 );
 
 		if ( err == ERR_INPROGRESS ) {
+			this->continuation = hnd;
 			return true;
 		} else if ( err ) {
 			this->result.raise( xstd::exception{ XSTD_ESTR( "failed to query dns: %d" ), err } );
@@ -759,6 +758,73 @@ namespace xstd::net {
 			return false;
 		}
 	}
+
+	namespace detail {
+		// "Ref-counted" PCB.
+		//
+		struct lwtcp {
+			struct control_block {
+				tcp_pcb* pcb = nullptr;
+
+				void destroy_locked() {
+					if ( pcb ) {
+						pcb->ext_args[ 0 ] = { nullptr, nullptr };
+						tcp_abort( pcb );
+					}
+					delete this;
+				}
+				void destroy() {
+					if ( !pcb ) return delete this;
+					tcp_arg( pcb, nullptr );
+					std::unique_lock lock{ g_lock, std::try_to_lock };
+					if ( !pcb ) return delete this;
+					if ( lock ) return this->destroy_locked();
+
+					xstd::chore( [this] {
+						std::unique_lock lock{ g_lock };
+						this->destroy_locked();
+					} );
+				}
+				void on_destroy() {
+					pcb = nullptr;
+				}
+			};
+			inline static constexpr tcp_ext_arg_callbacks callbacks = {
+				.destroy = []( u8_t id, void* data ) { ( (control_block*) data )->on_destroy(); },
+				.passive_open = nullptr
+			};
+			control_block* s = nullptr;
+
+			constexpr lwtcp() = default;
+			constexpr lwtcp( std::nullptr_t ) {}
+			lwtcp( tcp_pcb* pcb ) { reset( pcb ); }
+			lwtcp( lwtcp&& o ) noexcept { swap( o ); }
+			lwtcp& operator=( lwtcp&& o ) noexcept { swap( o ); return *this; }
+			lwtcp( const lwtcp& ) = delete;
+			lwtcp& operator=( const lwtcp& ) = delete;
+
+			tcp_pcb* get() const { return s ? s->pcb : nullptr; }
+			operator tcp_pcb* ( ) const { return get(); }
+			tcp_pcb* operator->() const { return get(); }
+			explicit operator bool() const { return get() != nullptr; }
+
+			void reset() {
+				if ( auto prev = std::exchange( s, nullptr ) )
+					prev->destroy();
+			}
+			void reset( tcp_pcb* pcb ) {
+				reset();
+				if ( !pcb ) return;
+				s = new control_block{ pcb };
+				pcb->ext_args[ 0 ] = { &callbacks, s };
+			}
+			void swap( lwtcp& o ) {
+				std::swap( s, o.s );
+			}
+
+			~lwtcp() { reset(); }
+		};
+	};
 
 	// TCP implementation.
 	//
@@ -774,7 +840,7 @@ namespace xstd::net {
 
 		// PCB.
 		//
-		tcp_pcb* pcb = nullptr;
+		detail::lwtcp pcb = nullptr;
 
 		// Time it was opened or the timeout limit.
 		//
@@ -788,7 +854,7 @@ namespace xstd::net {
 			//if ( !this->assert_errno( XSTD_ESTR( "failed to initialize networking: %d" ), detail::init_networking() ) )
 			//	return;
 
-			// Create the socket.
+			// Create the socket and configure it.
 			//
 			std::unique_lock lock{ g_lock };
 			pcb = tcp_new();
@@ -797,17 +863,6 @@ namespace xstd::net {
 				this->destroy( XSTD_ESTR( "failed to create a socket" ) );
 				return;
 			}
-
-			// Bind the calllbacks.
-			//
-			tcp_arg( pcb, this );
-			tcp_err( pcb, (tcp_err_fn) sock_err );
-			tcp_poll( pcb, (tcp_poll_fn) sock_poll, 1 );
-			tcp_recv( pcb, (tcp_recv_fn) sock_recv );
-			tcp_sent( pcb, (tcp_sent_fn) sock_sent );
-
-			// Set socket options.
-			//
 			this->configure( opts );
 
 			// Try to connect.
@@ -832,24 +887,32 @@ namespace xstd::net {
 		void configure( socket_options opt ) {
 			this->opt = opt;
 			std::unique_lock lock{ g_lock };
-			if ( auto* p = pcb ) {
+			if ( tcp_pcb* p = pcb.get() ) {
+				// Bind the calllbacks.
+				//
+				tcp_arg( p, this );
+				tcp_err( p, (tcp_err_fn) sock_err );
+				tcp_poll( p, (tcp_poll_fn) sock_poll, 1 );
+				tcp_recv( p, (tcp_recv_fn) sock_recv );
+				tcp_sent( p, (tcp_sent_fn) sock_sent );
+
 				if ( opt.reuse ) {
-					ip_set_option( pcb, SOF_REUSEADDR );
+					ip_set_option( p, SOF_REUSEADDR );
 				} else {
-					ip_reset_option( pcb, SOF_REUSEADDR );
+					ip_reset_option( p, SOF_REUSEADDR );
 				}
 				if ( opt.nodelay ) {
-					tcp_set_flags( pcb, TF_NODELAY );
+					tcp_set_flags( p, TF_NODELAY );
 				} else {
-					tcp_clear_flags( pcb, TF_NODELAY );
+					tcp_clear_flags( p, TF_NODELAY );
 				}
 				opt.timestamps = LWIP_TCP_TIMESTAMPS;
 
 				if ( opt.keepalive ) {
-					pcb->keep_idle = ( uint32_t ) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
-					ip_set_option( pcb, SOF_KEEPALIVE );
+					p->keep_idle = ( uint32_t ) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
+					ip_set_option( p, SOF_KEEPALIVE );
 				} else {
-					ip_reset_option( pcb, SOF_KEEPALIVE );
+					ip_reset_option( p, SOF_KEEPALIVE );
 				}
 				opt.sendbuf = TCP_SND_BUF;
 
@@ -862,22 +925,21 @@ namespace xstd::net {
 		//
 	protected:
 		void terminate() override {
-			if ( auto prev_pcb = std::exchange( this->pcb, nullptr ) ) {
-				tcp_arg( prev_pcb, nullptr ); // Do not recurse.
-				std::unique_lock lock{ g_lock };
-				if ( tcp_close( prev_pcb ) != ERR_OK )
-					tcp_abort( prev_pcb );
-			}
+			pcb.reset();
 		}
 		bool try_close() override {
-			// TODO: Flush remaining data.
-			return false;
+			return true;
 		}
 		bool try_output( xstd::vec_buffer& data ) override {
-			std::unique_lock lock{ g_lock };
-			size_t offset = tcpi_write( data.data(), data.size(), 0 );
-			data.shift( offset );
-			return false;
+			if ( !pcb ) return false;
+			if ( std::unique_lock lock{ g_lock, std::try_to_lock } ) {
+				size_t offset = tcpi_write( data.data(), data.size(), 0 );
+				data.shift( offset );
+				return false;
+			} else {
+				defer_write();
+				return true;
+			}
 		}
 
 	private:
@@ -946,39 +1008,68 @@ namespace xstd::net {
 			return offset;
 		}
 		err_t tcpi_close( xstd::exception ex, tcp_pcb* tpcb ) {
-			this->pcb = nullptr;
 			if ( tpcb ) {
 				tcp_arg( tpcb, nullptr ); // Do not recurse.
 				if ( tcp_close( tpcb ) != ERR_OK )
 					tcp_abort( tpcb );
 			}
-			if ( !this->closed() ) {
-				this->inc_ref();
-				xstd::chore( [self = this, ex = std::move(ex)]() mutable {
-					self->on_close( std::move( ex ) );
-					self->dec_ref();
-				} );
+			if ( !closed() ) {
+				on_close( std::move( ex ) );
 			}
 			return ERR_ABRT;
+		}
+
+		// Socket signalling for deferred processing.
+		//
+		std::atomic<int> wsignal = -1;
+		void defer_write() {
+			if ( wsignal++ < 0 ) {
+				this->inc_ref();
+				chore( [this] { on_wsignal(); } );
+			}
+		}
+		void defer_read() {
+			this->inc_ref();
+			chore( [this] { on_rsignal(); } );
+		}
+		void on_wsignal() {
+			std::unique_lock lockg{ g_lock,   std::defer_lock };
+			std::unique_lock lockc{ this->mtx, std::defer_lock };
+			std::lock( lockg, lockc );
+
+			while( wsignal-- >= 0 ) {
+				if ( auto* tpcb = this->pcb.get() ) {
+					if ( tcp_sndbuf( tpcb ) && is_send_buffering() ) {
+						on_drain( 0 );
+					}
+				}
+			}
+
+			lockc.unlock();
+			this->dec_ref();
+		}
+		void on_rsignal() {
+			{
+				std::unique_lock lockc{ this->mtx };
+				flush_read();
+			}
+			this->dec_ref();
 		}
 
 		// Individual handlers as static functions.
 		//
 		static void sock_err( tcp* cli, err_t err ) {
 			if ( cli ) {
-				cli->pcb = nullptr;
 				cli->tcpi_close( { XSTD_ESTR( "socket error: %d" ), (int)err }, nullptr );
 			}
 		}
 		static err_t sock_poll( tcp* cli, tcp_pcb* tpcb ) {
 			if ( cli ) {
-				if ( cli->opening() && cli->open_time > xstd::time::now() ) {
+				if ( cli->closing() || ( cli->opening() && cli->open_time > xstd::time::now() ) ) {
 					return cli->tcpi_close( XSTD_ESTR( "connection timed out" ), tpcb );
+				} else if ( tcp_sndbuf( tpcb ) && cli->is_send_buffering() ) {
+					cli->on_drain( 0 );
 				}
-				if ( cli->is_send_buffering() ) {
-					cli->on_drain( tcp_sndbuf( tpcb ) );
-				}
-				tcp_output( tpcb );
 				return cli->pcb ? ERR_OK : ERR_ABRT;
 			}
 			return ERR_OK;
@@ -993,15 +1084,14 @@ namespace xstd::net {
 			}
 
 			if ( cli ) {
+				std::unique_lock lock{ cli->mtx };
 				int32_t n = p->tot_len;
 				for ( auto it = p; it != nullptr && n > 0; n -= it->len, it = it->next ) {
-					cli->on_input( { (uint8_t*) it->payload, std::min<size_t>( it->len, (uint32_t) n ) } );
-					if ( !cli->pcb ) {
-						pbuf_free( p );
-						return ERR_ABRT;
-					}
+					cli->on_input( { (uint8_t*) it->payload, std::min<size_t>( it->len, (uint32_t) n ) }, true );
 				}
 				tcp_recved( tpcb, p->tot_len );
+				if ( !cli->pcb ) return ERR_ABRT;
+				cli->defer_read();
 			}
 			pbuf_free( p );
 			return ERR_OK;

@@ -347,7 +347,7 @@
       <Filter>Coroutines</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\wait_list.hpp">
-      <Filter>Containers</Filter>
+      <Filter>Thread</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

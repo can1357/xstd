@@ -11,7 +11,7 @@
 // XSTD_RANDOM_THREAD_LOCAL: If set, will use the thread local qualifier for the random number generator.
 //
 #ifndef XSTD_RANDOM_THREAD_LOCAL
-#define XSTD_RANDOM_THREAD_LOCAL 0
+	#define XSTD_RANDOM_THREAD_LOCAL XSTD_USE_THREAD_LOCAL
 #endif
 
 #if GNU_COMPILER

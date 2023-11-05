@@ -9,12 +9,11 @@
 #include "narrow_cast.hpp"
 #include "vec_buffer.hpp"
 
-
 // [[Configuration]]
-// XSTD_ZSTD_HAS_THREADLOCAL: Set if we can allocate threadlocal contexts.
+// XSTD_ZSTD_THREAD_LOCAL: Set if we can allocate threadlocal contexts.
 //
-#ifndef XSTD_ZSTD_HAS_THREADLOCAL
-	#define XSTD_ZSTD_HAS_THREADLOCAL 0
+#ifndef XSTD_ZSTD_THREAD_LOCAL
+	#define XSTD_ZSTD_THREAD_LOCAL XSTD_USE_THREAD_LOCAL
 #endif
 
 namespace xstd::zstd {
@@ -389,7 +388,7 @@ namespace xstd::zstd {
 
 	// Temporary allocator.
 	//
-#if XSTD_ZSTD_HAS_THREADLOCAL
+#if XSTD_ZSTD_THREAD_LOCAL
 	template<typename View>
 	inline thread_local unique_context<View> thread_context;
 

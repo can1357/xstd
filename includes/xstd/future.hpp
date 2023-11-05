@@ -183,7 +183,8 @@ namespace xstd
 			if ( finished() ) [[likely]]
 				return unrace();
 			
-			int32_t hnd; event evt = {};
+			int32_t hnd;
+			auto&& evt = get_temporary_event();
 			if ( !register_wait( evt, hnd ) )
 				return unrace();
 			
@@ -194,8 +195,9 @@ namespace xstd
 		{
 			if ( finished() ) [[likely]]
 				return std::move( *( unrace(), &result ) );
-
-			int32_t hnd; event evt = {};
+				
+			int32_t hnd;
+			auto&& evt = get_temporary_event();
 			if ( !register_wait( evt, hnd ) )
 				return std::move( *( unrace(), &result ) );
 
@@ -206,8 +208,9 @@ namespace xstd
 		{
 			if ( finished() ) [[likely]]
 				return unrace();
-
-			int32_t hnd; event evt = {};
+				
+			int32_t hnd;
+			auto&& evt = get_temporary_event();
 			if ( !register_wait( evt, hnd ) )
 				return unrace();
 
@@ -220,8 +223,9 @@ namespace xstd
 		{
 			if ( finished() ) [[likely]]
 				return std::move( *( unrace(), &result ) );
-
-			event evt = {}; int32_t hnd;
+				
+			int32_t hnd;
+			auto&& evt = get_temporary_event();
 			if ( !register_wait( evt, hnd ) )
 				return std::move( *( unrace(), &result ) );
 

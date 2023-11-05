@@ -38,9 +38,13 @@
 
 // [[Configuration]]
 // XSTD_ESTR: Easy to override macro to control any error strings emitted into binary, must return a C string.
+// XSTD_USE_THREAD_LOCAL: Configures the default "should I use thread_local" policy.
 //
 #ifndef XSTD_ESTR
 	#define XSTD_ESTR(x) (x)
+#endif
+#ifndef XSTD_USE_THREAD_LOCAL
+	#define XSTD_USE_THREAD_LOCAL 0
 #endif
 
 // Determine compiler support for C++20 constant evaluation.

@@ -59,16 +59,30 @@ namespace xstd {
 
 		// Signalling.
 		//
-		void signal( coroutine_handle<>* sync_hnd ) {
+		FORCE_INLINE bool signal( coroutine_handle<>* sync_hnd ) {
 			awakable target{ std::move( *this ) };
 			if ( auto evt = target.get_event() ) {
 				event_primitive::from_handle( evt ).notify();
+				return true;
 			} else if ( auto coro = target.get_coroutine() ) {
 				if ( sync_hnd && !*sync_hnd )
 					*sync_hnd = coro;
 				else
 					chore( std::move( coro ) );
+				return true;
 			}
+			return false;
+		}
+		[[nodiscard]] FORCE_INLINE coroutine_handle<> signal() {
+			coroutine_handle<> continuation = {};
+			signal( &continuation );
+			return continuation ? continuation : noop_coroutine();
+		}
+		bool operator()() {
+			coroutine_handle<> continuation = {};
+			if ( !signal( &continuation ) ) return false;
+			if ( continuation )             continuation.resume();
+			return true;
 		}
 	};
 
@@ -91,9 +105,9 @@ namespace xstd {
 		//
 		std::array<awakable, I>  inline_list = { nullptr };
 		awakable*                extern_list = nullptr;
-		LockType                   lock;
-		uint32_t                   next_index : 31 = 0;
-		uint32_t                   settled    : 1 = 0;
+		LockType                 lock;
+		uint32_t                 next_index : 31 = 0;
+		uint32_t                 settled    : 1 = 0;
 
 		static constexpr int32_t get_capacity_from_size( int32_t size ) {
 			if ( size <= I ) {
@@ -184,13 +198,13 @@ namespace xstd {
 		// Registers a wait block and starts waiting inline.
 		//
 		void wait() {
-			event_primitive evt = {};
+			auto&& evt = get_temporary_event();
 			if ( listen( evt ) >= 0 ) {
 				evt.wait();
 			}
 		}
 		bool wait_for( duration time ) {
-			event_primitive evt = {};
+			auto&& evt = get_temporary_event();
 			if ( int32_t idx = listen( evt ); idx >= 0 ) {
 				if ( !evt.wait_for( time / 1ms ) ) {
 					if ( unlisten( idx ) ) {

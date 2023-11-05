@@ -34,8 +34,8 @@ namespace xstd
 		union {
 			const char* _str = nullptr;
 			struct {
-				uint64_t _allocated : 1;
 				int64_t  _snptr     : 63;
+				uint64_t _allocated : 1;
 			};
 		};
 
