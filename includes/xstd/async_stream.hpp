@@ -4,6 +4,7 @@
 #include "vec_buffer.hpp"
 #include "result.hpp"
 #include "event.hpp"
+#include "function_view.hpp"
 
 namespace xstd {
 	// Stream stop code, low digits are reserved for the user.
@@ -44,32 +45,32 @@ namespace xstd {
 
 		// Consumer utilities.
 		//
-		auto read( size_t min, size_t max ) {
+		auto read( vec_buffer& result, size_t min, size_t max ) {
 			return static_cast<Self*>( this )->read_and(
-				[]( vec_buffer& buf, size_t count ) FORCE_INLINE{
-					vec_buffer result;
+				[&result]( vec_buffer& buf, size_t count ) FORCE_INLINE {
 					if ( buf.size() > count ) {
-						result = { buf.subspan( 0, count ) };
+						result.append_range( buf.subspan( 0, count ) );
 						buf.shift( count );
+					} else if ( !result ) {
+						std::swap( result, buf );
 					} else {
-						result.swap( buf );
+						result.append_range( buf );
 					}
-					return result;
 				},
 				min, max
 			);
 		}
-		auto read() {
-			return read( 0, std::dynamic_extent );
+		auto read( vec_buffer& result ) {
+			return read( result, 0, std::dynamic_extent );
 		}
-		auto read( size_t len ) {
-			return read( len, len );
+		auto read( vec_buffer& result, size_t len ) {
+			return read( result, len, len );
 		}
-		auto read_into( std::span<uint8_t> dst, size_t min ) {
+		auto read_into( std::span<uint8_t>& dst, size_t min ) {
 			return static_cast<Self*>( this )->read_and(
-				[out = dst.data()]( vec_buffer& buf, size_t count ) FORCE_INLINE{
+				[out = dst.data(), &dst]( vec_buffer& buf, size_t count ) FORCE_INLINE {
 					buf.shift_range( { out, count } );
-					return count;
+					dst = dst.subspan( 0, count );
 				},
 				min, dst.size()
 			);
@@ -200,9 +201,9 @@ namespace xstd {
 					return noop_coroutine();
 				}
 			}
-			inline decltype( auto ) await_resume() const noexcept {
+			inline void await_resume() const noexcept {
 				if ( !lock ) lock.lock();
-				return std::move( fn )( stream.buffer, std::clamp( stream.buffer.size(), lower, upper ) );
+				fn( stream.buffer, std::clamp( stream.buffer.size(), lower, upper ) );
 			}
 		};
 		template<typename F>
@@ -267,6 +268,163 @@ namespace xstd {
 		}
 		async_stream_state* ref_state() {
 			return input.ref_state();
+		}
+	};
+
+	// Type erased async stream.
+	//
+	namespace detail {
+		using cb_async_write = function_view<void( vec_buffer& )>;
+		using cb_async_read =  function_view<void( vec_buffer&, size_t )>;
+		template<typename R, typename... Ax>
+		using cb_asfn_t = R(*)( void* ctx, Ax... args );
+
+		// Traits list.
+		//
+		struct async_stream_traits {
+			cb_asfn_t<async_stream_state*>                                                ref_state = nullptr;
+			cb_asfn_t<async_stream::writer,                cb_async_write>                write_and = nullptr;
+			cb_asfn_t<async_stream::reader<cb_async_read>, cb_async_read, size_t, size_t> read_and = nullptr;
+			cb_asfn_t<void>                                                               dtor = nullptr;
+		};
+		template<typename U>
+		struct async_stream_traits_for : async_stream_traits {
+			constexpr async_stream_traits_for() {
+				this->ref_state = &_ref_state;
+				this->write_and = &_write_and;
+				this->read_and =  &_read_and;
+				this->dtor =      &_dtor;
+			}
+			static async_stream_state* _ref_state( void* ptr ) {
+				return ( (U*) ptr )->ref_state();
+			}
+			static async_stream::writer _write_and( void* ptr, cb_async_write fn ) {
+				return ( (U*) ptr )->write_and( std::move( fn ) );
+			}
+			static async_stream::reader<cb_async_read> _read_and( void* ptr, cb_async_read fn, size_t min, size_t max ) {
+				return ( (U*) ptr )->read_and( std::move( fn ), min, max );
+			}
+			static void _dtor( void* ptr ) {
+				delete (U*) ptr;
+			}
+		};
+		template<typename U>
+		inline constexpr async_stream_traits async_stream_traits_v = async_stream_traits_for<U>{};
+	};
+
+	// Type erased viewing type.
+	//
+	struct async_stream_view : async_stream_utils<async_stream_view> {
+		// Constructors and comparison.
+		//
+		async_stream_view() = default;
+		async_stream_view( std::nullptr_t ) {}
+		async_stream_view( async_stream_view&& ) noexcept = default;
+		async_stream_view( const async_stream_view& ) noexcept = default;
+		async_stream_view& operator=( async_stream_view&& ) noexcept = default;
+		async_stream_view& operator=( const async_stream_view& ) noexcept = default;
+		bool operator==( const async_stream_view& o ) const { return ptr == o.ptr; };
+		bool operator<( const async_stream_view& o ) const { return ptr <= o.ptr; };
+
+		// By typed pointer.
+		//
+		template<typename U>
+		async_stream_view( U* ptr ) { this->reset( ptr ); }
+		void reset() {
+			this->ptr =    nullptr;
+			this->traits = nullptr;
+			this->state =  nullptr;
+		}
+		template<typename U>
+		void reset( U* ptr ) {
+			this->ptr =    ptr;
+			this->traits = &detail::async_stream_traits_v<U>;
+			this->state =  this->traits->ref_state( ptr );
+		}
+
+		// Observers.
+		//
+		template<typename U>
+		bool is() const { return traits == &detail::async_stream_traits_v<U>; }
+		bool has_value() const { return ptr != nullptr; }
+		explicit operator bool() const { return has_value(); }
+
+		void* address() { return ptr; }
+		template<typename U>
+		U& get() { return *(U*) ptr; }
+		template<typename U>
+		U* get_if() { return this->template is<U>() ? (U*) ptr : nullptr; }
+		
+		const void* address() const { return ptr; }
+		template<typename U>
+		const U& get() const { return const_cast<async_stream_view*>( this )->template get<U>(); }
+		template<typename U> 
+		const U* get_if() const { return const_cast<async_stream_view*>( this )->template get_if<U>(); }
+		
+		
+		// Implement the interface.
+		//
+		async_stream::writer write_and( detail::cb_async_write&& fn ) {
+			return traits->write_and( ptr, fn );
+		}
+		async_stream::reader<detail::cb_async_read> read_and( detail::cb_async_read&& fn, size_t min = 1, size_t max = std::dynamic_extent ) {
+			return traits->read_and( ptr, fn, min, max );
+		}
+		async_stream_state* ref_state() {
+			return state;
+		}
+	protected:
+		void* ptr = nullptr;
+		const detail::async_stream_traits* traits = nullptr;
+		async_stream_state* state = nullptr;
+	};
+
+	// Type erased owning type.
+	//
+	struct unique_async_stream : async_stream_view {
+		// Construction by pointer.
+		//
+		unique_async_stream() = default;
+		unique_async_stream( std::nullptr_t ) {}
+		template<typename U> 
+		unique_async_stream( U* ptr ) : async_stream_view( ptr ) {}
+		
+		// Move construction, no copy.
+		//
+		unique_async_stream( unique_async_stream&& o ) noexcept {
+			swap( o );
+		}
+		unique_async_stream& operator=( unique_async_stream&& o ) noexcept {
+			swap( o );
+			return *this;
+		}
+		unique_async_stream( const unique_async_stream& ) = delete;
+		unique_async_stream& operator=( const unique_async_stream& ) = delete;
+		void swap( unique_async_stream& o ) {
+			std::swap( ptr,    o.ptr );
+			std::swap( traits, o.traits );
+			std::swap( state,  o.state );
+		}
+
+		// Comparison.
+		//
+		explicit operator bool() const { return async_stream_view::has_value(); }
+		bool operator==( const unique_async_stream& o ) const { return ptr == o.ptr; };
+		bool operator<( const unique_async_stream& o ) const { return ptr <= o.ptr; };
+
+		// Override reset to delete.
+		//
+		void reset() {
+			unique_async_stream tmp{};
+			swap( tmp );
+		}
+		template<typename U>
+		void reset( U* ptr ) {
+			unique_async_stream tmp{ ptr };
+			swap( tmp );
+		}
+		~unique_async_stream() {
+			if ( ptr ) traits->dtor( ptr );
 		}
 	};
 };

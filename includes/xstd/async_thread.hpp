@@ -2,6 +2,7 @@
 #include "chore.hpp"
 #include "coro.hpp"
 #include "event.hpp"
+#include "assert.hpp"
 
 namespace xstd {
 	// Defines a thread that holds a coroutine that can pause and resume it via co_await / co_yield.
@@ -85,7 +86,7 @@ namespace xstd {
 	private:
 		void start() {
 			dassert( handle );
-			chore( [handle = handle.get()]() mutable {
+			xstd::chore( [handle = handle.get()]() {
 				auto& promise = handle.promise();
 				promise.tid = get_thread_uid();
 				while ( true ) {
@@ -95,7 +96,7 @@ namespace xstd {
 							promise.exit_event->notify();
 						} else if ( promise.detached ) {
 							handle.destroy();
-						} 
+						}
 						return;
 					}
 					promise.resume_event.wait();

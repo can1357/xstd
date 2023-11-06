@@ -502,7 +502,31 @@ namespace xstd::fmt
 
 	// Returns a formatted string.
 	//
-	template<typename C, typename F, typename... Tx>
+	template<typename C, typename... Tx>
+	FORCE_INLINE static std::basic_string_view<C> into( std::span<C> buffer, const C* fmt_str, Tx&&... ps ) {
+		using char_traits = std::char_traits<C>;
+
+		if constexpr ( sizeof...( Tx ) > 0 ) {
+			auto print_to_buffer = [&]( const C* fmt_str, auto&&... args ) FORCE_INLINE {
+				int lim = (int) (intptr_t) ( buffer.size() - 1 );
+				int n =   nsprintf( buffer.data(), buffer.size(), fmt_str, args... );
+				n = std::clamp( n, 0, lim );
+				return std::basic_string_view<C>{ buffer.data(), buffer.data() + n };
+			};
+			impl::format_buffer_for<std::decay_t<Tx>...> buf = {};
+			return print_to_buffer( fmt_str, fix_parameter( buf, std::forward<Tx>( ps ) )... );
+		} else {
+			size_t n = char_traits::length( fmt_str );
+			n = std::min( n, buffer.size() );
+			char_traits::copy( buffer.data(), fmt_str, n );
+			return { buffer.data(), buffer.data() + n };
+		}
+	}
+	template<typename C, size_t N, typename... Tx>
+	FORCE_INLINE static std::basic_string_view<C> into( C( &buffer )[ N ], const C* fmt_str, Tx&&... ps ) {
+		return into( std::span{ &buffer[ 0 ],  N }, fmt_str, std::forward<Tx>( ps )... );
+	}
+	template<typename C, typename F, typename... Tx> requires Invocable<F, C*, size_t>
 	FORCE_INLINE static std::basic_string_view<C> into( F&& allocator, const C* fmt_str, Tx&&... ps ) {
 		using char_traits = std::char_traits<C>;
 
