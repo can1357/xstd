@@ -24,11 +24,13 @@ namespace xstd
 
 		// Construct from any functor.
 		//
-		template<typename F> requires ( Invocable<F, Ret, Args...> && !Same<std::decay_t<F>, function_view> )
+		template<typename F> requires ( !Same<std::decay_t<F>, function_view> )
 		constexpr function_view( F&& functor )
 		{
 			using Fn =     std::decay_t<F>;
 			using Traits = function_traits<Fn>;
+
+			obj = &functor;
 
 			// Lambda?
 			//
@@ -40,7 +42,7 @@ namespace xstd
 				{
 					fn = [ ] ( void*, Args... args ) -> Ret
 					{
-						return Fn{}( std::move( args )... );
+						return Fn{}( std::forward<Args&&>( args )... );
 					};
 				}
 				// Stateful lambda.
@@ -50,7 +52,7 @@ namespace xstd
 					obj = ( void* ) &functor;
 					fn = [ ] ( void* obj, Args... args ) -> Ret
 					{
-						return ( *( Fn* ) obj )( std::move( args )... );
+						return ( *( Fn* ) obj )( std::forward<Args&&>( args )... );
 					};
 				}
 			}
@@ -61,7 +63,7 @@ namespace xstd
 				obj = ( void* ) functor;
 				fn = [ ] ( void* obj, Args... args ) -> Ret
 				{
-					return ( ( Fn ) obj )( std::move( args )... );
+					return ( ( Fn ) obj )( std::forward<Args&&>( args )... );
 				};
 			}
 		}

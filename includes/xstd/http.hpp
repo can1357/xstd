@@ -87,10 +87,8 @@ namespace xstd::http
 	using header_span =     std::span<const std::pair<std::string_view, std::string_view>>;
 	template<typename T> concept HeaderMap = Same<T, header_map> || Same<T, header_view_map>;
 
-	// Declare the I/O helpers.
-	//
-	template<typename T> requires ( HeaderMap<T> || Same<header_list, T> || Same<header_span, T> )
-	inline void write( std::vector<uint8_t>& output, const T& headers ) {
+	template<typename T, typename Dst> requires ( HeaderMap<T> || Same<header_list, T> || Same<header_span, T> )
+	inline void write( Dst& output, const T& headers ) {
 		for ( auto& [key, value] : headers ) {
 			if ( !value.empty() ) {
 				output.insert( output.end(), key.begin(), key.end() );
@@ -155,22 +153,18 @@ namespace xstd::http
 
 	// Define the request header.
 	//
-	struct request_header
-	{
+	struct request_header {
 		method_id   method = GET;
-		std::string path = "/";
+		std::string path   = "/";
 	};
-	struct request_header_view
-	{
+	struct request_header_view {
 		method_id        method = GET;
-		std::string_view path = "/";
+		std::string_view path   = "/";
 	};
 	template<typename T> concept RequestHeader = Same<T, request_header> || Same<T, request_header_view>;
 
-	// Declare the I/O helpers.
-	//
-	template<RequestHeader T>
-	inline void write( std::vector<uint8_t>& output, const T& header ) {
+	template<RequestHeader T, typename Dst>
+	inline void write( Dst& output, const T& header ) {
 		dassert( header.method < method_id::INVALID );
 		auto& method = method_map[ size_t( header.method ) ];
 		output.insert( output.end(), method.begin(), method.end() );
@@ -222,36 +216,40 @@ namespace xstd::http
 
 	// Define the response header.
 	//
-	// HTTP/1.1 200 OK
-	struct response_header
-	{
-		uint32_t status = 200;
-		std::string message = {};
+	struct response_header {
+		int status =               200;
+		std::string message =      {};
 	};
-	struct response_header_view
-	{
-		uint32_t status = 200;
+	struct response_header_view {
+		int status =               200;
 		std::string_view message = {};
 	};
 	template<typename T> concept ResponseHeader = Same<T, response_header> || Same<T, response_header_view>;
 
 	// Declare the I/O helpers.
 	//
-	template<ResponseHeader T>
-	inline void write( std::vector<uint8_t>& output, const T& header )
-	{
-		constexpr std::string_view version = "HTTP/1.1 ";
-		output.insert( output.end(), version.begin(), version.end() );
+	template<ResponseHeader T, typename Dst>
+	inline void write( Dst& output, const T& header ) {
+		constexpr std::string_view status = "HTTP/1.1 200 ";
+		size_t alloc = status.size() + header.message.size() + 2;
+		
+		size_t pos = output.size();
+		uninitialized_resize( output, pos + alloc );
 
-		std::array<char, 4> status = {
-			char( '0' + ( int( header.status / 100 ) % 10 ) ),
-			char( '0' + ( int( header.status / 10 ) % 10 ) ),
-			char( '0' + ( int( header.status / 1 ) % 10 ) ),
-			' '
-		};
-		output.insert( output.end(), status.begin(), status.end() );
-		output.insert( output.end(), header.message.begin(), header.message.end() );
-		output.insert( output.end(), { '\r', '\n' } );
+		auto* it = &output[ pos ];
+		memcpy( it, status.data(), status.size() );
+		if ( header.status != 200 ) {
+			it[ 11 ] = char( '0' + ( header.status % 10 ) ); header.status /= 10;
+			it[ 10 ] = char( '0' + ( header.status % 10 ) ); header.status /= 10;
+			it[ 9  ] = char( '0' + ( header.status % 10 ) ); header.status /= 10;
+		}
+		it += status.size();
+
+		memcpy( it, header.message.data(), header.message.size() );
+		it += header.message.size();
+
+		*it++ = '\r';
+		*it++ = '\n';
 	}
 	template<ResponseHeader T>
 	inline bool read( std::string_view& input, T& header ) {
@@ -359,13 +357,14 @@ namespace xstd::http
 
 	// Body writer.
 	//
-	inline void end( std::vector<uint8_t>& output, std::span<const uint8_t> body = {} ) {
+	template<typename Dst>
+	inline void end( Dst& output, std::span<const uint8_t> body = {} ) {
 		// If there is a body, set Content-Length, terminate header list, write the body.
 		//
 		if ( !body.empty() ) {
-			char buffer[ 128 ];
-			int length = sprintf_s( buffer, "Content-Length: %llu\r\n\r\n", body.size() );
-			output.insert( output.end(), &buffer[ 0 ], &buffer[ length ] );
+			char buffer[ 64 ];
+			auto last_header = xstd::fmt::into( buffer, "Content-Length: %llu\r\n\r\n", body.size() );
+			output.insert( output.end(), last_header.begin(), last_header.end() );
 			output.insert( output.end(), body.begin(), body.end() );
 		} else {
 			output.insert( output.end(), { '\r', '\n' } );
@@ -374,8 +373,7 @@ namespace xstd::http
 
 	// Describes a HTTP request.
 	//
-	struct request_view
-	{
+	struct request_view {
 		// Headers of the request.
 		//
 		request_header_view meta = {};
@@ -387,12 +385,15 @@ namespace xstd::http
 
 		// Formats the header and the body.
 		//
-		std::vector<uint8_t> write() const
-		{
-			std::vector<uint8_t> output = {};
+		template<typename Dst>
+		void write( Dst& output ) const {
 			http::write( output, meta );
 			http::write( output, headers );
 			http::end( output, body );
+		}
+		std::vector<uint8_t> write() const {
+			std::vector<uint8_t> output;
+			write( output );
 			return output;
 		}
 	};

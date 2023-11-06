@@ -358,21 +358,51 @@ namespace xstd {
 			m_base = m_limit = m_beg = m_end = nullptr;
 			return { abeg, dbeg, dend, aend };
 		}
-		FORCE_INLINE constexpr uint8_t* insert_range( const uint8_t* it, std::span<const uint8_t> data ) {
+		FORCE_INLINE constexpr uint8_t* reserve_range( const uint8_t* it, size_t count ) {
 			uint8_t* dst;
 			if ( it == end() ) {
-				dst = mm_append( data.size() );
+				dst = mm_append( count );
 			} else if ( it == begin() ) {
-				dst = mm_prepend( data.size() );
+				dst = mm_prepend( count );
 			} else {
 				size_t copy_src = it - m_beg;
 				size_t copy_len = m_end - it;
-				resize( size() + data.size() );
+				resize( size() + count );
 				dst = m_beg + copy_src;
-				detail::shift_fwd( dst, copy_len, data.size() );
+				detail::shift_fwd( dst, copy_len, count );
 			}
+			return dst;
+		}
+		FORCE_INLINE constexpr uint8_t* insert_range( const uint8_t* it, std::span<const uint8_t> data ) {
+			auto* dst = reserve_range( it, data.size() );
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
+		}
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, const uint8_t* first, const uint8_t* last ) {
+			return insert_range( it, { first, last } );
+		}
+		template<typename It1, typename It2>
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, It1 first, It2 last ) {
+			size_t count = std::distance( first, last );
+			if constexpr ( std::is_same_v<It1, const uint8_t*>   || std::is_same_v<It1, uint8_t*> ) {
+				return insert_range( it, std::span<const uint8_t>{ first, count } );
+			} 
+			
+			if constexpr ( std::is_same_v<It1, const char*>      || std::is_same_v<It1, char*> ||
+						   std::is_same_v<It1, const std::byte*> || std::is_same_v<It1, std::byte*> ) {
+				if ( !std::is_constant_evaluated() ) {
+					return insert_range( it, std::span<const uint8_t>{ (const uint8_t*) first, count } );
+				}
+			}
+			auto* dst = reserve_range( it, count );
+			std::copy_n( first, count, dst );
+			return dst;
+		}
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, std::initializer_list<uint8_t> list ) {
+			return insert( it, list.begin(), list.end() );
+		}
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, uint8_t val ) {
+			return insert( it, &val, std::next( &val ) );
 		}
 		FORCE_INLINE constexpr void assign_range( std::span<const uint8_t> data ) {
 			mm_clear();
