@@ -173,7 +173,17 @@ namespace xstd
 	template<typename T>
 	concept Coroutine = requires { typename coroutine_traits<T>::promise_type; };
 	template<typename T>
-	concept Awaitable = requires( T x ) { x.await_ready(); x.await_suspend(); x.await_resume(); };
+	concept Awaitable = requires( T& x, coroutine_handle<> coro ) {
+		{ x.await_ready() } -> Same<bool>;
+		x.await_suspend( coro );
+		x.await_resume(); 
+	};
+	template<typename T, typename R>
+	concept AwaitableInto = requires( T & x, coroutine_handle<> coro ) {
+		{ x.await_ready() } -> Same<bool>;
+		x.await_suspend( coro );
+		{ x.await_resume() } ->  std::convertible_to<R>;
+	};
 
 	// Suspend type that terminates the coroutine.
 	//

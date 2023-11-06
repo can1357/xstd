@@ -55,7 +55,7 @@ namespace xstd
 
 	// - Task priority wrapper.
 	//
-	template<task_priority_t Tpr>
+	template<task_priority_t Tpr = XSTD_SYNC_TPR>
 	struct xspinlock : protected spinlock {
 		using underlying_lock = spinlock;
 		static constexpr task_priority_t task_priority = Tpr;
@@ -157,7 +157,7 @@ namespace xstd
 
 	// - Task priority wrapper.
 	//
-	template<task_priority_t Tpr>
+	template<task_priority_t Tpr = XSTD_SYNC_TPR>
 	struct shared_xspinlock : protected shared_spinlock {
 		using underlying_lock = shared_spinlock;
 		static constexpr task_priority_t task_priority = Tpr;
@@ -335,7 +335,7 @@ namespace xstd
 
 	// - Task priority wrapper.
 	//
-	template<task_priority_t Tpr, DefaultConstructible CidGetter = decltype( impl::get_tid )>
+	template<task_priority_t Tpr = XSTD_SYNC_TPR, DefaultConstructible CidGetter = decltype( impl::get_tid )>
 	struct recursive_xspinlock : protected recursive_spinlock<CidGetter> {
 		using underlying_lock = recursive_spinlock<CidGetter>;
 		static constexpr task_priority_t task_priority = Tpr;

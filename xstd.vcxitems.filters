@@ -349,6 +349,15 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\wait_list.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task_list.hpp">
+      <Filter>Thread</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_stream.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_thread.hpp">
+      <Filter>Coroutines</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)includes\xstd\websocket.hpp">

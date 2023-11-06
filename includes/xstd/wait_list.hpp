@@ -193,5 +193,5 @@ namespace xstd {
 		}
 	};
 	using wait_list =            basic_wait_list<noop_lock>;
-	using concurrent_wait_list = basic_wait_list<xspinlock<XSTD_SYNC_TPR>>;
+	using concurrent_wait_list = basic_wait_list<xspinlock<>>;
 };

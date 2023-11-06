@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
     <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -45,6 +45,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_generator.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_stream.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_thread.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\circular_buffer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp" />
@@ -95,6 +97,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\result.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\ring_buffer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\robin_hood.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task_list.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\serialization.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha1.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\sha256.hpp" />
