@@ -524,7 +524,7 @@ namespace xstd::fmt
 	}
 	template<typename C, size_t N, typename... Tx>
 	FORCE_INLINE static std::basic_string_view<C> into( C( &buffer )[ N ], const C* fmt_str, Tx&&... ps ) {
-		return into( std::span{ &buffer[ 0 ],  N }, fmt_str, std::forward<Tx>( ps )... );
+		return into( std::span{ &buffer[ 0 ], N }, fmt_str, std::forward<Tx>( ps )... );
 	}
 	template<typename C, typename F, typename... Tx> requires Invocable<F, C*, size_t>
 	FORCE_INLINE static std::basic_string_view<C> into( F&& allocator, const C* fmt_str, Tx&&... ps ) {

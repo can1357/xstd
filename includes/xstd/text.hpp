@@ -9,8 +9,8 @@ namespace xstd
 {
 	// Constexpr implementations of cstring functions.
 	//
-	inline constexpr uint32_t cxlower( uint32_t cp ) { return cp ^ ( ( ( 'A' <= cp ) & ( cp <= 'Z' ) ) << 5 ); }
-	inline constexpr uint32_t cxupper( uint32_t cp ) { return cp ^ ( ( ( 'a' <= cp ) & ( cp <= 'z' ) ) << 5 ); }
+	inline constexpr char cxlower( char cp ) { return cp ^ char( ( ( 'A' <= cp ) & ( cp <= 'Z' ) ) << 5 ); }
+	inline constexpr char cxupper( char cp ) { return cp ^ char( ( ( 'a' <= cp ) & ( cp <= 'z' ) ) << 5 ); }
 	template<String T> inline constexpr size_t strlen( T&& str ) { return string_view_t<T>{ str }.size(); }
 
 	// Common helpers.
@@ -32,7 +32,7 @@ namespace xstd
 				if ( U( front ) <= 0x7f ) [[likely]]
 				{
 					if constexpr ( CaseInsensitive )
-						front = cxlower( U( front ) );
+						front = cxlower( char( front ) );
 					h.template add_bytes<char>( ( char ) front );
 					input.remove_prefix( 1 );
 				}
@@ -640,26 +640,25 @@ constexpr auto operator""_hex()
 // Hash literals.
 //
 #if !GNU_COMPILER
-	#define MAKE_HASHER( op, fn )                                                \
-	inline constexpr auto operator"" op( const char* str, size_t n )             \
-	{                                                                            \
-		return fn<std::basic_string_view<char>>{}( { str, n } );                  \
-	}                                                                            \
-	inline constexpr auto operator"" op( const wchar_t* str, size_t n )          \
-	{                                                                            \
-		return fn<std::basic_string_view<wchar_t>>{}( { str, n } );               \
+	#define XSTD_MAKE_TEXT_SHADER( op, fn )                                    \
+	inline constexpr auto operator"" op( const char* str, size_t n )           \
+	{                                                                          \
+		return fn{}( std::basic_string_view<char>{ str, n } );                 \
+	}                                                                          \
+	inline constexpr auto operator"" op( const wchar_t* str, size_t n )        \
+	{                                                                          \
+		return fn{}( std::basic_string_view<wchar_t>{ str, n } );              \
 	}                                                                    
 #else
-	#define MAKE_HASHER( op, fn )                                                               \
-	template<typename T, T... chars>                                                            \
-	constexpr auto operator"" op()                                                              \
-	{                                                                                           \
-		constexpr T str[] = { chars... };                                                        \
-		constexpr auto hash = fn<std::basic_string_view<T>>{}( { str, sizeof...( chars ) } );    \
-		return (decltype(hash)){ xstd::const_tag<hash.as64()>::value };                          \
+	#define XSTD_MAKE_TEXT_SHADER( op, fn )                                                   \
+	template<typename T, T... chars>                                                          \
+	constexpr auto operator"" op()                                                            \
+	{                                                                                         \
+		constexpr T str[] = { chars... };                                                     \
+		constexpr auto hash = fn{}( std::basic_string_view<T>{ str, sizeof...( chars ) } );   \
+		return (decltype(hash)){ xstd::const_tag<hash.digest()>::value };                     \
 	}
 #endif
-	MAKE_HASHER( _ihash, xstd::ihash );
-	MAKE_HASHER( _xhash, xstd::xhash );
-	MAKE_HASHER( _ahash, xstd::ahash );
-#undef MAKE_HASHER
+	XSTD_MAKE_TEXT_SHADER( _ihash, xstd::ihash<void> );
+	XSTD_MAKE_TEXT_SHADER( _xhash, xstd::xhash<void> );
+	XSTD_MAKE_TEXT_SHADER( _ahash, xstd::ahash<void> );

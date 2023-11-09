@@ -1,14 +1,15 @@
 #pragma once
 #include "coro.hpp"
+#include "assert.hpp"
 
 namespace xstd {
 	namespace detail {
 		template<typename T>
 		struct job_awaitable {
-			bool dtor = false;
-			FORCE_INLINE inline bool await_ready() noexcept { return dtor; }
+			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<T> handle ) noexcept {
-				return handle.promise().continuation;
+				coroutine_handle<> onto = handle.promise().continuation;
+				return onto ? onto : handle;
 			}
 			FORCE_INLINE inline void await_resume() const noexcept {}
 		};
@@ -20,29 +21,32 @@ namespace xstd {
 	struct job {
 		struct promise_type {
 			coroutine_handle<> continuation = {};
-			std::optional<T> placement;
+			std::optional<T>* placement = nullptr;
 
 			FORCE_INLINE inline job get_return_object() { return *this; }
 			FORCE_INLINE inline suspend_always initial_suspend() noexcept { return {}; }
-			FORCE_INLINE inline detail::job_awaitable<promise_type> final_suspend() noexcept { return { !continuation }; }
+			FORCE_INLINE inline detail::job_awaitable<promise_type> final_suspend() noexcept { return {}; }
 			XSTDC_UNHANDLED_RETHROW;
 			template<typename V>
 			FORCE_INLINE inline void return_value( V&& v ) {
-				placement.emplace( std::forward<V>( v ) );
+				if ( placement )
+					placement->emplace( std::forward<V>( v ) );
 			}
 		};
 		struct awaiter {
 			unique_coroutine<promise_type> handle;
+			mutable std::optional<T> placement;
 
 			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) noexcept {
-				handle.promise().continuation = hnd;
+				auto& pr = handle.promise();
+				pr.continuation = hnd;
+				pr.placement = &placement;
 				return handle.hnd;
 			}
-			FORCE_INLINE inline T&& await_resume() const noexcept {
-				std::optional<T>& optional = handle.promise().placement;
-				strong_assume( optional.has_value() );
-				return std::move( optional ).value();
+			FORCE_INLINE inline T await_resume() const noexcept {
+				strong_assume( placement.has_value() );
+				return std::move( placement ).value();
 			}
 		};
 		inline awaiter operator co_await() && noexcept { return { std::move( handle ) }; }
@@ -79,7 +83,7 @@ namespace xstd {
 
 			FORCE_INLINE inline job get_return_object() { return *this; }
 			FORCE_INLINE inline suspend_always initial_suspend() noexcept { return {}; }
-			FORCE_INLINE inline detail::job_awaitable<promise_type> final_suspend() noexcept { return { !continuation }; }
+			FORCE_INLINE inline detail::job_awaitable<promise_type> final_suspend() noexcept { return {}; }
 			XSTDC_UNHANDLED_RETHROW;
 			FORCE_INLINE inline void return_void() {}
 		};

@@ -33,15 +33,18 @@ namespace xstd
 
 		// Move and copy.
 		//
-		constexpr ref( ref&& o ) noexcept : ptr( std::exchange( o.ptr, nullptr ) ) {}
+		constexpr ref( ref&& o ) noexcept { swap( o ); }
 		constexpr ref( const ref& o ) : ref( o.ptr, true ) {}
 		constexpr ref& operator=( ref&& o ) noexcept {
-			std::swap( ptr, o.ptr );
+			swap( o );
 			return *this;
 		}
 		constexpr ref& operator=( const ref& o ) {
 			reset( o.ptr );
 			return *this;
+		}
+		constexpr void swap( ref& o ) {
+			std::swap( ptr, o.ptr );
 		}
 
 		// Type cast.

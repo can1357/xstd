@@ -485,8 +485,8 @@ namespace std {
 	template<xstd::XMutex Mutex>
 	class unique_lock<Mutex> {
 		Mutex* pmtx = nullptr;
-		bool owns = false;
 		task_priority_t prev = 0;
+		bool owns = false;
 
 		public:
 		using mutex_type = Mutex;
@@ -496,8 +496,8 @@ namespace std {
 
 		explicit unique_lock( mutex_type& mtx ) : pmtx( &mtx ) { lock(); }
 		explicit unique_lock( mutex_type& mtx, defer_lock_t ) : pmtx( &mtx ) {}
-		explicit unique_lock( mutex_type& mtx, try_to_lock_t ) : pmtx( &mtx ), owns( mtx.try_lock( prev ) ) {}
-		explicit unique_lock( mutex_type& mtx, task_priority_t tpr, adopt_lock_t ) : pmtx( &mtx ), owns( true ), prev( tpr ) {}
+		explicit unique_lock( mutex_type& mtx, try_to_lock_t ) : pmtx( &mtx ) { try_lock(); }
+		explicit unique_lock( mutex_type& mtx, task_priority_t tpr, adopt_lock_t ) : pmtx( &mtx ), prev( tpr ), owns( true ) {}
 
 		~unique_lock() noexcept {
 			if ( owns ) {

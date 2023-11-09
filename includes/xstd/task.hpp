@@ -26,11 +26,10 @@ namespace xstd
 			bool done = false;
 
 			promise_type() {}
-			~promise_type() 
-			{
+			~promise_type() {
 				dassert( !continuation ); // Should not leak continuation!
-				if ( done ) 
-					std::destroy_at( &value ); 
+				if ( done )
+					std::destroy_at( &value );
 			}
 
 			struct final_awaitable

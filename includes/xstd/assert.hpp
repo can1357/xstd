@@ -95,7 +95,7 @@ namespace xstd
 	#define fassert(...)     xassert(__VA_ARGS__)
 	#define unreachable_s()  do { dassert( false ); unreachable(); } while(false)
 #else
-	#define dassert(...)     assume(__VA_ARGS__)
+	#define dassert(...)     assume(((bool)(__VA_ARGS__)))
 	#define fassert(...)     xassert(__VA_ARGS__)
 	#define unreachable_s()  unreachable()
 #endif
