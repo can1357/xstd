@@ -311,6 +311,7 @@ namespace xstd {
 		FORCE_INLINE constexpr uint8_t* end() { return m_end; }
 		FORCE_INLINE constexpr const uint8_t* end() const { return m_end; }
 		FORCE_INLINE constexpr size_t size() const { return end() - begin(); }
+		FORCE_INLINE constexpr size_t length() const { return size(); }
 		FORCE_INLINE constexpr size_t capacity() const { return mm_capacity(); }
 		FORCE_INLINE constexpr size_t max_size() const { return SIZE_MAX; }
 		FORCE_INLINE constexpr bool empty() const { return m_beg == m_end; }
@@ -419,6 +420,17 @@ namespace xstd {
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
 		}
+		FORCE_INLINE constexpr uint8_t* append_range( vec_buffer&& other ) {
+			uint8_t* result;
+			if ( other.capacity() > capacity() ) {
+				swap( other );
+				result = prepend_range( other.subspan() );
+				other.clear();
+			} else {
+				result = append_range( other.subspan() );
+			}
+			return result;
+		}
 		FORCE_INLINE constexpr void push_back( uint8_t value ) {
 			*push( 1 ) = value;
 		}
@@ -435,6 +447,17 @@ namespace xstd {
 			auto dst = unshift( data.size() );
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
+		}
+		FORCE_INLINE constexpr uint8_t* prepend_range( vec_buffer&& other ) {
+			uint8_t* result;
+			if ( other.capacity() > capacity() ) {
+				swap( other );
+				result = append_range( other.subspan() );
+				other.clear();
+			} else {
+				result = prepend_range( other.subspan() );
+			}
+			return result;
 		}
 		FORCE_INLINE constexpr void push_front( uint8_t value ) {
 			*unshift( 1 ) = value;
