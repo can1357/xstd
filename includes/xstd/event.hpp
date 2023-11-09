@@ -10,14 +10,8 @@
 
 // [[Configuration]]
 // XSTD_OS_EVENT_PRIMITIVE: If set, events will use the given OS primitive (wrapped by a class) instead of the std::future<> waits.
-// XSTD_EVENT_THREAD_LOCAL: Set if we can use threadlocal events for immediately waited upon events.
 //
 #ifndef XSTD_OS_EVENT_PRIMITIVE
-#ifndef XSTD_EVENT_THREAD_LOCAL
-	#define XSTD_EVENT_THREAD_LOCAL XSTD_USE_THREAD_LOCAL
-#endif
-
-
 #if WINDOWS_TARGET
 #pragma comment(lib, "ntdll.lib")
 extern "C" {
@@ -127,78 +121,4 @@ namespace xstd
 		template<Duration T> 
 		inline bool wait_for( T duration ) const { return wait_for( duration / 1ms ); }
 	};
-
-	// Temporary events.
-	//
-#if XSTD_EVENT_THREAD_LOCAL
-	inline thread_local event g_temporary_event = {};
-	using temporary_event = event&;
-	inline temporary_event get_temporary_event() {
-		g_temporary_event.reset();
-		return g_temporary_event;
-	}
-#else
-	using temporary_event = event;
-	inline temporary_event get_temporary_event() {
-		return {};
-	}
-#endif
-
-	// Coroutine that triggers a temporary event.
-	//
-#if XSTD_CORO_KNOWN_STRUCT
-	struct wait_block : private coroutine_struct<> {
-	private:
-		temporary_event evt = get_temporary_event();
-		static void resumer( void* _ctx ) {
-			auto* ctx = ( (wait_block*) _ctx );
-			ctx->evt.notify();
-			ctx->fn_resume = nullptr;
-		}
-
-	public:
-		wait_block() {
-			fn_resume =  &resumer;
-			fn_destroy = []( void* ) {};
-		}
-		coroutine_handle<> get_handle() { return this->handle(); }
-		void wait() { evt.wait(); }
-		template<Duration T> bool wait_for( T duration ) { return evt.wait_for( duration ); }
-	};
-#else
-	namespace detail {
-		struct notify_coro {
-			struct promise_type {
-				notify_coro get_return_object() { return *this; }
-				suspend_always initial_suspend() { return {}; }
-				suspend_always final_suspend() noexcept { return {}; }
-				void return_void() {}
-				XSTDC_UNHANDLED_RETHROW;
-			};
-			unique_coroutine<promise_type> __h;
-			notify_coro( promise_type& pr ) : __h( pr ) {}
-			notify_coro( notify_coro&& ) = delete;
-			notify_coro( const notify_coro& ) = delete;
-			notify_coro& operator=( notify_coro&& ) = delete;
-			notify_coro& operator=( const notify_coro& ) = delete;
-			coroutine_handle<> handle() const { return __h.hnd; }
-		};
-	};
-	struct wait_block {
-	private:
-		static detail::notify_coro resumer( event& evt ) {
-			evt.notify();
-			co_return;
-		}
-
-		temporary_event evt =      get_temporary_event();
-		detail::notify_coro coro = resumer( evt );
-
-	public:
-		wait_block() {}
-		coroutine_handle<> get_handle() { return coro.handle(); }
-		void wait() { evt.wait(); }
-		template<Duration T> bool wait_for( T duration ) { return evt.wait_for( duration ); }
-	};
-#endif
 };

@@ -12,7 +12,8 @@ namespace xstd {
 	template<typename LockType>
 	struct basic_wait_list {
 		static constexpr int32_t I = 4;
-
+		LockType lock;
+		
 		basic_wait_list() = default;
 		basic_wait_list( const basic_wait_list& ) = delete;
 		basic_wait_list& operator=( const basic_wait_list& ) = delete;
@@ -26,9 +27,9 @@ namespace xstd {
 		//
 		std::array<coroutine_handle<>, I>  inline_list = { nullptr };
 		coroutine_handle<>*                extern_list = nullptr;
-		LockType                           lock;
 		uint32_t                           next_index : 31 = 0;
 		uint32_t                           settled    : 1 = 0;
+		std::optional<event>               associated_event = std::nullopt;
 
 		static constexpr int32_t get_capacity_from_size( int32_t size ) {
 			if ( size <= I ) {
@@ -70,6 +71,8 @@ namespace xstd {
 			auto alloc = std::exchange( extern_list, nullptr );
 			this->settled = true;
 			this->next_index = 0;
+			if ( this->associated_event )
+				this->associated_event->notify();
 			this->for_each( [&]( coroutine_handle<>& e ) {
 				if ( hnd && !*hnd )
 					*hnd = e;
@@ -82,6 +85,16 @@ namespace xstd {
 		}
 	public:
 		// - Registrar interface.
+		// 
+		// Associates an event with the list if not yet done, returns the pointer or nullptr if already settled.
+		// 
+		event* listen() {
+			if ( is_settled() ) return nullptr;
+			std::unique_lock g{ lock };
+			if ( is_settled() ) return nullptr;
+			return &associated_event.emplace();
+		}
+		// 
 		// Adds a new listener, returns the handle assigned for it or < 0 on failure.
 		//
 		int32_t listen( coroutine_handle<> a ) {
@@ -120,25 +133,17 @@ namespace xstd {
 		bool is_settled() const {
 			return this->settled;
 		}
-		// Registers a wait block and starts waiting inline.
+		// Registers an even and starts waiting inline.
 		//
 		void wait() {
-			wait_block wb = {};
-			if ( listen( wb.get_handle() ) >= 0 ) {
-				wb.wait();
-			}
+			if ( auto* e = listen() )
+				return e->wait();
 		}
 		bool wait_for( duration time ) {
-			wait_block wb = {};
-			if ( int32_t idx = listen( wb.get_handle() ); idx >= 0 ) {
-				if ( !wb.wait_for( time ) ) {
-					if ( unlisten( idx ) ) {
-						return false;
-					}
-					wb.wait();
-				}
-			}
-			return true;
+			if ( auto* e = listen() )
+				return e->wait_for( time );
+			else
+				return true;
 		}
 		// Awaitable.
 		//
@@ -171,6 +176,7 @@ namespace xstd {
 			// If task priority is raised, we cannot sync. call any coroutines.
 			//
 			std::lock_guard g{ lock };
+			if ( settled ) return noop_coroutine();
 			coroutine_handle<> continuation = {};
 			if constexpr ( XMutex<LockType> ) {
 				if ( g.priority() >= XSTD_SYNC_TPR ) {
@@ -192,6 +198,5 @@ namespace xstd {
 				xstd::chore( std::move( h ) );
 		}
 	};
-	using wait_list =            basic_wait_list<noop_lock>;
-	using concurrent_wait_list = basic_wait_list<xspinlock<>>;
+	using wait_list = basic_wait_list<xspinlock<>>;
 };

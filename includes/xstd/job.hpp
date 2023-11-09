@@ -35,7 +35,7 @@ namespace xstd {
 		};
 		struct awaiter {
 			unique_coroutine<promise_type> handle;
-			mutable std::optional<T> placement;
+			std::optional<T> placement;
 
 			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) noexcept {
@@ -44,7 +44,7 @@ namespace xstd {
 				pr.placement = &placement;
 				return handle.hnd;
 			}
-			FORCE_INLINE inline T await_resume() const noexcept {
+			FORCE_INLINE inline T await_resume() noexcept {
 				strong_assume( placement.has_value() );
 				return std::move( placement ).value();
 			}
@@ -70,8 +70,18 @@ namespace xstd {
 
 		// Launches the job synchronously, lets go of the ownership.
 		//
-		FORCE_INLINE void launch() { handle.release().resume(); }
+		FORCE_INLINE coroutine_handle<promise_type> release() { return handle.release(); }
+		FORCE_INLINE void launch() { release().resume(); }
 		FORCE_INLINE void operator()() { launch(); }
+
+		// Tails into a job from another coroutine discarding the result.
+		//
+		FORCE_INLINE coroutine_handle<> chain( coroutine_handle<> hnd ) {
+			if ( !handle ) return hnd;
+			auto& pr = handle.promise();
+			pr.continuation = hnd;
+			return handle.hnd;
+		}
 	};
 
 	// Void variant.
@@ -117,7 +127,17 @@ namespace xstd {
 
 		// Launches the job synchronously, lets go of the ownership.
 		//
-		FORCE_INLINE void launch() { handle.release().resume(); }
+		FORCE_INLINE coroutine_handle<promise_type> release() { return handle.release(); }
+		FORCE_INLINE void launch() { release().resume(); }
 		FORCE_INLINE void operator()() { launch(); }
+
+		// Tails into a job from another coroutine discarding the result.
+		//
+		FORCE_INLINE coroutine_handle<> chain( coroutine_handle<> hnd ) {
+			if ( !handle ) return hnd;
+			auto& pr = handle.promise();
+			pr.continuation = hnd;
+			return handle.hnd;
+		}
 	};
 };

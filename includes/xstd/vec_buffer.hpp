@@ -380,7 +380,7 @@ namespace xstd {
 			return dst;
 		}
 		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, const uint8_t* first, const uint8_t* last ) {
-			return insert_range( it, { first, last } );
+			return insert_range( it, std::span{ first, last } );
 		}
 		template<typename It1, typename It2>
 		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, It1 first, It2 last ) {
@@ -405,9 +405,9 @@ namespace xstd {
 		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, uint8_t val ) {
 			return insert( it, &val, std::next( &val ) );
 		}
-		FORCE_INLINE constexpr void assign_range( std::span<const uint8_t> data ) {
+		FORCE_INLINE constexpr uint8_t* assign_range( std::span<const uint8_t> data ) {
 			mm_clear();
-			append_range( data );
+			return append_range( data );
 		}
 
 		// Appends [count] bytes to the arena and returns the pointer.
@@ -534,6 +534,26 @@ namespace xstd {
 		FORCE_INLINE constexpr std::span<uint8_t> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) {
 			return std::span{ data(), size() }.subspan( offset, count );
 		}
+
+		// Non-constexpr utils.
+		//
+		template<typename U, size_t E> vec_buffer( std::span<U, E> v ) : vec_buffer{ std::span{ (const uint8_t*) v.data(), v.size_bytes() } } {}
+		template<typename U, size_t E> uint8_t* insert_range( const uint8_t* it, std::span<U, E> v ) { return insert_range( it, std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> uint8_t* assign_range( std::span<U, E> v ) { return assign_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> uint8_t* append_range( std::span<U, E> v ) { return append_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> uint8_t* prepend_range( std::span<U, E> v ) { return prepend_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+
+		template<typename U = char> vec_buffer( std::basic_string_view<U> v ) : vec_buffer{ std::span{v} } {}
+		template<typename U = char> uint8_t* insert_range( const uint8_t* it, std::basic_string_view<U> v ) { return insert_range( it, std::span{ v } ); }
+		template<typename U = char> uint8_t* assign_range( std::basic_string_view<U> v ) { return assign_range( std::span{ v } ); }
+		template<typename U = char> uint8_t* append_range( std::basic_string_view<U> v ) { return append_range( std::span{ v } ); }
+		template<typename U = char> uint8_t* prepend_range( std::basic_string_view<U> v ) { return prepend_range( std::span{ v } ); }
+
+		template<typename U = char> vec_buffer( const std::basic_string<U>& v ) : vec_buffer{ std::span{v} } {}
+		template<typename U = char> uint8_t* insert_range( const uint8_t* it, const std::basic_string<U>& v ) { return insert_range( it, std::span{ v } ); }
+		template<typename U = char> uint8_t* assign_range( const std::basic_string<U>& v ) { return assign_range( std::span{ v } ); }
+		template<typename U = char> uint8_t* append_range( const std::basic_string<U>& v ) { return append_range( std::span{ v } ); }
+		template<typename U = char> uint8_t* prepend_range( const std::basic_string<U>& v ) { return prepend_range( std::span{ v } ); }
 
 		// Destructor.
 		//

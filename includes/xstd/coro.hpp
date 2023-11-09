@@ -288,8 +288,7 @@ namespace xstd
 #endif
 
 	template<typename C, typename Promise = typename coroutine_traits<C>::promise_type>
-	FORCE_INLINE static Promise& this_promise( coroutine_handle<> h = this_coroutine() )
-	{ 
+	FORCE_INLINE static Promise& this_promise( coroutine_handle<> h = this_coroutine() ) {
 		return get_promise<Promise>( h );
 	}
 };

@@ -58,7 +58,7 @@ namespace xstd {
 				promise.continuation = h;
 				return hnd;
 			}
-			inline std::optional<T>&& await_resume() { return std::move( result ); }
+			inline std::optional<T> await_resume() { return std::move( result ); }
 		};
 		inline awaiter operator co_await() { return { handle.hnd }; }
 	};

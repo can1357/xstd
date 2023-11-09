@@ -9,8 +9,10 @@ namespace xstd
 {
 	// Constexpr implementations of cstring functions.
 	//
-	inline constexpr char cxlower( char cp ) { return cp ^ char( ( ( 'A' <= cp ) & ( cp <= 'Z' ) ) << 5 ); }
-	inline constexpr char cxupper( char cp ) { return cp ^ char( ( ( 'a' <= cp ) & ( cp <= 'z' ) ) << 5 ); }
+	template<typename T = int>
+	inline constexpr T cxlower( T cp ) { return cp ^ T( ( ( 'A' <= cp ) & ( cp <= 'Z' ) ) << 5 ); }
+	template<typename T = int>
+	inline constexpr T cxupper( T cp ) { return cp ^ T( ( ( 'a' <= cp ) & ( cp <= 'z' ) ) << 5 ); }
 	template<String T> inline constexpr size_t strlen( T&& str ) { return string_view_t<T>{ str }.size(); }
 
 	// Common helpers.
@@ -32,7 +34,7 @@ namespace xstd
 				if ( U( front ) <= 0x7f ) [[likely]]
 				{
 					if constexpr ( CaseInsensitive )
-						front = cxlower( char( front ) );
+						front = cxlower( front );
 					h.template add_bytes<char>( ( char ) front );
 					input.remove_prefix( 1 );
 				}
@@ -60,7 +62,7 @@ namespace xstd
 			{
 				bool is_ascii = true;
 				for ( size_t i = 0; i != ( N - 1 ); i++ )
-					is_ascii &= value[ i ] <= 0x7f;
+					is_ascii &= convert_uint_t<T>( value[ i ] ) <= 0x7f;
 				if ( is_ascii )
 					return N - 1;
 				return std::string::npos;
@@ -385,24 +387,38 @@ namespace xstd
 		return utf_icmpeq( av, bv );
 	}
 	template<String S1, String S2>
-	FORCE_INLINE inline constexpr size_t ifind( S1&& a, S2&& b )
-	{
+	FORCE_INLINE inline constexpr size_t ifind( S1&& a, S2&& b ) {
 		string_view_t<S1> av = { a };
-		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos )
-		{
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos ) {
 			ptrdiff_t diff = av.length() - clen;
 			for ( ptrdiff_t n = 0; n <= diff; n++ )
 				if ( impl::ceval_ascii_equals<false>( b, av.data() + n ) )
-					return ( size_t ) n;
-		}
-		else
-		{
+					return (size_t) n;
+		} else {
 			string_view_t<S2> bv = { b };
 			size_t len = utf_length<string_unit_t<S1>>( bv );
 			ptrdiff_t diff = av.length() - len;
 			for ( ptrdiff_t n = 0; n <= diff; n++ )
 				if ( iequals( av.substr( n, len ), bv ) )
-					return ( size_t ) n;
+					return (size_t) n;
+		}
+		return std::string::npos;
+	}
+	template<String S1, String S2>
+	FORCE_INLINE inline constexpr size_t irfind( S1&& a, S2&& b ) {
+		string_view_t<S1> av = { a };
+		if ( size_t clen = impl::ceval_ascii_length( b ); clen != std::string::npos ) {
+			ptrdiff_t diff = av.length() - clen;
+			for ( ptrdiff_t n = diff; n >= 0; n-- )
+				if ( impl::ceval_ascii_equals<false>( b, av.data() + n ) )
+					return (size_t) n;
+		} else {
+			string_view_t<S2> bv = { b };
+			size_t len = utf_length<string_unit_t<S1>>( bv );
+			ptrdiff_t diff = av.length() - len;
+			for ( ptrdiff_t n = diff; n >= 0; n-- )
+				if ( iequals( av.substr( n, len ), bv ) )
+					return (size_t) n;
 		}
 		return std::string::npos;
 	}
@@ -450,14 +466,11 @@ namespace xstd
 	// Text splitting.
 	//
 	template<typename C = char, String R = std::basic_string_view<C>>
-	static std::vector<R> split_string( std::basic_string_view<C> in, C by )
-	{
+	static std::vector<R> split_string( std::basic_string_view<C> in, C by ) {
 		std::vector<R> result;
-		while ( !in.empty() )
-		{
+		while ( !in.empty() ) {
 			size_t s = in.find( by );
-			if ( s == std::string::npos )
-			{
+			if ( s == std::string::npos ) {
 				result.push_back( R{ in } );
 				break;
 			}
@@ -466,15 +479,11 @@ namespace xstd
 		}
 		return result;
 	}
-
 	template<typename C = char, String R = std::basic_string_view<C>>
-	static std::vector<R> split_lines( std::basic_string_view<C> in )
-	{
+	static std::vector<R> split_lines( std::basic_string_view<C> in ) {
 		std::vector<R> result = split_string<C, R>( in, '\n' );
-		for ( auto& chunk : result )
-		{
-			if ( !chunk.empty() && chunk.back() == '\r' )
-			{
+		for ( auto& chunk : result ) {
+			if ( !chunk.empty() && chunk.back() == '\r' ) {
 				if constexpr ( CppStringView<R> )
 					chunk.remove_suffix( 1 );
 				else if constexpr ( CppString<R> )
@@ -484,6 +493,55 @@ namespace xstd
 			}
 		}
 		return result;
+	}
+
+	// Slicing-split.
+	//
+	namespace detail {
+		template<typename C, bool CaseSensitive, bool Backwards, size_t N>
+		FORCE_INLINE inline constexpr auto ssplit( std::basic_string_view<C> haystack, std::basic_string_view<C> needle, bool skip = true ) {
+			std::array<std::basic_string_view<C>, N> result = {};
+			if constexpr ( !Backwards ) {
+				size_t it = 0;
+				for ( ; it != N-1; ++it ) {
+					size_t p = CaseSensitive ? haystack.find( needle ) : ifind( haystack, needle );
+					if ( p == std::string::npos ) {
+						break;
+					}
+					result[ it ] = haystack.substr( 0, p );
+					haystack =     haystack.substr( p + ( skip ? needle.size() : 0 ) );
+				}
+				result[ it ] = haystack;
+			} else {
+				size_t it = N-1;
+				for ( ; it != 0; --it ) {
+					size_t p = CaseSensitive ? haystack.rfind( needle ) : irfind( haystack, needle );
+					if ( p == std::string::npos ) {
+						break;
+					}
+					result[ it ] = haystack.substr( p + ( skip ? needle.size() : 0 ) );
+					haystack =     haystack.substr( 0, p );
+				}
+				result[ it ] = haystack;
+			}
+			return result;
+		}
+	};
+	template<size_t N = 2, String S = std::string_view>
+	FORCE_INLINE inline constexpr std::array<string_view_t<S>, N> isplit_fwd( S&& a, string_view_t<S> b, bool skip = true ) {
+		return detail::ssplit<string_unit_t<S>, false, false, N>( string_view_t<S>( a ), b, skip );
+	}
+	template<size_t N = 2, String S = std::string_view>
+	FORCE_INLINE inline constexpr std::array<string_view_t<S>, N> isplit_bwd( S&& a, string_view_t<S> b, bool skip = true ) {
+		return detail::ssplit<string_unit_t<S>, false, true, N>( string_view_t<S>( a ), b, skip );
+	}
+	template<size_t N = 2, String S = std::string_view>
+	FORCE_INLINE inline constexpr std::array<string_view_t<S>, N> split_fwd( S&& a, string_view_t<S> b, bool skip = true ) {
+		return detail::ssplit<string_unit_t<S>, true, false, N>( string_view_t<S>( a ), b, skip );
+	}
+	template<size_t N = 2, String S = std::string_view>
+	FORCE_INLINE inline constexpr std::array<string_view_t<S>, N> split_bwd( S&& a, string_view_t<S> b, bool skip = true ) {
+		return detail::ssplit<string_unit_t<S>, true, true, N>( string_view_t<S>( a ), b, skip );
 	}
 
 	// Case insensitive comparison predicate.

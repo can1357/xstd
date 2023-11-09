@@ -118,10 +118,6 @@ namespace xstd
 		//
 		mutable impl::atomic_integral<uint32_t> refs = { impl::owner_flag };
 
-		// Lock guarding continuation list and the event list.
-		//
-		mutable xspinlock<XSTD_SYNC_TPR>        state_lock = {};
-
 		// Promise state.
 		//
 		impl::atomic_integral<uint16_t>         state = { 0 };
@@ -132,8 +128,7 @@ namespace xstd
 
 		// Result.
 		//
-		union
-		{
+		union {
 			uint8_t                              dummy = 0;
 			basic_result<T, S>                   result;
 		};
@@ -157,85 +152,36 @@ namespace xstd
 		promise_base( std::in_place_t, Promise* promise, uint32_t initial_ref_count = impl::owner_flag )
 			: refs( initial_ref_count ), coro( coroutine_handle<Promise>::from_promise( *promise ) ) {}
 
-
-		// Wait block helper.
-		//
-		bool register_wait( wait_block& blk, int32_t& hnd ) const {
-			// Acquire the state lock, if already finished fail.
-			//
-			std::lock_guard g{ state_lock };
-			if ( finished() ) [[unlikely]]
-				return false;
-			hnd = waits.listen( blk.get_handle() );
-			if ( hnd < 0 )
-				return false;
-			return true;
-		}
-		bool deregister_wait( wait_block& blk, int32_t hnd ) const {
-			std::unique_lock g{ state_lock };
-			if ( !waits.unlisten( hnd ) ) {
-				g.unlock();
-				blk.wait();
-				return false;
-			} else {
-				return true;
-			}
-		}
-
 		// Waits for the event to be complete.
 		//
 		const basic_result<T, S>& wait() const
 		{
-			if ( finished() ) [[likely]]
+			if ( finished() )
 				return unrace();
-			
-			int32_t hnd;
-			wait_block wb = {};
-			if ( !register_wait( wb, hnd ) )
-				return unrace();
-			
-			wb.wait();
+			waits.wait();
 			return result;
 		}
 		basic_result<T, S> wait_move()
 		{
-			if ( finished() ) [[likely]]
+			if ( finished() )
 				return std::move( *( unrace(), &result ) );
-				
-			int32_t hnd;
-			wait_block wb = {};
-			if ( !register_wait( wb, hnd ) )
-				return std::move( *( unrace(), &result ) );
-
-			wb.wait();
+			waits.wait();
 			return std::move( result );
 		}
 		const basic_result<T, S>& wait_for( duration time ) const
 		{
-			if ( finished() ) [[likely]]
+			if ( finished() )
 				return unrace();
-				
-			int32_t hnd;
-			wait_block wb = {};
-			if ( !register_wait( wb, hnd ) )
-				return unrace();
-
-			if ( wb.wait_for( time ) || !deregister_wait( wb, hnd ) )
+			if ( waits.wait_for( time ) )
 				return result;
 			else
 				return impl::timeout_result<T, S>();
 		}
 		basic_result<T, S> wait_for_move( duration time ) const
 		{
-			if ( finished() ) [[likely]]
+			if ( finished() )
 				return std::move( *( unrace(), &result ) );
-				
-			int32_t hnd;
-			wait_block wb = {};
-			if ( !register_wait( wb, hnd ) )
-				return std::move( *( unrace(), &result ) );
-
-			if ( wb.wait_for( time ) || !deregister_wait( wb, hnd ) )
+			if ( waits.wait_for( time ) )
 				return std::move( result );
 			else
 				return impl::timeout_result<T, S>();
@@ -246,22 +192,14 @@ namespace xstd
 		bool listen( coroutine_handle<> h ) const
 		{
 			if ( finished() ) [[likely]]
-				return false;
-			std::lock_guard g{ state_lock };
-			if ( finished() ) [[unlikely]]
-				return false;
+				return ( unrace(), false );
 			return waits.listen( h ) >= 0;
 		}
 		bool unlisten( coroutine_handle<> h ) const
 		{
 			if ( finished() ) [[likely]]
-				return false;
-			std::lock_guard g{ state_lock };
-			if ( finished() ) [[unlikely]]
-				return false;
-			if ( waits.unlisten( h ) < 0 ) [[unlikely]]
-				xstd::error( XSTD_ESTR( "Corrupt wait list." ) );
-			return true;
+				return ( unrace(), false );
+			return waits.unlisten( h ) >= 0;
 		}
 
 		// Signals the event, runs all continuation entries.
@@ -346,7 +284,7 @@ namespace xstd
 
 		// Exposes information on the promise state.
 		//
-		inline bool finished() const { return state.load() & impl::state_finished; }
+		inline bool finished() const { return state.load( std::memory_order::relaxed ) & impl::state_finished; }
 		inline bool pending() const { return !finished(); }
 		bool fulfilled() const 
 		{ 

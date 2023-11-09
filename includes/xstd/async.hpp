@@ -5,54 +5,14 @@
 #include "future.hpp"
 #include "result.hpp"
 
-namespace xstd
-{
-	namespace impl
-	{
-		template<typename F, typename R>
-		struct async_promise : promise<R, void>
-		{
-			F functor;
-			promise<R, void> promise = make_promise<R, void>();
-
-			async_promise( F&& functor ) : functor( std::forward<F>( functor ) ) {}
-			void operator()() const noexcept { promise.resolve( functor() ); }
-			unique_future<R, void> get_future() const { return promise; }
-		};
-
-		template<typename F>
-		struct async_promise<F, void>
-		{
-			F functor;
-			promise<void, void> promise = make_promise<void, void>();
-
-			async_promise( F&& functor ) : functor( std::forward<F>( functor ) ) {}
-			void operator()() const noexcept { functor(); promise.resolve(); }
-			unique_future<void, void> get_future() const { return promise; }
-		};
-
-		template<typename F, typename T, typename S>
-		struct async_promise<F, basic_result<T, S>>
-		{
-			F functor;
-			promise<T, S> promise = make_promise<T, S>();
-
-			async_promise( F&& functor ) : functor( std::forward<F>( functor ) ) {}
-			void operator()() const noexcept { promise.emplace( functor() ); }
-			unique_future<T, S> get_future() const { return promise; }
-		};
-	};
-
-	// Invokes the function in an async manner.
+namespace xstd {
+	// Switches to an async context.
 	//
-	template<typename F>
-	auto async( F&& func ) {
-		using R = decltype( func() );
-		impl::async_promise<F, R> promise{ std::forward<F>( func ) };
-		auto future = promise.get_future();
-		chore( std::move( promise ) );
-		return future;
-	}
+	struct yield {
+		inline bool await_ready() { return false; }
+		inline void await_suspend( coroutine_handle<> h ) { chore( h ); }
+		inline void await_resume() {}
+	};
 
 	// Simple wrapper for a coroutine starting itself and destorying itself on finalization.
 	//
@@ -61,101 +21,11 @@ namespace xstd
 			async_task get_return_object() { return {}; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			suspend_never final_suspend() noexcept { return {}; }
+			xstd::yield yield_value( std::monostate ) { return {}; }
 			XSTDC_UNHANDLED_RETHROW;
 			void return_void() {}
 		};
 		async_task() {}
-	};
-
-	namespace impl {
-		struct time_awaitable {
-			duration delay;
-
-			template<Duration D>  time_awaitable( const D& delay ) : delay( std::chrono::duration_cast<duration>( delay ) ) {}
-			template<Timestamp T> time_awaitable( const T& timestamp ) : time_awaitable( timestamp - xstd::time::now() ) {}
-
-			inline bool await_ready() { return false; }
-			inline void await_suspend( coroutine_handle<> h ) { chore( h, delay ); }
-			inline void await_resume() {}
-		};
-
-		struct event_awaitable {
-			event_handle evt;
-
-			event_awaitable( event_handle evt ) : evt( evt ) {}
-			event_awaitable( const event& evt ) : event_awaitable( evt.handle() ) {}
-			event_awaitable( const event_primitive& evt ) : event_awaitable( evt.handle() ) {}
-
-			inline bool await_ready() { return !evt; }
-			inline void await_suspend( coroutine_handle<> h ) { chore( h, evt ); }
-			inline void await_resume() {}
-		};
-
-		struct event_awaitable_timed {
-			event_handle evt;
-			duration timeout;
-
-			template<Duration D> event_awaitable_timed( event_handle evt, const D& timeout ) : evt( evt ), timeout( std::chrono::duration_cast<duration>( timeout ) ) {}
-			template<Duration D> event_awaitable_timed( const event& evt, const D& timeout ) : event_awaitable_timed( evt.handle(), timeout ) {}
-			template<Duration D> event_awaitable_timed( const event_primitive& evt, const D& timeout ) : event_awaitable_timed( evt.handle(), timeout ) {}
-
-			inline bool await_ready() { return !evt; }
-			inline void await_suspend( coroutine_handle<> h ) { chore( h, evt, timeout ); }
-			inline void await_resume() {}
-		};
-
-		template<typename T, typename S>
-		struct promise_awaitable_timed {
-			duration timeout;
-			promise_ref<T, S, false> promise;
-			event evt = {};
-			int32_t idx = 0;
-
-			template<Duration D>
-			promise_awaitable_timed( promise_ref<T, S, false> _pr, const D& timeout ) : timeout( std::chrono::duration_cast<duration>( timeout ) ), promise( std::move( _pr ) ) {
-				auto& pr = *promise.ptr;
-				idx = pr.register_wait( evt );
-			}
-
-			// Default move.
-			//
-			promise_awaitable_timed( promise_awaitable_timed&& ) noexcept = default;
-			promise_awaitable_timed& operator=( promise_awaitable_timed&& ) noexcept = default;
-
-			// If no awakable registered, we already have our result.
-			//
-			inline bool await_ready() { return idx < 0; }
-
-			// Register the time constrained wait.
-			//
-			inline void await_suspend( coroutine_handle<> h ) { chore( h, evt.handle(), timeout ); }
-
-			// Check the status on resume and deregister.
-			//
-			basic_result<T, S> await_resume() {
-				auto p = std::exchange( promise, {} );
-				if ( idx < 0 || !p.ptr->deregister_wait( idx ) )
-					return p.ptr->result;
-				else
-					return timeout_result<T, S>();
-			}
-
-			// If await_resume is not called and we have a registered wait-block on destruction, deregister it.
-			//
-			~promise_awaitable_timed() {
-				if ( promise && idx >= 0 )
-					promise.ptr->deregister_wait( idx );
-			}
-		};
-	};
-
-	// Switches to an async context.
-	//
-	struct yield
-	{
-		inline bool await_ready() { return false; }
-		inline void await_suspend( coroutine_handle<> h ) { chore( h ); }
-		inline void await_resume() {}
 	};
 
 	// Declare yield types and their deduction guides.
@@ -167,25 +37,49 @@ namespace xstd
 
 	// Yields the coroutine for a given time.
 	//
-	template<Duration D>  struct yield_for<D>    : impl::time_awaitable { using impl::time_awaitable::time_awaitable; };
-	template<Timestamp T> struct yield_until<T>  : impl::time_awaitable { using impl::time_awaitable::time_awaitable; };
+	template<>
+	struct yield_for<> {
+		duration delay;
+		template<Duration D>  yield_for( const D& delay ) : delay( std::chrono::duration_cast<duration>( delay ) ) {}
+		template<Timestamp T> yield_for( const T& timestamp ) : yield_for( timestamp.time_since_epoch() - time::now().time_since_epoch() ) {}
+		inline bool await_ready() { return false; }
+		inline void await_suspend( coroutine_handle<> h ) { chore( h, delay ); }
+		inline void await_resume() {}
+	};
+	template<Duration D>  struct yield_for<D>    : yield_for<> { using yield_for<>::yield_for; };
+	template<Timestamp T> struct yield_until<T>  : yield_for<> { using yield_for<>::yield_for; };
 
 	// Yields the coroutine until an event is signalled.
 	//
-	template<> struct yield_until<event>           : impl::event_awaitable { using impl::event_awaitable::event_awaitable; };
-	template<> struct yield_until<event_handle>    : impl::event_awaitable { using impl::event_awaitable::event_awaitable; };
-	template<> struct yield_until<event_primitive> : impl::event_awaitable { using impl::event_awaitable::event_awaitable; };
+	template<> 
+	struct yield_until<event_handle> {
+		event_handle evt;
+		yield_until( event_handle evt ) : evt( evt ) {}
+		yield_until( const event& evt ) : evt( evt.handle() ) {}
+		yield_until( const event_primitive& evt ) : evt( evt.handle() ) {}
+
+		inline bool await_ready() { return !evt; }
+		inline void await_suspend( coroutine_handle<> h ) { chore( h, evt ); }
+		inline void await_resume() {}
+	};
+	template<> struct yield_until<event>           : yield_until<event_handle> { using yield_until<event_handle>::yield_until; };
+	template<> struct yield_until<event_primitive> : yield_until<event_handle> { using yield_until<event_handle>::yield_until; };
 
 	// Yields the coroutine until an event is signalled or the given timeout period passes.
 	//
-	template<Duration D> struct yield_until<event, D>           : impl::event_awaitable_timed { using impl::event_awaitable_timed::event_awaitable_timed; };
-	template<Duration D> struct yield_until<event_handle, D>    : impl::event_awaitable_timed { using impl::event_awaitable_timed::event_awaitable_timed; };
-	template<Duration D> struct yield_until<event_primitive, D> : impl::event_awaitable_timed { using impl::event_awaitable_timed::event_awaitable_timed; };
+	template<Duration D>
+	struct yield_until<event_handle, D> {
+		event_handle evt;
+		duration timeout;
 
-	// Yields the coroutine until a promise is signalled or the given timeout period passes.
-	//
-	template<typename T, typename S, bool O, Duration D> struct yield_for<promise_ref<T, S, O>, D> : impl::promise_awaitable_timed<T, S> { using impl::promise_awaitable_timed<T, S>::promise_awaitable_timed; };
-	template<typename T, typename S, Duration D> struct yield_for<promise<T, S>, D>                : impl::promise_awaitable_timed<T, S> { using impl::promise_awaitable_timed<T, S>::promise_awaitable_timed; };
-	template<typename T, typename S, Duration D> struct yield_for<future<T, S>, D>                 : impl::promise_awaitable_timed<T, S> { using impl::promise_awaitable_timed<T, S>::promise_awaitable_timed; };
-	template<typename T, typename S, Duration D> struct yield_for<unique_future<T, S>, D>          : impl::promise_awaitable_timed<T, S> { using impl::promise_awaitable_timed<T, S>::promise_awaitable_timed; };
+		yield_until( event_handle evt, const D& timeout ) : evt( evt ), timeout( std::chrono::duration_cast<duration>( timeout ) ) {}
+		yield_until( const event& evt, const D& timeout ) : yield_until( evt.handle(), timeout ) {}
+		yield_until( const event_primitive& evt, const D& timeout ) : yield_until( evt.handle(), timeout ) {}
+
+		inline bool await_ready() { return !evt; }
+		inline void await_suspend( coroutine_handle<> h ) { chore( h, evt, timeout ); }
+		inline void await_resume() {}
+	};
+	template<Duration D> struct yield_until<event, D>           : yield_until<event_handle, D> { using yield_until<event_handle, D>::yield_until; };
+	template<Duration D> struct yield_until<event_primitive, D> : yield_until<event_handle, D> { using yield_until<event_handle, D>::yield_until; };
 };

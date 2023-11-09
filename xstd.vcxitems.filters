@@ -190,9 +190,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp">
       <Filter>Coroutines</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp">
-      <Filter>Coroutines</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task.hpp">
       <Filter>Coroutines</Filter>
     </ClInclude>
@@ -202,7 +199,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async.hpp">
       <Filter>Coroutines</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_generator.hpp">
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp">
       <Filter>Coroutines</Filter>
     </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\ref_counted.hpp">
@@ -337,9 +334,6 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\vec_buffer.hpp">
       <Filter>Containers</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\duplex.hpp">
-      <Filter>Network</Filter>
-    </ClInclude>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\socket.hpp">
       <Filter>Network</Filter>
     </ClInclude>
@@ -352,11 +346,17 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task_list.hpp">
       <Filter>Thread</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_stream.hpp">
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stream.hpp">
       <Filter>Coroutines</Filter>
     </ClInclude>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_thread.hpp">
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fiber.hpp">
       <Filter>Coroutines</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\url.hpp">
+      <Filter>Network</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\thread_pool.hpp">
+      <Filter>Thread</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

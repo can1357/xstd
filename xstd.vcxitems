@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
     <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -44,9 +44,9 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\asn1.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\assert.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_generator.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_stream.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\async_thread.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\stream.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\fiber.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\circular_buffer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\concurrent_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\atomic_slist.hpp" />
@@ -59,10 +59,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\coro_arena.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\crc.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\duplex.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\frozen.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\future.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\generator.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\graph.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\enum_name.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\environment.hpp" />
@@ -111,10 +109,12 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\table_view.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\task.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\text.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\thread_pool.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\time.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\timer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\tinyjambu.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\type_helpers.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\url.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\utf.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\vec_buffer.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\xstd\wait_list.hpp" />

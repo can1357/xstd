@@ -70,6 +70,14 @@ namespace xstd {
 				return count;
 			}
 		};
+		struct wait_shutdown {
+			template<typename A>
+			FORCE_INLINE bool operator()( A& buf ) const {
+				if ( buf.fin )
+					return true;
+				return false;
+			}
+		};
 	}
 
 	// Stream buffer state.
@@ -117,9 +125,10 @@ namespace xstd {
 		// Lock and minimal state associated with the stream.
 		//
 		mutable xspinlock<> lock;
-		bool                ended = false;
+		uint8_t             ended : 1 = false;
+		uint8_t             fin   : 1 = false;
 		stream_sched_t      sched_enter = &stream_sched_noop;
-		stream_sched_t      sched_leave = &stream_sched_threadpool;
+		stream_sched_t      sched_leave = &stream_sched_noop;
 
 		// Producer handle that signals "consumer wants more data" and the high watermark
 		// which is the amount of bytes in the buffer after which the producer stops getting
@@ -152,13 +161,15 @@ namespace xstd {
 		void destroy() {
 			if ( ended ) return;
 			std::unique_lock g{ lock };
-			ended = true;
+			if ( ended ) return;
+			ended = 1;
+			fin = 1;
 			high_watermark = std::dynamic_extent;
 			auto producer = std::exchange( this->producer, nullptr );
 			auto consumer = std::exchange( this->consumer, nullptr );
 			g.unlock();
-			if ( producer ) producer(); // This guy probably has a weak reference, continue ASAP.
 			if ( consumer ) sched_leave( consumer->continuation )();
+			if ( producer ) producer(); // This guy probably has a weak reference, continue ASAP.
 		}
 		~async_buffer() { destroy(); }
 	};
@@ -224,8 +235,8 @@ namespace xstd {
 	struct async_reader final : detail::buffer_consumer, async_buffer_locked {
 		using result_type = decltype( std::declval<F>()( std::declval<vec_buffer&>() ) );
 		
-		mutable F                     fn;
-		mutable result_type           result = {};
+		F                     fn;
+		result_type           result = {};
 
 		async_reader( async_buffer& stream, F&& fn ) 
 			: async_buffer_locked( stream ), fn( std::forward<F>( fn ) ), result( this->fn( stream ) ) {}
@@ -240,7 +251,7 @@ namespace xstd {
 		// Awaitable.
 		//
 		inline bool await_ready() noexcept {
-			return !!result || this->stream.ended;
+			return !!result || this->stream.fin;
 		}
 		inline coroutine_handle<> await_suspend( coroutine_handle<> continuation ) noexcept {
 			this->continuation = continuation;
@@ -249,7 +260,7 @@ namespace xstd {
 			this->stream.set_consumer( this, this->lock );
 			return producer;
 		}
-		inline result_type await_resume() const noexcept {
+		inline result_type await_resume() noexcept {
 			return std::move( result );
 		}
 	};
@@ -283,6 +294,22 @@ namespace xstd {
 		}
 		async_writer_stall stall() { return { writable() }; }
 		async_writer_flush flush() { return { writable() }; }
+		bool shutdown() {
+			coroutine_handle<> hnd;
+			{
+				async_buffer_locked buffer{ writable() };
+				if ( buffer->fin || buffer->ended )
+					return buffer->fin;
+				buffer->fin = true;
+
+				hnd = buffer->consumer->try_continue();
+				if ( !hnd ) hnd = buffer->consumer->continuation;
+				buffer->consumer = nullptr;
+				hnd = buffer->sched_leave( hnd );
+			}
+			hnd();
+			return true;
+		}
 
 		// Consumes data from the stream.
 		//
@@ -311,8 +338,14 @@ namespace xstd {
 		auto read_into( std::span<uint8_t> out ) -> async_reader<detail::take_into_counted> {
 			return { readable(), { out.data(), out.size(), out.size() } };
 		}
+		auto wait_until_shutdown() -> async_reader<detail::wait_shutdown> {
+			return { readable(), {} };
+		}
+		bool is_shutting_down() {
+			return readable().fin;
+		}
 
-		// Stops the stream.
+		// Stop states.
 		//
 		bool stop( stream_stop_code code = stream_stop_killed, exception ex = {} ) {
 			if ( state().stop_code.exchange( code ) != stream_stop_none ) {
@@ -320,23 +353,28 @@ namespace xstd {
 			}
 			if ( !ex ) {
 				switch ( code ) {
-					case stream_stop_fin:     ex = XSTD_ESTR( "fin" );          break;
+					case stream_stop_fin:     ex = XSTD_ESTR( "fin" );           break;
 					case stream_stop_killed:  ex = XSTD_ESTR( "destroyed" );     break;
 					case stream_stop_timeout: ex = XSTD_ESTR( "timeout" );       break;
 					case stream_stop_error:   ex = XSTD_ESTR( "general error" ); break;
 					default:                  ex = XSTD_ESTR( "unknown error" ); break;
 				}
 			}
-			state().stop_reason = std::move( ex );
+			state().stop_reason = std::move( ex ).value_or( XSTD_ESTR( "unknown error" ) );
 			state().stop_written.store( true, std::memory_order::release );
 			readable().destroy();
 			writable().destroy();
 			stop_event().notify();
 			return true;
 		}
+		bool stop( exception ex ) {
+			return stop( stream_stop_error, std::move( ex ) );
+		}
 
 		// Stop details.
 		//
+		bool errored() const { return stop_code() > stream_stop_fin; }
+		bool finished() const { return stop_code() == stream_stop_fin; }
 		bool stopped() const { return stop_code() != stream_stop_none; }
 		event& stop_event() { return state().stop_event; }
 		const event& stop_event() const { return state().stop_event; }
@@ -462,11 +500,10 @@ namespace xstd {
 	struct unique_stream : stream_view {
 		unique_stream() = default;
 		unique_stream( std::nullptr_t ) {}
-		unique_stream( stream_view ref ) : stream_view( ref ) {
-			if ( this->has_value() ) {
-				this->state();
-			}
-		}
+		unique_stream( stream_view ref ) : stream_view( ref ) {}
+		template<typename T>
+		unique_stream( std::unique_ptr<T> ptr ) : stream_view( ptr.release() ) {}
+
 		void reset() {
 			unique_stream tmp{};
 			this->swap( tmp );
@@ -497,6 +534,11 @@ namespace xstd {
 		stream_state   state_ = {};
 		async_buffer   input_ = {};
 		async_buffer   output_ = {};
+
+		duplex() {
+			output_.sched_enter = &stream_sched_threadpool;
+			input_.sched_leave = &stream_sched_threadpool;
+		}
 
 		stream_state& state() { return state_; }
 		async_buffer& readable() { return input_; }

@@ -8,17 +8,6 @@ namespace xstd {
 	XSTD_MAKE_TEXT_SHADER( _wh, xstd::web_hasher );
 
 	namespace detail {
-		FORCE_INLINE static constexpr auto split( std::string_view haystack, std::string_view needle, bool bwd = false, bool skip = true ) {
-			std::string_view a;
-			std::string_view b = haystack;
-			if ( bwd ) std::swap( a, b );
-			if ( size_t p = haystack.find( needle ); p != std::string::npos ) {
-				a = haystack.substr( 0, p );
-				b = haystack.substr( p + ( skip ? needle.size() : 0 ) );
-			}
-			haystack = b;
-			return std::tuple{ a, b };
-		}
 		static constexpr std::pair<uint32_t, uint16_t> schema_to_port[] = {
 			{ "http"_wh,  80 },
 			{ "https"_wh, 443 },
@@ -28,7 +17,7 @@ namespace xstd {
 	};
 
 	template<typename T>
-	struct basic_uri {
+	struct basic_url {
 		T schema;
 		T username;
 		T password;
@@ -40,20 +29,20 @@ namespace xstd {
 
 		// Default move, ctor.
 		//
-		constexpr basic_uri() noexcept = default;
-		constexpr basic_uri( basic_uri&& ) noexcept = default;
-		constexpr basic_uri& operator=( basic_uri&& ) noexcept = default;
+		constexpr basic_url() noexcept = default;
+		constexpr basic_url( basic_url&& ) noexcept = default;
+		constexpr basic_url& operator=( basic_url&& ) noexcept = default;
 		
 		// Copy from self and others.
 		//
-		constexpr basic_uri( const basic_uri& ) noexcept = default;
-		constexpr basic_uri& operator=( const basic_uri& ) noexcept = default;
+		constexpr basic_url( const basic_url& ) noexcept = default;
+		constexpr basic_url& operator=( const basic_url& ) noexcept = default;
 		template<typename O>
-		constexpr basic_uri( const basic_uri<O>& o ) noexcept { this->template assign<O>( o ); }
+		constexpr basic_url( const basic_url<O>& o ) noexcept { this->template assign<O>( o ); }
 		template<typename O>
-		constexpr basic_uri& operator=( const basic_uri<O>& o ) noexcept { this->template assign<O>( o ); return *this; }
+		constexpr basic_url& operator=( const basic_url<O>& o ) noexcept { this->template assign<O>( o ); return *this; }
 		template<typename O>
-		constexpr void assign( const basic_uri<O>& o ) {
+		constexpr void assign( const basic_url<O>& o ) {
 			schema = T{ o.schema };
 			username = T{ o.username };
 			password = T{ o.password };
@@ -66,33 +55,33 @@ namespace xstd {
 
 		// Construction by string view.
 		//
-		constexpr basic_uri( std::string_view sv ) {
+		constexpr basic_url( std::string_view sv ) {
 			if ( sv.starts_with( '/' ) ) {
 				set_path( sv );
 				return;
 			}
-			auto [s, uhppqf] = detail::split( sv, ":" );
+			auto [s, uhppqf] = split_fwd( sv, ":" );
 			schema = s;
 			if ( uhppqf.starts_with( "//" ) ) uhppqf.remove_prefix( 2 );
 
-			auto [auth, hppqf] = detail::split( uhppqf, "@" );
+			auto [auth, hppqf] = split_fwd( uhppqf, "@" );
 			set_auth( auth );
-			auto [hp, pqf] = detail::split( hppqf, "/", false, false );
+			auto [hp, pqf] = split_bwd( hppqf, "/", false );
 			set_host( hp );
 			set_path( pqf );
 		}
 
-		constexpr basic_uri( const char* ptr ) : basic_uri( std::string_view{ ptr } ) {}
+		constexpr basic_url( const char* ptr ) : basic_url( std::string_view{ ptr } ) {}
 
 		// Assigning compound fields.
 		//
 		constexpr void set_auth( std::string_view auth ) {
-			auto [u, p] = detail::split( auth, ":", true );
+			auto [u, p] = split_bwd( auth, ":" );
 			username = u; 
 			password = p;
 		}
 		constexpr void set_host( std::string_view host ) {
-			auto [h, p] = detail::split( host, ":", true );
+			auto [h, p] = split_bwd( host, ":" );
 			hostname = h;
 			port = parse_number<uint16_t>( p, 10 );
 		}
@@ -100,8 +89,8 @@ namespace xstd {
 			if ( path.empty() ) {
 				pathname = "/";
 			} else {
-				auto [p, qf] = detail::split( path, "?", true, false );
-				auto [q, f] = detail::split( qf, "#", true, false );
+				auto [p, qf] = split_bwd( path, "?", false );
+				auto [q, f] = split_bwd( qf, "#", false );
 				pathname = p;
 				search = q;
 				fragment = f;
@@ -173,6 +162,6 @@ namespace xstd {
 		}
 	};
 
-	using uri_view = basic_uri<std::string_view>;
-	using uri =      basic_uri<std::string>;
+	using url_view = basic_url<std::string_view>;
+	using url =      basic_url<std::string>;
 };
