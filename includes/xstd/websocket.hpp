@@ -11,6 +11,7 @@
 #include "base_n.hpp"
 #include "random.hpp"
 #include "http.hpp"
+#include "vec_buffer.hpp"
 
 #if XSTD_VECTOR_EXT
 	#include "xvector.hpp"
@@ -84,6 +85,14 @@ namespace xstd::ws
 
 		uint8_t length : 7;
 		uint8_t masked : 1;
+
+		size_t header_length() const {
+			size_t result = sizeof( net_header );
+			result += length == length_extend_u16 ? 2 : 0;
+			result += length == length_extend_u64 ? 8 : 0;
+			result += masked                      ? 4 : 0;
+			return result;
+		}
 	};
 	static constexpr size_t max_net_header_size = sizeof( net_header ) + sizeof( uint64_t ) + sizeof( uint32_t );
 	static constexpr size_t header_length( size_t packet_size, bool masked ) {
@@ -139,8 +148,7 @@ namespace xstd::ws
 
 	// Parsed packet header.
 	//
-	struct header
-	{
+	struct header {
 		// Opcode and packet length.
 		//
 		size_t length = 0;
@@ -155,123 +163,92 @@ namespace xstd::ws
 		//
 		bool is_control_frame() const { return is_control_opcode( op ); }
 		size_t header_length() const { return ws::header_length( length, mask_key != 0 ); }
+
+		// Readers.
+		//
+		std::optional<exception> read( vec_buffer& buffer ) {
+			// Wait until we can receive the full header.
+			//
+			if ( buffer.size() < ws::max_net_header_size ) [[unlikely]] {
+				if ( buffer.size() < sizeof( net_header ) )
+					return std::nullopt;
+				size_t hlen = ( (net_header*) buffer.data() )->header_length();
+				if ( buffer.size() < hlen )
+					return std::nullopt;
+			}
+
+			// Read and skip the header.
+			//
+			net_header net = buffer.shift_as<net_header>();
+			op = net.op;
+			finished = net.fin;
+
+			if ( net.length == length_extend_u16 ) {
+				length = bswap( buffer.shift_as<uint16_t>() );
+			} else if ( net.length == length_extend_u64 ) {
+				length = bswap( buffer.shift_as<uint64_t>() );
+			} else {
+				length = net.length;
+			}
+
+			if ( net.masked ) {
+				mask_key = buffer.shift_as<uint32_t>();
+			} else {
+				mask_key = 0;
+			}
+
+			// Validate according to the RFC.
+			//
+			if ( net.rsvd )
+				return XSTD_ESTR( "RSVD bits set in WS header" );
+			if ( is_control_frame() && !finished )
+				return XSTD_ESTR( "Control frame is expecting continuation" );
+			return nullptr;
+		}
+		auto read( stream_view stream ) {
+			return stream.read_until( [&]( vec_buffer& buf ) {
+				if ( auto err = this->read( buf ) ) {
+					if ( *err ) stream.stop( std::move( *err ) );
+					return true;
+				} else {
+					return false;
+				}
+			} );
+		}
+
+		// Writers.
+		//
+		void write( vec_buffer& buffer ) const {
+			// Create the networked header and write it including extended size if relevant.
+			//
+			dassert( this->op < opcode::maximum );
+			dassert( !this->is_control_frame() || this->finished );
+
+			net_header net = { .op = this->op, .rsvd = 0, .fin = this->finished, .masked = this->mask_key != 0 };
+			if ( this->length > UINT16_MAX ) {
+				net.length = length_extend_u64;
+				buffer.emplace_back_as<net_header>( net );
+				buffer.emplace_back_as<uint64_t>( bswap( (uint64_t) this->length ) );
+			} else if ( this->length >= length_extend_u16 ) {
+				net.length = length_extend_u16;
+				buffer.emplace_back_as<net_header>( net );
+				buffer.emplace_back_as<uint16_t>( bswap( (uint16_t) this->length ) );
+			} else {
+				net.length = (uint8_t) this->length;
+				buffer.emplace_back_as<net_header>( net );
+			}
+
+			// Write the mask key if relevant.
+			//
+			if ( this->mask_key )
+				buffer.emplace_back_as<uint32_t>( this->mask_key );
+		}
+		auto write( stream_view stream ) const {
+			return stream.write_using( [&]( vec_buffer& buf ) {
+				this->write( buf );
+			} );
+		}
 	};
-
-	// Reads a packet header from the given stream. 
-	// - Return codes:
-	//    0 = Success.
-	//   <0 = Waiting for further data.
-	//   >0 = Should terminate with status, protocol error.
-	//
-	inline int read( std::string_view& buffer, header& hdr )
-	{
-		std::string_view it = buffer;
-		auto read = [ & ] <typename T> ( T& v ) -> bool
-		{
-			if ( it.length() < sizeof( T ) )
-				return false;
-			memcpy( &v, it.data(), sizeof( T ) );
-			it.remove_prefix( sizeof( T ) );
-			return true;
-		};
-
-		// Read the networked header.
-		//
-		net_header net;
-		if ( !read( net ) )
-			return -1;
-		hdr.op = net.op;
-		hdr.finished = net.fin;
-		hdr.length = net.length;
-
-		// Validate according to the RFC.
-		//
-		if ( net.rsvd )
-			return parser_status( 1 );
-		if ( hdr.is_control_frame() && !hdr.finished )
-			return parser_status( 2 );
-
-		// Read the extended length if relevant.
-		//
-		if ( hdr.length == length_extend_u16 )
-		{
-			if ( !read( ( uint16_t& ) hdr.length ) )
-				return -1;
-			hdr.length = bswap( ( uint16_t& ) hdr.length );
-		}
-		else if ( hdr.length == length_extend_u64 )
-		{
-			if ( !read( ( uint64_t& ) hdr.length ) )
-				return -1;
-			hdr.length = bswap( ( uint64_t& ) hdr.length );
-		}
-
-		// Read the masking key if relevant.
-		//
-		if ( net.masked )
-		{
-			if ( !read( hdr.mask_key ) )
-				return -1;
-		}
-		else
-		{
-			hdr.mask_key = 0;
-		}
-
-		// Consume the input buffer and indicate success.
-		//
-		buffer = it;
-		return 0;
-	}
-	static int read( std::span<const uint8_t>& buffer, header& hdr ) {
-		std::string_view sv{ (char*) buffer.data(), buffer.size() };
-		bool ok = read( sv, hdr );
-		buffer = { (const uint8_t*) sv.data(), sv.size() };
-		return ok;
-	}
-	inline size_t write( uint8_t* buffer, const header& hdr )
-	{
-		size_t length = 0;
-		auto write = [ & ] <typename T> ( const T& v )
-		{
-			*( T* ) &buffer[ length ] = v;
-			length += sizeof( T );
-		};
-
-		// Create the networked header and write it including extended size if relevant.
-		//
-		dassert( hdr.op < opcode::maximum );
-		dassert( !hdr.is_control_frame() || hdr.finished );
-
-		net_header net = { .op = hdr.op, .rsvd = 0, .fin = hdr.finished, .masked = hdr.mask_key != 0 };
-		if ( hdr.length > UINT16_MAX )
-		{
-			net.length = length_extend_u64;
-			write( net );
-			write( bswap( ( size_t ) hdr.length ) );
-		}
-		else if ( hdr.length >= length_extend_u16 )
-		{
-			net.length = length_extend_u16;
-			write( net );
-			write( bswap( ( uint16_t ) hdr.length ) );
-		}
-		else
-		{
-			net.length = ( uint8_t ) hdr.length;
-			write( net );
-		}
-
-		// Write the mask key if relevant.
-		//
-		if ( hdr.mask_key )
-			write( hdr.mask_key );
-		
-		// Return the length of the header.
-		//
-		assume( length <= max_net_header_size );
-		return length;
-	}
 
 	// Sec-Websocket-Key / Accept handling.
 	//
@@ -289,43 +266,43 @@ namespace xstd::ws
 
 	// Upgrade logic.
 	//
-	inline std::vector<uint8_t> request_upgrade( std::string& sec_key, http::header_list user_headers, http::request_header_view req = {} ) {
-		// Generate Sec key if not done so.
-		//
-		if ( sec_key.empty() ) {
-			sec_key = generate_sec_key();
-		}
-
-		// Write the request header, common headers and the user headers.
-		//
-		std::vector<uint8_t> output = {};
-		http::write( output, req );
-		http::write( output, http::header_list{
+	inline http::request upgrade_request( http::request::options&& opts = {} ) {
+		http::request req{ std::move( opts ) };
+		req.set_headers( {
 			{ "Connection",            "Upgrade" },
 			{ "Cache-Control",         "no-cache" },
 			{ "Upgrade",               "websocket" },
 			{ "Sec-WebSocket-Version", "13" },
-			{ "Sec-WebSocket-Key",     sec_key },
+			{ "Sec-WebSocket-Key",     generate_sec_key() }
 		} );
-		http::write( output, user_headers );
-		http::end( output );
-		return output;
+		return req;
 	}
-	static constexpr std::string_view accept_header = "HTTP/1.1 101 Switching Protocols\r\n";
-	inline std::vector<uint8_t> accept_upgrade( std::string_view sec_key, http::header_list user_headers ) {
-		// Write the response header, common headers and the user headers.
-		//
-		std::vector<uint8_t> output{ (const uint8_t*) accept_header.data(), (const uint8_t*) accept_header.data() + accept_header.size() };
-		std::string accept_key = accept_sec_key( sec_key );
-		http::write( output, http::header_list{
+	inline http::response upgrade_accept( const http::request& reply_to, http::response::options&& opts = {} ) {
+		http::response res{ std::move( opts ) };
+		res.set_headers( {
 			{ "Connection",            "Upgrade" },
 			{ "Cache-Control",         "no-cache" },
 			{ "Upgrade",               "websocket" },
 			{ "Sec-WebSocket-Version", "13" },
-			{ "Sec-WebSocket-Accept",  accept_key },
+			{ "Sec-WebSocket-Accept",  accept_sec_key( reply_to.get_header( "Sec-WebSocket-Key" ) ) },
 		} );
-		http::write( output, user_headers );
-		http::end( output );
-		return output;
+		return res;
+	}
+	inline exception upgrade_validate( const http::request& request, const http::response& response ) {
+		if ( response.status != 101 ) {
+			return XSTD_ESTR( "Unexpected response, failed upgrade." );
+		} else if ( response.connection() != http::connection::upgrade || !iequals( response.headers[ "upgrade" ], "websocket" ) ) {
+			return XSTD_ESTR( "Unexpected response, upgrade is not websocket." );
+		} else if ( response.get_header( "Sec-WebSocket-Accept" ) != accept_sec_key( request.get_header( "Sec-WebSocket-Key" ) ) ) {
+			return XSTD_ESTR( "Unexpected response, accept key is mismatching." );
+		}
+		return {};
+	}
+	static exception upgrade_validate( unique_stream& out, const http::request& request, http::incoming_response& response ) {
+		auto ex = upgrade_validate( request, response );
+		if ( !ex ) {
+			out = std::exchange( response.socket, nullptr );
+		}
+		return ex;
 	}
 };

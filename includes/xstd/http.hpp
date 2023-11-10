@@ -89,25 +89,117 @@ namespace xstd::http {
 
 	// HTTP status.
 	//
-	enum class status_category : uint8_t {
-		none =          0,
-		informational = 1,
-		success =       2,
-		redirecting =   3,
-		client_error =  4,
-		server_error =  5,
+	namespace detail {
+		inline constexpr std::pair<int, std::string_view> status_codes[] = {
+			{ 100, "Continue" },
+			{ 101, "Switching Protocols" },
+			{ 102, "Processing" },
+			{ 103, "Early Hints" },
+			{ 200, "OK" },
+			{ 201, "Created" },
+			{ 202, "Accepted" },
+			{ 203, "Non-Authoritative Information" },
+			{ 204, "No Content" },
+			{ 205, "Reset Content" },
+			{ 206, "Partial Content" },
+			{ 207, "Multi-Status" },
+			{ 208, "Already Reported" },
+			{ 226, "IM Used" },
+			{ 300, "Multiple Choices" },
+			{ 301, "Moved Permanently" },
+			{ 302, "Found" },
+			{ 303, "See Other" },
+			{ 304, "Not Modified" },
+			{ 305, "Use Proxy" },
+			{ 307, "Temporary Redirect" },
+			{ 308, "Permanent Redirect" },
+			{ 400, "Bad Request" },
+			{ 401, "Unauthorized" },
+			{ 402, "Payment Required" },
+			{ 403, "Forbidden" },
+			{ 404, "Not Found" },
+			{ 405, "Method Not Allowed" },
+			{ 406, "Not Acceptable" },
+			{ 407, "Proxy Authentication Required" },
+			{ 408, "Request Timeout" },
+			{ 409, "Conflict" },
+			{ 410, "Gone" },
+			{ 411, "Length Required" },
+			{ 412, "Precondition Failed" },
+			{ 413, "Payload Too Large" },
+			{ 414, "URI Too Long" },
+			{ 415, "Unsupported Media Type" },
+			{ 416, "Range Not Satisfiable" },
+			{ 417, "Expectation Failed" },
+			{ 418, "I'm a Teapot" },
+			{ 421, "Misdirected Request" },
+			{ 422, "Unprocessable Entity" },
+			{ 423, "Locked" },
+			{ 424, "Failed Dependency" },
+			{ 425, "Too Early" },
+			{ 426, "Upgrade Required" },
+			{ 428, "Precondition Required" },
+			{ 429, "Too Many Requests" },
+			{ 431, "Request Header Fields Too Large" },
+			{ 451, "Unavailable For Legal Reasons" },
+			{ 500, "Internal Server Error" },
+			{ 501, "Not Implemented" },
+			{ 502, "Bad Gateway" },
+			{ 503, "Service Unavailable" },
+			{ 504, "Gateway Timeout" },
+			{ 505, "HTTP Version Not Supported" },
+			{ 506, "Variant Also Negotiates" },
+			{ 507, "Insufficient Storage" },
+			{ 508, "Loop Detected" },
+			{ 509, "Bandwidth Limit Exceeded" },
+			{ 510, "Not Extended" },
+			{ 511, "Network Authentication Required" },
+		};
+	};
+	enum class status_category : int {
+		invalid =       0,
+		informational = 100,
+		success =       200,
+		redirecting =   300,
+		client_error =  400,
+		server_error =  500,
 	};
 	static constexpr status_category get_status_category( int status_code ) {
-		return status_category( status_code / 100 ); 
+		if ( status_code <  100 ) return status_category::invalid;
+		if ( status_code <= 199 ) return (status_category) 100;
+		if ( status_code <= 299 ) return (status_category) 200;
+		if ( status_code <= 399 ) return (status_category) 300;
+		if ( status_code <= 499 ) return (status_category) 400;
+		if ( status_code <= 599 ) return (status_category) 500;
+		return status_category::invalid;
 	}
-	static constexpr bool is_success( int status_code )  { 
+	static constexpr std::string_view get_status_message( int status_code ) {
+		if ( status_code < 100 || status_code > 599 )
+			status_code = 500;
+		auto it = std::lower_bound( std::begin( detail::status_codes ), std::end( detail::status_codes ), status_code, []( auto& pair, int val ) { return pair.first < val; } );
+		if ( it != std::end( detail::status_codes ) && it->first == status_code ) {
+			return it->second;
+		} else {
+			switch ( get_status_category( status_code ) ) {
+				case status_category::informational:
+				case status_category::success:       return "OK"sv;
+				case status_category::redirecting:   return "Redirecting"sv;
+				case status_category::client_error:  return "Bad Request"sv;
+				default:
+				case status_category::server_error:  return "Internal Server Error"sv;
+			}
+		}
+	}
+	static constexpr bool is_success( int status_code )  {
 		switch ( get_status_category( status_code ) ) {
 			case status_category::success:
 			case status_category::informational: return true;
 			default:                             return false;
 		}
 	}
-	static constexpr bool is_failure( int status_code ) { return !is_success( status_code ); }
+	static constexpr bool is_failure( int status_code ) { 
+		return !is_success( status_code ); 
+	}
 
 	// HTTP methods.
 	//
@@ -199,6 +291,7 @@ namespace xstd::http {
 
 	// HTTP headers structure.
 	//
+	using  headers_init = std::initializer_list<std::pair<std::string_view, std::string_view>>;
 	struct headers {
 		enum merge_kind {
 			merge_discard,
@@ -289,7 +382,7 @@ namespace xstd::http {
 
 		// Construction by list of values.
 		//
-		headers( std::initializer_list<std::pair<std::string_view, std::string_view>> entries, bool overwrite = true ) {
+		headers( headers_init entries, bool overwrite = true ) {
 			append_range( entries, overwrite );
 		}
 
@@ -640,24 +733,42 @@ namespace xstd::http {
 	// Base message type.
 	//
 	struct message {
+		struct options {
+			vec_buffer    body = {};
+			http::headers headers = {};
+		};
+
 		// Data.
 		//
 		vec_buffer      body = {};
 		http::headers   headers = {};
-		body::props     body_props = {};
+		body::props     body_props = { 0, body::unknown };
+
+		// Default, copy, move.
+		//
+		message() = default;
+		message( message&& ) noexcept = default;
+		message( const message& ) noexcept = default;
+		message& operator=( message&& ) noexcept = default;
+		message& operator=( const message& ) noexcept = default;
+
+		// By value.
+		//
+		message( vec_buffer body, http::headers headers = {} ) : body( std::move( body ) ), headers( std::move( headers ) ) { this->body_props = { this->body.size(), body::finished }; }
+		message( options&& opt ) : message( std::move( opt.body ), std::move( opt.headers ) ) {}
 
 		// Header modifiers.
 		//
-		std::string_view get( std::string_view key ) const {
+		std::string_view get_header( std::string_view key ) const {
 			return headers.get( key );
 		}
-		void set( std::string_view key, std::string_view value, bool overwrite = true ) {
+		void set_header( std::string_view key, std::string_view value, bool overwrite = true ) {
 			headers.set( key, value, overwrite );
 		}
-		void set( std::initializer_list<std::pair<std::string_view, std::string_view>> entries, bool overwrite = true ) {
+		void set_headers( std::initializer_list<std::pair<std::string_view, std::string_view>> entries, bool overwrite = true ) {
 			headers.append_range( entries, overwrite );
 		}
-		size_t remove( std::string_view key ) {
+		size_t remove_header( std::string_view key ) {
 			return headers.remove( key );
 		}
 
@@ -697,10 +808,34 @@ namespace xstd::http {
 	// HTTP response and request as data types.
 	//
 	struct response : message {
+		struct options {
+			int status = 200;
+			std::string_view message;
+			vec_buffer body = {};
+			http::headers headers = {};
+		};
+
 		// Status line.
 		//
-		int             status =         200;
-		std::string     status_message = "OK";
+		int             status =         -1;
+		std::string     status_message = {};
+		
+		// Default, copy, move.
+		//
+		response() = default;
+		response( response&& ) noexcept = default;
+		response( const response& ) noexcept = default;
+		response& operator=( response&& ) noexcept = default;
+		response& operator=( const response& ) noexcept = default;
+
+		// By value.
+		//
+		response( int status, std::string_view msg = {}, vec_buffer body = {}, http::headers headers = {} ) : message( std::move( body ), std::move( headers ) ), status( status ), status_message( msg ) {
+			if ( this->status_message.empty() )
+				this->status_message = get_status_message( this->status );
+		}
+		response( vec_buffer body, http::headers headers = {} ) : message( std::move( body ), std::move( headers ) ), status( 200 ), status_message( "OK" ) {}
+		response( options&& opt ) : response( opt.status, opt.message, std::move( opt.body ), std::move( opt.headers ) ) {}
 
 		// Writers.
 		//
@@ -721,6 +856,16 @@ namespace xstd::http {
 			return stream.write_using( [&]( vec_buffer& buf ) {
 				this->write( buf, req_method );
 			} );
+		}
+		std::string to_string() const {
+			vec_buffer buf{};
+			write( buf );
+			return std::string{ (char*) buf.data(), buf.size() };
+		}
+		vec_buffer write() const {
+			vec_buffer result = {};
+			write( result );
+			return result;
 		}
 
 		// Readers.
@@ -787,14 +932,41 @@ namespace xstd::http {
 		}
 	};
 	struct request : message {
+		struct options {
+			method_id method = INVALID;
+			std::string_view path = {};
+			vec_buffer body = {};
+			http::headers headers = {};
+		};
+
 		// Request line.
 		//
 		method_id       method = INVALID;
-		std::string     path = {};
+		std::string     path =   {};
+
+		// Default, copy, move.
+		//
+		request() = default;
+		request( request&& ) noexcept = default;
+		request( const request& ) noexcept = default;
+		request& operator=( request&& ) noexcept = default;
+		request& operator=( const request& ) noexcept = default;
+
+		// By value.
+		//
+		request( method_id method, std::string_view path, vec_buffer body = {}, http::headers headers = {} ) : message( std::move( body ), std::move( headers ) ), method( method ), path( path ) {
+			if ( this->method == INVALID )
+				this->method = this->body ? POST : GET;
+			if ( this->path.empty() )
+				this->path = "/";
+		}
+		request( std::string_view path, vec_buffer body = {}, http::headers headers = {} ) : request( INVALID, path, std::move( body ), std::move( headers ) ) {}
+		request( options&& opt ) : request( opt.method, opt.path, std::move( opt.body ), std::move( opt.headers ) ) {}
 
 		// Writers.
 		//
 		void write( vec_buffer& buf ) const {
+			request re{ GET, "hi"sv, "bye"sv, {} };
 			detail::append_into( buf, method_map[ size_t( method ) ].second, " ", path, " HTTP/1.1\r\n" );
 			headers.write( buf );
 			body::write( buf, body, method, -1 );
@@ -803,6 +975,16 @@ namespace xstd::http {
 			return stream.write_using( [&]( vec_buffer& buf ) {
 				this->write( buf );
 			} );
+		}
+		std::string to_string() const {
+			vec_buffer buf{};
+			write( buf );
+			return std::string{ (char*) buf.data(), buf.size() };
+		}
+		vec_buffer write() const {
+			vec_buffer result = {};
+			write( result );
+			return result;
 		}
 
 		// Readers.
@@ -919,7 +1101,7 @@ namespace xstd::http {
 		// Release socket on destruction for keep-alive.
 		//
 		~incoming_response() {
-			if ( keep_alive() && is_body_read() ) {
+			if ( agent && keep_alive() && is_body_read() ) {
 				agent->release( socket );
 			}
 		}
@@ -962,20 +1144,26 @@ namespace xstd::http {
 		}
 	};
 
+	// Raw request API.
+	//
+	inline job<incoming_response> make_request( request req, unique_stream socket, http::agent* agent = &agent::global() ) {
+		co_await req.write( socket );
+		co_return co_await incoming_response::receive( std::move( socket ), agent, req.method, std::move( req.body ) );
+	}
+
 	// Fetch API.
 	//
 	struct fetch_options {
 		// Message.
 		//
-		vec_buffer               body = {};
-		http::headers            headers = {};
+		vec_buffer    body = {};
+		http::headers headers = {};
 
 		// Agent options.
 		//
 		agent&                   agent =  agent::global();
 		unique_stream            socket = nullptr;
 		net::socket_options      socket_options = {};
-
 	};
 	inline job<incoming_response> fetch( url_view url, method_id method = GET, fetch_options&& opt = {} ) {
 		// Set host header, normalize path into URI.
@@ -1005,14 +1193,9 @@ namespace xstd::http {
 			opt.socket = *std::move( sock );
 		}
 
-		// Write the request.
+		// Send the request.
 		//
-		request req{ message{ std::move( opt.body ), std::move( opt.headers ) }, method, std::string{url.pathname} };
-		co_await req.write( opt.socket );
-
-		// Read the response and return.
-		//
-		co_return co_await incoming_response::receive( std::move( opt.socket ), &opt.agent, req.method, std::move( req.body ) );
+		co_return co_await make_request( { method, url.pathname, std::move( opt.body ), std::move( opt.headers ) }, std::move( opt.socket ), &opt.agent );
 	}
 
 	// Wrappers for the most common methods.

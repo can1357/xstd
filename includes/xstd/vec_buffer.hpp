@@ -493,7 +493,7 @@ namespace xstd {
 			return result;
 		}
 		FORCE_INLINE constexpr uint8_t* shift_if( size_t count ) { return shift( count, false ); }
-		FORCE_INLINE constexpr void shift_range_if( std::span<uint8_t> data ) { ( void ) shift_range( data, false ); }
+		FORCE_INLINE constexpr bool shift_range_if( std::span<uint8_t> data ) { return shift_range( data, false ); }
 		FORCE_INLINE constexpr vec_buffer shift_range_if( size_t count ) { return shift_range( count, false ); }
 
 		// Removes [count] bytes from the end and returns the ephemeral pointer / copies the data.
@@ -523,7 +523,7 @@ namespace xstd {
 			return result;
 		}
 		FORCE_INLINE constexpr uint8_t* pop_if( size_t count ) { return pop( count, false ); }
-		FORCE_INLINE constexpr void pop_range_if( std::span<uint8_t> data ) { (void) pop_range( data, false ); }
+		FORCE_INLINE constexpr bool pop_range_if( std::span<uint8_t> data ) { return pop_range( data, false ); }
 		FORCE_INLINE constexpr vec_buffer pop_range_if( size_t count ) { return pop_range( count, false ); }
 
 		// Span generation.
@@ -542,6 +542,10 @@ namespace xstd {
 		template<typename U, size_t E> uint8_t* assign_range( std::span<U, E> v ) { return assign_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
 		template<typename U, size_t E> uint8_t* append_range( std::span<U, E> v ) { return append_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
 		template<typename U, size_t E> uint8_t* prepend_range( std::span<U, E> v ) { return prepend_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> bool pop_range( std::span<U, E> v ) { return pop_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> bool pop_range_if( std::span<U, E> v ) { return pop_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> bool shift_range( std::span<U, E> v ) { return shift_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> bool shift_range_if( std::span<U, E> v ) { return shift_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
 
 		template<typename U = char> vec_buffer( std::basic_string_view<U> v ) : vec_buffer{ std::span{v} } {}
 		template<typename U = char> uint8_t* insert_range( const uint8_t* it, std::basic_string_view<U> v ) { return insert_range( it, std::span{ v } ); }
@@ -554,6 +558,13 @@ namespace xstd {
 		template<typename U = char> uint8_t* assign_range( const std::basic_string<U>& v ) { return assign_range( std::span{ v } ); }
 		template<typename U = char> uint8_t* append_range( const std::basic_string<U>& v ) { return append_range( std::span{ v } ); }
 		template<typename U = char> uint8_t* prepend_range( const std::basic_string<U>& v ) { return prepend_range( std::span{ v } ); }
+
+		template<typename U> U& pop_as() { return *(U*) pop( sizeof( U ) ); }
+		template<typename U> U* pop_as_if() { return (U*) pop( sizeof( U ), false ); }
+		template<typename U> U& shift_as() { return *(U*) shift( sizeof( U ) ); }
+		template<typename U> U* shift_as_if() { return (U*) shift( sizeof( U ), false ); }
+		template<typename U> U& emplace_back_as( const U& value ) { return *(U*) append_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
+		template<typename U> U& emplace_front_as( const U& value ) { return *(U*) prepend_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
 
 		// Destructor.
 		//
