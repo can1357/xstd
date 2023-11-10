@@ -33,13 +33,10 @@ namespace xstd {
 		mutable event_handle evt = {};
 		int64_t              timeout = 0;
 
-		bool is_event() const { return evt && timeout == 0; }
-		bool is_timed() const { return !evt && timeout != 0; }
-		bool is_timed_event() const { return evt && timeout != 0; }
-
 		bool is_ready( int64_t now ) const {
-			if ( timeout && timeout < now ) return true;
-			return !evt || event_primitive::from_handle( evt ).peek();
+			if ( timeout < now ) return true;
+			if ( evt && event_primitive::from_handle( evt ).peek() ) return true;
+			return false;
 		}
 	};
 
@@ -56,7 +53,7 @@ namespace xstd {
 			if ( list.empty() )
 				signal.reset();
 		}
-		void process( uint32_t& last_sleep, work_queue<work_item>* sister_queue ) {
+		void process( uint32_t& last_sleep, uint32_t max_sleep, work_queue<work_item>* sister_queue ) {
 			// If nothing to do:
 			//
 			std::unique_lock g{ lock };
@@ -123,10 +120,14 @@ namespace xstd {
 					return rw();
 				}
 			}
-			last_sleep |= 1;
-			last_sleep <<= 1;
-			if ( last_sleep > 256 ) last_sleep = 256;
-			return std::this_thread::sleep_for( last_sleep * 1ms );
+
+			uint32_t new_sleep = std::min( max_sleep, ( last_sleep + 1 ) * 2 );
+			if ( new_sleep < 7 ) {
+				std::this_thread::yield();
+			} else {
+				std::this_thread::sleep_for( new_sleep * 1ms );
+			}
+			last_sleep = new_sleep;
 		}
 		void push( W work ) {
 			std::unique_lock g{ lock };
@@ -161,15 +162,16 @@ namespace xstd {
 		//
 		static void thread_entry_point( void* ctx ) {
 			auto& tp = *(thread_pool*) ctx;
-			bool is_master = tp.num_threads++ == 0;
-
+			uint32_t id = ( uint32_t ) tp.num_threads++;
+			bool is_master = id == 0;
 			uint32_t last_sleep = 0;
+			uint32_t max_sleep = 10 + ( 5 << ( std::min<uint32_t>( id, 15 ) >> 1 ) ); // 15ms-650ms sleep duration, preferring localized work.
 			if ( is_master ) {
 				while ( tp.running.load( std::memory_order::relaxed ) ) [[likely]]
-					tp.q_deferred.process( last_sleep, &tp.q_immediate );
+					tp.q_deferred.process( last_sleep, max_sleep, &tp.q_immediate );
 			} else {
 				while ( tp.running.load( std::memory_order::relaxed ) ) [[likely]]
-					tp.q_immediate.process( last_sleep, nullptr );
+					tp.q_immediate.process( last_sleep, max_sleep, nullptr );
 			}
 			tp.num_threads--;
 		}
