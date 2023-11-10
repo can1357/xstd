@@ -1,9 +1,7 @@
 #pragma once
-#include "future.hpp"
+#include "coro.hpp"
 #include "chore.hpp"
 #include "time.hpp"
-#include "future.hpp"
-#include "result.hpp"
 
 namespace xstd {
 	// Switches to an async context.
@@ -14,7 +12,7 @@ namespace xstd {
 		inline void await_resume() {}
 	};
 
-	// Simple wrapper for a coroutine starting itself and destorying itself on finalization.
+	// Simple wrapper for a coroutine starting itself and destroying itself on finalization.
 	//
 	struct async_task {
 		struct promise_type {
@@ -26,6 +24,23 @@ namespace xstd {
 			void return_void() {}
 		};
 		async_task() {}
+	};
+
+	// Deferred task wrapper for a packed but not yet ran function.
+	//
+	struct deferred_task {
+		struct promise_type {
+			deferred_task get_return_object() { return { *this }; }
+			suspend_always initial_suspend() noexcept { return {}; }
+			suspend_never final_suspend() noexcept { return {}; }
+			XSTDC_UNHANDLED_RETHROW;
+			void return_void() {}
+		};
+		unique_coroutine<promise_type> handle;
+		deferred_task( promise_type& pr ) : handle( pr ) {}
+
+		inline void operator()() { return handle.resume(); }
+		inline coroutine_handle<> release() { return handle.release(); }
 	};
 
 	// Declare yield types and their deduction guides.

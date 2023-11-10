@@ -284,7 +284,7 @@ namespace xstd
 
 		// Exposes information on the promise state.
 		//
-		inline bool finished() const { return state.load( std::memory_order::relaxed ) & impl::state_finished; }
+		inline bool finished() const { return state.load() & impl::state_finished; }
 		inline bool pending() const { return !finished(); }
 		bool fulfilled() const 
 		{ 

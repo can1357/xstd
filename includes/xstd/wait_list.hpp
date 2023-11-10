@@ -4,14 +4,14 @@
 #include "spinlock.hpp"
 #include "event.hpp"
 #include "chore.hpp"
+#include "async.hpp"
 
 namespace xstd {
-
 	// Wait list implementation.
 	//
 	template<typename LockType>
 	struct basic_wait_list {
-		static constexpr int32_t I = 4;
+		static constexpr int32_t I = 2;
 		LockType lock;
 		
 		basic_wait_list() = default;
@@ -105,6 +105,22 @@ namespace xstd {
 			alloc_at( idx ) = a;
 			return idx;
 		}
+		// Adds a callback listener.
+		// 
+		template<typename F>
+		void then( F&& fn ) {
+			if ( is_settled() ) return fn();
+			std::unique_lock g{ lock };
+			if ( is_settled() ) {
+				g.unlock();
+				return fn();
+			}
+			int32_t idx = (int32_t) next_index++;
+			constexpr auto runner = []( F func ) -> deferred_task {
+				co_return func();
+			};
+			alloc_at( idx ) = runner( std::forward<F>(fn) ).release();
+		}
 		// Removes a listener by its previously assigned handle, returns false on failure.
 		//
 		bool unlisten( int32_t idx ) {
@@ -133,7 +149,7 @@ namespace xstd {
 		bool is_settled() const {
 			return this->settled;
 		}
-		// Registers an even and starts waiting inline.
+		// Registers an event and starts waiting inline.
 		//
 		void wait() {
 			if ( auto* e = listen() )
