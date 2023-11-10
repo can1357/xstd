@@ -74,6 +74,26 @@ namespace xstd {
 		FORCE_INLINE void launch() { release().resume(); }
 		FORCE_INLINE void operator()() { launch(); }
 
+		// Executes the job synchronously, waits for the result.
+		//
+		FORCE_INLINE T run( bool spin = false ) {
+			std::optional<T> placement;
+			auto& pr = handle.promise();
+			pr.continuation = noop_coroutine();
+			pr.placement = &placement;
+			handle();
+			if ( spin ) {
+				for ( size_t i = 0; !handle.done(); ++i ) [[unlikely]] {
+					yield_cpu();
+					if ( i > 1000 ) std::this_thread::sleep_for( 1ms );
+				}
+			} else {
+				fassert( handle.done() );
+			}
+			strong_assume( placement.has_value() );
+			return std::move( placement ).value();
+		}
+
 		// Tails into a job from another coroutine discarding the result.
 		//
 		FORCE_INLINE coroutine_handle<> chain( coroutine_handle<> hnd ) {
@@ -130,6 +150,22 @@ namespace xstd {
 		FORCE_INLINE coroutine_handle<promise_type> release() { return handle.release(); }
 		FORCE_INLINE void launch() { release().resume(); }
 		FORCE_INLINE void operator()() { launch(); }
+
+		// Executes the job synchronously, waits for the result.
+		//
+		FORCE_INLINE void run( bool spin = false ) {
+			auto& pr = handle.promise();
+			pr.continuation = noop_coroutine();
+			handle();
+			if ( spin ) {
+				for ( size_t i = 0; !handle.done(); ++i ) [[unlikely]] {
+					yield_cpu();
+					if ( i > 1000 ) std::this_thread::sleep_for( 1ms );
+				}
+			} else {
+				fassert( handle.done() );
+			}
+		}
 
 		// Tails into a job from another coroutine discarding the result.
 		//

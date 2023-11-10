@@ -124,11 +124,11 @@ namespace xstd {
 
 		// Lock and minimal state associated with the stream.
 		//
-		mutable xspinlock<> lock;
 		uint8_t             ended : 1 = false;
 		uint8_t             fin   : 1 = false;
 		stream_sched_t      sched_enter = &stream_sched_noop;
 		stream_sched_t      sched_leave = &stream_sched_noop;
+		mutable xspinlock<> lock;
 
 		// Producer handle that signals "consumer wants more data" and the high watermark
 		// which is the amount of bytes in the buffer after which the producer stops getting
@@ -314,6 +314,11 @@ namespace xstd {
 		// Consumes data from the stream.
 		//
 		template<typename F>
+		decltype( auto ) peek_using( F&& fn ) {
+			async_buffer_locked buffer{ readable() };
+			return fn( (const vec_buffer&) buffer.buffer() );
+		}
+		template<typename F>
 		async_reader<F> read_until( F&& fn ) {
 			return { readable(), (F&&) fn };
 		}
@@ -403,6 +408,12 @@ namespace xstd {
 		stream_state& state() { return state_; }
 		async_buffer& readable() { return buffer_; }
 		async_buffer& writable() { return buffer_; }
+
+		// Creates an instance from memory.
+		//
+		static stream memory( vec_buffer mem = {} ) {
+			return { .buffer_ = { std::move( mem ), /*.ended=*/ 0, /*.fin=*/ 1 } };
+		}
 
 		// Destroy all coroutines on destruction.
 		//

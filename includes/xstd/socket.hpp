@@ -1215,7 +1215,6 @@ namespace xstd::net {
 		//
 		timestamp open_time = {};
 
-
 		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : socket( socket_protocol::tcp, address, port, opts ) {
 			std::unique_lock lock{ core_lock };
 

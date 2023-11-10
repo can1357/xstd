@@ -500,6 +500,17 @@ namespace xstd::http {
 	// HTTP body helpers.
 	//
 	namespace body {
+		enum encoding {
+			raw,
+			chunked, 
+			unknown,  // not yet evaluated
+			finished, // already read
+			error,    // failure
+		};
+		struct props {
+			size_t   length = 0;
+			encoding code = unknown;
+		};
 		static bool is_always_empty( method_id method, int status ) {
 			// Any response to a HEAD request and any response with a 1xx (Informational), 204 (No Content), or 304 (Not Modified) status code is always terminated 
 			// by the first empty line after the header fields, regardless of the header fields present in the message, and thus cannot contain a message body.
@@ -515,6 +526,32 @@ namespace xstd::http {
 				return true;
 			}
 			return false;
+		}
+		static props get_properties( method_id method, int status, const headers& hdr ) {
+			if ( is_always_empty( method, status ) ) {
+				return { 0, finished };
+			}
+
+			// If a message is received with both a Transfer-Encoding and a Content-Length header field, the Transfer-Encoding overrides the Content-Length.
+			//
+			if ( web_hasher{}( hdr[ "Transfer-Encoding" ] ) == "chunked"_wh ) {
+				return { std::dynamic_extent, chunked };
+			}
+			// If a valid Content-Length header field is present without Transfer-Encoding, its decimal value defines the expected message body length.
+			//
+			else if ( size_t content_length = parse_number<size_t>( hdr[ "Content-Length" ], 10, std::dynamic_extent ); content_length != std::dynamic_extent ) {
+				return { content_length, content_length ? raw : finished };
+			}
+			// If this is a request message and none of the above are true, then the message body length is zero.
+			// 
+			else if ( status == -1 ) {
+				return { 0, finished };
+			}
+			// Otherwise, this is a response message without a declared message body length, so the message body length is determined by the number of octets received prior to the server closing the connection.
+			//
+			else {
+				return { std::dynamic_extent, raw };
+			}
 		}
 
 		// Readers.
@@ -566,34 +603,24 @@ namespace xstd::http {
 			}
 			co_return true;
 		}
-		static job<bool> read( vec_buffer& output, stream_view input, method_id method, int status, const headers& hdr ) {
-			const bool is_request = status < 100;
-
-			if ( is_always_empty( method, status ) ) {
-				return read_raw( output, input, 0 );
-			} 
-			// If a message is received with both a Transfer-Encoding and a Content-Length header field, the Transfer-Encoding overrides the Content-Length.
-			//
-			else if ( web_hasher{}( hdr[ "Transfer-Encoding" ] ) == "chunked"_wh ) {
-				return read_chunked( output, input );
+		static job<bool> read( vec_buffer& output, stream_view input, props& prop ) {
+			bool ok = false;
+			switch ( prop.code ) {
+				case chunked:  ok = co_await read_chunked( output, input ); break;
+				case raw:      ok = co_await read_raw( output, input, prop.length ); break;
+				case finished: co_return true;
+				case error:    co_return false;
+				default:       break;
 			}
-			// If a valid Content-Length header field is present without Transfer-Encoding, its decimal value defines the expected message body length.
-			//
-			else if ( size_t content_length = parse_number<size_t>( hdr[ "Content-Length" ], 10, std::dynamic_extent ); content_length != std::dynamic_extent ) {
-				return read_raw( output, input, content_length );
-			} 
-			// If this is a request message and none of the above are true, then the message body length is zero.
-			// Otherwise, this is a response message without a declared message body length, so the message body length is determined by the number of octets received prior to the server closing the connection.
-			//
-			else {
-				return read_raw( output, input, is_request ? 0 : content_length );
-			}
+			if ( ok ) prop = { output.size(), finished };
+			else      prop = { 0,             error };
+			co_return ok;
 		}
 
 		// Writer, writes headers as well as it may need to be modified.
 		// - TODO: chunked & streaming.
 		//
-		static void write( vec_buffer& output, vec_buffer input, method_id method, int status ) {
+		static void write( vec_buffer& output, std::span<const uint8_t> input, method_id method, int status ) {
 			const bool is_request = status < 100;
 
 			if ( input.empty() || is_always_empty( method, status ) ) {
@@ -604,8 +631,8 @@ namespace xstd::http {
 			} else {
 				char buffer[ 64 ];
 				auto last_header = xstd::fmt::into( buffer, "Content-Length: %llu\r\n\r\n", input.size() );
-				input.prepend_range( std::span{ (uint8_t*) last_header.data(), last_header.size() } );
-				output.append_range( std::move( input ) );
+				output.append_range( std::span{ (uint8_t*) last_header.data(), last_header.size() } );
+				output.append_range( input );
 			}
 		}
 	}
@@ -617,6 +644,7 @@ namespace xstd::http {
 		//
 		vec_buffer      body = {};
 		http::headers   headers = {};
+		body::props     body_props = {};
 
 		// Header modifiers.
 		//
@@ -633,10 +661,19 @@ namespace xstd::http {
 			return headers.remove( key );
 		}
 
+		// Readers.
+		//
+		job<bool> read_body( stream_view stream ) {
+			return body::read( body, stream, body_props );
+		}
+		auto read_headers( stream_view stream ) {
+			return headers.read( stream );
+		}
+
 		// Properties.
 		//
-		bool has_body( method_id req_method, int status ) const {
-			return !body::is_always_empty( req_method, status );
+		body::props get_body_properties( method_id req_method, int status ) const {
+			return body::get_properties( req_method, status, headers );
 		}
 		http::connection connection() const {
 			std::string_view header = headers[ "Connection" ];
@@ -649,6 +686,12 @@ namespace xstd::http {
 			return http::connection::keep_alive;
 		}
 		bool keep_alive() const { return connection() == connection::keep_alive; }
+		bool has_body() const {
+			return body_props.length != 0;
+		}
+		bool is_body_read() const {
+			return body_props.code == body::finished;
+		}
 	};
 
 	// HTTP response and request as data types.
@@ -672,7 +715,7 @@ namespace xstd::http {
 
 			detail::append_into( buf, "HTTP/1.1 ", std::span{ status_buffer }, " ", status_message, "\r\n" );
 			headers.write( buf );
-			body::write( buf, std::move( body ), req_method, -1 );
+			body::write( buf, body, req_method, -1 );
 		}
 		auto write( stream_view stream, method_id req_method = INVALID ) const {
 			return stream.write_using( [&]( vec_buffer& buf ) {
@@ -682,7 +725,7 @@ namespace xstd::http {
 
 		// Readers.
 		//
-		job<bool> read_head( stream_view stream ) {
+		job<bool> read_head( stream_view stream, method_id req_method = INVALID ) {
 			// Read the status line.
 			//
 			auto meta = co_await readln( stream );
@@ -712,24 +755,35 @@ namespace xstd::http {
 			meta->erase( meta->begin(), meta->begin() + xstd::strlen( "HTTP/1.1 " ) + 4 );
 			status_message = std::move( meta ).value();
 
-			// Read the headers.
+			// Read the headers, set body properties.
 			//
-			co_return co_await headers.read( stream );
-		}
-		job<bool> read_body( stream_view stream, method_id req_method = INVALID ) {
-			return body::read( body, stream, req_method, status, headers );
+			bool ok = co_await this->read_headers( stream );
+			this->body_props = this->get_body_properties( req_method );
+			co_return ok;
 		}
 		job<bool> read( stream_view stream, method_id req_method = INVALID ) {
-			bool ok = co_await read_head( stream );
-			if ( ok && has_body( req_method ) )
-				ok = co_await read_body( stream, req_method );
-			co_return ok;
+			co_return co_await read_head( stream, req_method ) && co_await read_body( stream );
+		}
+
+		// Sync parser.
+		//
+		static result<response> parse( vec_buffer& io, method_id req_method = INVALID ) {
+			stream mem{ stream::memory( io ) };
+			result<response> retval = {};
+			if ( !retval.emplace().read( &mem, req_method ).run() ) {
+				exception ex = {};
+				if ( mem.errored() )
+					ex = mem.stop_reason();
+				retval.raise( std::move( ex ).value_or( XSTD_ESTR( "unfinished stream" ) ) );
+			}
+			io = std::move( mem.buffer_ );
+			return retval;
 		}
 
 		// Properties.
 		//
-		bool has_body( method_id req_method = INVALID ) const {
-			return message::has_body( req_method, status );
+		body::props get_body_properties( method_id req_method = INVALID ) const {
+			return message::get_body_properties( req_method, status );
 		}
 	};
 	struct request : message {
@@ -772,24 +826,35 @@ namespace xstd::http {
 				co_return false;
 			}
 
-			// Read the headers.
+			// Read the headers, set body properties.
 			//
-			co_return co_await headers.read( stream );
-		}
-		job<bool> read_body( stream_view stream ) {
-			return body::read( body, stream, method, -1, headers );
+			bool ok = co_await this->read_headers( stream );
+			this->body_props = this->get_body_properties();
+			co_return ok;
 		}
 		job<bool> read( stream_view stream ) {
-			bool ok = co_await read_head( stream );
-			if ( ok && has_body() )
-				ok = co_await read_body( stream );
-			co_return ok;
+			co_return co_await read_head( stream ) && co_await read_body( stream );
+		}
+
+		// Sync parser.
+		//
+		static result<request> parse( vec_buffer& io ) {
+			stream mem{ stream::memory( io ) };
+			result<request> retval = {};
+			if ( !retval.emplace().read( &mem ).run() ) {
+				exception ex = {};
+				if ( mem.errored() )
+					ex = mem.stop_reason();
+				retval.raise( std::move( ex ).value_or( XSTD_ESTR( "unfinished stream" ) ) );
+			}
+			io = std::move( mem.buffer_ );
+			return retval;
 		}
 
 		// Properties.
 		//
-		bool has_body() const {
-			return message::has_body( method, -1 );
+		body::props get_body_properties() const {
+			return message::get_body_properties( method, -1 );
 		}
 	};
 
@@ -801,7 +866,6 @@ namespace xstd::http {
 		exception      external_error =  {};
 		unique_stream  socket =          nullptr;
 		http::agent*   agent =           nullptr;
-		bool           body_read =       false;
 
 		incoming_response() = default;
 		incoming_response( unique_stream socket, http::agent* agent = nullptr ) : socket( std::move( socket ) ), agent( agent ) {}
@@ -815,8 +879,7 @@ namespace xstd::http {
 		task<std::span<const uint8_t>, exception> body() {
 			if ( external_error )
 				co_yield external_error;
-			if ( !body_read ) {
-				body_read = true;
+			if ( this->body_props.code != body::finished ) {
 				co_await response::read_body( socket );
 			}
 			if ( socket.errored() )
@@ -843,15 +906,20 @@ namespace xstd::http {
 			res.status = -1;
 			res.status_message = {};
 			co_await res.read_head( res.socket );
-			if ( !res.has_body( req_method ) )
-				res.body_read = true;
+
+			// If we have an agent to keep-alive and body is worth waiting for skipping, do so.
+			//
+			if ( res.keep_alive() && res.body_props.length <= 64_kb ) {
+				co_await res.body();
+			}
+
 			co_return std::move( res );
 		}
 
 		// Release socket on destruction for keep-alive.
 		//
 		~incoming_response() {
-			if ( keep_alive() && body_read ) {
+			if ( keep_alive() && is_body_read() ) {
 				agent->release( socket );
 			}
 		}
@@ -869,8 +937,7 @@ namespace xstd::http {
 		// Read body.
 		//
 		task<std::span<const uint8_t>, exception> body() {
-			if ( !body_read ) {
-				body_read = true;
+			if ( this->body_props.code != body::finished ) {
 				co_await request::read_body( socket );
 			}
 			if ( socket.errored() )
@@ -891,8 +958,6 @@ namespace xstd::http {
 			res.request::body = std::move( req_buf );
 			res.request::body.clear();
 			co_await res.read_head( res.socket );
-			if ( !res.has_body() )
-				res.body_read = true;
 			co_return std::move( res );
 		}
 	};
@@ -900,11 +965,17 @@ namespace xstd::http {
 	// Fetch API.
 	//
 	struct fetch_options {
+		// Message.
+		//
 		vec_buffer               body = {};
 		http::headers            headers = {};
+
+		// Agent options.
+		//
 		agent&                   agent =  agent::global();
 		unique_stream            socket = nullptr;
 		net::socket_options      socket_options = {};
+
 	};
 	inline job<incoming_response> fetch( url_view url, method_id method = GET, fetch_options&& opt = {} ) {
 		// Set host header, normalize path into URI.
