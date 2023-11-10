@@ -6,7 +6,9 @@
 #include "event.hpp"
 #include "function_view.hpp"
 #include "chore.hpp"
-#include <functional>
+#include "fiber.hpp"
+#include "ref_counted.hpp"
+#include "wait_list.hpp"
 
 namespace xstd {
 	// Stream stop code.
@@ -33,13 +35,43 @@ namespace xstd {
 
 	// Stream state.
 	//
-	struct stream_state {
+	struct stream_state : ref_counted<stream_state>, wait_list {
 		// Set if stream has ended.
 		//
 		std::atomic<stream_stop_code> stop_code = stream_stop_none;
 		exception                     stop_reason = {};
-		event                         stop_event = {};
 		std::atomic<bool>             stop_written = false;
+
+		// Fibers bound to the lifetime of the stream.
+		//
+		fiber                         fibers[ 4 ] = {};
+
+		// Attaches a fiber to the stream state to signal death upon closure.
+		//
+		template<typename FiberSpawner, typename... Args>
+		const fiber& attach( FiberSpawner&& fn, Args&&... args ) {
+			for ( auto& e : fibers ) {
+				if ( !e || e.done() ) {
+					e = fn( std::forward<Args>( args )... );
+					return e;
+				}
+			}
+			fassert( false );
+		}
+
+		// Stop details.
+		//
+		bool errored() const { return stop_code.load( std::memory_order::relaxed ) > stream_stop_fin; }
+		bool finished() const { return stop_code.load( std::memory_order::relaxed ) == stream_stop_fin; }
+		bool stopped() const { return stop_code.load( std::memory_order::relaxed ) != stream_stop_none; }
+		exception get_stop_reason() const {
+			if ( stopped() ) {
+				while ( !stop_written.load( std::memory_order::relaxed ) )
+					yield_cpu();
+				return stop_reason;
+			}
+			return {};
+		}
 	};
 
 	namespace detail {
@@ -367,9 +399,15 @@ namespace xstd {
 			}
 			state().stop_reason = std::move( ex ).value_or( XSTD_ESTR( "unknown error" ) );
 			state().stop_written.store( true, std::memory_order::release );
+
+			for ( auto& f : state().fibers ) {
+				if ( f )
+					f.detach();
+			}
+
 			readable().destroy();
 			writable().destroy();
-			stop_event().notify();
+			state().signal()();
 			return true;
 		}
 		bool stop( exception ex ) {
@@ -381,8 +419,6 @@ namespace xstd {
 		bool errored() const { return stop_code() > stream_stop_fin; }
 		bool finished() const { return stop_code() == stream_stop_fin; }
 		bool stopped() const { return stop_code() != stream_stop_none; }
-		event& stop_event() { return state().stop_event; }
-		const event& stop_event() const { return state().stop_event; }
 		stream_stop_code stop_code() const { return state().stop_code.load( std::memory_order::relaxed ); }
 		exception stop_reason() const {
 			if ( stopped() ) {
@@ -392,20 +428,15 @@ namespace xstd {
 			}
 			return {};
 		}
-
-		// Waits for the streams closure.
-		//
-		void wait() { stop_event().wait(); }
-		bool wait( duration d ) { return stop_event().wait_for( d ); }
 	};
 
 	// Single producer, single consumer in-memory stream.
 	//
 	struct stream : stream_utils<stream> {
-		stream_state   state_ = {};
-		async_buffer   buffer_ = {};
+		ref<stream_state> state_ = make_refc<stream_state>();
+		async_buffer      buffer_ = {};
 
-		stream_state& state() { return state_; }
+		stream_state& state() { return *state_; }
 		async_buffer& readable() { return buffer_; }
 		async_buffer& writable() { return buffer_; }
 
@@ -429,22 +460,21 @@ namespace xstd {
 		// Traits list.
 		//
 		struct stream_traits {
-			cb_asfn_t<stream_state*>  get_state = nullptr;
-			cb_asfn_t<async_buffer*>        get_writable = nullptr;
-			cb_asfn_t<async_buffer*>        get_readable = nullptr;
-			cb_asfn_t<void>                 dtor = nullptr;
+			cb_asfn_t<stream_state*, async_buffer**, async_buffer**>  unpack = nullptr;
+			cb_asfn_t<void>                                           dtor = nullptr;
 		};
 		template<typename U>
 		struct stream_traits_for : stream_traits {
 			constexpr stream_traits_for() {
-				this->get_state =    &_get_state;
-				this->get_readable = &_get_readable;
-				this->get_writable = &_get_writable;
-				this->dtor =         &_dtor;
+				this->unpack = &_unpack;
+				this->dtor =   &_dtor;
 			}
-			static stream_state* _get_state( void* ptr ) { return &( (U*) ptr )->state(); }
-			static async_buffer* _get_readable( void* ptr ) { return &( (U*) ptr )->readable(); }
-			static async_buffer* _get_writable( void* ptr ) { return &( (U*) ptr )->writable(); }
+			static stream_state* _unpack( void* ptr, async_buffer** rb, async_buffer** wb ) { 
+				auto* s = (U*) ptr;
+				*rb = &s->readable();
+				*wb = &s->writable();
+				return &s->state();
+			}
 			static void _dtor( void* ptr ) { delete (U*) ptr; }
 		};
 		template<typename U>
@@ -455,6 +485,7 @@ namespace xstd {
 		const detail::stream_traits* traits = nullptr;
 		async_buffer*                readable_ = nullptr;
 		async_buffer*                writable_ = nullptr;
+		stream_state*                state_ = nullptr;
 
 		// Construction by reference.
 		//
@@ -464,13 +495,13 @@ namespace xstd {
 				ptr =       p->ptr;
 				traits =    p->traits;
 				if ( !ptr ) return;
-				readable_ = traits->get_readable( this->ptr );
-				writable_ = traits->get_writable( this->ptr );
+				state_ =    traits->unpack( this->ptr, &this->readable_, &this->writable_ );
 			} else {
 				ptr =       p;
 				traits =    &detail::stream_traits_v<T>;
 				readable_ = &p->readable();
 				writable_ = &p->writable();
+				state_    = &p->state();
 			}
 			if ( swap ) std::swap( readable_, writable_ );
 		}
@@ -484,10 +515,11 @@ namespace xstd {
 		stream_view& operator=( stream_view&& ) noexcept = default;
 		stream_view& operator=( const stream_view& ) = default;
 		void swap( stream_view& o ) {
-			std::swap( ptr, o.ptr );
-			std::swap( traits, o.traits );
+			std::swap( ptr,       o.ptr );
+			std::swap( traits,    o.traits );
 			std::swap( readable_, o.readable_ );
 			std::swap( writable_, o.writable_ );
+			std::swap( state_,    o.state_ );
 		}
 
 		// Observers.
@@ -504,14 +536,15 @@ namespace xstd {
 
 		// Implementation.
 		//
-		stream_state& state() { return *traits->get_state( ptr ); }
+		stream_state& state() { return *state_; }
 		async_buffer& readable() { return *readable_; }
 		async_buffer& writable() { return *writable_; }
 	};
 	struct unique_stream : stream_view {
 		unique_stream() = default;
 		unique_stream( std::nullptr_t ) {}
-		unique_stream( stream_view ref ) : stream_view( ref ) {}
+		template<typename T>
+		unique_stream( T* ptr ) : stream_view( ptr ) {}
 		template<typename T>
 		unique_stream( std::unique_ptr<T> ptr ) : stream_view( ptr.release() ) {}
 
@@ -519,8 +552,7 @@ namespace xstd {
 			unique_stream tmp{};
 			this->swap( tmp );
 		}
-		void reset( stream_view ref ) {
-			unique_stream tmp{ ref };
+		void reset( unique_stream tmp ) {
 			this->swap( tmp );
 		}
 
@@ -542,16 +574,16 @@ namespace xstd {
 	// Composition of two streams into a duplex.
 	//
 	struct duplex : stream_utils<duplex> {
-		stream_state   state_ = {};
-		async_buffer   input_ = {};
-		async_buffer   output_ = {};
+		ref<stream_state> state_ = make_refc<stream_state>();
+		async_buffer      input_ = {};
+		async_buffer      output_ = {};
 
 		duplex() {
 			output_.sched_enter = &stream_sched_threadpool;
 			input_.sched_leave = &stream_sched_threadpool;
 		}
 
-		stream_state& state() { return state_; }
+		stream_state& state() { return *state_; }
 		async_buffer& readable() { return input_; }
 		async_buffer& writable() { return output_; }
 

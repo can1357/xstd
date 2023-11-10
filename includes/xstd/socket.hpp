@@ -63,6 +63,7 @@
 	#include <sys/socket.h>
 	#include <sys/types.h>
 	#include <sys/socket.h>
+	#include <poll.h>
 	#include <netdb.h>
 	#include <thread>
 	#undef XSTD_LWIP
@@ -506,6 +507,18 @@ namespace xstd::net {
 #endif
 			return 0;
 		}
+		socket_error socket_poll( pollfd& desc, duration timeout ) {
+#if XSTD_WINSOCK
+			if ( ::WSAPoll( &desc, 1, timeout / 1ms ) == -1 ) {
+				return detail::get_last_error( -1 );
+			}
+#else
+			if ( ::poll( &desc, 1, timeout / 1ms ) == -1 ) {
+				return detail::get_last_error( -1 );
+			}
+#endif
+			return 0;
+		}
 		socket_error socket_listen() {
 			if ( ::listen( this->fd, opt.listen_backlog ) == -1 ) {
 				return detail::get_last_error( -1 );
@@ -525,6 +538,7 @@ namespace xstd::net {
 			return { sock, addr.sin_addr.s_addr, bswap( addr.sin_port ) };
 		}
 		bool socket_receive( std::span<uint8_t>& buffer, int flags = 0 ) {
+			bool need_poll = false;
 #if XSTD_WINSOCK
 			flags |= MSG_PUSH_IMMEDIATE;
 			if ( buffer.size() > UINT32_MAX )
@@ -535,49 +549,50 @@ namespace xstd::net {
 			if ( socket_error result = ::WSARecv( this->fd, &bufdesc, 1, &count, &ioflags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
-					return false;
 				}
+				need_poll = true;
 			}
 			buffer = buffer.subspan( 0, count );
 #else
 			if ( buffer.size() > INT32_MAX )
 				buffer = buffer.subspan( 0, (size_t) INT32_MAX );
 			if ( socket_error result = ::recv( this->fd, (char*) buffer.data(), (int) buffer.size(), flags ); result == -1 ) [[unlikely]] {
-				if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
+				if ( auto e = detail::get_last_error( result ); e != EINTR && e != EINPROGRESS && e != EAGAIN && e != EWOULDBLOCK ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
-					return false;
 				}
-				buffer = {};
+				need_poll = true;
 			} else {
 				buffer = buffer.subspan( 0, (uint32_t) result );
 			}
 #endif
-			return true;
+			return need_poll;
 		}
 		bool socket_send( std::span<const uint8_t>& buffer, int flags = 0 ) {
 			uint32_t write_count = buffer.size() > opt.sendbuf ? opt.sendbuf : uint32_t( buffer.size() );
 			uint32_t count = 0;
+			bool need_poll = false;
 #if XSTD_WINSOCK
 			WSABUF bufdesc = { write_count, (char*) buffer.data() };
 			if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, (DWORD*) &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
-					count = 0;
 				}
+				need_poll = true;
 			}
 #else
 			if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
-				if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
+				if ( auto e = detail::get_last_error( result ); e != EINTR && e != EINPROGRESS && e != EAGAIN && e != EWOULDBLOCK ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
-				} else {
-					count = write_count;
 				}
+				if ( e == EWOULDBLOCK || e == EAGAIN )
+					count = write_count;
+				need_poll = true;
 			} else {
 				count = (uint32_t) result;
 			}
 #endif
 			buffer = buffer.subspan( count );
-			return false;
+			return need_poll;
 		}
 
 		// Remote/local address.
@@ -686,7 +701,7 @@ namespace xstd::net {
 
 			// Start the initial fibers.
 			//
-			thr_sender = init_thread( is_connect );
+			state().attach( std::mem_fn( &tcp::init_thread ), this, is_connect );
 		}
 		~tcp() {
 			close();
@@ -694,12 +709,45 @@ namespace xstd::net {
 		}
 
 	protected:
-		fiber thr_sender;
-		fiber thr_receiver;
+		fiber send_more() {
+			// Allocate the buffer and get the controller.
+			//
+			const size_t buffer_length = opt.sendbuf;
+			const auto   buffer =        std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
+			auto ctrl =                  this->controller();
 
-		// Reader thread.
-		//
-		fiber recv_thread() {
+			// Enter the loop once socket is ready.
+			//
+			co_yield{};
+			while ( true ) {
+				// Wait for the user to request a send.
+				//
+				size_t count = co_await ctrl.read_into( { &buffer[ 0 ], buffer_length }, 1 );
+				if ( !count ) {
+					if ( ctrl.is_shutting_down() ) {
+						this->socket_shutdown( false, true );
+					}
+					co_return;
+				}
+
+				// Return to the thread-pool, ask the socket to write the data.
+				//
+				co_await yield{};
+				std::span<const uint8_t> request{ &buffer[ 0 ], count };
+				while ( !request.empty() ) {
+					if ( this->socket_send( request ) ) {
+						co_yield {};
+						continue;
+					}
+					
+					// Terminate on error.
+					//
+					if ( this->stopped() )
+						co_return;
+				}
+			}
+		}
+		fiber recv_more() {
 			// Allocate the buffer and get the controller.
 			//
 			const size_t buffer_length = opt.recvbuf;
@@ -708,132 +756,111 @@ namespace xstd::net {
 
 			// Enter the loop.
 			//
+			bool need_poll = true;
 			while ( true ) {
-				// Wait for the user to request a recv.
-				//
-				co_await ctrl.stall();
-				co_await yield{};
+				co_yield need_poll ? fiber::pause : fiber::heartbeat;
 
 				// Read from the socket, terminate on error.
 				//
 				std::span range{ &buffer[ 0 ], buffer_length };
-				if ( !this->socket_receive( range ) || this->stopped() )
+				need_poll = this->socket_receive( range );
+				if ( this->stopped() )
 					co_return;
 
 				// If we received a FIN, stop.
 				//
 				if ( range.empty() ) {
-					this->socket_shutdown( true, true );
-					ctrl.shutdown();
-					co_return ( void ) stop( stream_stop_fin );
+					if ( !need_poll ) {
+						this->socket_shutdown( true, true );
+						ctrl.shutdown();
+						co_return ( void ) stop( stream_stop_fin );
+					}
 				}
-
-				// Propagate the value, return to this thread.
+				// Propagate the data.
 				//
-				co_await ctrl.write( range );
+				else {
+					co_await ctrl.write( range );
+				}
 			}
 		}
 
 		// Connection and writer thread. 
 		//
 		fiber init_thread( bool connect ) {
+			fiber fib_sender;
+			fiber fib_receiver;
+
+			// First we have to wait for the connection, set the socket non-blocking.
+			//
+			if ( auto err = detail::set_blocking( fd, false ) ) {
+				co_return this->raise_error( XSTD_ESTR( "failed to change socket mode: %d" ), err );
+			}
+			co_await yield{};
+
+			// Create the fixed poll.
+			//
+			pollfd poll = { .fd = fd, .events = 0, .revents = 0 };
+			auto poll_for = [ & ]( short evt ) FORCE_INLINE{
+				poll.events = evt;
+				if ( auto err = socket_poll( poll, opt.max_stall ) ) {
+					raise_error( XSTD_ESTR( "poll error: %d" ), err );
+					poll.revents |= POLLERR;
+				} else if ( stopped() ) {
+					poll.revents |= POLLERR;
+				} else if ( poll.revents & POLLERR ) {
+					raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
+				}
+				short ret = poll.revents & ( evt | POLLERR );
+				poll.revents ^= ret;
+				return ret;
+			};
+
 			// Initialization logic:
 			//
 			if ( connect ) {
-				// First we have to wait for the connection, so set the socket non-blocking.
-				//
-				if ( auto err = detail::set_blocking( fd, false ) ) {
-					co_return this->raise_error( XSTD_ESTR( "failed to change socket mode: %d" ), err );
-				}
-
 				// Start the connection.
 				//
 				if ( auto err = this->socket_connect(); err.has_value() ) {
 					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), *err );
 				}
 
-				// Create FD watch for the write event.
+				// Poll until socket is writable.
 				//
 				auto timeout = time::now() + opt.conn_timeout;
-				fd_set fd_er, fd_wr;
 				while ( true ) {
-					FD_ZERO( &fd_er );    FD_ZERO( &fd_wr );
-					FD_SET( fd, &fd_er ); FD_SET( fd, &fd_wr );
-
-					timeval stall_timeout = detail::to_timeval( opt.max_stall );
-					if ( select( int( fd ) + 1, nullptr, &fd_wr, &fd_er, &stall_timeout ) < 0 ) {
-						this->stop( stream_stop_timeout, XSTD_ESTR( "connection wait error" ) );
+					if ( short events = poll_for( POLLOUT ); events & POLLERR ) {
 						co_return;
-					} else if ( FD_ISSET( fd, &fd_wr ) ) {
-						break;
-					} else if ( FD_ISSET( fd, &fd_er ) ) {
-						co_return raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
 					} else if ( timeout < time::now() ) {
 						this->stop( stream_stop_timeout, XSTD_ESTR( "connection timed out" ) );
 						co_return;
-					} else if ( stopped() ) {
-						co_return;
+					} else if ( events & POLLOUT ) {
+						break;
+					} else {
+						co_await yield{};
 					}
 				}
+			}
+			poll.revents |= POLLOUT;
 
-				// Handle fd_er being set.
-				//
-				if ( FD_ISSET( fd, &fd_er ) ) {
-				}
-				// Handle fd_wr not set.
-				//
-				else if ( !FD_ISSET( fd, &fd_wr ) ) {
-					this->stop( stream_stop_timeout, XSTD_ESTR( "connection timed out" ) );
+			// Create the data fibers.
+			//
+			fib_receiver = recv_more();
+			fib_sender = send_more();
+
+			// Enter long-poll.
+			//
+			while ( true ) {
+				if ( short events = poll_for( POLLOUT | POLLIN ); events & POLLERR ) {
 					co_return;
-				}
-			}
-
-			// Switch back to blocking mode.
-			//
-			if ( auto err = detail::set_blocking( fd, true ) ) {
-				co_return this->raise_error( XSTD_ESTR( "failed to change socket mode: %d" ), err );
-			}
-
-			// Start the receiver thread.
-			//
-			thr_receiver = recv_thread();
-
-			// Sender logic:
-			//
-			{
-				// Allocate the buffer and get the controller.
-				//
-				const size_t buffer_length = opt.sendbuf;
-				const auto   buffer =        std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
-				auto ctrl =                  this->controller();
-
-				// Enter the loop.
-				//
-				while ( true ) {
-					// Wait for the user to request a send.
-					//
-					size_t count = co_await ctrl.read_into( { &buffer[ 0 ], buffer_length }, 1 );
-					if ( !count ) {
-						if ( ctrl.is_shutting_down() ) {
-							this->socket_shutdown( false, true );
-						}
-						co_return;
-					}
-
-					// Return to the thread-pool, ask the socket to write the data.
-					//
+				} else if ( events & POLLIN ) {
+					fib_receiver.resume();
+				} else if ( events & POLLOUT ) {
+					fib_sender.resume();
+				} else {
 					co_await yield{};
-					std::span<const uint8_t> request{ &buffer[ 0 ], count };
-					while ( !request.empty() ) {
-						this->socket_send( request );
-						
-						// Terminate on error.
-						//
-						if ( this->stopped() )
-							co_return;
-					}
 				}
 			}
+
 		}
 	};
 	struct tcp_listening : socket {
