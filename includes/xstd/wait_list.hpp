@@ -162,14 +162,6 @@ namespace xstd {
 		};
 		inline awaiter operator co_await() noexcept { return { *this }; }
 
-		// - Provider interface.
-		// Clears all entries and the sealed flag.
-		//
-		void clear() {
-			std::lock_guard _g{ lock };
-			signal_and_reset();
-			settled = 0;
-		}
 		// Signals all listeners associated, returns a coro handle to symetric transfer to.
 		//
 		[[nodiscard]] coroutine_handle<> signal() {

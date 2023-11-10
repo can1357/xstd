@@ -501,7 +501,17 @@ namespace xstd
 		template<typename C, bool CaseSensitive, bool Backwards, size_t N>
 		FORCE_INLINE inline constexpr auto ssplit( std::basic_string_view<C> haystack, std::basic_string_view<C> needle, bool skip = true ) {
 			std::array<std::basic_string_view<C>, N> result = {};
-			if constexpr ( !Backwards ) {
+			if constexpr ( N == 2 ) {
+				// Special case for N=2, always behaves as [Before, After], backwards only controls the position where no match is found.
+				std::basic_string_view<C> a;
+				std::basic_string_view<C> b = haystack;
+				if constexpr ( Backwards ) std::swap( a, b );
+				if ( size_t p = CaseSensitive ? haystack.find( needle ) : ifind( haystack, needle ); p != std::string::npos ) {
+					a = haystack.substr( 0, p );
+					b = haystack.substr( p + ( skip ? needle.size() : 0 ) );
+				}
+				result = { a, b };
+			} else if constexpr ( !Backwards ) {
 				size_t it = 0;
 				for ( ; it != N-1; ++it ) {
 					size_t p = CaseSensitive ? haystack.find( needle ) : ifind( haystack, needle );

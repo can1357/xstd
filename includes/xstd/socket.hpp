@@ -1,14 +1,17 @@
 #pragma once
 #include "intrinsics.hpp"
 #include "type_helpers.hpp"
-#include "duplex.hpp"
+#include "stream.hpp"
 #include "vec_buffer.hpp"
 #include "formatting.hpp"
 #include "bitwise.hpp"
 #include "time.hpp"
 #include "spinlock.hpp"
 #include "chore.hpp"
+#include "text.hpp"
 #include "task.hpp"
+#include "fiber.hpp"
+#include "async.hpp"
 
 // Detect the underlying system libraries.
 //
@@ -82,26 +85,100 @@ namespace xstd::net {
 		constexpr ipv4( std::array<uint8_t, 4> value ) : value( value ) {}
 		constexpr ipv4( uint8_t a, uint8_t b, uint8_t c, uint8_t d ) : value{ a, b, c, d } {}
 		constexpr ipv4( uint32_t value ) : value( xstd::bit_cast<std::array<uint8_t, 4>>( value ) ) {}
+		constexpr ipv4( std::string_view str ) : ipv4( parse( str ) ) {}
+		constexpr ipv4( const char* str ) : ipv4( parse( str ) ) {}
 
-		// Default copy and compare.
+		// Copy, move and compare.
 		//
-		constexpr ipv4( const ipv4& ) = default;
-		constexpr ipv4& operator=( const ipv4& ) = default;
-		constexpr auto operator<=>( const ipv4& ) const = default;
+		constexpr ipv4( ipv4&& ) noexcept = default;
+		constexpr ipv4& operator=( ipv4&& ) noexcept = default;
+		constexpr ipv4( const ipv4& ) noexcept = default;
+		constexpr ipv4& operator=( const ipv4& ) noexcept = default;
+		constexpr bool operator!=( const ipv4& o ) const { return to_integer() != o.to_integer(); }
+		constexpr bool operator==( const ipv4& o ) const { return to_integer() == o.to_integer(); }
+		constexpr bool operator<( const ipv4& o ) const { return to_integer() < o.to_integer(); }
 
 		// String conversion.
 		//
+		constexpr uint32_t to_integer() const { return xstd::bit_cast<uint32_t>( value ); }
+		constexpr std::array<uint8_t, 4> to_array() const { return value; }
 		std::string to_string() const { return xstd::fmt::str( "%d.%d.%d.%d", value[ 0 ], value[ 1 ], value[ 2 ], value[ 3 ] ); }
 
 		// Decay to bool for validation and to raw value.
 		//
-		constexpr operator std::array<uint8_t, 4>() const { return value; }
-		constexpr operator uint32_t() const { return xstd::bit_cast<uint32_t>( value ); }
-		constexpr explicit operator bool() const { return xstd::bit_cast<uint32_t>( value ) != 0; }
+		constexpr operator uint32_t() const { return to_integer(); }
+		constexpr operator std::array<uint8_t, 4>() const { return to_array(); }
+		constexpr explicit operator bool() const { return to_integer() != 0; }
+
+		// Parser from string.
+		//
+		static constexpr ipv4 parse( const char* str, size_t& count ) {
+			// Result and the current segment.
+			//
+			uint32_t value = 0, part = 0;
+			int shift = 32;
+			
+			// For each character:
+			//
+			const char* it = str;
+			size_t limit = count;
+			while ( size_t( it - str ) < limit ) {
+				// If digit:
+				//
+				if ( '0' <= *it && *it <= '9' ) {
+					// Check for overflow.
+					//
+					uint32_t chk1 = part << ( -shift & 31 );
+					part *= 10;
+					part += *it++ - '0';
+					uint32_t chk2 = part << ( -shift & 31 );
+					if ( chk2 < chk1 ) [[unlikely]] {
+						value = part = 0;
+						it = str;
+						break;
+					}
+				}
+				// If dot and we can add another segment:
+				//
+				else if ( *it == '.' && shift != 0 ) {
+					// If accumulated value is more than a byte, fail.
+					//
+					if ( part > 0xff ) [[unlikely]] {
+						value = part = 0;
+						it = str;
+						break;
+					}
+					value = part | ( value << 8 );
+					part =  0;
+					shift -= 8;
+					it++;
+				} 
+				// Else break.
+				//
+				else {
+					break;
+				}
+			}
+			value <<= shift & 31;
+			value |= part;
+			count = it - str;
+			return bswapd( value );
+		}
+		static constexpr ipv4 parse( const char* str, const size_t& count = std::dynamic_extent ) {
+			size_t n = count;
+			return parse( str, n );
+		}
+		static constexpr ipv4 parse( std::string_view& sv ) {
+			size_t count = sv.size();
+			ipv4 result = ipv4::parse( sv.data(), count );
+			sv.remove_prefix( count );
+			return result;
+		}
 
 #if XSTD_LWIP
 		// Conversion to/from LWIP type.
 		//
+		constexpr ipv4( const ip_addr_t& lwip ) : ipv4( lwip.addr ) {}
 		constexpr ipv4( const ip_addr_t* lwip ) : ipv4( lwip ? lwip->addr : 0 ) {}
 		ip_addr_t* lwip() { return (ip_addr_t*) this; }
 		const ip_addr_t* lwip() const { return (const ip_addr_t*) this; }
@@ -121,12 +198,27 @@ namespace xstd::net {
 		mutable xstd::result<ipv4> result = {};
 		std::coroutine_handle<> continuation = nullptr;
 
-		bool await_ready() const { return false; }
+		bool await_ready() const { return result.success(); }
 		bool await_suspend( std::coroutine_handle<> hnd );
 		xstd::result<ipv4> await_resume() const { return std::move( result ); }
 	};
 	using fn_dns_hook = bool(*)( dns_query_awaitable*, std::coroutine_handle<> );
 	inline fn_dns_hook g_dns_hook = nullptr;
+	inline dns_query_awaitable query_dns_a( const char* hostname, bool no_hook = false ) {
+		return { hostname, no_hook };
+	}
+
+	// Hostname resolver with fallback to DNS.
+	//
+	inline dns_query_awaitable resolve_hostname( const char* hostname ) {
+		if ( '0' <= hostname[ 0 ] && hostname[ 0 ] <= '9' ) {
+			size_t count = std::dynamic_extent;
+			if ( auto ip = ipv4::parse( hostname, count ); ip && !hostname[ count ] ) {
+				return dns_query_awaitable{ .result = ip };
+			}
+		}
+		return query_dns_a( hostname );
+	}
 
 	// Standard options.
 	//
@@ -135,14 +227,16 @@ namespace xstd::net {
 		tcp,
 	};
 	struct socket_options {
-		xstd::duration                conn_timeout = 5s;
-		xstd::duration                linger =       30s;
-		uint32_t                      recvbuf =      512_kb;
-		uint32_t                      sendbuf =      256_kb;
-		bool                          nodelay =      true;
-		bool                          timestamps =   false;
-		bool                          reuse =        true;
-		std::optional<xstd::duration> keepalive =    std::nullopt;
+		xstd::duration                conn_timeout =   5s;
+		int                           listen_backlog = 128;
+		xstd::duration                max_stall =      250ms;
+		xstd::duration                linger =         30s;
+		uint32_t                      recvbuf =        ( uint32_t ) 512_kb;
+		uint32_t                      sendbuf =        ( uint32_t ) 512_kb;
+		bool                          nodelay =        true;
+		bool                          timestamps =     false;
+		bool                          reuse =          true;
+		std::optional<xstd::duration> keepalive =      std::nullopt;
 	};
 
 	// Definition via Berkeley/Winsock:
@@ -158,11 +252,8 @@ namespace xstd::net {
 	static constexpr socket_t invalid_socket = -1;
 #endif
 
-	// Global net lock, only protects the FDD list in Berkeley mode.
-	//
-	alignas( 64 ) inline xstd::spinlock g_lock = {};
 	namespace detail {
-		// Wrappers around functions differring between WSA / Berkeley standards.
+		// Wrappers around functions differing between WSA / Berkeley standards.
 		//
 		static socket_error init_networking() {
 #if XSTD_WINSOCK
@@ -192,6 +283,25 @@ namespace xstd::net {
 #endif
 			return err ? err : value_or;
 		}
+		static socket_error set_blocking( socket_t fd, bool blocking ) {
+#if XSTD_WINSOCK
+			unsigned long ionbio = blocking ? 0 : 1;
+			if ( socket_error err = ioctlsocket( fd, FIONBIO, &ionbio ); !err ) {
+				return 0;
+			} else {
+				return get_last_error( err );
+			}
+#else
+			int flags = fcntl( fd, F_GETFL, 0 );
+			if ( flags != -1 ) {
+				if ( blocking ) flags &= ~O_NONBLOCK;
+				else            flags |=  O_NONBLOCK;
+				return fcntl( fd, F_SETFL, flags );
+			} else {
+				return get_last_error( -1 );
+			}
+#endif
+		}
 		static socket_error create_socket( socket_t* out, int af, int type, std::optional<int> protocol = std::nullopt ) {
 			socket_error err = 0;
 #if XSTD_WINSOCK
@@ -205,13 +315,7 @@ namespace xstd::net {
 				}
 			}
 			socket_t fd = ::WSASocketW( af, type, *protocol, nullptr, 0, 0 );
-			if ( fd != invalid_socket ) {
-				unsigned long ionbio = 1;
-				err = ioctlsocket( fd, FIONBIO, &ionbio );
-				if ( socket_error err = ioctlsocket( fd, FIONBIO, &ionbio ) ) {
-					err = get_last_error( err );
-				}
-			} else {
+			if ( fd == invalid_socket ) {
 				err = get_last_error( -1 );
 			}
 #else
@@ -219,14 +323,7 @@ namespace xstd::net {
 				protocol = 0;
 			}
 			socket_t fd = ::socket( af, type, *protocol );
-			if ( fd != invalid_socket ) {
-				int flags = fcntl( fd, F_GETFL, 0 );
-				if ( flags != -1 ) {
-					err = fcntl( fd, F_SETFL, flags | O_NONBLOCK );
-				} else {
-					err = get_last_error( -1 );
-				}
-			} else {
+			if ( fd == invalid_socket ) {
 				err = get_last_error( -1 );
 			}
 #endif
@@ -246,375 +343,6 @@ namespace xstd::net {
 		}
 		static xstd::duration from_timeval( const timeval& dur ) {
 			return xstd::duration( 1s ) * dur.tv_sec + xstd::duration( 1us ) * dur.tv_usec;
-		}
-
-		// Base of the stream.
-		//
-		struct fd_thread;
-		struct fd_duplex : xstd::duplex {
-			friend struct fd_thread;
-		protected:
-			// Options.
-			//
-			socket_options  opt = {};
-			socket_protocol proto = {};
-
-			// File descriptor.
-			//
-			socket_t        fd = invalid_socket;
-
-			// Time it was opened or the timeout limit.
-			//
-			xstd::timestamp open_time = {};
-
-			// Event flags.
-			//
-			std::atomic<int> evt_wr = 1;
-
-			// Constructed by protocol.
-			//
-			fd_duplex( socket_protocol proto ) : proto( proto ) {}
-
-			// Wrappers.
-			//
-			socket_error set_socket_opt( int level, int name, const void* data, size_t len ) {
-				socket_error status = ::setsockopt( fd, level, name, (const char*) data, (int) len );
-#if XSTD_WINSOCK
-				status = status == -1 ? detail::get_last_error( status ) : 0;
-#endif
-				return status;
-			}
-			socket_error get_socket_opt( int level, int name, void* data, size_t* len ) {
-				int rlen = (int) *len;
-				socket_error status = ::getsockopt( this->fd, level, name, (char*) data, &rlen );
-#if XSTD_WINSOCK
-				status = status == -1 ? detail::get_last_error( status ) : 0;
-#endif
-				if ( !status ) *len = (size_t) std::max( 0, rlen );
-				return status;
-			}
-			template<typename T>
-			socket_error set_socket_opt( int level, int name, const T& val ) {
-				if constexpr ( std::is_same_v<T, xstd::duration> ) {
-					timeval tv = to_timeval( val );
-					return set_socket_opt( level, name, &tv, sizeof( timeval ) );
-				} else {
-					return set_socket_opt( level, name, &val, sizeof( T ) );
-				}
-			}
-			template<typename T>
-			socket_error get_socket_opt( int level, int name, T& val ) {
-				if constexpr ( std::is_same_v<T, xstd::duration> ) {
-					timeval tv = to_timeval( val );
-					size_t  sz = sizeof( timeval );
-					socket_error err = get_socket_opt( level, name, &tv, &sz );
-					val = from_timeval( tv );
-					return err;
-				} else {
-					size_t  sz = sizeof( T );
-					return get_socket_opt( level, name, &val, &sz );
-				}
-			}
-			template<typename T>
-			socket_error try_set_socket_opt( int level, int name, T& val ) {
-				socket_error err = set_socket_opt<T>( level, name, val );
-				if ( err != 0 ) {
-					get_socket_opt<T>( level, name, val );
-				}
-				return err;
-			}
-			std::optional<socket_error> socket_connect( ipv4 adr, uint16_t port ) {
-				sockaddr_in addr;
-				memset( &addr, 0, sizeof( sockaddr_in ) );
-				addr.sin_family = AF_INET;
-				addr.sin_port = bswap( port );
-				addr.sin_addr.s_addr = adr;
-#if XSTD_WINSOCK
-				if ( ::WSAConnect( this->fd, (const sockaddr*) &addr, sizeof( addr ), nullptr, nullptr, nullptr, nullptr ) == -1 ) {
-					if ( auto err = detail::get_last_error(); err == WSAEWOULDBLOCK ) {
-						return std::nullopt;
-					} else {
-						return err;
-					}
-				}
-#else
-				if ( ::connect( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
-					if ( auto err = detail::get_last_error(); err == EINPROGRESS ) {
-						return std::nullopt;
-					} else {
-						return err;
-					}
-				}
-#endif
-				return 0;
-			}
-			void socket_receive( std::span<uint8_t>& buffer, int flags = 0 ) {
-#if XSTD_WINSOCK
-				flags |= MSG_PUSH_IMMEDIATE;
-				if ( buffer.size() > UINT32_MAX )
-					buffer = buffer.subspan( 0, (size_t) UINT32_MAX );
-				DWORD  count = 0;
-				DWORD  ioflags = (DWORD) flags;
-				WSABUF bufdesc = { (uint32_t) buffer.size(), (char*) buffer.data() };
-				if ( socket_error result = ::WSARecv( this->fd, &bufdesc, 1, &count, &ioflags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
-					if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
-						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
-						return;
-					}
-				}
-				buffer = buffer.subspan( 0, count );
-#else
-				if ( buffer.size() > INT32_MAX )
-					buffer = buffer.subspan( 0, (size_t) INT32_MAX );
-				if ( socket_error result = ::recv( this->fd, (char*) buffer.data(), (int) buffer.size(), flags ); result == -1 ) [[unlikely]] {
-					if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
-						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
-						return;
-					}
-					buffer = {};
-				} else {
-					buffer = buffer.subspan( 0, (uint32_t) result );
-				}
-#endif
-			}
-			bool socket_send( xstd::vec_buffer& buffer, int flags = 0 ) {
-				uint32_t write_count = buffer.size() > opt.sendbuf ? opt.sendbuf : uint32_t( buffer.size() );
-				uint32_t count = 0;
-#if XSTD_WINSOCK
-				WSABUF bufdesc = { write_count, (char*) buffer.data() };
-				if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, (DWORD*) &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
-					if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
-						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
-						count = 0;
-					}
-				}
-#else
-				if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
-					if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
-						this->raise_errno( XSTD_ESTR( "socket error: %d" ), e );
-					} else {
-						count = write_count;
-					}
-				} else {
-					count = (uint32_t) result;
-				}
-#endif
-				evt_wr++;
-				buffer.shift( count );
-				return false;
-			}
-
-			// Sets options.
-			//
-			void reconfigure_tcp() {
-				this->try_set_socket_opt( SOL_TCP, TCP_NODELAY, opt.nodelay );
-				this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMPS, opt.timestamps );
-				if ( opt.keepalive ) {
-					this->set_socket_opt( SOL_TCP, TCP_KEEPIDLE, uint32_t( *opt.keepalive / 1s ) );
-				}
-			}
-			void reconfigure_sock() {
-				this->try_set_socket_opt( SOL_SOCKET, SO_REUSEADDR, opt.reuse );
-				this->try_set_socket_opt( SOL_SOCKET, SO_LINGER, opt.linger );
-				this->try_set_socket_opt( SOL_SOCKET, SO_SNDBUF, opt.sendbuf );
-				this->try_set_socket_opt( SOL_SOCKET, SO_RCVBUF, opt.recvbuf );
-				if ( opt.keepalive ) {
-					this->set_socket_opt( SOL_SOCKET, SO_KEEPALIVE, true );
-				} else {
-					this->set_socket_opt( SOL_SOCKET, SO_KEEPALIVE, false );
-				}
-			}
-
-			// Close the socket on destruction.
-			//
-			~fd_duplex() {
-				close_socket( fd );
-			}
-
-		protected:
-			void raise_errno( const char* fmt, socket_error e = detail::get_last_error( -1 ) ) {
-				destroy( { fmt, e } );
-			}
-			bool assert_errno( const char* fmt, socket_error e ) {
-				if ( !e ) [[likely]] {
-					return true;
-				}
-				raise_errno( fmt, e );
-				return false;
-			}
-		};
-
-		// fd thread list.
-		//
-#ifndef FD_SETSIZE
-		static constexpr size_t fd_per_thread = std::min<size_t>( 16, FD_SETSIZE );
-#else
-		static constexpr size_t fd_per_thread = 16;
-#endif
-		struct fd_thread;
-		inline fd_thread*     g_current_fdd = nullptr;
-		struct fd_thread {
-			xstd::spinlock                        lock = {};
-			std::array<fd_duplex*, fd_per_thread> list = {};
-			size_t                                list_pos = 0;
-			uint8_t                               buffer[ 8_mb ];
-
-			void runner_thread() {
-				socket_t   fd[ fd_per_thread ];
-				fd_set     rd_watch, wr_watch, er_watch;
-
-				while ( true ) {
-					FD_ZERO( &rd_watch );
-					FD_ZERO( &wr_watch );
-					FD_ZERO( &er_watch );
-
-					socket_t   fd_max = 0;
-					size_t     count = 0;
-					{
-						std::unique_lock ll{ this->lock };
-
-						// Create a list of all sockets, decrement references of the dead ones and re-arrange.
-						//
-						for ( auto& e : std::span{ this->list }.subspan( 0, this->list_pos ) ) {
-							if ( e ) {
-								if ( auto efd = e->fd; efd != invalid_socket ) {
-									this->list[ count ] = e;
-									fd[ count ] = efd;
-									fd_max = std::max( fd_max, efd );
-									count++;
-									FD_SET( efd, &rd_watch );
-									FD_SET( efd, &er_watch );
-									if ( e->evt_wr.load( std::memory_order::relaxed ) > 0 ) {
-										--e->evt_wr;
-										FD_SET( efd, &wr_watch );
-									}
-								} else {
-									e->dec_ref();
-									e = nullptr;
-								}
-							}
-						}
-						this->list_pos = count;
-
-						// If empty:
-						//
-						if ( !count ) {
-							// Reaquire the locks in the correct order.
-							//
-							ll.unlock();
-							std::unique_lock gl{ g_lock };
-							ll.lock();
-
-							// If an entry was added while we were reacquiring, retry.
-							//
-							if ( this->list_pos != count )
-								continue;
-
-							// If we're not the current FDD, delete and terminate.
-							//
-							if ( g_current_fdd != this ) {
-								ll.unlock();
-								delete this;
-							}
-
-							// Otherwise just stop the thread until it becomes active again.
-							//
-							return;
-						}
-					}
-
-					// Issue the select call, ignore errors since it may be caused by socket being closed.
-					//
-					struct timeval timeout = {};
-					timeout.tv_sec = 0;
-					timeout.tv_usec = uint32_t( 50ms / 1us );
-					select( 1 + ( int ) fd_max, &rd_watch, &wr_watch, &er_watch, &timeout );
-					auto time = xstd::time::now();
-
-					// For each socket we were watching:
-					//
-					for ( size_t n = 0; n != count; n++ ) {
-						auto f = fd[ n ];
-						auto s = this->list[ n ];
-
-						// If socked closed while we're selecting, delete.
-						//
-						if ( s->fd != f ) [[unlikely]] {
-							s->dec_ref();
-							this->list[ n ] = nullptr;
-							continue;
-						}
-
-						// If it errored, raise the error, and delete.
-						//
-						if ( FD_ISSET( f, &er_watch ) ) {
-							socket_error error = 0;
-							size_t len = sizeof( socket_error );
-							socket_error opt_error = s->get_socket_opt( SOL_SOCKET, SO_ERROR, &error, &len );
-							s->raise_errno( XSTD_ESTR( "socket error: %d" ), error ? error : opt_error );
-							s->dec_ref();
-							this->list[ n ] = nullptr;
-							continue;
-						}
-
-						// If still opening, use wr_watch for connection, else for drain.
-						//
-						if ( s->opening() ) {
-							if ( FD_ISSET( f, &wr_watch ) ) {
-								s->open_time = time;
-								s->on_ready();
-							} else if ( time > s->open_time ) {
-								s->destroy( XSTD_ESTR( "connection timeout" ) );
-							}
-						} else {
-							if ( FD_ISSET( f, &wr_watch ) ) {
-								s->on_drain( s->opt.sendbuf );
-							}
-						}
-
-						// Receive data.
-						//
-						if ( FD_ISSET( f, &rd_watch ) ) {
-							std::span<uint8_t> range{ this->buffer };
-							s->socket_receive( range );
-							if ( !range.empty() ) {
-								s->on_input( range );
-							}
-						}
-					}
-				}
-			}
-			bool watch( fd_duplex* fdd ) {
-				std::unique_lock lg{ lock };
-				if ( list_pos == list.size() )
-					return false;
-
-				// Set the entry.
-				//
-				list[list_pos] = fdd;
-				fdd->inc_ref();
-
-				// If it was not running, start.
-				//
-				if ( !list_pos++ ) [[unlikely]] {
-					lg.unlock();
-					xstd::chore( [p = this] { p->runner_thread(); } );
-				}
-				return true;
-			}
-		};
-
-		// Starts watching an FDD.
-		//
-		inline void watch_fd( fd_duplex* dp ) {
-			std::lock_guard gl{ g_lock };
-			auto* fdd = g_current_fdd;
-			bool watched = fdd && fdd->watch( dp );
-			if ( !watched ) {
-				fdd = g_current_fdd = new fd_thread();
-				watched = fdd->watch( dp );
-			}
-			dassert( watched );
 		}
 	};
 
@@ -662,77 +390,531 @@ namespace xstd::net {
 		return false;
 	}
 
-	// TCP implementation.
+	// Base of the stream.
 	//
-	struct tcp : detail::fd_duplex {
-		// Remote connection.
+	struct socket : duplex {
+	protected:
+		// Options.
 		//
-		const ipv4    remote_ip;
-		const int16_t remote_port;
+		socket_options  opt = {};
+		socket_protocol proto = {};
 
-		// Initializer.
+		// File descriptor and remote connection details.
 		//
-		tcp( ipv4 adr, uint16_t port, socket_options opts = {} ) : fd_duplex( socket_protocol::tcp ), remote_ip(adr), remote_port(port) {
-			// Initialize networking.
-			//
-			if ( !this->assert_errno( XSTD_ESTR( "failed to initialize networking: %d" ), detail::init_networking() ) )
-				return;
+		socket_t        fd = invalid_socket;
+		ipv4            address = {};
+		uint16_t        port = 0;
 
-			// Create the socket.
-			//
-			if ( !this->assert_errno( XSTD_ESTR( "failed to create a socket: %d" ), detail::create_socket( &this->fd, AF_INET, SOCK_STREAM ) ) )
-				return;
+		// Constructed by initial details.
+		//
+		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt )
+			: opt( opt ), proto( proto ), address( address ), port( port ) {}
 
-			// Set socket options.
-			//
-			this->configure( opts );
-
-			// Try to connect.
-			//
-			if ( auto err = this->socket_connect( adr, port ); err.has_value() ) {
-				this->raise_errno( XSTD_ESTR( "connection failed: %d" ), *err );
+		// Wrappers.
+		//
+	public:
+		socket_error set_socket_opt( int level, int name, const void* data, size_t len ) {
+			socket_error status = ::setsockopt( fd, level, name, (const char*) data, (int) len );
+#if XSTD_WINSOCK
+			status = status == -1 ? detail::get_last_error( status ) : 0;
+#endif
+			return status;
+		}
+		socket_error get_socket_opt( int level, int name, void* data, size_t* len ) {
+			int rlen = (int) *len;
+			socket_error status = ::getsockopt( this->fd, level, name, (char*) data, &rlen );
+#if XSTD_WINSOCK
+			status = status == -1 ? detail::get_last_error( status ) : 0;
+#endif
+			if ( !status ) *len = (size_t) std::max( 0, rlen );
+			return status;
+		}
+		template<typename T>
+		socket_error set_socket_opt( int level, int name, const T& val ) {
+			if constexpr ( std::is_same_v<T, xstd::duration> ) {
+				timeval tv = detail::to_timeval( val );
+				return set_socket_opt( level, name, &tv, sizeof( timeval ) );
+			} else {
+				return set_socket_opt( level, name, &val, sizeof( T ) );
 			}
+		}
+		template<typename T>
+		socket_error get_socket_opt( int level, int name, T& val ) {
+			if constexpr ( std::is_same_v<T, xstd::duration> ) {
+				timeval tv = detail::to_timeval( val );
+				size_t  sz = sizeof( timeval );
+				socket_error err = get_socket_opt( level, name, &tv, &sz );
+				val = detail::from_timeval( tv );
+				return err;
+			} else {
+				size_t  sz = sizeof( T );
+				return get_socket_opt( level, name, &val, &sz );
+			}
+		}
+		template<typename T>
+		socket_error try_set_socket_opt( int level, int name, T& val ) {
+			socket_error err = set_socket_opt<T>( level, name, val );
+			if ( err != 0 ) {
+				get_socket_opt<T>( level, name, val );
+			}
+			return err;
+		}
+		socket_error get_socket_error() {
+			socket_error error = 0;
+			socket_error opt_error = get_socket_opt( SOL_SOCKET, SO_ERROR, error );
+			return error ? error : opt_error;
+		}
+		std::optional<socket_error> socket_connect() {
+			sockaddr_in addr;
+			memset( &addr, 0, sizeof( sockaddr_in ) );
+			addr.sin_family = AF_INET;
+			addr.sin_port = bswap( this->port );
+			addr.sin_addr.s_addr = this->address;
+#if XSTD_WINSOCK
+			if ( ::WSAConnect( this->fd, (const sockaddr*) &addr, sizeof( addr ), nullptr, nullptr, nullptr, nullptr ) == -1 ) {
+				if ( auto err = detail::get_last_error(); err == WSAEWOULDBLOCK ) {
+					return std::nullopt;
+				} else {
+					return err;
+				}
+			}
+#else
+			if ( ::connect( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
+				if ( auto err = detail::get_last_error(); err == EINPROGRESS ) {
+					return std::nullopt;
+				} else {
+					return err;
+				}
+			}
+#endif
+			return 0;
+		}
+		socket_error socket_bind() {
+			sockaddr_in addr;
+			memset( &addr, 0, sizeof( sockaddr_in ) );
+			addr.sin_family = AF_INET;
+			addr.sin_port = bswap( this->port );
+			addr.sin_addr.s_addr = this->address;
+#if XSTD_WINSOCK
+			if ( ::bind( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
+				return detail::get_last_error( -1 );
+			}
+#else
+			if ( ::bind( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
+				return detail::get_last_error( -1 );
+			}
+#endif
+			return 0;
+		}
+		socket_error socket_listen() {
+			if ( ::listen( this->fd, opt.listen_backlog ) == -1 ) {
+				return detail::get_last_error( -1 );
+			}
+			return 0;
+		}
+		std::tuple<socket_t, ipv4, uint16_t> socket_accept() {
+			sockaddr_in addr;
+			memset( &addr, 0, sizeof( sockaddr_in ) );
+			int len = sizeof( addr );
+			socket_t sock;
+#if XSTD_WINSOCK
+			sock = ::WSAAccept( this->fd, (sockaddr*) &addr, &len, nullptr, 0 );
+#else
+			sock = ::accept( this->fd, (sockaddr*) &addr, &len );
+#endif
+			return { sock, addr.sin_addr.s_addr, bswap( addr.sin_port ) };
+		}
+		bool socket_receive( std::span<uint8_t>& buffer, int flags = 0 ) {
+#if XSTD_WINSOCK
+			flags |= MSG_PUSH_IMMEDIATE;
+			if ( buffer.size() > UINT32_MAX )
+				buffer = buffer.subspan( 0, (size_t) UINT32_MAX );
+			DWORD  count = 0;
+			DWORD  ioflags = (DWORD) flags;
+			WSABUF bufdesc = { (uint32_t) buffer.size(), (char*) buffer.data() };
+			if ( socket_error result = ::WSARecv( this->fd, &bufdesc, 1, &count, &ioflags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
+				if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
+					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
+					return false;
+				}
+			}
+			buffer = buffer.subspan( 0, count );
+#else
+			if ( buffer.size() > INT32_MAX )
+				buffer = buffer.subspan( 0, (size_t) INT32_MAX );
+			if ( socket_error result = ::recv( this->fd, (char*) buffer.data(), (int) buffer.size(), flags ); result == -1 ) [[unlikely]] {
+				if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
+					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
+					return false;
+				}
+				buffer = {};
+			} else {
+				buffer = buffer.subspan( 0, (uint32_t) result );
+			}
+#endif
+			return true;
+		}
+		bool socket_send( std::span<const uint8_t>& buffer, int flags = 0 ) {
+			uint32_t write_count = buffer.size() > opt.sendbuf ? opt.sendbuf : uint32_t( buffer.size() );
+			uint32_t count = 0;
+#if XSTD_WINSOCK
+			WSABUF bufdesc = { write_count, (char*) buffer.data() };
+			if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, (DWORD*) &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
+				if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
+					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
+					count = 0;
+				}
+			}
+#else
+			if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
+				if ( auto e = detail::get_last_error( result ); e != EAGAIN && e != EWOULDBLOCK ) {
+					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
+				} else {
+					count = write_count;
+				}
+			} else {
+				count = (uint32_t) result;
+			}
+#endif
+			buffer = buffer.subspan( count );
+			return false;
+		}
 
-			// Start the timeout timer, create the thread.
-			//
-			open_time = xstd::time::now() + opts.conn_timeout;
-			detail::watch_fd( this );
+		// Remote/local address.
+		//
+		std::pair<ipv4, uint16_t> get_remote_address() {
+			return { address, port };
+		}
+		std::pair<ipv4, uint16_t> get_local_address() {
+			sockaddr_in addr;
+			memset( &addr, 0, sizeof( sockaddr_in ) );
+			addr.sin_family = AF_INET;
+			int len = sizeof( sockaddr_in );
+			getsockname( this->fd, (sockaddr*) &addr, &len );
+			return { addr.sin_addr.s_addr, bswap( addr.sin_port ) };
 		}
 
 		// Configuration.
 		//
-		void configure( socket_options opt ) {
+		void socket_reconfig_tcp() {
+			this->try_set_socket_opt( SOL_TCP, TCP_NODELAY, opt.nodelay );
+			this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMPS, opt.timestamps );
+			if ( opt.keepalive ) {
+				this->set_socket_opt( SOL_TCP, TCP_KEEPIDLE, uint32_t( *opt.keepalive / 1s ) );
+			}
+		}
+		void socket_reconfig() {
+			this->try_set_socket_opt( SOL_SOCKET, SO_REUSEADDR, opt.reuse );
+			this->try_set_socket_opt( SOL_SOCKET, SO_LINGER, opt.linger );
+			this->try_set_socket_opt( SOL_SOCKET, SO_SNDBUF, opt.sendbuf );
+			this->try_set_socket_opt( SOL_SOCKET, SO_RCVBUF, opt.recvbuf );
+			if ( opt.keepalive ) {
+				this->set_socket_opt( SOL_SOCKET, SO_KEEPALIVE, true );
+			} else {
+				this->set_socket_opt( SOL_SOCKET, SO_KEEPALIVE, false );
+			}
+			if ( proto == socket_protocol::tcp )
+				socket_reconfig_tcp();
+		}
+		int socket_shutdown( bool r, bool w ) {
+			if ( !r && !w ) return 0;
+#if XSTD_WINSOCK
+			int code = r ? SD_RECEIVE : ( w ? SD_SEND : SD_BOTH );
+#else
+			int code = r ? SHUT_RD : ( w ? SHUT_WR : SHUT_RDWR );
+#endif
+			if ( ::shutdown( this->fd, code ) == -1 ) {
+				return detail::get_last_error( -1 );
+			} else {
+				return 0;
+			}
+		}
+		void set_options( socket_options opt ) {
 			this->opt = opt;
 			if ( this->fd != invalid_socket ) {
-				reconfigure_sock();
-				if ( proto == socket_protocol::tcp )
-					reconfigure_tcp();
+				socket_reconfig();
+			}
+		}
+		const socket_options& get_options() {
+			return this->opt;
+		}
+		socket_t get_fd() const {
+			return fd;
+		}
+		void set_fd( socket_t sock ) {
+			detail::close_socket( std::exchange( fd, sock ) );
+			if ( sock != invalid_socket )
+				socket_reconfig();
+		}
+		void close() {
+			set_fd( invalid_socket );
+		}
+
+		// Close the socket on destruction.
+		//
+		~socket() {
+			close();
+		}
+
+	protected:
+		void raise_error( const char* fmt, socket_error e = detail::get_last_error( -1 ) ) {
+			this->stop( stream_stop_error, exception{ fmt, e } );
+		}
+		bool assert_status( const char* fmt, socket_error e ) {
+			if ( !e ) [[likely]] {
+				return true;
+			}
+			raise_error( fmt, e );
+			return false;
+		}
+	};
+
+	// TCP implementation.
+	//
+	struct tcp : socket {
+		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : socket( socket_protocol::tcp, address, port, opts ) {
+			// Initialize networking and get a socket.
+			//
+			const bool is_connect = client_socket == invalid_socket;
+			if ( is_connect ) {
+				if ( !this->assert_status( XSTD_ESTR( "failed to initialize networking: %d" ), detail::init_networking() ) )
+					return;
+				if ( !this->assert_status( XSTD_ESTR( "failed to create a socket: %d" ), detail::create_socket( &client_socket, AF_INET, SOCK_STREAM ) ) )
+					return;
+			}
+			set_fd( client_socket );
+
+			// Start the initial fibers.
+			//
+			thr_sender = init_thread( is_connect );
+		}
+		~tcp() {
+			close();
+			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
+		}
+
+	protected:
+		fiber thr_sender;
+		fiber thr_receiver;
+
+		// Reader thread.
+		//
+		fiber recv_thread() {
+			// Allocate the buffer and get the controller.
+			//
+			const size_t buffer_length = opt.recvbuf;
+			const auto   buffer =        std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
+			auto ctrl =                  this->controller();
+
+			// Enter the loop.
+			//
+			while ( true ) {
+				// Wait for the user to request a recv.
+				//
+				co_await ctrl.stall();
+				co_await yield{};
+
+				// Read from the socket, terminate on error.
+				//
+				std::span range{ &buffer[ 0 ], buffer_length };
+				if ( !this->socket_receive( range ) || this->stopped() )
+					co_return;
+
+				// If we received a FIN, stop.
+				//
+				if ( range.empty() ) {
+					this->socket_shutdown( true, true );
+					ctrl.shutdown();
+					co_return ( void ) stop( stream_stop_fin );
+				}
+
+				// Propagate the value, return to this thread.
+				//
+				co_await ctrl.write( range );
 			}
 		}
 
-		// Implement the interface.
+		// Connection and writer thread. 
 		//
-	protected:
-		void terminate() override {
-			if ( auto prev_sock = std::exchange( this->fd, invalid_socket ) ) {
-				detail::close_socket( prev_sock );
+		fiber init_thread( bool connect ) {
+			// Initialization logic:
+			//
+			if ( connect ) {
+				// First we have to wait for the connection, so set the socket non-blocking.
+				//
+				if ( auto err = detail::set_blocking( fd, false ) ) {
+					co_return this->raise_error( XSTD_ESTR( "failed to change socket mode: %d" ), err );
+				}
+
+				// Start the connection.
+				//
+				if ( auto err = this->socket_connect(); err.has_value() ) {
+					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), *err );
+				}
+
+				// Create FD watch for the write event.
+				//
+				auto timeout = time::now() + opt.conn_timeout;
+				fd_set fd_er, fd_wr;
+				while ( true ) {
+					FD_ZERO( &fd_er );    FD_ZERO( &fd_wr );
+					FD_SET( fd, &fd_er ); FD_SET( fd, &fd_wr );
+
+					timeval stall_timeout = detail::to_timeval( opt.max_stall );
+					if ( select( int( fd ) + 1, nullptr, &fd_wr, &fd_er, &stall_timeout ) < 0 ) {
+						this->stop( stream_stop_timeout, XSTD_ESTR( "connection wait error" ) );
+						co_return;
+					} else if ( FD_ISSET( fd, &fd_wr ) ) {
+						break;
+					} else if ( FD_ISSET( fd, &fd_er ) ) {
+						co_return raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
+					} else if ( timeout < time::now() ) {
+						this->stop( stream_stop_timeout, XSTD_ESTR( "connection timed out" ) );
+						co_return;
+					} else if ( stopped() ) {
+						co_return;
+					}
+				}
+
+				// Handle fd_er being set.
+				//
+				if ( FD_ISSET( fd, &fd_er ) ) {
+				}
+				// Handle fd_wr not set.
+				//
+				else if ( !FD_ISSET( fd, &fd_wr ) ) {
+					this->stop( stream_stop_timeout, XSTD_ESTR( "connection timed out" ) );
+					co_return;
+				}
+			}
+
+			// Switch back to blocking mode.
+			//
+			if ( auto err = detail::set_blocking( fd, true ) ) {
+				co_return this->raise_error( XSTD_ESTR( "failed to change socket mode: %d" ), err );
+			}
+
+			// Start the receiver thread.
+			//
+			thr_receiver = recv_thread();
+
+			// Sender logic:
+			//
+			{
+				// Allocate the buffer and get the controller.
+				//
+				const size_t buffer_length = opt.sendbuf;
+				const auto   buffer =        std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
+				auto ctrl =                  this->controller();
+
+				// Enter the loop.
+				//
+				while ( true ) {
+					// Wait for the user to request a send.
+					//
+					size_t count = co_await ctrl.read_into( { &buffer[ 0 ], buffer_length }, 1 );
+					if ( !count ) {
+						if ( ctrl.is_shutting_down() ) {
+							this->socket_shutdown( false, true );
+						}
+						co_return;
+					}
+
+					// Return to the thread-pool, ask the socket to write the data.
+					//
+					co_await yield{};
+					std::span<const uint8_t> request{ &buffer[ 0 ], count };
+					while ( !request.empty() ) {
+						this->socket_send( request );
+						
+						// Terminate on error.
+						//
+						if ( this->stopped() )
+							co_return;
+					}
+				}
 			}
 		}
-		bool try_close() override {
-			return false;
+	};
+	struct tcp_listening : socket {
+		tcp_listening( ipv4 address, uint16_t port, socket_options opts = {} ) : socket( socket_protocol::tcp, address, port, opts ) {
+			// Initialize networking and get a socket.
+			//
+			if ( !this->assert_status( XSTD_ESTR( "failed to initialize networking: %d" ), detail::init_networking() ) )
+				return;
+			socket_t listen_socket = invalid_socket;
+			if ( !this->assert_status( XSTD_ESTR( "failed to create a socket: %d" ), detail::create_socket( &listen_socket, AF_INET, SOCK_STREAM ) ) )
+				return;
+			set_fd( listen_socket );
+
+			// Bind the socket.
+			//
+			if ( !this->assert_status( XSTD_ESTR( "failed to bind socket: %d" ), this->socket_bind() ) )
+				return;
 		}
-		bool try_output( xstd::vec_buffer& data ) override {
-			return this->socket_send( data );
+		tcp_listening( uint16_t port, socket_options opts = {} ) : tcp_listening( ipv4{}, port, opts ) {}
+
+		template<typename F>
+		fiber listen( F&& callback ) {
+			if ( !this->assert_status( XSTD_ESTR( "failed to listen socket: %d" ), this->socket_listen() ) )
+				return nullptr;
+			return accept_thread( std::forward<F>( callback ) );
+		}
+
+		~tcp_listening() {
+			close();
+			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
+		}
+
+	protected:
+		template<typename F>
+		fiber accept_thread( F callback ) {
+			// Create FD watch.
+			//
+			fd_set fd_er, fd_wr;
+			while ( true ) {
+				FD_ZERO( &fd_er );    FD_ZERO( &fd_wr );
+				FD_SET( fd, &fd_er ); FD_SET( fd, &fd_wr );
+
+				timeval stall_timeout = detail::to_timeval( opt.max_stall );
+				if ( select( int( fd ) + 1, &fd_wr, &fd_wr, &fd_er, &stall_timeout ) < 0 ) {
+					this->stop( stream_stop_timeout, XSTD_ESTR( "accept wait error" ) );
+					co_return;
+				}
+				if ( stopped() ) {
+					co_return;
+				}
+				
+				if ( FD_ISSET( fd, &fd_er ) ) {
+					co_return raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
+				}
+
+				if ( FD_ISSET( fd, &fd_wr ) ) {
+					auto [sock, ip, port] = this->socket_accept();
+					if ( !sock ) {
+						if ( auto err = get_socket_error() ) {
+							co_return raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
+						}
+					} else {
+						callback( std::make_unique<tcp>( ip, port, opt, sock ) );
+					}
+				}
+			}
 		}
 	};
+
 #endif
 
 	// Definition via LWIP:
 	//
 #if XSTD_LWIP
-	// Global net lock as the LWIP core lock.
+	using socket_t =     tcp_pcb*;
+	using socket_error = err_t;
+	static constexpr socket_t invalid_socket = nullptr;
+
+	// Core lock.
 	//
-	alignas( 64 ) inline io_mutex g_lock = {};
+	alignas( 64 ) inline recursive_xspinlock<> core_lock = {};
 	
 	// Implement DNS resolution.
 	//
@@ -740,7 +922,7 @@ namespace xstd::net {
 		if ( !no_hook && g_dns_hook ) {
 			return g_dns_hook( this, hnd );
 		}
-		std::unique_lock lock{ g_lock };
+		std::unique_lock lock{ core_lock };
 		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char*, const ip_addr_t* ipaddr, void* callback_arg ) {
 			auto* ctx = ( (dns_query_awaitable*) callback_arg );
 			ctx->result.emplace( ipaddr );
@@ -759,209 +941,63 @@ namespace xstd::net {
 		}
 	}
 
-	namespace detail {
-		// "Ref-counted" PCB.
-		//
-		struct lwtcp {
-			struct control_block {
-				tcp_pcb* pcb = nullptr;
-
-				void destroy_locked() {
-					if ( pcb ) {
-						pcb->ext_args[ 0 ] = { nullptr, nullptr };
-						tcp_abort( pcb );
-					}
-					delete this;
-				}
-				void destroy() {
-					if ( !pcb ) return delete this;
-					tcp_arg( pcb, nullptr );
-					std::unique_lock lock{ g_lock, std::try_to_lock };
-					if ( !pcb ) return delete this;
-					if ( lock ) return this->destroy_locked();
-
-					xstd::chore( [this] {
-						std::unique_lock lock{ g_lock };
-						this->destroy_locked();
-					} );
-				}
-				void on_destroy() {
-					pcb = nullptr;
-				}
-			};
-			inline static constexpr tcp_ext_arg_callbacks callbacks = {
-				.destroy = []( u8_t id, void* data ) { ( (control_block*) data )->on_destroy(); },
-				.passive_open = nullptr
-			};
-			control_block* s = nullptr;
-
-			constexpr lwtcp() = default;
-			constexpr lwtcp( std::nullptr_t ) {}
-			lwtcp( tcp_pcb* pcb ) { reset( pcb ); }
-			lwtcp( lwtcp&& o ) noexcept { swap( o ); }
-			lwtcp& operator=( lwtcp&& o ) noexcept { swap( o ); return *this; }
-			lwtcp( const lwtcp& ) = delete;
-			lwtcp& operator=( const lwtcp& ) = delete;
-
-			tcp_pcb* get() const { return s ? s->pcb : nullptr; }
-			operator tcp_pcb* ( ) const { return get(); }
-			tcp_pcb* operator->() const { return get(); }
-			explicit operator bool() const { return get() != nullptr; }
-
-			void reset() {
-				if ( auto prev = std::exchange( s, nullptr ) )
-					prev->destroy();
-			}
-			void reset( tcp_pcb* pcb ) {
-				reset();
-				if ( !pcb ) return;
-				s = new control_block{ pcb };
-				pcb->ext_args[ 0 ] = { &callbacks, s };
-			}
-			void swap( lwtcp& o ) {
-				std::swap( s, o.s );
-			}
-
-			~lwtcp() { reset(); }
-		};
-	};
-
-	// TCP implementation.
+	// Base of the stream.
 	//
-	struct tcp : xstd::duplex {
-		// Socket options.
-		//
-		socket_options opt = {};
-
-		// Remote connection.
-		//
-		const ipv4    remote_ip;
-		const int16_t remote_port;
-
-		// PCB.
-		//
-		detail::lwtcp pcb = nullptr;
-
-		// Time it was opened or the timeout limit.
-		//
-		xstd::timestamp open_time = {};
-
-		// Initializer.
-		//
-		tcp( ipv4 adr, uint16_t port, socket_options opts = {} ) : remote_ip(adr), remote_port(port) {
-			// Initialize networking.
-			//
-			//if ( !this->assert_errno( XSTD_ESTR( "failed to initialize networking: %d" ), detail::init_networking() ) )
-			//	return;
-
-			// Create the socket and configure it.
-			//
-			std::unique_lock lock{ g_lock };
-			pcb = tcp_new();
-			if ( !pcb ) {
-				lock.unlock();
-				this->destroy( XSTD_ESTR( "failed to create a socket" ) );
-				return;
-			}
-			this->configure( opts );
-
-			// Try to connect.
-			//
-			if ( auto err = tcp_connect( pcb, adr.lwip(), port, (tcp_connected_fn) sock_connected ) ) {
-				this->raise_errno( XSTD_ESTR( "connection failed: %d" ), err );
-			}
-
-			// Start the timeout timer.
-			//
-			open_time = xstd::time::now() + opts.conn_timeout;
-		}
-
-		// Close the socket on destruction.
-		//
-		~tcp() {
-			terminate();
-		}
-
-		// Configuration.
-		//
-		void configure( socket_options opt ) {
-			this->opt = opt;
-			std::unique_lock lock{ g_lock };
-			if ( tcp_pcb* p = pcb.get() ) {
-				// Bind the calllbacks.
-				//
-				tcp_arg( p, this );
-				tcp_err( p, (tcp_err_fn) sock_err );
-				tcp_poll( p, (tcp_poll_fn) sock_poll, 1 );
-				tcp_recv( p, (tcp_recv_fn) sock_recv );
-				tcp_sent( p, (tcp_sent_fn) sock_sent );
-
-				if ( opt.reuse ) {
-					ip_set_option( p, SOF_REUSEADDR );
-				} else {
-					ip_reset_option( p, SOF_REUSEADDR );
-				}
-				if ( opt.nodelay ) {
-					tcp_set_flags( p, TF_NODELAY );
-				} else {
-					tcp_clear_flags( p, TF_NODELAY );
-				}
-				opt.timestamps = LWIP_TCP_TIMESTAMPS;
-
-				if ( opt.keepalive ) {
-					p->keep_idle = ( uint32_t ) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
-					ip_set_option( p, SOF_KEEPALIVE );
-				} else {
-					ip_reset_option( p, SOF_KEEPALIVE );
-				}
-				opt.sendbuf = TCP_SND_BUF;
-
-				// TODO: linger
-				// TODO: make buffer configurable with circular inner buffer & no copy to LWIP
-			}
-		}
-
-		// Implement the interface.
-		//
+	struct socket : duplex {
 	protected:
-		void terminate() override {
-			pcb.reset();
-		}
-		bool try_close() override {
-			return true;
-		}
-		bool try_output( xstd::vec_buffer& data ) override {
-			if ( !pcb ) return false;
-			if ( std::unique_lock lock{ g_lock, std::try_to_lock } ) {
-				size_t offset = tcpi_write( data.data(), data.size(), 0 );
-				data.shift( offset );
-				return false;
-			} else {
-				defer_write();
-				return true;
-			}
-		}
-
-	private:
-		// Error type handlers.
+		// Options.
 		//
-		void raise_errno( const char* fmt, err_t e ) {
-			destroy( { fmt, (int) e } );
-		}
-		bool assert_errno( const char* fmt, err_t e ) {
-			if ( !e ) [[likely]] {
-				return true;
-			}
-			raise_errno( fmt, e );
-			return false;
-		}
+		socket_options  opt = {};
+		socket_protocol proto = {};
 
-		// TCP internals, always called with lock held.
+		// File descriptor and remote connection details.
 		//
-		size_t tcpi_write( const uint8_t* data, size_t length, bool last ) {
+		socket_t        pcb = invalid_socket;
+		ipv4            address = {};
+		uint16_t        port = 0;
+
+		// Constructed by initial details.
+		//
+		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt )
+			: opt( opt ), proto( proto ), address( address ), port( port ) {}
+
+		// Wrappers.
+		//
+	public:
+		socket_error socket_connect() {
+			std::lock_guard _g{ core_lock };
+			return tcp_connect( pcb, address.lwip(), port, []( void* _arg, socket_t pcb, socket_error err ) -> socket_error {
+				if ( auto arg = (socket*) _arg ) {
+					arg->on_state( pcb, err );
+					return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+				}
+				return ERR_OK;
+			} );
+		}
+		socket_error socket_bind() {
+			std::lock_guard _g{ core_lock };
+			return tcp_bind( pcb, address.lwip(), port );
+		}
+		socket_error socket_listen() {
+			std::lock_guard _g{ core_lock };
+			socket_error err = 0;
+			if ( auto new_fd = tcp_listen_with_backlog_and_err( pcb, (uint8_t) std::min( opt.listen_backlog, 0xff ), &err ) ) {
+				if ( err ) {
+					tcp_abort( new_fd );
+				} else {
+					pcb = new_fd;
+				}
+			}
+			return err;
+		}
+		bool socket_send( std::span<const uint8_t>& buffer, int flags = TCP_WRITE_FLAG_COPY ) {
+			std::lock_guard _g{ core_lock };
+			const uint8_t* data = buffer.data();
+			size_t         length = buffer.size();
+
 			size_t  offset = 0;
-			bool    exhaused = false;
-			while ( !exhaused ) {
+			bool    exhausted = false;
+			while ( !exhausted ) {
 				// Calculate the maximum fragment length.
 				//
 				size_t  frag = length - offset;
@@ -972,11 +1008,11 @@ namespace xstd::net {
 				//
 				err_t status;
 				while ( true ) {
-					status = tcp_write( pcb, (char*) data + offset, (uint16_t) frag, TCP_WRITE_FLAG_COPY );
+					status = tcp_write( pcb, (char*) data + offset, (uint16_t) frag, flags );
 					if ( status != ERR_MEM ) {
 						break;
 					} else {
-						exhaused = true;
+						exhausted = true;
 						if ( ( tcp_sndbuf( pcb ) == 0 ) || ( tcp_sndqueuelen( pcb ) >= TCP_SND_QUEUELEN ) ) {
 							frag = 0;
 							status = ERR_OK;
@@ -995,7 +1031,7 @@ namespace xstd::net {
 				// If error, fail.
 				//
 				if ( status != ERR_OK ) {
-					raise_errno( XSTD_ESTR( "socket write error: %d" ), status );
+					raise_error( XSTD_ESTR( "socket write error: %d" ), status );
 					break;
 				} 
 				// Else, increment offset.
@@ -1004,128 +1040,354 @@ namespace xstd::net {
 					offset += frag;
 				}
 			}
+			
 			tcp_output( pcb );
-			return offset;
+			buffer = buffer.subspan( offset );
+			return false;
 		}
-		err_t tcpi_close( xstd::exception ex, tcp_pcb* tpcb ) {
-			if ( tpcb ) {
-				tcp_arg( tpcb, nullptr ); // Do not recurse.
-				if ( tcp_close( tpcb ) != ERR_OK )
-					tcp_abort( tpcb );
-			}
-			if ( !closed() ) {
-				on_close( std::move( ex ) );
-			}
-			return ERR_ABRT;
+		bool socket_send( vec_buffer& buffer, int flags = 0 ) {
+			std::span<const uint8_t> span{ buffer };
+			bool res = socket_send( span, flags );
+			buffer.shrink_resize_reverse( span.size() );
+			return res;
 		}
 
-		// Socket signalling for deferred processing.
+		// Remote/local address.
 		//
-		std::atomic<int> wsignal = -1;
-		void defer_write() {
-			if ( wsignal++ < 0 ) {
-				this->inc_ref();
-				chore( [this] { on_wsignal(); } );
+		std::pair<ipv4, uint16_t> get_remote_address() {
+			return { pcb ? pcb->remote_ip : address, pcb ? pcb->remote_port : port };
+		}
+		std::pair<ipv4, uint16_t> get_local_address() {
+			return { pcb ? pcb->local_ip : ipv4{}, pcb ? pcb->local_port : 0 };
+		}
+
+		// Callbacks.
+		//
+		virtual void on_sent( socket_t pcb, size_t len ) {}
+		virtual void on_recv( socket_t pcb, pbuf* p ) {}
+		virtual void on_poll( socket_t pcb ) {}
+		virtual bool on_accept( socket_t pcb ) { return false; }
+		virtual void on_state( socket_t pcb, socket_error e ) {}
+
+		// Configuration.
+		//
+		void socket_reconfig() {
+			std::lock_guard _g{ core_lock };
+			if ( pcb != invalid_socket ) {
+				if ( opt.reuse ) {
+					ip_set_option( pcb, SOF_REUSEADDR );
+				} else {
+					ip_reset_option( pcb, SOF_REUSEADDR );
+				}
+				if ( opt.nodelay ) {
+					tcp_set_flags( pcb, TF_NODELAY );
+				} else {
+					tcp_clear_flags( pcb, TF_NODELAY );
+				}
+				opt.timestamps = LWIP_TCP_TIMESTAMPS;
+
+				if ( opt.keepalive ) {
+					pcb->keep_idle = (uint32_t) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
+					ip_set_option( pcb, SOF_KEEPALIVE );
+				} else {
+					ip_reset_option( pcb, SOF_KEEPALIVE );
+				}
+				opt.sendbuf = TCP_SND_BUF;
+				// TODO: linger
+			
+				// Bind the callbacks.
+				//
+				pcb->callback_arg = this;
+				tcp_arg( pcb, this );
+				if ( pcb->state == LISTEN ) {
+					tcp_accept( pcb, []( void* _arg, socket_t pcb, socket_error err ) -> socket_error {
+						if ( err ) return err;
+						if ( auto arg = (socket*) _arg ) {
+							if ( !arg->on_accept( pcb ) ) {
+								return ERR_MEM;
+							}
+							return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+						}
+						tcp_abort( pcb );
+						return ERR_ABRT;
+					} );
+				} else {
+					tcp_sent( pcb, []( void* _arg, socket_t pcb, uint16_t len ) -> socket_error {
+						if ( auto arg = (socket*) _arg ) {
+							arg->on_sent( pcb, len );
+							return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+						}
+						return ERR_OK;
+					} );
+					tcp_recv( pcb, []( void* _arg, socket_t pcb, pbuf* p, socket_error err ) -> socket_error {
+						if ( err ) return err;
+						if ( auto arg = (socket*) _arg ) {
+							arg->on_recv( pcb, p );
+							if ( !arg->get_pcb() ) {
+								return ERR_ABRT;
+							}
+							tcp_recved( pcb, p->tot_len );
+							pbuf_free( p );
+							return ERR_OK;
+						}
+
+						if ( tcp_close( pcb ) ) {
+							tcp_abort( pcb );
+						}
+						return ERR_ABRT;
+					} );
+					tcp_err( pcb, []( void* _arg, socket_error err ) {
+						if ( auto arg = (socket*) _arg ) {
+							err = err ? err : ERR_CLSD;
+							arg->close( true );
+							arg->raise_error( XSTD_ESTR( "socket error: %d" ), err );
+							arg->on_state( nullptr, err );
+						}
+					} );
+					tcp_poll( pcb, []( void* _arg, socket_t pcb ) -> socket_error {
+						if ( auto arg = (socket*) _arg ) {
+							arg->on_poll( pcb );
+							return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+						}
+						if ( tcp_close( pcb ) ) {
+							tcp_abort( pcb );
+						}
+						return ERR_ABRT;
+					}, 1 );
+				}
 			}
 		}
-		void defer_read() {
-			this->inc_ref();
-			chore( [this] { on_rsignal(); } );
+		socket_error socket_shutdown( bool r, bool w ) {
+			if ( !r && !w || pcb == invalid_socket ) return 0;
+			std::lock_guard _g{ core_lock };
+			socket_error err = tcp_shutdown( pcb, (int) r, (int) w );
+			if ( !err && r && w )
+				pcb = invalid_socket;
+			return err;
 		}
-		void on_wsignal() {
-			std::unique_lock lockg{ g_lock,   std::defer_lock };
-			std::unique_lock lockc{ this->mtx, std::defer_lock };
-			std::lock( lockg, lockc );
+		void set_options( socket_options opt ) {
+			std::lock_guard _g{ core_lock };
+			this->opt = opt;
+			socket_reconfig();
+		}
+		const socket_options& get_options() {
+			return this->opt;
+		}
+		socket_t get_pcb() const {
+			return pcb;
+		}
+		void set_pcb( socket_t sock, bool freed = false ) {
+			std::lock_guard _g{ core_lock };
+			if ( auto prev = std::exchange( pcb, sock ); prev != invalid_socket && !freed ) {
+				tcp_arg( prev, nullptr );
+				if ( tcp_close( prev ) )
+					tcp_abort( prev );
+			}
+			if ( sock != invalid_socket )
+				socket_reconfig();
+		}
+		void close( bool freed = false ) {
+			set_pcb( invalid_socket, freed );
+		}
 
-			while( wsignal-- >= 0 ) {
-				if ( auto* tpcb = this->pcb.get() ) {
-					if ( tcp_sndbuf( tpcb ) && is_send_buffering() ) {
-						on_drain( 0 );
+		// Close the socket on destruction.
+		//
+		void raise_error( const char* fmt, socket_error e ) {
+			this->stop( stream_stop_error, exception{ fmt, e } );
+		}
+		bool assert_status( const char* fmt, socket_error e ) {
+			if ( !e ) [[likely]] {
+				return true;
+			}
+			raise_error( fmt, e );
+			return false;
+		}
+		~socket() {
+			close();
+		}
+	};
+
+
+	// TCP implementation.
+	//
+	struct tcp : socket {
+		// Time it was opened or the timeout limit.
+		//
+		timestamp open_time = {};
+
+
+		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : socket( socket_protocol::tcp, address, port, opts ) {
+			std::unique_lock lock{ core_lock };
+
+			// Initialize networking and get a socket.
+			//
+			const bool is_connect = client_socket == invalid_socket;
+			if ( is_connect ) {
+				client_socket = tcp_new();
+				if ( !client_socket ) {
+					lock.unlock();
+					this->stop( XSTD_ESTR( "failed to create a socket" ) );
+					return;
+				}
+			}
+			set_pcb( client_socket );
+
+			// Start the initial fibers.
+			//
+			thr_sender = init_thread( is_connect );
+		}
+		~tcp() {
+			close();
+			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
+		}
+
+		void on_sent( socket_t pcb, size_t len ) override {
+			tcp_output( pcb ); // needed?
+			sender_retry.signal_async();
+		}
+		void on_recv( socket_t pcb, pbuf* p ) override {
+			// If we received a FIN, stop.
+			//
+			if ( !p ) {
+				req_shutdown = true;
+			}
+			// Copy the pbuf into the buffer.
+			//
+			else {
+				async_buffer_locked buffer{ controller().writable() };
+				auto* dst = buffer->push( p->tot_len );
+				for ( auto it = p; it; it = it->next ) {
+					memcpy( dst, it->payload, it->len );
+					dst += it->len;
+				}
+			}
+
+
+			// Signal recv.
+			//
+			if ( !req_recv++ ) {
+				thr_recv = recv_thread();
+			}
+		}
+		void on_poll( socket_t pcb ) override {
+			if ( pcb->state == SYN_SENT && open_time > time::now() ) {
+				stop( XSTD_ESTR( "connection timed out" ) );
+			} else if ( tcp_sndbuf( pcb ) ) {
+				sender_retry.signal_async();
+			}
+		}
+		bool on_accept( socket_t pcb ) override { return false; }
+		void on_state( socket_t pcb, socket_error e ) override {
+			if ( pcb ) {
+				open_time = time::now();
+			}
+			if ( auto s = sender_retry.signal() ) {
+				s();
+			}
+		}
+
+
+		std::atomic<uint32_t> req_recv = 0;
+		std::atomic<bool> req_shutdown = false;
+		fiber thr_recv;
+		fiber recv_thread() {
+			uint32_t n = req_recv.load( std::memory_order::relaxed );
+			while ( n ) {
+				co_await controller().flush();
+				n = ( req_recv -= n );
+			}
+
+			if ( req_shutdown ) {
+				this->socket_shutdown( true, true );
+				controller().shutdown();
+				stop( stream_stop_fin );
+			}
+		}
+
+		struct send_retry_t {
+			void* continuation = nullptr;
+			
+			FORCE_INLINE bool await_ready() noexcept { return false; }
+			FORCE_INLINE void await_suspend( coroutine_handle<> handle ) noexcept {  continuation = handle.address(); }
+			FORCE_INLINE void await_resume() const noexcept {}
+
+			coroutine_handle<> signal() {
+				if ( continuation ) {
+					if ( auto c = std::atomic_ref{ continuation }.exchange( nullptr ) ) {
+						return coroutine_handle<>::from_address( c );
+					}
+				}
+				return {};
+			}
+			void signal_async() {
+				if ( auto h = signal() )
+					chore( std::move( h ) );
+			}
+			~send_retry_t() {
+				if ( auto h = signal() )
+					h();
+			}
+		} sender_retry;
+
+
+	protected:
+		fiber thr_sender;
+		fiber thr_receiver;
+
+		// Connection and writer thread. 
+		//
+		fiber init_thread( bool connect ) {
+			// Initialization logic:
+			//
+			if ( connect ) {
+				// Start the connection.
+				//
+				if ( auto err = this->socket_connect() ) {
+					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), err );
+				}
+			}
+
+			// Start the receiver thread.
+			//
+			thr_receiver = recv_thread();
+
+			// Sender logic:
+			//
+			{
+				auto ctrl = this->controller();
+				while ( pcb ) {
+					// Wait for the user to request a send.
+					//
+					auto request = co_await ctrl.read();
+					if ( !request ) {
+						if ( ctrl.is_shutting_down() ) {
+							this->socket_shutdown( false, true );
+						}
+						co_return;
+					}
+
+					// Wait for connection.
+					//
+					while ( pcb && pcb->state < ESTABLISHED ) {
+						co_await this->sender_retry;
+						if ( this->stopped() )
+							co_return;
+					}
+
+					// Write the data.
+					//
+					while ( !request.empty() ) {
+						this->socket_send( request );
+						if ( this->stopped() )
+							co_return;
+						if ( request )
+							co_await this->sender_retry;
+						if ( !pcb ) 
+							co_return;
 					}
 				}
 			}
-
-			lockc.unlock();
-			this->dec_ref();
-		}
-		void on_rsignal() {
-			{
-				std::unique_lock lockc{ this->mtx };
-				flush_read();
-			}
-			this->dec_ref();
-		}
-
-		// Individual handlers as static functions.
-		//
-		static void sock_err( tcp* cli, err_t err ) {
-			if ( cli ) {
-				cli->tcpi_close( { XSTD_ESTR( "socket error: %d" ), (int)err }, nullptr );
-			}
-		}
-		static err_t sock_poll( tcp* cli, tcp_pcb* tpcb ) {
-			if ( cli ) {
-				if ( cli->closing() || ( cli->opening() && cli->open_time > xstd::time::now() ) ) {
-					return cli->tcpi_close( XSTD_ESTR( "connection timed out" ), tpcb );
-				} else if ( tcp_sndbuf( tpcb ) && cli->is_send_buffering() ) {
-					cli->on_drain( 0 );
-				}
-				return cli->pcb ? ERR_OK : ERR_ABRT;
-			}
-			return ERR_OK;
-		}
-		static err_t sock_recv( tcp* cli, tcp_pcb* tpcb, pbuf* p, err_t err ) {
-			// Handle connection reset.
-			//
-			if ( !p ) {
-				if ( cli )
-					return cli->tcpi_close( XSTD_ESTR( "connection reset" ), tpcb );
-				return ERR_OK;
-			}
-
-			if ( cli ) {
-				std::unique_lock lock{ cli->mtx };
-				int32_t n = p->tot_len;
-				for ( auto it = p; it != nullptr && n > 0; n -= it->len, it = it->next ) {
-					cli->on_input( { (uint8_t*) it->payload, std::min<size_t>( it->len, (uint32_t) n ) }, true );
-				}
-				tcp_recved( tpcb, p->tot_len );
-				if ( !cli->pcb ) return ERR_ABRT;
-				cli->defer_read();
-			}
-			pbuf_free( p );
-			return ERR_OK;
-		}
-		static err_t sock_sent( tcp* cli, tcp_pcb* tpcb, u16_t len ) {
-			if ( cli ) {
-				tcp_output( tpcb );
-				cli->on_drain( tcp_sndbuf( tpcb ) );
-				return cli->pcb ? ERR_OK : ERR_ABRT;
-			}
-			return ERR_OK;
-		}
-		static err_t sock_connected( tcp* cli, tcp_pcb* tpcb, err_t er ) {
-			if ( !cli ) [[unlikely]] {
-				tcp_abort( tpcb );
-				return ERR_ABRT;
-			}
-			cli->open_time = xstd::time::now();
-			cli->on_ready();
-			return cli->pcb ? ERR_OK : ERR_ABRT;
 		}
 	};
 #endif
-
-	// Functional wrappers.
-	//
-	namespace connect {
-		inline ref<net::tcp> tcp( ipv4 adr, uint16_t port, socket_options opts = {} ) {
-			return make_refc<net::tcp>( adr, port, std::move( opts ) );
-		}
-	};
-	namespace dns {
-		inline net::dns_query_awaitable query_a( const char* hostname, bool no_hook = false ) {
-			return { hostname, no_hook };
-		}
-	};
 };

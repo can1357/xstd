@@ -851,7 +851,7 @@ namespace xstd::http {
 		// Release socket on destruction for keep-alive.
 		//
 		~incoming_response() {
-			if ( keep_alive() ) {
+			if ( keep_alive() && body_read ) {
 				agent->release( socket );
 			}
 		}

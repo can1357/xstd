@@ -513,6 +513,8 @@ namespace xstd
 		static T reflect( serialization& ctx )
 		{
 			size_t cnt = ctx.read_idx();
+			if ( cnt > ctx.input_stream.size() )
+				throw_fmt( XSTD_ESTR( "Referencing out of stream boundaries." ) );
 
 			std::vector<iterable_val_t<T>> entries;
 			entries.reserve( cnt );
@@ -635,9 +637,13 @@ namespace xstd
 		}
 		static std::vector<T> reflect( serialization& ctx )
 		{
+			size_t cnt = ctx.read_idx();
+			if ( cnt > ( ctx.input_stream.size() / sizeof( T ) ) )
+				throw_fmt( XSTD_ESTR( "Referencing out of stream boundaries." ) );
+
 			std::vector<T> result;
-			result.resize( ctx.read_idx() );
-			ctx.read( result.data(), result.size() * sizeof( T ) );
+			uninitialized_resize( result, cnt );
+			ctx.read( result.data(), cnt * sizeof( T ) );
 			return result;
 		}
 	};
@@ -683,9 +689,13 @@ namespace xstd
 		}
 		static std::basic_string<T> reflect( serialization& ctx )
 		{
+			size_t cnt = ctx.read_idx();
+			if ( cnt > ( ctx.input_stream.size() / sizeof( T ) ) )
+				throw_fmt( XSTD_ESTR( "Referencing out of stream boundaries." ) );
+
 			std::basic_string<T> result;
-			result.resize( ctx.read_idx() );
-			ctx.read( result.data(), result.size() * sizeof( T ) );
+			uninitialized_resize( result, cnt );
+			ctx.read( result.data(), cnt * sizeof( T ) );
 			return result;
 		}
 	};

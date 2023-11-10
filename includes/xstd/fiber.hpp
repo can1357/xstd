@@ -45,9 +45,7 @@ namespace xstd {
 		// Detach and join similar to std::thread.
 		//
 		void detach() { blk.reset(); }
-		void join() {
-			blk->wait();
-		}
+		void join() { if ( blk ) blk->wait(); }
 
 		// Awaiter mimicking join.
 		//
