@@ -288,6 +288,14 @@ namespace xstd::ws
 		} );
 		return res;
 	}
+	inline exception upgrade_validate( const http::request& request ) {
+		if ( request.connection() != http::connection::upgrade || !iequals( request.headers[ "upgrade" ], "websocket" ) ) {
+			return XSTD_ESTR( "Unexpected request, upgrade is not websocket." );
+		} else if ( request.get_header( "Sec-WebSocket-Key" ).empty() ) {
+			return XSTD_ESTR( "Unexpected request, request key does not exist." );
+		}
+		return {};
+	}
 	inline exception upgrade_validate( const http::request& request, const http::response& response ) {
 		if ( response.status != 101 ) {
 			return XSTD_ESTR( "Unexpected response, failed upgrade." );
@@ -300,9 +308,8 @@ namespace xstd::ws
 	}
 	static exception upgrade_validate( unique_stream& out, const http::request& request, http::incoming_response& response ) {
 		auto ex = upgrade_validate( request, response );
-		if ( !ex ) {
-			out = std::exchange( response.socket, nullptr );
-		}
+		if ( ex ) response.release_socket();
+		out = std::exchange( response.socket, nullptr );
 		return ex;
 	}
 };

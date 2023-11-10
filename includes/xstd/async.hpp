@@ -4,6 +4,45 @@
 #include "time.hpp"
 
 namespace xstd {
+	// Define the concept of a scheduler and the default instances.
+	//
+	template<typename T>
+	concept Scheduler = requires( T& sched, coroutine_handle<> hnd ) {
+		hnd = sched( hnd );
+	};
+	struct noop_scheduler {
+		constexpr coroutine_handle<> operator()( coroutine_handle<> handle ) const noexcept {
+			return handle;
+		}
+	};
+	struct threadpool_scheduler {
+		noop_coroutine_handle operator()( coroutine_handle<> handle ) const noexcept {
+			chore( handle );
+			return noop_coroutine();
+		}
+	};
+	struct scheduler_reference {
+		coroutine_handle<>( *fn )( void*, coroutine_handle<> ) = nullptr;
+		void* ctx = nullptr;
+
+		template<Scheduler Sched> requires Empty<Sched>
+		constexpr scheduler_reference( Sched&& ) {
+			fn = []( void*, coroutine_handle<> hnd ) -> coroutine_handle<> {
+				return Sched{}( hnd );
+			};
+		}
+		template<Scheduler Sched>
+		constexpr scheduler_reference( Sched& sched ) {
+			ctx = &sched;
+			fn = []( void* ctx, coroutine_handle<> hnd ) -> coroutine_handle<> {
+				return ( *(Sched*) ctx )( hnd );
+			};
+		}
+		coroutine_handle<> operator()( coroutine_handle<> handle ) const {
+			return fn( ctx, handle );
+		}
+	};
+
 	// Switches to an async context.
 	//
 	struct yield {

@@ -1081,7 +1081,7 @@ namespace xstd::http {
 
 		// Starts receiving a response.
 		//
-		static job<incoming_response> receive( unique_stream socket, http::agent* agent = nullptr, method_id req_method = INVALID, vec_buffer&& req_buf = {} ) {
+		static job<incoming_response> receive( unique_stream socket, bool with_body = true, http::agent* agent = nullptr, method_id req_method = INVALID, vec_buffer&& req_buf = {} ) {
 			incoming_response res = { std::move( socket ), agent };
 			res.response::body = std::move( req_buf );
 			res.response::body.clear();
@@ -1091,7 +1091,7 @@ namespace xstd::http {
 
 			// If we have an agent to keep-alive and body is worth waiting for skipping, do so.
 			//
-			if ( res.keep_alive() && res.body_props.length <= 64_kb ) {
+			if ( with_body || ( res.keep_alive() && res.body_props.length <= 64_kb ) ) {
 				co_await res.body();
 			}
 
@@ -1100,11 +1100,12 @@ namespace xstd::http {
 
 		// Release socket on destruction for keep-alive.
 		//
-		~incoming_response() {
+		void release_socket() {
 			if ( agent && keep_alive() && is_body_read() ) {
 				agent->release( socket );
 			}
 		}
+		~incoming_response() { release_socket(); }
 	};
 	struct incoming_request : request {
 		stream_view socket = nullptr;
@@ -1135,11 +1136,14 @@ namespace xstd::http {
 
 		// Starts receiving a request.
 		//
-		static job<incoming_request> receive( stream_view socket, vec_buffer&& req_buf = {} ) {
+		static job<incoming_request> receive( stream_view socket, bool with_body = true, vec_buffer&& req_buf = {} ) {
 			incoming_request res = { std::move( socket ) };
 			res.request::body = std::move( req_buf );
 			res.request::body.clear();
 			co_await res.read_head( res.socket );
+			if ( with_body ) {
+				co_await res.body();
+			}
 			co_return std::move( res );
 		}
 	};
@@ -1148,7 +1152,7 @@ namespace xstd::http {
 	//
 	inline job<incoming_response> make_request( request req, unique_stream socket, http::agent* agent = &agent::global() ) {
 		co_await req.write( socket );
-		co_return co_await incoming_response::receive( std::move( socket ), agent, req.method, std::move( req.body ) );
+		co_return co_await incoming_response::receive( std::move( socket ), false, agent, req.method, std::move( req.body ) );
 	}
 
 	// Fetch API.

@@ -9,12 +9,14 @@
 namespace xstd {
 	// Wait list implementation.
 	//
-	template<typename LockType>
+	template<typename LockType, Scheduler S>
 	struct basic_wait_list {
 		static constexpr int32_t I = 2;
 		LockType lock;
+		S schedule;
 		
 		basic_wait_list() = default;
+		basic_wait_list( S schedule ) : schedule( std::move( schedule ) ) {}
 		basic_wait_list( const basic_wait_list& ) = delete;
 		basic_wait_list& operator=( const basic_wait_list& ) = delete;
 		~basic_wait_list() { signal_and_reset(); }
@@ -77,7 +79,7 @@ namespace xstd {
 				if ( hnd && !*hnd )
 					*hnd = e;
 				else
-					chore( std::move( e ) );
+					this->schedule( e )( );
 				e = nullptr;
 			}, alloc, count );
 			if ( alloc )
@@ -107,8 +109,8 @@ namespace xstd {
 		}
 		// Adds a callback listener.
 		// 
-		template<typename F>
-		void then( F&& fn ) {
+		template<typename F, typename... Args>
+		void then( F&& fn, Args&&... args ) {
 			if ( is_settled() ) return fn();
 			std::unique_lock g{ lock };
 			if ( is_settled() ) {
@@ -116,10 +118,10 @@ namespace xstd {
 				return fn();
 			}
 			int32_t idx = (int32_t) next_index++;
-			constexpr auto runner = []( F func ) -> deferred_task {
+			constexpr auto runner = []( auto func ) -> deferred_task {
 				co_return func();
 			};
-			alloc_at( idx ) = runner( std::forward<F>(fn) ).release();
+			alloc_at( idx ) = runner( std::bind_front( std::forward<F>( fn ), std::forward<Args>( args )... ) ).release();
 		}
 		// Removes a listener by its previously assigned handle, returns false on failure.
 		//
@@ -203,8 +205,8 @@ namespace xstd {
 		}
 		void signal_async() {
 			if ( auto h = signal(); h != noop_coroutine() )
-				xstd::chore( std::move( h ) );
+				this->schedule( h );
 		}
 	};
-	using wait_list = basic_wait_list<xspinlock<>>;
+	using wait_list = basic_wait_list<xspinlock<>, threadpool_scheduler>;
 };

@@ -540,7 +540,6 @@ namespace xstd::net {
 		bool socket_receive( std::span<uint8_t>& buffer, int flags = 0 ) {
 			bool need_poll = false;
 #if XSTD_WINSOCK
-			flags |= MSG_PUSH_IMMEDIATE;
 			if ( buffer.size() > UINT32_MAX )
 				buffer = buffer.subspan( 0, (size_t) UINT32_MAX );
 			DWORD  count = 0;
@@ -718,32 +717,25 @@ namespace xstd::net {
 
 			// Enter the loop once socket is ready.
 			//
-			co_yield{};
+			co_yield fiber::pause;
 			while ( true ) {
 				// Wait for the user to request a send.
 				//
 				size_t count = co_await ctrl.read_into( { &buffer[ 0 ], buffer_length }, 1 );
 				if ( !count ) {
+					co_yield fiber::heartbeat;
 					if ( ctrl.is_shutting_down() ) {
 						this->socket_shutdown( false, true );
 					}
 					co_return;
 				}
 
-				// Return to the thread-pool, ask the socket to write the data.
+				// Ask the socket to write the data.
 				//
-				co_await yield{};
 				std::span<const uint8_t> request{ &buffer[ 0 ], count };
 				while ( !request.empty() ) {
-					if ( this->socket_send( request ) ) {
-						co_yield {};
-						continue;
-					}
-					
-					// Terminate on error.
-					//
-					if ( this->stopped() )
-						co_return;
+					bool need_poll = this->socket_send( request );
+					co_yield need_poll ? fiber::pause : fiber::heartbeat;
 				}
 			}
 		}
@@ -764,21 +756,20 @@ namespace xstd::net {
 				//
 				std::span range{ &buffer[ 0 ], buffer_length };
 				need_poll = this->socket_receive( range );
-				if ( this->stopped() )
-					co_return;
+				co_yield fiber::heartbeat;
 
-				// If we received a FIN, stop.
+				// If we received a FIN, try shutting down.
 				//
 				if ( range.empty() ) {
 					if ( !need_poll ) {
-						this->socket_shutdown( true, true );
 						ctrl.shutdown();
-						co_return ( void ) stop( stream_stop_fin );
+						co_return;
 					}
 				}
 				// Propagate the data.
 				//
 				else {
+					need_poll = false;
 					co_await ctrl.write( range );
 				}
 			}
@@ -800,15 +791,12 @@ namespace xstd::net {
 			// Create the fixed poll.
 			//
 			pollfd poll = { .fd = fd, .events = 0, .revents = 0 };
+			exception exc;
 			auto poll_for = [ & ]( short evt ) FORCE_INLINE{
 				poll.events = evt;
 				if ( auto err = socket_poll( poll, opt.max_stall ) ) {
-					raise_error( XSTD_ESTR( "poll error: %d" ), err );
+					exc = { XSTD_ESTR( "poll error: %d" ), err };
 					poll.revents |= POLLERR;
-				} else if ( stopped() ) {
-					poll.revents |= POLLERR;
-				} else if ( poll.revents & POLLERR ) {
-					raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
 				}
 				short ret = poll.revents & ( evt | POLLERR );
 				poll.revents ^= ret;
@@ -828,10 +816,13 @@ namespace xstd::net {
 				//
 				auto timeout = time::now() + opt.conn_timeout;
 				while ( true ) {
-					if ( short events = poll_for( POLLOUT ); events & POLLERR ) {
+					short events = poll_for( POLLOUT );
+					co_yield fiber::heartbeat;
+					if ( events & POLLERR ) {
+						stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 						co_return;
 					} else if ( timeout < time::now() ) {
-						this->stop( stream_stop_timeout, XSTD_ESTR( "connection timed out" ) );
+						stop( stream_stop_timeout, XSTD_ESTR( "connection timed out" ) );
 						co_return;
 					} else if ( events & POLLOUT ) {
 						break;
@@ -850,7 +841,10 @@ namespace xstd::net {
 			// Enter long-poll.
 			//
 			while ( true ) {
-				if ( short events = poll_for( POLLOUT | POLLIN ); events & POLLERR ) {
+				short events = poll_for( POLLOUT | POLLIN );
+				co_yield fiber::heartbeat;
+				if ( events & POLLERR ) {
+					stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 					co_return;
 				} else if ( events & POLLIN ) {
 					fib_receiver.resume();
@@ -1317,16 +1311,15 @@ namespace xstd::net {
 		std::atomic<bool> req_shutdown = false;
 		fiber thr_recv;
 		fiber recv_thread() {
+			auto ctrl = controller();
 			uint32_t n = req_recv.load( std::memory_order::relaxed );
 			while ( n ) {
-				co_await controller().flush();
+				co_await ctrl.flush();
 				n = ( req_recv -= n );
 			}
 
 			if ( req_shutdown ) {
-				this->socket_shutdown( true, true );
-				controller().shutdown();
-				stop( stream_stop_fin );
+				ctrl.shutdown();
 			}
 		}
 

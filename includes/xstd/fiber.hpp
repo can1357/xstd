@@ -209,10 +209,10 @@ namespace xstd {
 		bool done() const { return !blk || blk->is_settled(); }
 		explicit operator bool() const { return !done(); }
 
-		// Detach on destruction if only ref remaining.
+		// Join on destruction.
 		//
 		~fiber() {
-			detach();
+			join();
 		}
 	};
 };

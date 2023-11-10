@@ -9,6 +9,7 @@
 #include "fiber.hpp"
 #include "ref_counted.hpp"
 #include "wait_list.hpp"
+#include "async.hpp"
 
 namespace xstd {
 	// Stream stop code.
@@ -20,18 +21,6 @@ namespace xstd {
 		stream_stop_timeout =  3,
 		stream_stop_error =    4,
 	};
-
-	// Stream schedulers.
-	//
-	using stream_sched_t = coroutine_handle<>(*)( coroutine_handle<> );
-	static coroutine_handle<> stream_sched_threadpool( coroutine_handle<> handle ) {
-		chore( handle );
-		return noop_coroutine();
-	}
-	static coroutine_handle<> stream_sched_noop( coroutine_handle<> handle ) {
-		return handle;
-	}
-
 
 	// Stream state.
 	//
@@ -48,15 +37,15 @@ namespace xstd {
 
 		// Attaches a fiber to the stream state to signal death upon closure.
 		//
-		template<typename FiberSpawner, typename... Args>
-		const fiber& attach( FiberSpawner&& fn, Args&&... args ) {
+		template<typename Fn, typename... Args>
+		const fiber& attach( Fn&& fn, Args&&... args ) {
 			for ( auto& e : fibers ) {
 				if ( !e || e.done() ) {
-					e = fn( std::forward<Args>( args )... );
+					e = std::forward<Fn>( fn )( std::forward<Args>( args )... );
 					return e;
 				}
 			}
-			fassert( false );
+			unreachable();
 		}
 
 		// Stop details.
@@ -158,8 +147,8 @@ namespace xstd {
 		//
 		uint8_t             ended : 1 = false;
 		uint8_t             fin   : 1 = false;
-		stream_sched_t      sched_enter = &stream_sched_noop;
-		stream_sched_t      sched_leave = &stream_sched_noop;
+		scheduler_reference sched_enter = noop_scheduler{};
+		scheduler_reference sched_leave = noop_scheduler{};
 		mutable xspinlock<> lock;
 
 		// Producer handle that signals "consumer wants more data" and the high watermark
@@ -579,8 +568,8 @@ namespace xstd {
 		async_buffer      output_ = {};
 
 		duplex() {
-			output_.sched_enter = &stream_sched_threadpool;
-			input_.sched_leave = &stream_sched_threadpool;
+			output_.sched_enter = threadpool_scheduler{};
+			input_.sched_leave =  threadpool_scheduler{};
 		}
 
 		stream_state& state() { return *state_; }
