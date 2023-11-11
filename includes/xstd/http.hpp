@@ -966,7 +966,6 @@ namespace xstd::http {
 		// Writers.
 		//
 		void write( vec_buffer& buf ) const {
-			request re{ GET, "hi"sv, "bye"sv, {} };
 			detail::append_into( buf, method_map[ size_t( method ) ].second, " ", path, " HTTP/1.1\r\n" );
 			headers.write( buf );
 			body::write( buf, body, method, -1 );

@@ -485,7 +485,7 @@ namespace xstd {
 			vec_buffer result{};
 			if ( empty() ) {
 				swap( result );
-				result.resize( n );
+				result.unshift( n );
 				result.shrink_to_fit();
 			} else {
 				result.assign_range( { src, src + n } );
@@ -515,7 +515,7 @@ namespace xstd {
 			vec_buffer result{};
 			if ( empty() ) {
 				swap( result );
-				result.resize( n );
+				result.push( n );
 				result.shrink_to_fit();
 			} else {
 				result.assign_range( { src, src + n } );

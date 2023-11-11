@@ -323,10 +323,14 @@ namespace xstd {
 					return buffer->fin;
 				buffer->fin = true;
 
-				hnd = buffer->consumer->try_continue();
-				if ( !hnd ) hnd = buffer->consumer->continuation;
-				buffer->consumer = nullptr;
-				hnd = buffer->sched_leave( hnd );
+				if ( buffer->consumer ) {
+					hnd = buffer->consumer->try_continue();
+					if ( !hnd ) hnd = buffer->consumer->continuation;
+					buffer->consumer = nullptr;
+					hnd = buffer->sched_leave( hnd );
+				} else {
+					hnd = noop_coroutine();
+				}
 			}
 			hnd();
 			return true;
@@ -568,8 +572,8 @@ namespace xstd {
 		async_buffer      output_ = {};
 
 		duplex() {
-			output_.sched_enter = threadpool_scheduler{};
-			input_.sched_leave =  threadpool_scheduler{};
+			output_.sched_enter = chore_scheduler{};
+			input_.sched_leave =  chore_scheduler{};
 		}
 
 		stream_state& state() { return *state_; }

@@ -153,7 +153,7 @@ namespace xstd {
 #if DEBUG_BUILD
 		size_t              num_threads_target = 7;
 #else
-		size_t              num_threads_target = std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 4, 64 );
+		size_t              num_threads_target = std::clamp<size_t>( std::thread::hardware_concurrency(), 4, 16 );
 #endif
 		std::atomic<size_t> num_threads =        0;
 		std::atomic<bool>   running =            false;

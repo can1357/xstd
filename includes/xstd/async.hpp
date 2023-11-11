@@ -15,7 +15,7 @@ namespace xstd {
 			return handle;
 		}
 	};
-	struct threadpool_scheduler {
+	struct chore_scheduler {
 		noop_coroutine_handle operator()( coroutine_handle<> handle ) const noexcept {
 			chore( handle );
 			return noop_coroutine();
@@ -45,9 +45,20 @@ namespace xstd {
 
 	// Switches to an async context.
 	//
+	template<Scheduler Sched = chore_scheduler>
 	struct yield {
-		inline bool await_ready() { return false; }
-		inline void await_suspend( coroutine_handle<> h ) { chore( h ); }
+		Sched schedule;
+
+		constexpr yield() requires Empty<Sched> : schedule{} {}
+		constexpr yield( Sched sched ) : schedule{ std::move( sched ) } {}
+
+		inline bool await_ready() { return Same<Sched, noop_scheduler>; }
+		inline auto await_suspend( coroutine_handle<> h ) { 
+			auto result = schedule( h );
+			if constexpr ( !Same<decltype( result ), noop_coroutine_handle> ) {
+				return result;
+			}
+		}
 		inline void await_resume() {}
 	};
 
@@ -58,7 +69,7 @@ namespace xstd {
 			async_task get_return_object() { return {}; }
 			suspend_never initial_suspend() noexcept { return {}; }
 			suspend_never final_suspend() noexcept { return {}; }
-			xstd::yield yield_value( std::monostate ) { return {}; }
+			xstd::yield<> yield_value( std::monostate ) { return {}; }
 			XSTDC_UNHANDLED_RETHROW;
 			void return_void() {}
 		};

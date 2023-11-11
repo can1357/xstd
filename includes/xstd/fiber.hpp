@@ -12,8 +12,8 @@ namespace xstd {
 	//
 	struct fiber {
 		enum action {
+			heartbeat,
 			pause,
-			heartbeat
 		};
 
 		struct control_block : wait_list {

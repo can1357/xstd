@@ -278,6 +278,7 @@ namespace xstd::ws
 		return req;
 	}
 	inline http::response upgrade_accept( const http::request& reply_to, http::response::options&& opts = {} ) {
+		opts.status = 101;
 		http::response res{ std::move( opts ) };
 		res.set_headers( {
 			{ "Connection",            "Upgrade" },

@@ -768,7 +768,7 @@ namespace xstd
 
 		struct awaitable
 		{
-			const P& promise;
+			P promise;
 			mutable coroutine_handle<> awaiting_as = nullptr;
 
 			inline bool await_ready()
