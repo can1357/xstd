@@ -34,8 +34,8 @@ namespace xstd {
 			}
 		};
 		struct awaiter {
-			unique_coroutine<promise_type> handle;
-			std::optional<T> placement;
+			unique_coroutine<promise_type> handle = nullptr;
+			std::optional<T> placement = std::nullopt;
 
 			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) noexcept {

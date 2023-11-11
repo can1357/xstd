@@ -227,7 +227,7 @@ namespace xstd::net {
 		none,
 		tcp,
 	};
-	struct socket_options {
+	struct socket_options : duplex_options {
 		xstd::duration                conn_timeout =   5s;
 		int                           listen_backlog = 128;
 		xstd::duration                max_stall =      250ms;
@@ -409,7 +409,8 @@ namespace xstd::net {
 		// Constructed by initial details.
 		//
 		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt )
-			: opt( opt ), proto( proto ), address( address ), port( port ) {}
+			: duplex( opt ), opt( opt ), proto( proto ), address( address ), port( port ) {
+		}
 
 		// Wrappers.
 		//

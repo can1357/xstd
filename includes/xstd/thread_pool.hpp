@@ -23,7 +23,7 @@ namespace xstd {
 		void* arg;
 
 		FORCE_INLINE void operator()() { cb( arg ); }
-		constexpr bool is_ready( int64_t now ) const { return true; }
+		constexpr bool is_ready( int64_t ) const { return true; }
 	};
 	struct deferred_work_item : work_item {
 		static constexpr int64_t timeout_never = INT64_MAX;

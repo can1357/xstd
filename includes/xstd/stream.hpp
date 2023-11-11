@@ -38,7 +38,7 @@ namespace xstd {
 		// Attaches a fiber to the stream state to signal death upon closure.
 		//
 		template<typename Fn, typename... Args>
-		const fiber& attach( Fn&& fn, Args&&... args ) {
+		fiber& attach( Fn&& fn, Args&&... args ) {
 			for ( auto& e : fibers ) {
 				if ( !e || e.done() ) {
 					e = std::forward<Fn>( fn )( std::forward<Args>( args )... );
@@ -149,7 +149,7 @@ namespace xstd {
 		uint8_t             fin   : 1 = false;
 		scheduler_reference sched_enter = noop_scheduler{};
 		scheduler_reference sched_leave = noop_scheduler{};
-		mutable xspinlock<> lock;
+		mutable xspinlock<> lock = {};
 
 		// Producer handle that signals "consumer wants more data" and the high watermark
 		// which is the amount of bytes in the buffer after which the producer stops getting
@@ -566,14 +566,24 @@ namespace xstd {
 
 	// Composition of two streams into a duplex.
 	//
+	struct duplex_options {
+		size_t readable_high_watermark = 256_kb;
+		size_t writable_high_watermark = 256_kb;
+		// Used when a read request is complete.
+		scheduler_reference readable_scheduler = chore_scheduler{};
+		// Used when a write request is made.
+		scheduler_reference writable_scheduler = chore_scheduler{};
+	};
 	struct duplex : stream_utils<duplex> {
 		ref<stream_state> state_ = make_refc<stream_state>();
 		async_buffer      input_ = {};
 		async_buffer      output_ = {};
 
-		duplex() {
-			output_.sched_enter = chore_scheduler{};
-			input_.sched_leave =  chore_scheduler{};
+		duplex( duplex_options options = {} ) {
+			writable().high_watermark = options.writable_high_watermark;
+			writable().sched_enter =    options.writable_scheduler;
+			readable().high_watermark = options.readable_high_watermark;
+			readable().sched_leave =    options.readable_scheduler;
 		}
 
 		stream_state& state() { return *state_; }

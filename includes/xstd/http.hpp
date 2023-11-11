@@ -688,7 +688,7 @@ namespace xstd::http {
 					co_return false;
 				}
 			} else if ( content_length == std::dynamic_extent ) {
-				co_await input.read_until( [&]( vec_buffer& v ) { return false; } );
+				co_await input.read_until( [&]( auto& ) { return false; } );
 				output = co_await input.read( 0, content_length );
 				if ( input.stop_code() != stream_stop_fin ) {
 					co_return false;
