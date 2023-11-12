@@ -700,7 +700,7 @@ namespace xstd::net {
 
 			// Start the initial fiber.
 			//
-			state().attach( std::mem_fn( &tcp::main ), this, is_connect );
+			fib_main = main( is_connect );
 		}
 		~tcp() {
 			close();
@@ -708,6 +708,7 @@ namespace xstd::net {
 		}
 
 	protected:
+		fiber fib_main;
 		fiber send_more() {
 			// Allocate the buffer and get the controller.
 			//
@@ -717,13 +718,12 @@ namespace xstd::net {
 
 			// Enter the loop once socket is ready.
 			//
-			co_yield fiber::pause;
+			co_yield {};
 			while ( true ) {
 				// Wait for the user to request a send.
 				//
 				size_t count = co_await ctrl.read_into( { &buffer[ 0 ], buffer_length }, 1 );
 				if ( !count ) {
-					co_yield fiber::heartbeat;
 					if ( ctrl.is_shutting_down() ) {
 						this->socket_shutdown( false, true );
 					}
@@ -735,7 +735,7 @@ namespace xstd::net {
 				std::span<const uint8_t> request{ &buffer[ 0 ], count };
 				while ( !request.empty() ) {
 					bool need_poll = this->socket_send( request );
-					co_yield need_poll ? fiber::pause : fiber::heartbeat;
+					if ( need_poll ) co_yield {};
 				}
 			}
 		}
@@ -750,13 +750,13 @@ namespace xstd::net {
 			//
 			bool need_poll = true;
 			while ( true ) {
-				co_yield need_poll ? fiber::pause : fiber::heartbeat;
+				if ( need_poll ) co_yield {};
 
 				// Read from the socket, terminate on error.
 				//
 				std::span range{ &buffer[ 0 ], buffer_length };
 				need_poll = this->socket_receive( range );
-				co_yield fiber::heartbeat;
+				if ( stopped() ) co_return;
 
 				// If we received a FIN, try shutting down.
 				//
@@ -808,14 +808,14 @@ namespace xstd::net {
 				if ( auto err = this->socket_connect(); err.has_value() ) {
 					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), *err );
 				}
-				co_yield fiber::heartbeat;
+				if ( stopped() ) co_return;
 
 				// Poll until socket is writable.
 				//
 				auto timeout = time::now() + opt.conn_timeout;
 				while ( true ) {
 					short events = poll_for( POLLOUT );
-					co_yield fiber::heartbeat;
+					if ( stopped() ) co_return;
 					if ( events & POLLERR ) {
 						stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 						co_return;
@@ -840,7 +840,7 @@ namespace xstd::net {
 			//
 			while ( true ) {
 				short events = poll_for( POLLOUT | POLLIN );
-				co_yield fiber::heartbeat;
+				if ( stopped() ) co_return;
 				if ( events & POLLERR ) {
 					stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 					co_return;
@@ -1064,7 +1064,7 @@ namespace xstd::net {
 			buffer = buffer.subspan( offset );
 			return !buffer.empty();
 		}
-		bool socket_send( vec_buffer& buffer, int flags = 0 ) {
+		bool socket_send( vec_buffer& buffer, int flags = TCP_WRITE_FLAG_COPY ) {
 			std::span<const uint8_t> span{ buffer };
 			bool res = socket_send( span, flags );
 			buffer.shrink_resize_reverse( span.size() );
@@ -1175,8 +1175,8 @@ namespace xstd::net {
 
 		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : 
 			socket( socket_protocol::tcp, address, port, opts ),
-			fib_receiver( state().attach( std::mem_fn( &tcp::recv_more ), this ) ),
-			fib_sender( state().attach( std::mem_fn( &tcp::send_more ), this ) )
+			fib_receiver( recv_more() ),
+			fib_sender( send_more() )
 		{
 			std::unique_lock lock{ core_lock };
 			connect_deadline = opt.conn_timeout + xstd::time::now();
@@ -1286,14 +1286,14 @@ namespace xstd::net {
 
 	protected:
 		std::atomic<bool> req_shutdown = false;
-		fiber& fib_receiver;
-		fiber& fib_sender;
+		fiber fib_receiver;
+		fiber fib_sender;
 		fiber recv_more() {
 			auto ctrl = controller();
 			while ( true ) {
-				co_yield fiber::pause;
+				co_yield {};
 				co_await ctrl.flush();
-				co_yield fiber::heartbeat;
+				if ( stopped() ) co_return;
 				if ( req_shutdown ) {
 					ctrl.shutdown();
 					co_return;
@@ -1302,25 +1302,20 @@ namespace xstd::net {
 		}
 		fiber send_more() {
 			auto ctrl = controller();
-			co_yield fiber::pause;
+			co_yield {};
 
 			// Wait for connection.
 			//
-			while ( pcb ) {
-				if ( pcb->state < ESTABLISHED ) {
-					co_yield fiber::pause;
-					continue;
-				} else if ( this->stopped() ) {
-					co_return;
-				}
-				break;
+			while ( true ) {
+				if ( stopped() || !pcb ) co_return;
+				if ( pcb->state >= ESTABLISHED ) break;
+				co_yield {};
 			}
 
-			while ( pcb ) {
+			while ( true ) {
 				// Wait for the user to request a send.
 				//
 				auto request = co_await ctrl.read();
-				co_yield fiber::heartbeat;
 				if ( !request ) {
 					if ( ctrl.is_shutting_down() ) {
 						this->socket_shutdown( false, true );
@@ -1332,10 +1327,9 @@ namespace xstd::net {
 				//
 				while ( true ) {
 					if ( !pcb ) break;
-					size_t orig_size = request.size();
 					bool need_poll = this->socket_send( request );
 					if ( request.empty() ) break;
-					co_yield need_poll ? fiber::pause : fiber::heartbeat;
+					if ( need_poll ) co_yield {};
 				}
 			}
 		}

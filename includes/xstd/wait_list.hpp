@@ -121,15 +121,14 @@ namespace xstd {
 		template<typename F, typename... Args>
 		void then( F&& fn, Args&&... args ) {
 			auto fn_bound = std::bind_front( std::forward<F>( fn ), std::forward<Args>( args )... );
-			if ( is_settled() ) return (void) fn_bound();
 			std::unique_lock g{ lock };
 			if ( is_settled() ) {
 				g.unlock();
-				return (void) fn_bound();
+				return (void) std::move( fn_bound )( );
 			}
 			int32_t idx = next_index++;
 			constexpr auto runner = []( auto func ) -> deferred_task {
-				( void ) func();
+				( void ) std::move( func )();
 				co_return;
 			};
 			alloc_at( idx ) = runner( std::move( fn_bound ) ).release();

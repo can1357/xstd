@@ -30,23 +30,6 @@ namespace xstd {
 		exception                     stop_reason = {};
 		std::atomic<bool>             stop_written = false;
 
-		// Fibers bound to the lifetime of the stream.
-		//
-		fiber                         fibers[ 4 ] = {};
-
-		// Attaches a fiber to the stream state to signal death upon closure.
-		//
-		template<typename Fn, typename... Args>
-		fiber& attach( Fn&& fn, Args&&... args ) {
-			for ( auto& e : fibers ) {
-				if ( !e || e.done() ) {
-					e = std::forward<Fn>( fn )( std::forward<Args>( args )... );
-					return e;
-				}
-			}
-			unreachable();
-		}
-
 		// Stop details.
 		//
 		bool errored() const { return stop_code.load( std::memory_order::relaxed ) > stream_stop_fin; }
@@ -391,11 +374,6 @@ namespace xstd {
 			}
 			state().stop_reason = std::move( ex ).value_or( XSTD_ESTR( "unknown error" ) );
 			state().stop_written.store( true, std::memory_order::release );
-
-			for ( auto& f : state().fibers ) {
-				if ( f ) f.kill();
-			}
-
 			readable().destroy();
 			writable().destroy();
 			state().signal()();
