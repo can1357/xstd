@@ -170,16 +170,19 @@ namespace xstd {
 
 		// Signals the fiber to resume.
 		//
-		void resume_sync() {
-			if ( auto h = blk->try_resume() )
-				h();
-		}
-		bool resume() {
+		template<Scheduler S>
+		bool resume( S&& sched ) {
 			if ( auto h = blk->try_resume() ) {
-				chore( std::move( h ) );
+				sched(h)();
 				return true;
 			}
 			return false;
+		}
+		bool resume_sync() {
+			return resume( noop_scheduler{} );
+		}
+		bool resume() {
+			return resume( chore_scheduler{} );
 		}
 
 		// Returns true if paused.

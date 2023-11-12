@@ -7,7 +7,6 @@
 #include "bitwise.hpp"
 #include "time.hpp"
 #include "spinlock.hpp"
-#include "chore.hpp"
 #include "text.hpp"
 #include "task.hpp"
 #include "fiber.hpp"
@@ -699,9 +698,9 @@ namespace xstd::net {
 			}
 			set_fd( client_socket );
 
-			// Start the initial fibers.
+			// Start the initial fiber.
 			//
-			state().attach( std::mem_fn( &tcp::init_thread ), this, is_connect );
+			state().attach( std::mem_fn( &tcp::main ), this, is_connect );
 		}
 		~tcp() {
 			close();
@@ -775,10 +774,7 @@ namespace xstd::net {
 				}
 			}
 		}
-
-		// Connection and writer thread. 
-		//
-		fiber init_thread( bool connect ) {
+		fiber main( bool connect ) {
 			fiber fib_sender;
 			fiber fib_receiver;
 
@@ -812,6 +808,7 @@ namespace xstd::net {
 				if ( auto err = this->socket_connect(); err.has_value() ) {
 					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), *err );
 				}
+				co_yield fiber::heartbeat;
 
 				// Poll until socket is writable.
 				//
@@ -989,10 +986,9 @@ namespace xstd::net {
 		socket_error socket_connect() {
 			std::lock_guard _g{ core_lock };
 			return tcp_connect( pcb, address.lwip(), port, []( void* _arg, socket_t pcb, socket_error err ) -> socket_error {
-				if ( auto arg = (socket*) _arg ) {
-					arg->on_state( pcb, err );
-					return arg->get_pcb() ? ERR_OK : ERR_ABRT;
-				}
+				if ( err ) return err;
+				if ( pcb->sent )
+					return pcb->sent( _arg, pcb, 0 );
 				return ERR_OK;
 			} );
 		}
@@ -1014,6 +1010,7 @@ namespace xstd::net {
 		}
 		bool socket_send( std::span<const uint8_t>& buffer, int flags = TCP_WRITE_FLAG_COPY ) {
 			std::lock_guard _g{ core_lock };
+			if ( pcb == invalid_socket ) return false;
 			const uint8_t* data = buffer.data();
 			size_t         length = buffer.size();
 
@@ -1065,7 +1062,7 @@ namespace xstd::net {
 			
 			tcp_output( pcb );
 			buffer = buffer.subspan( offset );
-			return false;
+			return !buffer.empty();
 		}
 		bool socket_send( vec_buffer& buffer, int flags = 0 ) {
 			std::span<const uint8_t> span{ buffer };
@@ -1077,19 +1074,11 @@ namespace xstd::net {
 		// Remote/local address.
 		//
 		std::pair<ipv4, uint16_t> get_remote_address() {
-			return { pcb ? pcb->remote_ip : address, pcb ? pcb->remote_port : port };
+			return { pcb != invalid_socket ? pcb->remote_ip : address, pcb != invalid_socket ? pcb->remote_port : port };
 		}
 		std::pair<ipv4, uint16_t> get_local_address() {
-			return { pcb ? pcb->local_ip : ipv4{}, pcb ? pcb->local_port : 0 };
+			return { pcb != invalid_socket ? pcb->local_ip : ipv4{}, pcb != invalid_socket ? pcb->local_port : 0 };
 		}
-
-		// Callbacks.
-		//
-		virtual void on_sent( socket_t pcb, size_t len ) {}
-		virtual void on_recv( socket_t pcb, pbuf* p ) {}
-		virtual void on_poll( socket_t pcb ) {}
-		virtual bool on_accept( socket_t pcb ) { return false; }
-		virtual void on_state( socket_t pcb, socket_error e ) {}
 
 		// Configuration.
 		//
@@ -1117,71 +1106,20 @@ namespace xstd::net {
 				opt.sendbuf = TCP_SND_BUF;
 				// TODO: linger
 			
-				// Bind the callbacks.
-				//
-				pcb->callback_arg = this;
 				tcp_arg( pcb, this );
-				if ( pcb->state == LISTEN ) {
-					tcp_accept( pcb, []( void* _arg, socket_t pcb, socket_error err ) -> socket_error {
-						if ( err ) return err;
-						if ( auto arg = (socket*) _arg ) {
-							if ( !arg->on_accept( pcb ) ) {
-								return ERR_MEM;
-							}
-							return arg->get_pcb() ? ERR_OK : ERR_ABRT;
-						}
-						tcp_abort( pcb );
-						return ERR_ABRT;
-					} );
-				} else {
-					tcp_sent( pcb, []( void* _arg, socket_t pcb, uint16_t len ) -> socket_error {
-						if ( auto arg = (socket*) _arg ) {
-							arg->on_sent( pcb, len );
-							return arg->get_pcb() ? ERR_OK : ERR_ABRT;
-						}
-						return ERR_OK;
-					} );
-					tcp_recv( pcb, []( void* _arg, socket_t pcb, pbuf* p, socket_error err ) -> socket_error {
-						if ( err ) return err;
-						if ( auto arg = (socket*) _arg ) {
-							arg->on_recv( pcb, p );
-							if ( !arg->get_pcb() ) {
-								return ERR_ABRT;
-							}
-							tcp_recved( pcb, p->tot_len );
-							pbuf_free( p );
-							return ERR_OK;
-						}
-
-						if ( tcp_close( pcb ) ) {
-							tcp_abort( pcb );
-						}
-						return ERR_ABRT;
-					} );
-					tcp_err( pcb, []( void* _arg, socket_error err ) {
-						if ( auto arg = (socket*) _arg ) {
-							err = err ? err : ERR_CLSD;
-							arg->close( true );
-							arg->raise_error( XSTD_ESTR( "socket error: %d" ), err );
-							arg->on_state( nullptr, err );
-						}
-					} );
-					tcp_poll( pcb, []( void* _arg, socket_t pcb ) -> socket_error {
-						if ( auto arg = (socket*) _arg ) {
-							arg->on_poll( pcb );
-							return arg->get_pcb() ? ERR_OK : ERR_ABRT;
-						}
-						if ( tcp_close( pcb ) ) {
-							tcp_abort( pcb );
-						}
-						return ERR_ABRT;
-					}, 1 );
-				}
+				tcp_err( pcb, []( void* _arg, socket_error err ) {
+					if ( auto arg = (socket*) _arg ) {
+						err = err ? err : ERR_CLSD;
+						arg->close( true );
+						arg->raise_error( XSTD_ESTR( "socket error: %d" ), err );
+					}
+				} );
 			}
 		}
 		socket_error socket_shutdown( bool r, bool w ) {
-			if ( !r && !w || pcb == invalid_socket ) return 0;
+			if ( !r && !w ) return 0;
 			std::lock_guard _g{ core_lock };
+			if ( pcb == invalid_socket ) return 0;
 			socket_error err = tcp_shutdown( pcb, (int) r, (int) w );
 			if ( !err && r && w )
 				pcb = invalid_socket;
@@ -1233,12 +1171,15 @@ namespace xstd::net {
 	// TCP implementation.
 	//
 	struct tcp : socket {
-		// Time it was opened or the timeout limit.
-		//
-		timestamp open_time = {};
+		xstd::timestamp connect_deadline;
 
-		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : socket( socket_protocol::tcp, address, port, opts ) {
+		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : 
+			socket( socket_protocol::tcp, address, port, opts ),
+			fib_receiver( state().attach( std::mem_fn( &tcp::recv_more ), this ) ),
+			fib_sender( state().attach( std::mem_fn( &tcp::send_more ), this ) )
+		{
 			std::unique_lock lock{ core_lock };
+			connect_deadline = opt.conn_timeout + xstd::time::now();
 
 			// Initialize networking and get a socket.
 			//
@@ -1252,21 +1193,67 @@ namespace xstd::net {
 				}
 			}
 			set_pcb( client_socket );
+			tcp_sent( client_socket, []( void* _arg, socket_t pcb, uint16_t ) -> socket_error {
+				if ( auto arg = (tcp*) _arg ) {
+					tcp_output( pcb ); // needed?
+					arg->on_sent();
+					return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+				} else {
+					if ( tcp_close( pcb ) ) {
+						tcp_abort( pcb );
+					}
+					return ERR_ABRT;
+				}
+			} );
+			tcp_recv( client_socket, []( void* _arg, socket_t pcb, pbuf* p, socket_error err ) -> socket_error {
+				if ( err ) return err;
+				if ( auto arg = (tcp*) _arg ) {
+					arg->on_recv( p );
+					if ( !arg->get_pcb() ) {
+						return ERR_ABRT;
+					} else if ( p ) {
+						tcp_recved( pcb, p->tot_len );
+						pbuf_free( p );
+					}
+					return ERR_OK;
+				} else {
+					if ( tcp_close( pcb ) ) {
+						tcp_abort( pcb );
+					}
+					return ERR_ABRT;
+				}
+			} );
+			tcp_poll( client_socket, []( void* _arg, socket_t pcb ) -> socket_error {
+				if ( auto arg = (tcp*) _arg ) {
+					arg->on_poll( pcb );
+					return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+				} else {
+					if ( tcp_close( pcb ) ) {
+						tcp_abort( pcb );
+					}
+					return ERR_ABRT;
+				}
+			}, 1 );
 
-			// Start the initial fibers.
+			// Start the connection.
 			//
-			thr_sender = init_thread( is_connect );
+			if ( !is_connect ) {
+				fib_sender.resume_sync();
+			} else {
+				if ( auto err = this->socket_connect() ) {
+					this->raise_error( XSTD_ESTR( "connection failed: %d" ), err );
+				}
+			}
 		}
 		~tcp() {
 			close();
 			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
 		}
 
-		void on_sent( socket_t pcb, size_t len ) override {
-			tcp_output( pcb ); // needed?
-			sender_retry.signal_async();
+		void on_sent() {
+			fib_sender.resume( controller().readable().sched_enter );
 		}
-		void on_recv( socket_t pcb, pbuf* p ) override {
+		void on_recv( pbuf* p ) {
 			// If we received a FIN, stop.
 			//
 			if ( !p ) {
@@ -1283,128 +1270,68 @@ namespace xstd::net {
 				}
 			}
 
-
 			// Signal recv.
 			//
-			if ( !req_recv++ ) {
-				thr_recv = recv_thread();
-			}
+			fib_receiver.resume( controller().writable().sched_leave );
 		}
-		void on_poll( socket_t pcb ) override {
-			if ( pcb->state == SYN_SENT && open_time > time::now() ) {
+		void on_poll( socket_t pcb ) {
+			if ( pcb->state == SYN_SENT && connect_deadline < time::now() ) {
 				stop( XSTD_ESTR( "connection timed out" ) );
 			} else if ( tcp_sndbuf( pcb ) ) {
-				sender_retry.signal_async();
+				fib_sender.resume( controller().readable().sched_enter );
 			}
 		}
-		bool on_accept( socket_t pcb ) override { return false; }
-		void on_state( socket_t pcb, socket_error e ) override {
-			if ( pcb ) {
-				open_time = time::now();
-			}
-			if ( auto s = sender_retry.signal() ) {
-				s();
-			}
-		}
-
-
-		std::atomic<uint32_t> req_recv = 0;
-		std::atomic<bool> req_shutdown = false;
-		fiber thr_recv;
-		fiber recv_thread() {
-			auto ctrl = controller();
-			uint32_t n = req_recv.load( std::memory_order::relaxed );
-			while ( n ) {
-				co_await ctrl.flush();
-				n = ( req_recv -= n );
-			}
-
-			if ( req_shutdown ) {
-				ctrl.shutdown();
-			}
-		}
-
-		struct send_retry_t {
-			void* continuation = nullptr;
-			
-			FORCE_INLINE bool await_ready() noexcept { return false; }
-			FORCE_INLINE void await_suspend( coroutine_handle<> handle ) noexcept {  continuation = handle.address(); }
-			FORCE_INLINE void await_resume() const noexcept {}
-
-			coroutine_handle<> signal() {
-				if ( continuation ) {
-					if ( auto c = std::atomic_ref{ continuation }.exchange( nullptr ) ) {
-						return coroutine_handle<>::from_address( c );
-					}
-				}
-				return {};
-			}
-			void signal_async() {
-				if ( auto h = signal() )
-					chore( std::move( h ) );
-			}
-			~send_retry_t() {
-				if ( auto h = signal() )
-					h();
-			}
-		} sender_retry;
-
 
 	protected:
-		fiber thr_sender;
-		fiber thr_receiver;
-
-		// Connection and writer thread. 
-		//
-		fiber init_thread( bool connect ) {
-			// Initialization logic:
-			//
-			if ( connect ) {
-				// Start the connection.
-				//
-				if ( auto err = this->socket_connect() ) {
-					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), err );
+		std::atomic<bool> req_shutdown = false;
+		fiber& fib_receiver;
+		fiber& fib_sender;
+		fiber recv_more() {
+			auto ctrl = controller();
+			while ( true ) {
+				co_yield fiber::pause;
+				co_await ctrl.flush();
+				co_yield fiber::heartbeat;
+				if ( req_shutdown ) {
+					ctrl.shutdown();
+					co_return;
 				}
 			}
+		}
+		fiber send_more() {
+			auto ctrl = controller();
+			co_yield fiber::pause;
 
-			// Start the receiver thread.
+			// Wait for connection.
 			//
-			thr_receiver = recv_thread();
+			while ( pcb ) {
+				if ( pcb->state < ESTABLISHED ) {
+					co_yield fiber::pause;
+					continue;
+				} else if ( this->stopped() ) {
+					co_return;
+				}
+				break;
+			}
 
-			// Sender logic:
-			//
-			{
-				auto ctrl = this->controller();
-				while ( pcb ) {
-					// Wait for the user to request a send.
-					//
-					auto request = co_await ctrl.read();
-					if ( !request ) {
-						if ( ctrl.is_shutting_down() ) {
-							this->socket_shutdown( false, true );
-						}
-						co_return;
+			while ( pcb ) {
+				// Wait for the user to request a send.
+				//
+				auto request = co_await ctrl.read();
+				co_yield fiber::heartbeat;
+				if ( !request ) {
+					if ( ctrl.is_shutting_down() ) {
+						this->socket_shutdown( false, true );
 					}
+					co_return;
+				}
 
-					// Wait for connection.
-					//
-					while ( pcb && pcb->state < ESTABLISHED ) {
-						co_await this->sender_retry;
-						if ( this->stopped() )
-							co_return;
-					}
-
-					// Write the data.
-					//
-					while ( !request.empty() ) {
-						this->socket_send( request );
-						if ( this->stopped() )
-							co_return;
-						if ( request )
-							co_await this->sender_retry;
-						if ( !pcb ) 
-							co_return;
-					}
+				// Write the data.
+				//
+				while ( !request.empty() ) {
+					if ( !pcb ) break;
+					bool need_poll = this->socket_send( request );
+					co_yield need_poll ? fiber::pause : fiber::heartbeat;
 				}
 			}
 		}

@@ -5,7 +5,6 @@
 #include "result.hpp"
 #include "event.hpp"
 #include "function_view.hpp"
-#include "chore.hpp"
 #include "fiber.hpp"
 #include "ref_counted.hpp"
 #include "wait_list.hpp"
@@ -394,8 +393,7 @@ namespace xstd {
 			state().stop_written.store( true, std::memory_order::release );
 
 			for ( auto& f : state().fibers ) {
-				if ( f )
-					f.detach();
+				if ( f ) f.kill();
 			}
 
 			readable().destroy();

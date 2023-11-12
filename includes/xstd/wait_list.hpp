@@ -3,23 +3,19 @@
 #include "coro.hpp"
 #include "spinlock.hpp"
 #include "event.hpp"
-#include "chore.hpp"
 #include "async.hpp"
 
 namespace xstd {
 	// Wait list implementation.
 	//
-	template<typename LockType, Scheduler S>
+	template<typename LockType>
 	struct basic_wait_list {
 		static constexpr int32_t I = 2;
 		LockType lock;
-		S schedule;
-		
-		basic_wait_list() = default;
-		basic_wait_list( S schedule ) : schedule( std::move( schedule ) ) {}
-		basic_wait_list( const basic_wait_list& ) = delete;
-		basic_wait_list& operator=( const basic_wait_list& ) = delete;
-		~basic_wait_list() { signal_and_reset(); }
+
+		~basic_wait_list() { 
+			this->signal_and_reset( chore_scheduler{}, true )();
+		}
 
 		// Container details.
 		//
@@ -29,8 +25,7 @@ namespace xstd {
 		//
 		std::array<coroutine_handle<>, I>  inline_list = { nullptr };
 		coroutine_handle<>*                extern_list = nullptr;
-		uint32_t                           next_index : 31 = 0;
-		uint32_t                           settled    : 1 = 0;
+		int32_t                            next_index = 0;
 		std::optional<event>               associated_event = std::nullopt;
 
 		static constexpr int32_t get_capacity_from_size( int32_t size ) {
@@ -60,30 +55,44 @@ namespace xstd {
 				return extern_list[ n - I ];
 			}
 		}
-		template<typename F>
-		void for_each( F&& fn, coroutine_handle<>* ext, int32_t count ) {
-			for ( auto& e : this->inline_list )
-				if ( e ) fn( e );
-			for ( int32_t i = I; i < count; i++ )
-				if ( auto& e = ext[ i - I ] )
-					fn( e );
-		}
-		void signal_and_reset( coroutine_handle<>* hnd = nullptr ) {
-			auto count = next_index;
-			auto alloc = std::exchange( extern_list, nullptr );
-			this->settled = true;
-			this->next_index = 0;
-			if ( this->associated_event )
-				this->associated_event->notify();
-			this->for_each( [&]( coroutine_handle<>& e ) {
-				if ( hnd && !*hnd )
-					*hnd = e;
-				else
-					this->schedule( e )( );
-				e = nullptr;
-			}, alloc, count );
+		template<Scheduler S>
+		coroutine_handle<> signal_and_reset( S&& sched, bool transfer_disable ) {
+			int32_t count = 0;
+			coroutine_handle<>* alloc = nullptr;
+			{
+				if ( is_settled() ) return noop_coroutine();
+				std::unique_lock g{ lock };
+				if ( is_settled() ) return noop_coroutine();
+				count = std::exchange( next_index, -1 );
+				alloc = std::exchange( extern_list, nullptr );
+				if ( associated_event ) associated_event->notify();
+				if ( !count ) return noop_coroutine();
+				if constexpr ( XMutex<LockType> ) {
+					transfer_disable = transfer_disable || g.priority() > 0;
+				} else {
+					transfer_disable = transfer_disable || get_task_priority() > 0;
+				}
+			}
+
+			coroutine_handle<> transfer = nullptr;
+			for ( auto& e : inline_list ) {
+				if ( transfer ) sched( transfer )();
+				transfer =      e;
+			}
+			for ( int32_t i = I; i < count; i++ ) {
+				if ( transfer ) sched( transfer )();
+				transfer =      alloc[ i - I ];
+			}
 			if ( alloc )
 				free( alloc );
+
+			if ( transfer ) {
+				if ( transfer_disable ) 
+					sched( transfer )();
+				else 
+					return transfer;
+			}
+			return noop_coroutine();
 		}
 	public:
 		// - Registrar interface.
@@ -103,7 +112,7 @@ namespace xstd {
 			if ( is_settled() ) return -1;
 			std::lock_guard _g{ lock };
 			if ( is_settled() ) return -1;
-			int32_t idx = (int32_t) next_index++;
+			int32_t idx = next_index++;
 			alloc_at( idx ) = a;
 			return idx;
 		}
@@ -118,7 +127,7 @@ namespace xstd {
 				g.unlock();
 				return (void) fn_bound();
 			}
-			int32_t idx = (int32_t) next_index++;
+			int32_t idx = next_index++;
 			constexpr auto runner = []( auto func ) -> deferred_task {
 				( void ) func();
 				co_return;
@@ -151,7 +160,7 @@ namespace xstd {
 		// Returns true if wait-list is finalized, no more entries are accepted and entries cannot be removed.
 		//
 		bool is_settled() const {
-			return this->settled;
+			return next_index < 0;
 		}
 		// Registers an event and starts waiting inline.
 		//
@@ -160,6 +169,8 @@ namespace xstd {
 				return e->wait();
 		}
 		bool wait_for( duration time ) {
+			if ( time <= 0ms ) 
+				return is_settled();
 			if ( auto* e = listen() )
 				return e->wait_for( time );
 			else
@@ -182,33 +193,21 @@ namespace xstd {
 		};
 		inline awaiter operator co_await() noexcept { return { *this }; }
 
-		// Signals all listeners associated, returns a coro handle to symetric transfer to.
+		// Signals all listeners associated, returns a coro handle to symmetric transfer to.
 		//
+		template<Scheduler S>
+		[[nodiscard]] coroutine_handle<> signal( S&& sched ) {
+			return this->signal_and_reset( sched, false );
+		}
 		[[nodiscard]] coroutine_handle<> signal() {
-			// If task priority is raised, we cannot sync. call any coroutines.
-			//
-			std::lock_guard g{ lock };
-			if ( settled ) return noop_coroutine();
-			coroutine_handle<> continuation = {};
-			if constexpr ( XMutex<LockType> ) {
-				if ( g.priority() >= XSTD_SYNC_TPR ) {
-					continuation = noop_coroutine();
-				}
-			} else {
-				if ( get_task_priority() >= XSTD_SYNC_TPR ) {
-					continuation = noop_coroutine();
-				}
-			}
-
-			// Signal all awakables and reset allocation, return the continuation handle.
-			//
-			signal_and_reset( &continuation );
-			return continuation ? continuation : noop_coroutine();
+			return this->signal_and_reset( chore_scheduler{}, false );
+		}
+		void signal_sync() {
+			this->signal_and_reset( noop_scheduler{}, true )();
 		}
 		void signal_async() {
-			if ( auto h = signal(); h != noop_coroutine() )
-				this->schedule( h );
+			this->signal_and_reset( chore_scheduler{}, true )();
 		}
 	};
-	using wait_list = basic_wait_list<xspinlock<>, chore_scheduler>;
+	using wait_list = basic_wait_list<xspinlock<>>;
 };

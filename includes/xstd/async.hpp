@@ -141,7 +141,7 @@ namespace xstd {
 		yield_until( const event& evt, const D& timeout ) : yield_until( evt.handle(), timeout ) {}
 		yield_until( const event_primitive& evt, const D& timeout ) : yield_until( evt.handle(), timeout ) {}
 
-		inline bool await_ready() { return !evt; }
+		inline bool await_ready() { return false; }
 		inline void await_suspend( coroutine_handle<> h ) { chore( h, evt, timeout ); }
 		inline void await_resume() {}
 	};

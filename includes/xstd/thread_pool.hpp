@@ -179,10 +179,6 @@ namespace xstd {
 		// Queues new work, starts the thread-pool if necessary.
 		//
 		void queue( void( __cdecl* cb )( void* ), void* arg, size_t delay_100ns = 0, event_handle event_handle = nullptr ) {
-			if ( !running.load( std::memory_order::relaxed ) ) [[unlikely]] {
-				start();
-			}
-
 			work_item iw{ cb, arg };
 			if ( event_handle || delay_100ns ) {
 				deferred_work_item dw{ iw, event_handle };
@@ -195,8 +191,14 @@ namespace xstd {
 				q_immediate.push( iw );
 			}
 		}
+		void queue_lazy( void( __cdecl* cb )( void* ), void* arg, size_t delay_100ns = 0, event_handle event_handle = nullptr ) {
+			if ( !running.load( std::memory_order::relaxed ) ) [[unlikely]] {
+				start();
+			}
+			return queue( cb, arg, delay_100ns, event_handle );
+		}
 
-		// Starts/stops the pool.
+		// Starts/stops the threads.
 		//
 		COLD void start() {
 			if ( running.exchange( true ) )
@@ -205,11 +207,10 @@ namespace xstd {
 				XSTD_TPOOL_START_THREAD( &thread_entry_point, this );
 			}
 		}
-		void stop() {
+		void wait_and_stop() {
 			running = false;
 			while ( num_threads )
 				yield_cpu();
 		}
-		~thread_pool() { stop(); }
 	};
 };

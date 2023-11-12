@@ -3,7 +3,6 @@
 #include "time.hpp"
 #include "coro.hpp"
 #include "event.hpp"
-#include "thread_pool.hpp"
 
 // [[Configuration]]
 // XSTD_CHORE_SCHEDULER: If set, chore will pass OS a callback to help with the scheduling.
@@ -15,7 +14,7 @@
 	namespace xstd {
 		inline thread_pool g_default_threadpool = {};
 	};
-	#define XSTD_CHORE_SCHEDULER(cb, arg, delay, evt) xstd::g_default_threadpool.queue( cb, arg, delay, evt )
+	#define XSTD_CHORE_SCHEDULER(cb, arg, delay, evt) xstd::g_default_threadpool.queue_lazy( cb, arg, delay, evt )
 #endif
 
 namespace xstd {
@@ -143,8 +142,6 @@ namespace xstd {
 	//
 	template<typename T>
 	inline void chore( T&& fn, event_handle evt, duration timeout ) {
-		assume( evt != nullptr );
-
 		int64_t tick_count = timeout / 100ns;
 		if ( tick_count < 1 ) tick_count = 1;
 

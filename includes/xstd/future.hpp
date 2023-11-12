@@ -2,7 +2,6 @@
 #include "result.hpp"
 #include "event.hpp"
 #include "coro.hpp"
-#include "chore.hpp"
 #include "spinlock.hpp"
 #include "hashable.hpp"
 #include "formatting.hpp"
@@ -154,22 +153,26 @@ namespace xstd
 
 		// Waits for the event to be complete.
 		//
-		const basic_result<T, S>& wait() const
-		{
+		event_handle event() const {
+			if ( finished() )
+				return nullptr;
+			if ( auto evt = waits.listen() )
+				return evt->handle();
+			return nullptr;
+		}
+		const basic_result<T, S>& wait() const {
 			if ( finished() )
 				return unrace();
 			waits.wait();
 			return result;
 		}
-		basic_result<T, S> wait_move()
-		{
+		basic_result<T, S> wait_move() {
 			if ( finished() )
 				return std::move( *( unrace(), &result ) );
 			waits.wait();
 			return std::move( result );
 		}
-		const basic_result<T, S>& wait_for( duration time ) const
-		{
+		const basic_result<T, S>& wait_for( duration time ) const {
 			if ( finished() )
 				return unrace();
 			if ( waits.wait_for( time ) )
@@ -177,8 +180,7 @@ namespace xstd
 			else
 				return impl::timeout_result<T, S>();
 		}
-		basic_result<T, S> wait_for_move( duration time ) const
-		{
+		basic_result<T, S> wait_for_move( duration time ) const {
 			if ( finished() )
 				return std::move( *( unrace(), &result ) );
 			if ( waits.wait_for( time ) )
@@ -189,14 +191,12 @@ namespace xstd
 
 		// Chain/unchain a coroutine.
 		//
-		bool listen( coroutine_handle<> h ) const
-		{
+		bool listen( coroutine_handle<> h ) const {
 			if ( finished() ) [[likely]]
 				return ( unrace(), false );
 			return waits.listen( h ) >= 0;
 		}
-		bool unlisten( coroutine_handle<> h ) const
-		{
+		bool unlisten( coroutine_handle<> h ) const {
 			if ( finished() ) [[likely]]
 				return ( unrace(), false );
 			return waits.unlisten( h ) >= 0;
@@ -498,7 +498,8 @@ namespace xstd
 		inline const basic_result<T, S>& wait_for( duration time ) const { return ptr->wait_for( time ); }
 		inline const basic_result<T, S>& result() const { fassert( finished() ); return ptr->unrace(); }
 		inline std::string to_string() const { return ptr->to_string(); }
-		
+		inline event_handle event() const { return ptr->event(); }
+
 		template<typename... Tx>
 		inline bool resolve( Tx&&... value ) const requires Owner
 		{
