@@ -9,7 +9,9 @@ namespace xstd {
 			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<T> handle ) noexcept {
 				coroutine_handle<> onto = handle.promise().continuation;
-				return onto ? onto : handle;
+				if ( onto ) return onto;
+				handle.destroy();
+				return noop_coroutine();
 			}
 			FORCE_INLINE inline void await_resume() const noexcept {}
 		};

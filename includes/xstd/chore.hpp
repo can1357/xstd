@@ -8,7 +8,7 @@
 // XSTD_CHORE_SCHEDULER: If set, chore will pass OS a callback to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER
-	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( void( __cdecl* callback )( void* ), void* cb_arg, size_t delay_100ns, xstd::event_handle event_handle );
+	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( void( __cdecl* callback )( void* ), void* cb_arg, size_t delay_nano, xstd::event_handle event_handle );
 #else
 	#include "thread_pool.hpp"
 	namespace xstd {
@@ -117,7 +117,7 @@ namespace xstd {
 	//
 	template<typename T>
 	inline void chore( T&& fn, duration delay ) {
-		int64_t tick_count = delay / 100ns;
+		int64_t tick_count = delay / 1ns;
 		if ( tick_count < 1 ) tick_count = 1;
 
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
@@ -142,7 +142,7 @@ namespace xstd {
 	//
 	template<typename T>
 	inline void chore( T&& fn, event_handle evt, duration timeout ) {
-		int64_t tick_count = timeout / 100ns;
+		int64_t tick_count = timeout / 1ns;
 		if ( tick_count < 1 ) tick_count = 1;
 
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );

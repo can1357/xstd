@@ -1276,8 +1276,10 @@ namespace xstd::net {
 		}
 		void on_poll( socket_t pcb ) {
 			if ( pcb->state == SYN_SENT && connect_deadline < time::now() ) {
-				stop( XSTD_ESTR( "connection timed out" ) );
-			} else if ( tcp_sndbuf( pcb ) ) {
+				return (void) stop( XSTD_ESTR( "connection timed out" ) );
+			}
+			tcp_output( pcb );
+			if ( tcp_sndbuf( pcb ) ) {
 				fib_sender.resume( controller().readable().sched_enter );
 			}
 		}
@@ -1328,9 +1330,11 @@ namespace xstd::net {
 
 				// Write the data.
 				//
-				while ( !request.empty() ) {
+				while ( true ) {
 					if ( !pcb ) break;
+					size_t orig_size = request.size();
 					bool need_poll = this->socket_send( request );
+					if ( request.empty() ) break;
 					co_yield need_poll ? fiber::pause : fiber::heartbeat;
 				}
 			}

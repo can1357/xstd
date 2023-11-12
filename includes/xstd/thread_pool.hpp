@@ -28,7 +28,7 @@ namespace xstd {
 	struct deferred_work_item : work_item {
 		static constexpr int64_t timeout_never = INT64_MAX;
 		static constexpr int64_t timeout_now =   0;
-		static int64_t get_time() { return time::now().time_since_epoch() / 100ns; }
+		static int64_t get_time() { return time::now().time_since_epoch() / 1ns; }
 
 		mutable event_handle evt = {};
 		int64_t              timeout = 0;
@@ -73,15 +73,15 @@ namespace xstd {
 				if constexpr ( std::is_same_v<W, deferred_work_item> ) {
 					constexpr size_t max_traverse = 4;
 					int64_t time = deferred_work_item::get_time();
-					auto beg = list.begin();
-					auto it = beg;
+
+					auto it = list.begin();
 					for ( size_t i = 0; i != max_traverse; i++ ) {
 						if ( it == list.end() ) {
 							break;
-						} else if ( it->is_ready( time ) ) {
+						} 
+						if ( it->is_ready( time ) ) {
 							work_item rw{ *it };
-							list.splice( list.end(), list, beg, it );
-							list.erase( it );
+							list.erase( it++ );
 							on_pop();
 							g.unlock();
 
@@ -92,6 +92,8 @@ namespace xstd {
 								return sister_queue->push( rw );
 							else
 								return rw();
+						} else {
+							list.splice( list.end(), list, it++ );
 						}
 					}
 				}
@@ -178,12 +180,12 @@ namespace xstd {
 
 		// Queues new work, starts the thread-pool if necessary.
 		//
-		void queue( void( __cdecl* cb )( void* ), void* arg, size_t delay_100ns = 0, event_handle event_handle = nullptr ) {
+		void queue( void( __cdecl* cb )( void* ), void* arg, size_t delay = 0, event_handle event_handle = nullptr ) {
 			work_item iw{ cb, arg };
-			if ( event_handle || delay_100ns ) {
+			if ( event_handle || delay ) {
 				deferred_work_item dw{ iw, event_handle };
-				if ( delay_100ns )
-					dw.timeout = deferred_work_item::get_time() + delay_100ns;
+				if ( delay )
+					dw.timeout = deferred_work_item::get_time() + delay;
 				else
 					dw.timeout = deferred_work_item::timeout_never;
 				q_deferred.push( dw );
@@ -191,11 +193,11 @@ namespace xstd {
 				q_immediate.push( iw );
 			}
 		}
-		void queue_lazy( void( __cdecl* cb )( void* ), void* arg, size_t delay_100ns = 0, event_handle event_handle = nullptr ) {
+		void queue_lazy( void( __cdecl* cb )( void* ), void* arg, size_t delay = 0, event_handle event_handle = nullptr ) {
 			if ( !running.load( std::memory_order::relaxed ) ) [[unlikely]] {
 				start();
 			}
-			return queue( cb, arg, delay_100ns, event_handle );
+			return queue( cb, arg, delay, event_handle );
 		}
 
 		// Starts/stops the threads.

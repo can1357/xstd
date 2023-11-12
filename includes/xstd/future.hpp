@@ -639,7 +639,8 @@ namespace xstd
 			{
 				auto& pr = hnd.promise().pr;
 #if CLANG_COMPILER && DEBUG_BUILD && AMD64_TARGET
-				register void* c asm( "r12" ) = pr.signal().address(); // Force the compiler not to store the next coro in frame!
+				// Force the compiler not to store the next coro in frame!
+				register void* c asm( "r12" ) = pr.signal().address();
 #else
 				void* c = pr.signal().address();
 #endif
