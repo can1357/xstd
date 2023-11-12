@@ -32,7 +32,6 @@ namespace xstd::http {
 		static std::span<const uint8_t> to_span( const std::string& v ) {
 			return { (const uint8_t*) v.data(), v.size() };
 		}
-
 		template<typename Output, typename... Inputs>
 		static void insert_into( Output& out, size_t at, const Inputs&... in ) {
 			std::span<const uint8_t> spans[] = { to_span( in )... };
@@ -64,6 +63,24 @@ namespace xstd::http {
 				memcpy( iter, span.data(), span.size() );
 				iter += span.size();
 			}
+		}
+
+		static bool fast_ieq( std::string_view input, std::string_view against ) {
+			size_t count = against.size();
+			if ( input.size() != count ) return false;
+
+			uint32_t mismatch = 0;
+			if ( count > 4 ) {
+				__hint_nounroll()
+				for ( size_t it = 0; ( it + 4 ) <= count; it += 4 ) {
+					mismatch |= ( (uint32_t&) input[ it ] ^ (uint32_t&) against[ it ] );
+				}
+				mismatch |= ( (uint32_t&) input[ count - 4 ] ^ (uint32_t&) against[ count - 4 ] );
+			} else {
+				if ( count >= 2 ) mismatch |= ( (uint16_t&) input[ count & 1 ] ^ (uint16_t&) against[ count & 1 ] );
+				if ( count >= 1 ) mismatch |= ( (uint8_t&) input[ 0 ] ^ (uint8_t&) against[ 0 ] );
+			}
+			return ( mismatch & 0xDFDFDFDF ) == 0;
 		}
 	};
 
@@ -252,38 +269,37 @@ namespace xstd::http {
 
 	// Header joining rules.
 	//
-	static constexpr std::tuple<uint32_t, std::string_view, std::string_view> header_join_keys[] = {
+	static constexpr std::pair<std::string_view, std::string_view> header_join_keys[] = {
 		// RFC 9110 Section 5.3
 		// `age`, `authorization`, `content-length`, `content-type`,`etag`, `expires`, `from`, `host`, `if-modified-since`, `if-unmodified-since`,`last-modified`, `location`,
 		// `max-forwards`, `proxy-authorization`, `referer`,`retry-after`, `server`, or `user-agent` are discarded.
-		{ "Age"_wh, "Age", {} },
-		{ "Authorization"_wh, "Authorization", {} },
-		{ "Content-Length"_wh, "Content-Length", {} },
-		{ "Content-Type"_wh, "Content-Type", {} },
-		{ "ETag"_wh, "ETag", {} },
-		{ "Expires"_wh, "Expires", {} },
-		{ "From"_wh, "From", {} },
-		{ "Host"_wh, "Host", {} },
-		{ "If-Modified-Since"_wh, "If-Modified-Since", {} },
-		{ "If-Unmodified-Since"_wh, "If-Unmodified-Since", {} },
-		{ "Last-Modified"_wh, "Last-Modified", {} },
-		{ "Location"_wh, "Location", {} },
-		{ "Max-Forwards"_wh, "Max-Forwards", {} },
-		{ "Proxy-Authorization"_wh, "Proxy-Authorization", {} },
-		{ "Referer"_wh, "Referer", {} },
-		{ "Retry-After"_wh, "Retry-After", {} },
-		{ "Server"_wh, "Server", {} },
-		{ "User-Agent"_wh, "User-Agent", {} },
+		{ "Age", {} },
+		{ "Authorization", {} },
+		{ "Content-Length", {} },
+		{ "Content-Type", {} },
+		{ "ETag", {} },
+		{ "Expires", {} },
+		{ "From", {} },
+		{ "Host", {} },
+		{ "If-Modified-Since", {} },
+		{ "If-Unmodified-Since", {} },
+		{ "Last-Modified", {} },
+		{ "Location", {} },
+		{ "Max-Forwards", {} },
+		{ "Proxy-Authorization", {} },
+		{ "Referer", {} },
+		{ "Retry-After", {} },
+		{ "Server", {} },
+		{ "User-Agent", {} },
 		// `set-cookie` is always an array. 
-		{ "Set-Cookie"_wh, "Set-Cookie", { "\0"sv } },
+		{ "Set-Cookie", { "\0"sv } },
 		// For duplicate `cookie` headers, the values are joined together with `; `.
-		{ "Cookie"_wh, "Cookie", "; " },
+		{ "Cookie", "; " },
 		// For all other headers, the values are joined together with `, `.
 	};
-	static constexpr std::string_view get_header_join_seperator( std::string_view e, std::optional<uint32_t> hash_hint = {} ) {
-		uint32_t hash = hash_hint.value_or( web_hasher{}( e ) );
-		for ( auto& [h, k, v] : header_join_keys ) {
-			if ( h == hash && k == e ) 
+	static constexpr std::string_view get_header_join_seperator( std::string_view e ) {
+		for ( auto& [k, v] : header_join_keys ) {
+			if ( detail::fast_ieq( k, e ) )
 				return v;
 		}
 		return ", "sv;
@@ -301,9 +317,8 @@ namespace xstd::http {
 		};
 		struct header_entry {
 			size_t     k_len =  0;
-			uint32_t   k_hash = 0;
 			vec_buffer line = {};
-			header_entry( uint32_t hash, std::string_view key, std::string_view value ) : k_len( key.size() ), k_hash( hash ) {
+			header_entry( std::string_view key, std::string_view value ) : k_len( key.size() ) {
 				detail::append_into( line, key, ": ", value, "\r\n" );
 			}
 
@@ -346,7 +361,7 @@ namespace xstd::http {
 					return true;
 				}
 
-				auto sep = get_header_join_seperator( key(), k_hash );
+				auto sep = get_header_join_seperator( key() );
 				if ( sep == "\0"sv ) {
 					return false;
 				}
@@ -388,22 +403,21 @@ namespace xstd::http {
 
 		// Searcher.
 		//
-		std::pair<iterator, bool> search( std::string_view key, std::optional<uint32_t> hash_hint = {} ) {
-			uint32_t hash = hash_hint.value_or( web_hasher{}( key ) );
-			auto beg = std::lower_bound( begin(), end(), hash, []( const header_entry& a, uint32_t b ) { return a.k_hash < b; } );
+		std::pair<iterator, bool> search( std::string_view key ) {
+			auto beg = std::lower_bound( begin(), end(), key.size(), []( const header_entry& a, size_t b ) { return a.k_len < b; } );
 			for ( auto it = beg; it != storage.end(); ++it ) {
-				if ( it->k_hash != hash ) break;
-				if ( xstd::iequals( it->key(), key ) ) return { it, true };
+				if ( it->k_len != key.size() ) break;
+				if ( detail::fast_ieq( it->key(), key ) ) return { it, true };
 			}
 			return { beg, false };
 		}
-		std::pair<const_iterator, bool> search( std::string_view key, std::optional<uint32_t> hash_hint = {} ) const {
-			return const_cast<headers*>( this )->search( key, hash_hint );
+		std::pair<const_iterator, bool> search( std::string_view key ) const {
+			return const_cast<headers*>( this )->search( key );
 		}
 		template<typename It>
 		It search_upper( It it ) const {
 			It prev = it;
-			while ( it != end() && it->k_hash == prev->k_hash && xstd::iequals( it->key(), prev->key() ) ) {
+			while ( it != end() && it->k_len == prev->k_len && detail::fast_ieq( it->key(), prev->key() ) ) {
 				++it;
 			}
 			return it;
@@ -412,14 +426,13 @@ namespace xstd::http {
 		// Mutators.
 		//
 		header_entry& try_emplace( std::string_view key, std::string_view value, merge_kind directive = merge_overwrite ) {
-			uint32_t hash = web_hasher{}( key );
-			auto [it, found] = search( key, hash );
+			auto [it, found] = search( key );
 			if ( found ) {
 				if ( it->merge( value, directive ) )
 					return *it;
 				it = search_upper( it );
 			}
-			return *storage.insert( it, header_entry{ hash, key, value } );
+			return *storage.insert( it, header_entry{ key, value } );
 		}
 		header_entry& try_insert( std::string_view key, std::string_view value ) {
 			return try_emplace( key, value, merge_discard );
