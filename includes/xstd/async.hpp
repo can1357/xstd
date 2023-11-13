@@ -10,17 +10,57 @@ namespace xstd {
 	concept Scheduler = requires( T& sched, coroutine_handle<> hnd ) {
 		hnd = sched( hnd );
 	};
+	
+	// No-op scheduler running the item immediately.
+	//
 	struct noop_scheduler {
 		constexpr coroutine_handle<> operator()( coroutine_handle<> handle ) const noexcept {
 			return handle;
 		}
 	};
+
+	// Chore scheduler using the thread-pool.
+	//
 	struct chore_scheduler {
 		noop_coroutine_handle operator()( coroutine_handle<> handle ) const noexcept {
 			chore( handle );
 			return noop_coroutine();
 		}
 	};
+
+	// Periodic scheduler deferring upto N tasks and then displaces previously inserted ones.
+	// Tick method should be invoked externally periodically to free the queue.
+	//
+	struct periodic_scheduler {
+		static constexpr size_t N = 8;
+
+		std::array<coroutine_handle<>, N> queue;
+		size_t                            idx = 0;
+
+		periodic_scheduler() {
+			queue.fill( noop_coroutine() );
+		}
+
+		coroutine_handle<> operator()( coroutine_handle<> handle ) noexcept {
+			return std::exchange( queue[ idx++ & N ], handle );
+		}
+
+		void tick() {
+			if ( !idx ) return;
+			std::array prev = queue;
+			queue.fill( noop_coroutine() );
+			idx = 0;
+			for ( auto& e : prev )
+				e();
+		}
+
+		~periodic_scheduler() {
+			tick();
+		}
+	};
+
+	// Type-erasing scheduler by reference.
+	// 
 	struct scheduler_reference {
 		coroutine_handle<>( *fn )( void*, coroutine_handle<> ) = nullptr;
 		void* ctx = nullptr;

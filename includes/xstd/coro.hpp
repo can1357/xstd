@@ -4,15 +4,18 @@
 #include <utility>
 #include "intrinsics.hpp"
 
-#define HAS_STD_CORO MS_COMPILER
-
-#if HAS_STD_CORO
+#if HAS_MS_EXTENSIONS && CLANG_COMPILER
+	#define XSTD_HAS_STD_CORO 0
+#else
+	#define XSTD_HAS_STD_CORO __has_include(<coroutine>)
+#endif
+#if XSTD_HAS_STD_CORO
 	#include <coroutine>
 #endif
 
 // Define the core types.
 //
-#if !HAS_STD_CORO
+#if !XSTD_HAS_STD_CORO
 	namespace std
 	{
 		template<typename Ret, typename... Args>
@@ -28,7 +31,7 @@
 
 namespace xstd
 {
-#if !HAS_STD_CORO
+#if !XSTD_HAS_STD_CORO
 	namespace builtin
 	{
 #ifdef __INTELLISENSE__
@@ -45,7 +48,7 @@ namespace xstd
 #endif
 };
 
-#if !HAS_STD_CORO
+#if !XSTD_HAS_STD_CORO
 namespace std
 {
 	// Coroutine traits.
