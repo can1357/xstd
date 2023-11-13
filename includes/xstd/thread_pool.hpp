@@ -28,16 +28,17 @@ namespace xstd {
 		}
 	};
 
-	// Worker type, allowing thread-pool to be customizable.
+	// Worker type, allowing thread-pool to be customized.
 	//
-	struct worker_state {
-		worker_state*   next_idle = nullptr;
-		event_primitive signal =    {};
-		bool            idle =      false;
-	};
-	struct default_worker : worker_state {
-		// Traits of the thread-pool.
+	template<typename Self>
+	struct worker_base {
+		// Traits.
 		//
+#if WINDOWS_TARGET && USER_TARGET
+		static constexpr int32_t yield_per_acquire = 256; // ~ 10ms re-scheduling hit
+#else
+		static constexpr int32_t yield_per_acquire = 24;  // < 1ms re-scheduling hit
+#endif
 		static constexpr bool is_lazy = true;
 		static size_t get_ideal_worker_count() {
 			return std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 8, 32 );
@@ -49,30 +50,43 @@ namespace xstd {
 			return ( time::now().time_since_epoch() / 1ns ) + delta_ns;
 		}
 
+		// Local state.
+		//
+		Self* next_idle = nullptr;
+		bool  idle =      false;
+
 		// Worker hooks.
 		//
 		FORCE_INLINE void sleep( uint32_t milliseconds ) { std::this_thread::sleep_for( milliseconds * 1ms ); }
-		FORCE_INLINE void wait( event_primitive& evt ) { evt.wait(); }
 		FORCE_INLINE void execute( work_item item ) { item(); }
 		FORCE_INLINE void after_drain() {}
+
+		// +
+		// FORCE_INLINE void halt();
+		// FORCE_INLINE void signal();
+	};
+	struct default_worker : worker_base<default_worker> {
+		event_primitive event = {};
+
+		FORCE_INLINE void halt() {
+			event.wait();
+			return event.reset();
+		}
+		FORCE_INLINE void signal() {
+			event.notify();
+		}
 	};
 
 	// Immediate queue type.
 	//
-	template<typename W>
+	template<typename Work, typename Worker>
 	struct work_queue;
-	template<>
-	struct work_queue<work_item> {
-#if WINDOWS_TARGET
-		static constexpr int32_t max_yield_per_acquire = 1024; // ~ 10ms re-scheduling hit, spin for ~1ms to avoid it.
-#else
-		static constexpr int32_t max_yield_per_acquire = 64;   // < 1ms re-scheduling hit
-#endif
-
+	template<typename Worker>
+	struct work_queue<work_item, Worker> {
 		xspinlock<>            lock = {};
 		std::atomic<uint16_t>  pressure = 0;
 		std::deque<work_item>  list =      {};
-		worker_state*          idle_list = nullptr;
+		Worker*                idle_list = nullptr;
 		std::atomic<bool>      is_empty = false;
 
 		// Custom locking logic for worker-side to collect more tasks before committing a sleep.
@@ -84,12 +98,12 @@ namespace xstd {
 
 			// Enter acquisition loop:
 			//
-			int32_t yields_left = max_yield_per_acquire;
+			int32_t yields_left = Worker::yield_per_acquire;
 			while ( true ) {
 				// If list is empty yield.
 				//
-				if ( is_empty.load( std::memory_order::relaxed ) ) {
-					if ( --yields_left <= 0 ) {
+				if ( --yields_left >= 0 ) {
+					if ( is_empty.load( std::memory_order::relaxed ) ) {
 						yield_cpu();
 						continue;
 					}
@@ -125,8 +139,8 @@ namespace xstd {
 
 		// Gets the next worker to signal to increase pressure if 0.
 		//
-		FORCE_INLINE worker_state* locked_wakeup_one() {
-			worker_state* w = idle_list;
+		FORCE_INLINE Worker* locked_wakeup_one() {
+			Worker* w = idle_list;
 			uint16_t expected = pressure.load( std::memory_order::relaxed );
 			if ( w && !expected ) [[unlikely]] {
 				++pressure; // Weakened, can be > 1 after execution, don't care.
@@ -138,22 +152,17 @@ namespace xstd {
 
 		// Drains the queue.
 		//
-		template<typename Worker>
-		FORCE_INLINE void drain( Worker& worker, [[maybe_unused]] work_queue<work_item>& ) {
+		FORCE_INLINE void drain( Worker& worker, [[maybe_unused]] work_queue<work_item, Worker>& ) {
 			// Acquire the lock, if there's nothing to do:
 			//
 			worker.idle = lock_as_worker( worker.idle );
 			if ( worker.idle ) [[unlikely]] {
-				// Insert into idle list and unlock.
+				// Insert into idle list, unlock and halt.
 				//
 				worker.next_idle = idle_list;
 				idle_list = &worker;
 				unlock_as_worker();
-
-				// Halt until signalled.
-				//
-				worker.wait( worker.signal );
-				return worker.signal.reset();
+				return worker.halt();
 			}
 
 			// Pop the first entry.
@@ -163,7 +172,7 @@ namespace xstd {
 
 			// If list is not empty wake up the next worker.
 			//
-			worker_state* w = nullptr;
+			Worker* w = nullptr;
 			if ( list.empty() ) {
 				is_empty.store( true, std::memory_order::relaxed );
 			} else {
@@ -171,7 +180,7 @@ namespace xstd {
 			}
 
 			unlock_as_worker();
-			if ( w ) w->signal.notify();
+			if ( w ) w->signal();
 
 			// Execute the work.
 			//
@@ -187,16 +196,16 @@ namespace xstd {
 
 			// If there is no pressure, wakeup next idle worker.
 			//
-			if ( worker_state* w = locked_wakeup_one() ) {
+			if ( Worker* w = locked_wakeup_one() ) {
 				g.unlock();
-				w->signal.notify();
+				w->signal();
 			}
 		}
 
 		// Wakes up all threads, used for stopping the thread pool.
 		//
 		void wakeup_all() {
-			worker_state* w;
+			Worker* w;
 			{
 				std::lock_guard _g{ lock };
 				w = idle_list;
@@ -205,20 +214,20 @@ namespace xstd {
 
 			while ( w ) {
 				++pressure;
-				std::exchange( w, w->next_idle )->signal.notify();
+				std::exchange( w, w->next_idle )->signal();
 			}
 		}
 	};
 
 	// Deferred queue type (assumes only one worker is using it).
 	//
-	template<>
-	struct work_queue<deferred_work_item> {
+	template<typename Worker>
+	struct work_queue<deferred_work_item, Worker> {
 		static constexpr size_t max_locked_traversal = 32;
 		
 		xspinlock<>                   lock =      {};
 		std::list<deferred_work_item> list =      {};
-		worker_state*                 idle =      nullptr;
+		Worker*                       idle =      nullptr;
 		uint32_t                      sleep_hint = 0;
 
 		// Locking logic assuming proper TPR.
@@ -240,8 +249,7 @@ namespace xstd {
 
 		// Drains the queue.
 		//
-		template<typename Worker>
-		FORCE_INLINE void drain( Worker& worker, work_queue<work_item>& immediate ) {
+		FORCE_INLINE void drain( Worker& worker, work_queue<work_item, Worker>& immediate ) {
 			// Acquire the lock.
 			//
 			lock_as_worker();
@@ -249,15 +257,11 @@ namespace xstd {
 			// If there is no work to do:
 			//
 			if ( list.empty() ) [[unlikely]] {
-				// Set as idle entry and unlock.
+				// Set as idle entry, unlock and halt.
 				//
 				idle = &worker;
 				unlock_as_worker();
-
-				// Halt until signalled.
-				//
-				worker.wait( worker.signal );
-				return worker.signal.reset();
+				return worker.halt();
 			}
 
 			std::list<deferred_work_item> ready_list = {};
@@ -326,23 +330,23 @@ namespace xstd {
 
 			// Wake up if idle.
 			//
-			if ( worker_state* w = idle ) {
+			if ( Worker* w = idle ) {
 				idle = nullptr;
 				g.unlock();
-				w->signal.notify();
+				w->signal();
 			}
 		}
 		
 		// Wakes up all threads, used for stopping the thread pool.
 		//
 		void wakeup_all() {
-			worker_state* w;
+			Worker* w;
 			{
 				std::lock_guard _g{ lock };
 				w = idle;
 				idle = nullptr;
 			}
-			if ( w ) w->signal.notify();
+			if ( w ) w->signal();
 		}
 	};
 
@@ -352,8 +356,8 @@ namespace xstd {
 	struct thread_pool {
 		// Immediate and the deferred queue.
 		//
-		work_queue<work_item>          queue = {};
-		work_queue<deferred_work_item> deferred_queue  = {};
+		work_queue<work_item, Worker>          queue = {};
+		work_queue<deferred_work_item, Worker> deferred_queue  = {};
 
 		// Thread pool state.
 		//
