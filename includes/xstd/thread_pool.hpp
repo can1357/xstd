@@ -1,19 +1,12 @@
 #pragma once
-#include "time.hpp"
-#include "event.hpp"
-#include "spinlock.hpp"
 #include "intrinsics.hpp"
+#include "type_helpers.hpp"
+#include "spinlock.hpp"
+#include "event.hpp"
+#include "time.hpp"
 #include <list>
-
-// [[Configuration]]
-// XSTD_TPOOL_START_THREAD: If set, calls the function to start the thread instead of std::thread.
-//
-#ifdef XSTD_TPOOL_START_THREAD
-	extern "C" void __cdecl XSTD_TPOOL_START_THREAD( void( __cdecl* callback )( void* ), void* cb_arg );
-#else
-	#include <thread>
-	#define XSTD_TPOOL_START_THREAD(cb, arg) std::thread{cb, arg}.detach()
-#endif
+#include <deque>
+#include <thread>
 
 namespace xstd {
 	// Work item.
@@ -23,196 +16,427 @@ namespace xstd {
 		void* arg;
 
 		FORCE_INLINE void operator()() { cb( arg ); }
-		constexpr bool is_ready( int64_t ) const { return true; }
+		FORCE_INLINE constexpr bool is_ready( int64_t ) const { return true; }
 	};
 	struct deferred_work_item : work_item {
-		static constexpr int64_t timeout_never = INT64_MAX;
-		static constexpr int64_t timeout_now =   0;
-		static int64_t get_time() { return time::now().time_since_epoch() / 1ns; }
-
 		mutable event_handle evt = {};
 		int64_t              timeout = 0;
 
-		bool is_ready( int64_t now ) const {
+		FORCE_INLINE bool is_ready( int64_t now ) const {
 			if ( timeout < now ) return true;
-			if ( evt && event_primitive::from_handle( evt ).peek() ) return true;
-			return false;
+			return evt && event_primitive::from_handle( evt ).peek();
 		}
 	};
 
-	// Queue type.
+	// Worker type, allowing thread-pool to be customizable.
+	//
+	struct worker_state {
+		worker_state*   next_idle = nullptr;
+		event_primitive signal =    {};
+		bool            idle =      false;
+	};
+	struct default_worker : worker_state {
+		// Traits of the thread-pool.
+		//
+		static constexpr bool is_lazy = true;
+		static size_t get_ideal_worker_count() {
+			return std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 8, 32 );
+		}
+		static void create_thread( void( __cdecl* cb )( void* ), void* arg ) {
+			std::thread{ cb, arg }.detach();
+		}
+		FORCE_INLINE static int64_t timestamp( int64_t delta_ns ) {
+			return ( time::now().time_since_epoch() / 1ns ) + delta_ns;
+		}
+
+		// Worker hooks.
+		//
+		FORCE_INLINE void sleep( uint32_t milliseconds ) { std::this_thread::sleep_for( milliseconds * 1ms ); }
+		FORCE_INLINE void wait( event_primitive& evt ) { evt.wait(); }
+		FORCE_INLINE void execute( work_item item ) { item(); }
+		FORCE_INLINE void after_drain() {}
+	};
+
+	// Immediate queue type.
 	//
 	template<typename W>
-	struct work_queue {
-		xspinlock<>  lock =   {};
-		event        signal = {};
-		std::list<W> list =   {};
-		bool         signal_busy = false;
-		
-		void on_pop() {
-			if ( list.empty() )
-				signal.reset();
-		}
-		void process( uint32_t& last_sleep, uint32_t max_sleep, work_queue<work_item>* sister_queue ) {
-			// If nothing to do:
+	struct work_queue;
+	template<>
+	struct work_queue<work_item> {
+#if WINDOWS_TARGET
+		static constexpr int32_t max_yield_per_acquire = 1024; // ~ 10ms re-scheduling hit, spin for ~1ms to avoid it.
+#else
+		static constexpr int32_t max_yield_per_acquire = 64;   // < 1ms re-scheduling hit
+#endif
+
+		xspinlock<>            lock = {};
+		std::atomic<uint16_t>  pressure = 0;
+		std::deque<work_item>  list =      {};
+		worker_state*          idle_list = nullptr;
+		std::atomic<bool>      is_empty = false;
+
+		// Custom locking logic for worker-side to collect more tasks before committing a sleep.
+		//
+		FORCE_INLINE bool lock_as_worker( bool was_idle ) {
+			// Increment pressure.
 			//
-			std::unique_lock g{ lock };
-			if ( list.empty() ) {
-				// If we can register a signal:
-				//
-				if ( !signal_busy ) {
-					signal_busy = true;
-					g.unlock();
-					signal.wait();
-					signal_busy = false;
-					return;
-				}
-			} else {
-				// If deferred: try to find ready entry, if found, push to immediate queue.
-				//
-				if constexpr ( std::is_same_v<W, deferred_work_item> ) {
-					constexpr size_t max_traverse = 4;
-					int64_t time = deferred_work_item::get_time();
+			if ( !was_idle ) ++pressure;
 
-					auto it = list.begin();
-					for ( size_t i = 0; i != max_traverse; i++ ) {
-						if ( it == list.end() ) {
-							break;
-						} 
-						if ( it->is_ready( time ) ) {
-							work_item rw{ *it };
-							list.erase( it++ );
-							on_pop();
-							g.unlock();
-
-							// Push to immediate queue or run in-place.
-							//
-							last_sleep = 0; // We did something!
-							if ( sister_queue )
-								return sister_queue->push( rw );
-							else
-								return rw();
-						} else {
-							list.splice( list.end(), list, it++ );
-						}
+			// Enter acquisition loop:
+			//
+			int32_t yields_left = max_yield_per_acquire;
+			while ( true ) {
+				// If list is empty yield.
+				//
+				if ( is_empty.load( std::memory_order::relaxed ) ) {
+					if ( --yields_left <= 0 ) {
+						yield_cpu();
+						continue;
 					}
 				}
-				// Otherwise pop first entry, run.
+
+				// Increment task priority and try to lock..
+				//
+				set_task_priority( lock.task_priority );
+				if ( lock.unwrap().try_lock() ) {
+					// If list is not empty or if we tried too many times, decrement pressure and break.
+					//
+					bool idle = list.empty();
+					if ( !idle || yields_left < 0 ) {
+						--pressure;
+						return idle;
+					}
+
+					// Unlock.
+					//
+					lock.unwrap().unlock();
+				}
+
+				// Lower TPR and yield.
+				//
+				set_task_priority( 0 );
+				yield_cpu();
+			}
+		}
+		FORCE_INLINE void unlock_as_worker() {
+			lock.unwrap().unlock();
+			set_task_priority( 0 );
+		}
+
+		// Gets the next worker to signal to increase pressure if 0.
+		//
+		FORCE_INLINE worker_state* locked_wakeup_one() {
+			worker_state* w = idle_list;
+			uint16_t expected = pressure.load( std::memory_order::relaxed );
+			if ( w && !expected ) [[unlikely]] {
+				++pressure; // Weakened, can be > 1 after execution, don't care.
+				idle_list = w->next_idle;
+				return w;
+			}
+			return nullptr;
+		}
+
+		// Drains the queue.
+		//
+		template<typename Worker>
+		FORCE_INLINE void drain( Worker& worker, [[maybe_unused]] work_queue<work_item>& ) {
+			// Acquire the lock, if there's nothing to do:
+			//
+			worker.idle = lock_as_worker( worker.idle );
+			if ( worker.idle ) [[unlikely]] {
+				// Insert into idle list and unlock.
+				//
+				worker.next_idle = idle_list;
+				idle_list = &worker;
+				unlock_as_worker();
+
+				// Halt until signalled.
+				//
+				worker.wait( worker.signal );
+				return worker.signal.reset();
+			}
+
+			// Pop the first entry.
+			//
+			work_item rw{ list.front() };
+			list.pop_front();
+
+			// If list is not empty wake up the next worker.
+			//
+			worker_state* w = nullptr;
+			if ( list.empty() ) {
+				is_empty.store( true, std::memory_order::relaxed );
+			} else {
+				w = locked_wakeup_one();
+			}
+
+			unlock_as_worker();
+			if ( w ) w->signal.notify();
+
+			// Execute the work.
+			//
+			return worker.execute( rw );
+		}
+
+		// Appends work to the queue.
+		//
+		NO_INLINE void push( void( __cdecl* cb )( void* ), void* arg ) {
+			is_empty.store( false, std::memory_order::relaxed );
+			std::unique_lock g{ lock };
+			list.emplace_back( work_item{ cb, arg } );
+
+			// If there is no pressure, wakeup next idle worker.
+			//
+			if ( worker_state* w = locked_wakeup_one() ) {
+				g.unlock();
+				w->signal.notify();
+			}
+		}
+
+		// Wakes up all threads, used for stopping the thread pool.
+		//
+		void wakeup_all() {
+			worker_state* w;
+			{
+				std::lock_guard _g{ lock };
+				w = idle_list;
+				idle_list = nullptr;
+			}
+
+			while ( w ) {
+				++pressure;
+				std::exchange( w, w->next_idle )->signal.notify();
+			}
+		}
+	};
+
+	// Deferred queue type (assumes only one worker is using it).
+	//
+	template<>
+	struct work_queue<deferred_work_item> {
+		static constexpr size_t max_locked_traversal = 32;
+		
+		xspinlock<>                   lock =      {};
+		std::list<deferred_work_item> list =      {};
+		worker_state*                 idle =      nullptr;
+		uint32_t                      sleep_hint = 0;
+
+		// Locking logic assuming proper TPR.
+		//
+		FORCE_INLINE void lock_as_worker() {
+			while ( true ) {
+				set_task_priority( lock.task_priority );
+				if ( lock.unwrap().try_lock() ) {
+					break;
+				}
+				set_task_priority( 0 );
+				yield_cpu();
+			}
+		}
+		FORCE_INLINE void unlock_as_worker() {
+			lock.unwrap().unlock();
+			set_task_priority( 0 );
+		}
+
+		// Drains the queue.
+		//
+		template<typename Worker>
+		FORCE_INLINE void drain( Worker& worker, work_queue<work_item>& immediate ) {
+			// Acquire the lock.
+			//
+			lock_as_worker();
+
+			// If there is no work to do:
+			//
+			if ( list.empty() ) [[unlikely]] {
+				// Set as idle entry and unlock.
+				//
+				idle = &worker;
+				unlock_as_worker();
+
+				// Halt until signalled.
+				//
+				worker.wait( worker.signal );
+				return worker.signal.reset();
+			}
+
+			std::list<deferred_work_item> ready_list = {};
+			auto split_ready_from = [ & ]( std::list<deferred_work_item>& other ) FORCE_INLINE {
+				int64_t current_time = Worker::timestamp( 0 );
+				for ( auto it = other.begin(); it != other.end(); ) {
+					if ( auto entry = it++; entry->is_ready( current_time ) ) {
+						ready_list.splice( ready_list.end(), other, entry );
+					}
+				}
+			};
+
+			// Separate the ready list, either via two-phase merge or full-scan.
+			//
+			if ( list.size() > max_locked_traversal ) [[unlikely]] {
+				// Swap the list with an empty one.
+				//
+				std::list<deferred_work_item> backlog = {};
+				list.swap( backlog );
+
+				// Filter out the ready list while unlocked.
+				//
+				unlock_as_worker();
+				split_ready_from( backlog );
+				lock_as_worker();
+
+				// If list has new entries, scan it, insert backlog at the end.
+				//
+				if ( !list.empty() ) {
+					split_ready_from( list );
+					list.splice( list.end(), backlog, backlog.begin(), backlog.end() );
+				} 
+				// Otherwise, swap the lists.
 				//
 				else {
-					last_sleep = 0; // We did something!
-					work_item rw{ list.front() };
-					list.pop_front();
-					on_pop();
-					g.unlock();
-					return rw();
+					list.swap( backlog );
 				}
-			}
-			g.unlock();
-
-			// Stall.
-			//
-			if ( sister_queue ) {
-				std::unique_lock g2{ sister_queue->lock, std::try_to_lock };
-				if ( g2 && !sister_queue->list.empty() ) {
-					work_item rw{ sister_queue->list.front() };
-					sister_queue->list.pop_front();
-					sister_queue->on_pop();
-					g2.unlock();
-					return rw();
-				}
-			}
-
-			uint32_t new_sleep = std::min( max_sleep, ( last_sleep + 1 ) * 2 );
-			if ( new_sleep < 7 ) {
-				std::this_thread::yield();
 			} else {
-				std::this_thread::sleep_for( new_sleep * 1ms );
+				// Filter out the ready list inline.
+				//
+				split_ready_from( list );
 			}
-			last_sleep = new_sleep;
+
+			// Unlock and commit sleep if there's nothing to do.
+			//
+			unlock_as_worker();
+			if ( ready_list.empty() ) {
+				sleep_hint |= 15;
+				sleep_hint <<= 1;
+				return worker.sleep( sleep_hint & 255 );
+			}
+
+			// Insert all entries from the ready list into the immediate queue and return.
+			//
+			for ( work_item e : ready_list ) {
+				immediate.push( e.cb, e.arg );
+			}
+			sleep_hint = 0;
 		}
-		void push( W work ) {
+
+		// Appends work to the queue.
+		//
+		NO_INLINE void push( void( __cdecl* cb )( void* ), void* arg, int64_t timeout, event_handle evt ) {
 			std::unique_lock g{ lock };
-			bool was_empty = list.empty();
-			list.emplace_back( work );
-			if ( was_empty ) {
+			list.emplace_front( deferred_work_item{ work_item{cb, arg}, evt, timeout } );
+
+			// Wake up if idle.
+			//
+			if ( worker_state* w = idle ) {
+				idle = nullptr;
 				g.unlock();
-				signal.notify();
+				w->signal.notify();
 			}
+		}
+		
+		// Wakes up all threads, used for stopping the thread pool.
+		//
+		void wakeup_all() {
+			worker_state* w;
+			{
+				std::lock_guard _g{ lock };
+				w = idle;
+				idle = nullptr;
+			}
+			if ( w ) w->signal.notify();
 		}
 	};
 
 	// Thread-pool.
 	//
+	template<typename Worker = default_worker>
 	struct thread_pool {
-		// One immediate queue and one deferred queue.
+		// Immediate and the deferred queue.
 		//
-		work_queue<work_item>          q_immediate = {};
-		work_queue<deferred_work_item> q_deferred  = {};
+		work_queue<work_item>          queue = {};
+		work_queue<deferred_work_item> deferred_queue  = {};
 
-		// Thread counts.
+		// Thread pool state.
 		//
-#if DEBUG_BUILD
-		size_t              num_threads_target = 7;
-#else
-		size_t              num_threads_target = std::clamp<size_t>( std::thread::hardware_concurrency(), 4, 16 );
-#endif
-		std::atomic<size_t> num_threads =        0;
-		std::atomic<bool>   running =            false;
+		std::atomic<size_t> num_threads = 0;
+		spinlock            state_lock = {};
+		bool                running = false;
 
 		// Thread logic.
 		//
-		static void thread_entry_point( void* ctx ) {
-			auto& tp = *(thread_pool*) ctx;
-			uint32_t id = ( uint32_t ) tp.num_threads++;
-			bool is_master = id == 0;
-			uint32_t last_sleep = 0;
-			uint32_t max_sleep = 10 + ( 5 << ( std::min<uint32_t>( id, 15 ) >> 1 ) ); // 15ms-650ms sleep duration, preferring localized work.
-			if ( is_master ) {
-				while ( tp.running.load( std::memory_order::relaxed ) ) [[likely]]
-					tp.q_deferred.process( last_sleep, max_sleep, &tp.q_immediate );
-			} else {
-				while ( tp.running.load( std::memory_order::relaxed ) ) [[likely]]
-					tp.q_immediate.process( last_sleep, max_sleep, nullptr );
+		template<typename Queue>
+		FORCE_INLINE void work( Queue& queue ) {
+			Worker worker = {};
+			this->num_threads++;
+			while ( running ) [[likely]] {
+				queue.drain( worker, this->queue );
+				worker.after_drain();
 			}
-			tp.num_threads--;
+			this->num_threads--;
+		}
+		NO_INLINE static void aux_entry_point( void* ctx ) {
+			auto& tp = *(thread_pool*) ctx;
+			return tp.work( tp.queue );
+		}
+		NO_INLINE static void master_entry_point( void* ctx ) {
+			auto& tp = *(thread_pool*) ctx;
+			return tp.work( tp.deferred_queue );
 		}
 
-		// Queues new work, starts the thread-pool if necessary.
+		// Queues new work, starts the thread-pool if lazily started.
 		//
-		void queue( void( __cdecl* cb )( void* ), void* arg, size_t delay = 0, event_handle event_handle = nullptr ) {
-			work_item iw{ cb, arg };
-			if ( event_handle || delay ) {
-				deferred_work_item dw{ iw, event_handle };
-				if ( delay )
-					dw.timeout = deferred_work_item::get_time() + delay;
-				else
-					dw.timeout = deferred_work_item::timeout_never;
-				q_deferred.push( dw );
+		FORCE_INLINE void push( void( __cdecl* cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) {
+			if ( evt || delay_ns > ( 1ms / 1ns ) ) {
+				int64_t timeout = INT64_MAX;
+				if ( delay_ns > 0 ) timeout = Worker::timestamp( delay_ns );
+				deferred_queue.push( cb, arg, timeout, evt );
 			} else {
-				q_immediate.push( iw );
+				queue.push( cb, arg );
+			}
+
+			if constexpr ( Worker::is_lazy ) {
+				if ( !running ) [[unlikely]] {
+					start_cold();
+				}
 			}
 		}
-		void queue_lazy( void( __cdecl* cb )( void* ), void* arg, size_t delay = 0, event_handle event_handle = nullptr ) {
-			if ( !running.load( std::memory_order::relaxed ) ) [[unlikely]] {
-				start();
-			}
-			return queue( cb, arg, delay, event_handle );
+		FORCE_INLINE void operator()( void( __cdecl* cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) { 
+			return push( cb, arg, delay_ns, evt );
 		}
 
 		// Starts/stops the threads.
 		//
-		COLD void start() {
-			if ( running.exchange( true ) )
-				return;
-			for ( size_t n = 0; n <= num_threads_target; n++ ) {
-				XSTD_TPOOL_START_THREAD( &thread_entry_point, this );
+		COLD void start_cold() {
+			// Second protection needed since start may require arguments if not lazily started.
+			//
+			if constexpr ( Worker::is_lazy ) {
+				start();
 			}
 		}
-		void wait_and_stop() {
-			running = false;
-			while ( num_threads )
+
+		template<typename... Tx>
+		void start( Tx&&... args ) {
+			std::lock_guard _g{ state_lock };
+			if ( running ) return;
+			running = true;
+
+			size_t target_count = std::max<size_t>( 2, Worker::get_ideal_worker_count() );
+			Worker::create_thread( &master_entry_point, this, args... );
+			for ( size_t n = 1; n != target_count; n++ ) {
+				Worker::create_thread( &aux_entry_point, this, args... );
+			}
+			while ( num_threads != target_count )
 				yield_cpu();
+		}
+		void stop() {
+			std::lock_guard _g{ state_lock };
+			if ( !running ) return;
+			running = false;
+
+			while ( num_threads ) {
+				queue.wakeup_all();
+				deferred_queue.wakeup_all();
+				yield_cpu();
+			}
 		}
 	};
 };

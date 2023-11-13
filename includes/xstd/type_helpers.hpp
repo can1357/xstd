@@ -16,6 +16,7 @@
 #include <variant>
 #include <bit>
 #include <string_view>
+#include <functional>
 #include <ranges>
 #include <initializer_list>
 
@@ -1542,9 +1543,8 @@ namespace xstd
 	// Cold call allows you to call out whilist making sure the target does not get inlined.
 	//
 	template<typename F, typename... Tx>
-	NO_INLINE COLD static decltype( auto ) cold_call( F&& fn, Tx&&... args )
-	{
-		return fn( std::forward<Tx>( args )... );
+	NO_INLINE COLD static decltype( auto ) cold_call( F&& fn, Tx&&... args ) {
+		return std::invoke( std::forward<F>( fn ), std::forward<Tx>( args )... );
 	}
 
 	// Runs the given lambda only if it's the first time.

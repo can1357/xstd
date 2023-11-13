@@ -5,16 +5,16 @@
 #include "event.hpp"
 
 // [[Configuration]]
-// XSTD_CHORE_SCHEDULER: If set, chore will pass OS a callback to help with the scheduling.
+// XSTD_CHORE_SCHEDULER: If set, chore will pass OS the data to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER
-	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( void( __cdecl* callback )( void* ), void* cb_arg, size_t delay_nano, xstd::event_handle event_handle );
+	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( void( __cdecl* cb )( void* ), void* arg, int64_t delay_ns, xstd::event_handle evt );
 #else
 	#include "thread_pool.hpp"
 	namespace xstd {
-		inline thread_pool g_default_threadpool = {};
+		inline thread_pool<> g_default_threadpool = {};
 	};
-	#define XSTD_CHORE_SCHEDULER(cb, arg, delay, evt) xstd::g_default_threadpool.queue_lazy( cb, arg, delay, evt )
+	#define XSTD_CHORE_SCHEDULER xstd::g_default_threadpool
 #endif
 
 namespace xstd {
@@ -117,11 +117,11 @@ namespace xstd {
 	//
 	template<typename T>
 	inline void chore( T&& fn, duration delay ) {
-		int64_t tick_count = delay / 1ns;
-		if ( tick_count < 1 ) tick_count = 1;
+		int64_t delay_ns = int64_t( delay / 1ns );
+		if ( delay_ns < 1 ) delay_ns = 1;
 
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
-		XSTD_CHORE_SCHEDULER( func, arg, size_t( tick_count ), nullptr );
+		XSTD_CHORE_SCHEDULER( func, arg, delay_ns, nullptr );
 	}
 	template<typename T>
 	inline void chore( T&& fn, timestamp due_time ) {
@@ -141,11 +141,15 @@ namespace xstd {
 	// Event triggered chores with timeout.
 	//
 	template<typename T>
-	inline void chore( T&& fn, event_handle evt, duration timeout ) {
-		int64_t tick_count = timeout / 1ns;
-		if ( tick_count < 1 ) tick_count = 1;
+	inline void chore( T&& fn, event_handle evt, duration delay ) {
+		int64_t delay_ns = int64_t( delay / 1ns );
+		if ( delay_ns < 1 ) delay_ns = 1;
 
 		auto [func, arg] = impl::flatten( std::forward<T>( fn ) );
-		XSTD_CHORE_SCHEDULER( func, arg, size_t( tick_count ), evt );
+		XSTD_CHORE_SCHEDULER( func, arg, delay_ns, evt );
+	}
+	template<typename T>
+	inline void chore( T&& fn, event_handle evt, timestamp due_time ) {
+		return chore( std::forward<T>( fn ), evt, due_time - time::now() );
 	}
 };
