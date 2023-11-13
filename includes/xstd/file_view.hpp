@@ -11,22 +11,23 @@
 
 // Required imports.
 //
+#if WINDOWS_TARGET
 extern "C" 
 {
-#if WINDOWS_TARGET
 	typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, * PSECURITY_ATTRIBUTES, * LPSECURITY_ATTRIBUTES;
 	__declspec( dllimport ) void* __stdcall CreateFileW( const wchar_t* lpFileName, unsigned long dwDesiredAccess, unsigned long dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, unsigned long dwCreationDisposition, unsigned long dwFlagsAndAttributes, void* hTemplateFile );
 	__declspec( dllimport ) void* __stdcall CreateFileMappingFromApp( void* hFile, PSECURITY_ATTRIBUTES SecurityAttributes, unsigned long PageProtection, unsigned long long MaximumSize, const wchar_t* Name );
 	__declspec( dllimport ) void* __stdcall MapViewOfFileFromApp( void* hFileMappingObject, unsigned long DesiredAccess, unsigned long long FileOffset, size_t NumberOfBytesToMap );
 	__declspec( dllimport ) int __stdcall UnmapViewOfFile( const void* BaseAddress );
 	__declspec( dllimport ) int __stdcall CloseHandle( void* hObject );
-#else
-	int open( const char* pathname, int flags );
-	int close( int fd );
-	void* mmap( void* addr, size_t length, int prot, int flags, int fd, long offset );
-	int munmap( void* addr, size_t length );
-#endif
 };
+#else
+	#include <sys/mman.h>
+	#include <unistd.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
+	#include <fcntl.h>
+#endif
 
 
 // Declare a simple interface to map files onto memory.

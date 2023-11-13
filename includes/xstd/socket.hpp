@@ -582,9 +582,9 @@ namespace xstd::net {
 			if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != EINTR && e != EINPROGRESS && e != EAGAIN && e != EWOULDBLOCK ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
-				}
-				if ( e == EWOULDBLOCK || e == EAGAIN )
+				} else if ( e == EWOULDBLOCK || e == EAGAIN ) {
 					count = write_count;
+				}
 				need_poll = true;
 			} else {
 				count = (uint32_t) result;
@@ -612,7 +612,11 @@ namespace xstd::net {
 		//
 		void socket_reconfig_tcp() {
 			this->try_set_socket_opt( SOL_TCP, TCP_NODELAY, opt.nodelay );
+#if XSTD_WINSOCK
 			this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMPS, opt.timestamps );
+#else
+			this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMP, opt.timestamps );
+#endif
 			if ( opt.keepalive ) {
 				this->set_socket_opt( SOL_TCP, TCP_KEEPIDLE, uint32_t( *opt.keepalive / 1s ) );
 			}

@@ -8,7 +8,7 @@
 // XSTD_CHORE_SCHEDULER: If set, chore will pass OS the data to help with the scheduling.
 //
 #ifdef XSTD_CHORE_SCHEDULER
-	extern "C" void __cdecl XSTD_CHORE_SCHEDULER( void( __cdecl* cb )( void* ), void* arg, int64_t delay_ns, xstd::event_handle evt );
+	extern "C" void  XSTD_CHORE_SCHEDULER( void( * cb )( void* ), void* arg, int64_t delay_ns, xstd::event_handle evt );
 #else
 	#include "thread_pool.hpp"
 	namespace xstd {
@@ -23,7 +23,7 @@ namespace xstd {
 		//
 		template<typename F>
 		struct function_store {
-			static void __cdecl run( void* adr ) {
+			static void  run( void* adr ) {
 				// Stateless:
 				//
 				if constexpr ( Empty<F> && DefaultConstructible<F> ) {
@@ -46,7 +46,7 @@ namespace xstd {
 			}
 
 			template<typename... Tx>
-			static std::pair<void( __cdecl* )( void* ), void*> apply( Tx&&... args ) {
+			static std::pair<void( * )( void* ), void*> apply( Tx&&... args ) {
 				// Stateless:
 				//
 				void* ctx;
@@ -70,9 +70,9 @@ namespace xstd {
 		// Function pointer.
 		//
 		template<typename T> requires ( Void<T> || TriviallyDestructable<T> )
-		struct function_store<T( __cdecl* )( )> {
-			static std::pair<void( __cdecl* )( void* ), void*> apply( T( __cdecl* ptr )( ) ) {
-				return { ( void( __cdecl* )( void* ) ) ptr, nullptr };
+		struct function_store<T( * )( )> {
+			static std::pair<void( * )( void* ), void*> apply( T( * ptr )( ) ) {
+				return { ( void( * )( void* ) ) ptr, nullptr };
 			}
 		};
 
@@ -82,15 +82,15 @@ namespace xstd {
 		struct function_store<coroutine_handle<>>
 		{
 #if XSTD_CORO_KNOWN_STRUCT
-			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<> hnd ) {
+			static std::pair<void( * )( void* ), void*> apply( coroutine_handle<> hnd ) {
 				auto& coro = coroutine_struct<>::from_handle( hnd );
 				return { coro.fn_resume, &coro };
 			}
 #else
-			static void __cdecl run( void* adr ) {
+			static void  run( void* adr ) {
 				coroutine_handle<>::from_address( adr ).resume();
 			}
-			static std::pair<void( __cdecl* )( void* ), void*> apply( coroutine_handle<> hnd ) {
+			static std::pair<void( * )( void* ), void*> apply( coroutine_handle<> hnd ) {
 				return { &run, hnd.address() };
 			}
 #endif
@@ -100,7 +100,7 @@ namespace xstd {
 		// Flattens the function.
 		//
 		template<typename F>
-		inline std::pair<void( __cdecl* )( void* ), void*> flatten( F&& fn ) {
+		inline std::pair<void( * )( void* ), void*> flatten( F&& fn ) {
 			return function_store<std::decay_t<F>>::apply( std::forward<F>( fn ) );
 		}
 	};

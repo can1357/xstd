@@ -101,9 +101,9 @@ namespace xstd
 		T&& value() && { fassert( finished() ); return std::move( *handle.promise().value ); }
 		const T& value() const & { fassert( finished() ); return *handle.promise().value; }
 		
-		S& status() & { fassert( finished() ); return handle.promise().value.status; }
-		S&& status() && { fassert( finished() ); return std::move( handle.promise().value.status ); }
-		const S& status() const & { fassert( finished() ); return handle.promise().value.status; }
+		auto& status() & { fassert( finished() ); return handle.promise().value.status; }
+		auto&& status() && { fassert( finished() ); return std::move( handle.promise().value.status ); }
+		const auto& status() const & { fassert( finished() ); return handle.promise().value.status; }
 
 		// Resumes the coroutine and returns the status.
 		//
@@ -201,9 +201,9 @@ namespace xstd
 
 		std::monostate value() { fassert( finished() ); return {}; }
 		
-		S& status() & { fassert( finished() ); return handle.promise().value.status; }
-		S&& status() && { fassert( finished() ); return std::move( handle.promise().value.status ); }
-		const S& status() const & { fassert( finished() ); return handle.promise().value.status; }
+		auto& status() & { fassert( finished() ); return handle.promise().value.status; }
+		auto&& status() && { fassert( finished() ); return std::move( handle.promise().value.status ); }
+		const auto& status() const & { fassert( finished() ); return handle.promise().value.status; }
 
 		// Resumes the coroutine and returns the status.
 		//

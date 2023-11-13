@@ -537,34 +537,34 @@ namespace xstd {
 
 		// Non-constexpr utils.
 		//
-		template<typename U, size_t E> vec_buffer( std::span<U, E> v ) : vec_buffer{ std::span{ (const uint8_t*) v.data(), v.size_bytes() } } {}
-		template<typename U, size_t E> uint8_t* insert_range( const uint8_t* it, std::span<U, E> v ) { return insert_range( it, std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> uint8_t* assign_range( std::span<U, E> v ) { return assign_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> uint8_t* append_range( std::span<U, E> v ) { return append_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> uint8_t* prepend_range( std::span<U, E> v ) { return prepend_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> bool pop_range( std::span<U, E> v ) { return pop_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> bool pop_range_if( std::span<U, E> v ) { return pop_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> bool shift_range( std::span<U, E> v ) { return shift_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> bool shift_range_if( std::span<U, E> v ) { return shift_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr vec_buffer( std::span<U, E> v ) : vec_buffer{ std::span{ (const uint8_t*) v.data(), v.size_bytes() } } {}
+		template<typename U, size_t E> constexpr uint8_t* insert_range( const uint8_t* it, std::span<U, E> v ) { return insert_range( it, std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr uint8_t* assign_range( std::span<U, E> v ) { return assign_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr uint8_t* append_range( std::span<U, E> v ) { return append_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr uint8_t* prepend_range( std::span<U, E> v ) { return prepend_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool pop_range( std::span<U, E> v ) { return pop_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool pop_range_if( std::span<U, E> v ) { return pop_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool shift_range( std::span<U, E> v ) { return shift_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool shift_range_if( std::span<U, E> v ) { return shift_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
 
-		template<typename U = char> vec_buffer( std::basic_string_view<U> v ) : vec_buffer{ std::span{v} } {}
-		template<typename U = char> uint8_t* insert_range( const uint8_t* it, std::basic_string_view<U> v ) { return insert_range( it, std::span{ v } ); }
-		template<typename U = char> uint8_t* assign_range( std::basic_string_view<U> v ) { return assign_range( std::span{ v } ); }
-		template<typename U = char> uint8_t* append_range( std::basic_string_view<U> v ) { return append_range( std::span{ v } ); }
-		template<typename U = char> uint8_t* prepend_range( std::basic_string_view<U> v ) { return prepend_range( std::span{ v } ); }
+		template<typename U = char> constexpr vec_buffer( std::basic_string_view<U> v ) : vec_buffer{ std::span{v} } {}
+		template<typename U = char> constexpr uint8_t* insert_range( const uint8_t* it, std::basic_string_view<U> v ) { return insert_range( it, std::span{ v } ); }
+		template<typename U = char> constexpr uint8_t* assign_range( std::basic_string_view<U> v ) { return assign_range( std::span{ v } ); }
+		template<typename U = char> constexpr uint8_t* append_range( std::basic_string_view<U> v ) { return append_range( std::span{ v } ); }
+		template<typename U = char> constexpr uint8_t* prepend_range( std::basic_string_view<U> v ) { return prepend_range( std::span{ v } ); }
 
-		template<typename U = char> vec_buffer( const std::basic_string<U>& v ) : vec_buffer{ std::span{v} } {}
-		template<typename U = char> uint8_t* insert_range( const uint8_t* it, const std::basic_string<U>& v ) { return insert_range( it, std::span{ v } ); }
-		template<typename U = char> uint8_t* assign_range( const std::basic_string<U>& v ) { return assign_range( std::span{ v } ); }
-		template<typename U = char> uint8_t* append_range( const std::basic_string<U>& v ) { return append_range( std::span{ v } ); }
-		template<typename U = char> uint8_t* prepend_range( const std::basic_string<U>& v ) { return prepend_range( std::span{ v } ); }
+		template<typename U = char> constexpr vec_buffer( const std::basic_string<U>& v ) : vec_buffer{ std::span{v} } {}
+		template<typename U = char> constexpr uint8_t* insert_range( const uint8_t* it, const std::basic_string<U>& v ) { return insert_range( it, std::span{ v } ); }
+		template<typename U = char> constexpr uint8_t* assign_range( const std::basic_string<U>& v ) { return assign_range( std::span{ v } ); }
+		template<typename U = char> constexpr uint8_t* append_range( const std::basic_string<U>& v ) { return append_range( std::span{ v } ); }
+		template<typename U = char> constexpr uint8_t* prepend_range( const std::basic_string<U>& v ) { return prepend_range( std::span{ v } ); }
 
-		template<typename U> U& pop_as() { return *(U*) pop( sizeof( U ) ); }
-		template<typename U> U* pop_as_if() { return (U*) pop( sizeof( U ), false ); }
-		template<typename U> U& shift_as() { return *(U*) shift( sizeof( U ) ); }
-		template<typename U> U* shift_as_if() { return (U*) shift( sizeof( U ), false ); }
-		template<typename U> U& emplace_back_as( const U& value ) { return *(U*) append_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
-		template<typename U> U& emplace_front_as( const U& value ) { return *(U*) prepend_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
+		template<typename U> constexpr U& pop_as() { return *(U*) pop( sizeof( U ) ); }
+		template<typename U> constexpr U* pop_as_if() { return (U*) pop( sizeof( U ), false ); }
+		template<typename U> constexpr U& shift_as() { return *(U*) shift( sizeof( U ) ); }
+		template<typename U> constexpr U* shift_as_if() { return (U*) shift( sizeof( U ), false ); }
+		template<typename U> constexpr U& emplace_back_as( const U& value ) { return *(U*) append_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
+		template<typename U> constexpr U& emplace_front_as( const U& value ) { return *(U*) prepend_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
 
 		// Destructor.
 		//

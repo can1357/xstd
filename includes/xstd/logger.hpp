@@ -18,8 +18,8 @@
 // XSTD_CON_NO_COLORS: If set, disables colors.
 // XSTD_CON_NO_WARNINGS: If set, disables warnings.
 // XSTD_CON_NO_LOGS: If set, disables logs.
-// XSTD_CON_ERROR_REDIRECT: If set, redirects errors to the set name. [Prototype: extern "C" void __cdecl [[noreturn]] ( const std::string& )]
-// XSTD_CON_ERROR_NOMSG: If set, changes the redirect prototype to extern "C" void __cdecl [[noreturn]] ();
+// XSTD_CON_ERROR_REDIRECT: If set, redirects errors to the set name. [Prototype: extern "C" void  [[noreturn]] ( const std::string& )]
+// XSTD_CON_ERROR_NOMSG: If set, changes the redirect prototype to extern "C" void  [[noreturn]] ();
 // XSTD_CON_ERR_DST: If set, changes the error/warning logging destination from stderr to the given FILE*.
 // XSTD_CON_MSG_DST: If set, changes the generic logging destination from stdout to the given FILE*.
 // XSTD_CON_IFLUSH: If set, instantaneously flushes the file after every message.
@@ -55,9 +55,9 @@
 #endif
 #ifdef XSTD_CON_ERROR_REDIRECT
 	#if XSTD_CON_ERROR_NOMSG
-		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ();
+		extern "C" void  XSTD_CON_ERROR_REDIRECT [[noreturn]] ();
 	#else
-		extern "C" void __cdecl XSTD_CON_ERROR_REDIRECT [[noreturn]] ( const char* );
+		extern "C" void  XSTD_CON_ERROR_REDIRECT [[noreturn]] ( const char* );
 	#endif
 #endif
 

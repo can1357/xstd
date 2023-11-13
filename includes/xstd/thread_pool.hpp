@@ -12,7 +12,7 @@ namespace xstd {
 	// Work item.
 	//
 	struct work_item {
-		void( __cdecl*cb )( void* );
+		void( *cb )( void* );
 		void* arg;
 
 		FORCE_INLINE void operator()() { cb( arg ); }
@@ -43,7 +43,7 @@ namespace xstd {
 		static size_t get_ideal_worker_count() {
 			return std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 8, 32 );
 		}
-		static void create_thread( void( __cdecl* cb )( void* ), void* arg ) {
+		static void create_thread( void( * cb )( void* ), void* arg ) {
 			std::thread{ cb, arg }.detach();
 		}
 		FORCE_INLINE static int64_t timestamp( int64_t delta_ns ) {
@@ -189,7 +189,7 @@ namespace xstd {
 
 		// Appends work to the queue.
 		//
-		NO_INLINE void push( void( __cdecl* cb )( void* ), void* arg ) {
+		NO_INLINE void push( void( * cb )( void* ), void* arg ) {
 			is_empty.store( false, std::memory_order::relaxed );
 			std::unique_lock g{ lock };
 			list.emplace_back( work_item{ cb, arg } );
@@ -324,7 +324,7 @@ namespace xstd {
 
 		// Appends work to the queue.
 		//
-		NO_INLINE void push( void( __cdecl* cb )( void* ), void* arg, int64_t timeout, event_handle evt ) {
+		NO_INLINE void push( void( * cb )( void* ), void* arg, int64_t timeout, event_handle evt ) {
 			std::unique_lock g{ lock };
 			list.emplace_front( deferred_work_item{ work_item{cb, arg}, evt, timeout } );
 
@@ -388,7 +388,7 @@ namespace xstd {
 
 		// Queues new work, starts the thread-pool if lazily started.
 		//
-		FORCE_INLINE void push( void( __cdecl* cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) {
+		FORCE_INLINE void push( void( * cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) {
 			if ( evt || delay_ns > ( 1ms / 1ns ) ) {
 				int64_t timeout = INT64_MAX;
 				if ( delay_ns > 0 ) timeout = Worker::timestamp( delay_ns );
@@ -403,7 +403,7 @@ namespace xstd {
 				}
 			}
 		}
-		FORCE_INLINE void operator()( void( __cdecl* cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) { 
+		FORCE_INLINE void operator()( void( * cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) { 
 			return push( cb, arg, delay_ns, evt );
 		}
 

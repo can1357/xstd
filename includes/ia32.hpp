@@ -25531,7 +25531,7 @@ namespace ia32
 };
 #pragma pack(pop)
 
-#if CLANG_COMPILER
+#if GNU_COMPILER
 // This namespace provides IA32 intrinsics that Clang decided not to.
 //
 
@@ -26773,11 +26773,11 @@ namespace ia32
 	_LINKAGE void read_io( any_ptr dst, uint16_t adr, size_t count )
 	{
 		if constexpr ( sizeof( T ) > 2 )
-			asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+			asm volatile( "cld; rep insl" : "+D" ( dst.address ), "+d" ( adr ), "+c" ( count ) :: "memory", "flags" );
 		else if constexpr ( sizeof( T ) > 1 )
-			asm volatile( "cld; rep insw" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+			asm volatile( "cld; rep insw" : "+D" ( dst.address ), "+d" ( adr ), "+c" ( count ) :: "memory", "flags" );
 		else
-			asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "memory", "flags" );
+			asm volatile( "cld; rep insb" : "+D" ( dst.address ), "+d" ( adr ), "+c" ( count ) :: "memory", "flags" );
 	}
 	template<typename T = uint8_t> requires ( sizeof( T ) <= 4 )
 	_LINKAGE void write_io( uint16_t adr, T tvalue )
@@ -26801,11 +26801,11 @@ namespace ia32
 	_LINKAGE void write_io( uint16_t adr, any_ptr dst, size_t count )
 	{
 		if constexpr ( sizeof( T ) > 2 )
-			asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+			asm volatile( "cld; rep outsl" : "+S" ( dst.address ), "+d" ( adr ), "+c" ( count ) :: "flags" );
 		else if constexpr ( sizeof( T ) > 1 )
-			asm volatile( "cld; rep outsw" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+			asm volatile( "cld; rep outsw" : "+S" ( dst.address ), "+d" ( adr ), "+c" ( count ) :: "flags" );
 		else
-			asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ) "+c" ( count ) : "flags" );
+			asm volatile( "cld; rep outsb" : "+S" ( dst.address ), "+d" ( adr ), "+c" ( count ) :: "flags" );
 	}
 	_LINKAGE void usleep() { write_io<uint8_t>( 0x80, 0 ); }
 
@@ -26884,24 +26884,22 @@ namespace ia32
 	{
 		if constexpr ( is_kernel_mode() )
 		{
-			__asm
-			{
+			asm volatile( R"(
 				pushfq
 				cli
-				x:
-					xor eax, eax
-					jz x
+				1:
+					xor %%eax, %%eax
+					jz 1b
 				popfq
-			}
+			)" ::: "rax" );
 		}
 		else
 		{
-			__asm
-			{
-				x:
-					xor eax, eax
-					jz x
-			}
+			asm volatile( R"(
+				1:
+					xor %%eax, %%eax
+					jz 1b
+			)" ::: "rax" );
 		}
 	}
 	_LINKAGE void icebp()
@@ -27078,7 +27076,10 @@ namespace ia32
 
 		/* Load initial values */
 		ABCD = xstd::load_misaligned<v4d_u>( iv );
-		E0 = { 0, 0, 0, iv[ 4 ] };
+		E0[ 0 ] = 0;
+		E0[ 1 ] = 0;
+		E0[ 2 ] = 0;
+		E0[ 3 ] = iv[ 4 ];
 		ABCD = __builtin_shufflevector( ABCD, ABCD, 3, 2, 1, 0 );
 
 		/* Save current state  */
