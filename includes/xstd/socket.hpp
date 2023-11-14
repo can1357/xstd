@@ -799,7 +799,7 @@ namespace xstd::net {
 					exc = { XSTD_ESTR( "poll error: %d" ), err };
 					poll.revents |= POLLERR;
 				}
-				short ret = poll.revents & ( evt | POLLERR );
+				short ret = poll.revents & ( evt | POLLERR | POLLHUP );
 				poll.revents ^= ret;
 				return ret;
 			};
@@ -820,7 +820,7 @@ namespace xstd::net {
 				while ( true ) {
 					short events = poll_for( POLLOUT );
 					if ( stopped() ) co_return;
-					if ( events & POLLERR ) {
+					if ( events & ( POLLERR | POLLHUP ) ) {
 						stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 						co_return;
 					} else if ( timeout < time::now() ) {
@@ -845,16 +845,12 @@ namespace xstd::net {
 			while ( true ) {
 				short events = poll_for( POLLOUT | POLLIN );
 				if ( stopped() ) co_return;
-				if ( events & POLLERR ) {
+				if ( events & ( POLLERR | POLLHUP ) ) {
 					stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 					co_return;
-				} else if ( events & POLLIN ) {
-					fib_receiver.resume();
-				} else if ( events & POLLOUT ) {
-					fib_sender.resume();
-				} else {
-					co_await yield{};
-				}
+				} 
+				if ( events & POLLIN )  fib_receiver.resume();
+				if ( events & POLLOUT ) fib_sender.resume();
 			}
 
 		}

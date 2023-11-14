@@ -62,22 +62,46 @@ namespace xstd {
 	// Type-erasing scheduler by reference.
 	// 
 	struct scheduler_reference {
-		coroutine_handle<>( *fn )( void*, coroutine_handle<> ) = nullptr;
+		// Inline functions instead of lambda so pointer comparison works.
+		//
+		template<Scheduler Sched>
+		inline static coroutine_handle<> thunk( void* ctx, coroutine_handle<> hnd ) {
+			if constexpr ( Empty<Sched> )
+				return Sched{}( hnd );
+			else
+				return ( *(Sched*) ctx )( hnd );
+		}
+
+		// The context and the function pointer, default value is noop_scheduler.
+		//
+		coroutine_handle<>( *fn )( void*, coroutine_handle<> ) = &thunk<noop_scheduler>;
 		void* ctx = nullptr;
 
+		// Constructors for each kind.
+		//
 		template<Scheduler Sched> requires Empty<Sched>
-		constexpr scheduler_reference( Sched&& ) {
-			fn = []( void*, coroutine_handle<> hnd ) -> coroutine_handle<> {
-				return Sched{}( hnd );
-			};
+		constexpr scheduler_reference( Sched&& ) : fn( &thunk<std::decay_t<Sched>> ) {
 		}
-		template<Scheduler Sched>
-		constexpr scheduler_reference( Sched& sched ) {
-			ctx = &sched;
-			fn = []( void* ctx, coroutine_handle<> hnd ) -> coroutine_handle<> {
-				return ( *(Sched*) ctx )( hnd );
-			};
+		template<Scheduler Sched> requires ( !std::is_same_v<std::decay_t<Sched>, scheduler_reference> )
+		constexpr scheduler_reference( Sched& sched ) : fn( &thunk<std::decay_t<Sched>> ) {
+			ctx = Empty<std::decay_t<Sched>> ? nullptr : &sched;
 		}
+
+		// Default ctor, copy, move, assign.
+		//
+		constexpr scheduler_reference() noexcept = default;
+		constexpr scheduler_reference( scheduler_reference&& ) noexcept = default;
+		constexpr scheduler_reference( const scheduler_reference& ) noexcept = default;
+		constexpr scheduler_reference& operator=( scheduler_reference&& ) noexcept = default;
+		constexpr scheduler_reference& operator=( const scheduler_reference& ) noexcept = default;
+
+		// Evaluates to true if not no-op.
+		//
+		constexpr bool has_value() const noexcept { return fn != scheduler_reference{}.fn; }
+		constexpr explicit operator bool() const noexcept { return has_value(); }
+
+		// Implement the scheduler interface.
+		//
 		coroutine_handle<> operator()( coroutine_handle<> handle ) const {
 			return fn( ctx, handle );
 		}
