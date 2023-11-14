@@ -227,7 +227,7 @@ namespace xstd::net {
 		tcp,
 	};
 	struct socket_options : duplex_options {
-		xstd::duration                conn_timeout =   5s;
+		xstd::duration                conn_timeout =   10s;
 		int                           listen_backlog = 128;
 		xstd::duration                max_stall =      250ms;
 		xstd::duration                linger =         30s;
