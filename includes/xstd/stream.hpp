@@ -167,6 +167,7 @@ namespace xstd {
 			if ( ended ) return;
 			ended = 1;
 			fin = 1;
+			shrink_to_fit();
 			high_watermark = std::dynamic_extent;
 			auto producer = std::exchange( this->producer, nullptr );
 			auto consumer = std::exchange( this->consumer, nullptr );
@@ -376,7 +377,19 @@ namespace xstd {
 			state().stop_written.store( true, std::memory_order::release );
 			readable().destroy();
 			writable().destroy();
-			state().signal()();
+
+			// Find any async-scheduler and schedule the signal using it.
+			//
+			scheduler_reference ref = {};
+			for ( async_buffer* stream : { &readable(), &writable() } ) {
+				for ( scheduler_reference sched : { stream->sched_enter, stream->sched_leave } ) {
+					ref = sched;
+					if ( ref ) break;
+				}
+				if ( ref ) break;
+			}
+			if ( !ref ) ref = chore_scheduler{};
+			ref( state().signal( ref ) )( );
 			return true;
 		}
 		bool stop( exception ex ) {
