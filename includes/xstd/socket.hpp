@@ -849,6 +849,10 @@ namespace xstd::net {
 					stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 					co_return;
 				} 
+				if ( !( events & ( POLLIN | POLLOUT ) ) ) {
+					co_await yield{};
+					continue;
+				}
 				if ( events & POLLIN )  fib_receiver.resume();
 				if ( events & POLLOUT ) fib_sender.resume();
 			}
