@@ -859,8 +859,10 @@ namespace xstd::net {
 
 		}
 	};
-	struct tcp_listening : socket {
-		tcp_listening( ipv4 address, uint16_t port, socket_options opts = {} ) : socket( socket_protocol::tcp, address, port, opts ) {
+	struct tcp_server : socket {
+		fiber fib_accept;
+
+		tcp_server( ipv4 address, uint16_t port, socket_options opts = {} ) : socket( socket_protocol::tcp, address, port, opts ) {
 			// Initialize networking and get a socket.
 			//
 			if ( !this->assert_status( XSTD_ESTR( "failed to initialize networking: %d" ), detail::init_networking() ) )
@@ -875,23 +877,24 @@ namespace xstd::net {
 			if ( !this->assert_status( XSTD_ESTR( "failed to bind socket: %d" ), this->socket_bind() ) )
 				return;
 		}
-		tcp_listening( uint16_t port, socket_options opts = {} ) : tcp_listening( ipv4{}, port, opts ) {}
+		tcp_server( uint16_t port, socket_options opts = {} ) : tcp_server( ipv4{}, port, opts ) {}
 
 		template<typename F>
-		fiber listen( F&& callback ) {
+		bool listen( F&& callback ) {
 			if ( !this->assert_status( XSTD_ESTR( "failed to listen socket: %d" ), this->socket_listen() ) )
-				return nullptr;
-			return accept_thread( std::forward<F>( callback ) );
+				return false;
+			fib_accept = accept_more( std::forward<F>( callback ) );
+			return true;
 		}
 
-		~tcp_listening() {
+		~tcp_server() {
 			close();
 			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
 		}
 
 	protected:
 		template<typename F>
-		fiber accept_thread( F callback ) {
+		fiber accept_more( F callback ) {
 			// Create FD watch.
 			//
 			fd_set fd_er, fd_wr;
@@ -997,11 +1000,9 @@ namespace xstd::net {
 			} );
 		}
 		socket_error socket_bind() {
-			std::lock_guard _g{ core_lock };
 			return tcp_bind( pcb, address.lwip(), port );
 		}
 		socket_error socket_listen() {
-			std::lock_guard _g{ core_lock };
 			socket_error err = 0;
 			if ( auto new_fd = tcp_listen_with_backlog_and_err( pcb, (uint8_t) std::min( opt.listen_backlog, 0xff ), &err ) ) {
 				if ( err ) {
@@ -1335,6 +1336,84 @@ namespace xstd::net {
 					if ( request.empty() ) break;
 					if ( need_poll ) co_yield {};
 				}
+			}
+		}
+	};
+	struct tcp_server : socket {
+		xspinlock<>                       accept_queue_mtx;
+		std::vector<std::unique_ptr<tcp>> accept_queue;
+		fiber                             fib_accept;
+
+		tcp_server( ipv4 address, uint16_t port, socket_options opts = {} ) : socket( socket_protocol::tcp, address, port, opts ) {
+			// Get a socket.
+			//
+			std::unique_lock lock{ core_lock };
+			socket_t client_socket = tcp_new();
+			if ( !client_socket ) {
+				lock.unlock();
+				this->stop( XSTD_ESTR( "failed to create a socket" ) );
+				return;
+			}
+			set_pcb( client_socket );
+
+			// Bind the socket.
+			//
+			if ( !this->assert_status( XSTD_ESTR( "failed to bind socket: %d" ), this->socket_bind() ) )
+				return;
+		}
+		tcp_server( uint16_t port, socket_options opts = {} ) : tcp_server( ipv4{}, port, opts ) {}
+
+		template<typename F>
+		bool listen( F&& callback ) {
+			std::lock_guard _g{ core_lock };
+			if ( !this->assert_status( XSTD_ESTR( "failed to listen socket: %d" ), this->socket_listen() ) )
+				return false;
+			tcp_accept( pcb, []( void* _arg, tcp_pcb* new_pcb, err_t err ) -> socket_error {
+				if ( err || !new_pcb ) return ERR_OK;
+				if ( auto arg = (tcp_server*) _arg ) {
+					if ( !arg->fib_accept || !arg->get_pcb() )
+						return ERR_CLSD;
+					std::lock_guard _g{ arg->accept_queue_mtx };
+					arg->accept_queue.emplace_back( std::make_unique<tcp>( ipv4{ new_pcb->remote_ip }, new_pcb->remote_port, arg->get_options(), new_pcb ) );
+					arg->fib_accept.resume();
+					return ERR_OK;
+				} else {
+					if ( tcp_close( new_pcb ) ) {
+						tcp_abort( new_pcb );
+					}
+					return ERR_ABRT;
+				}
+			} );
+			fib_accept = accept_more( std::forward<F>( callback ) );
+			return true;
+		}
+
+		~tcp_server() {
+			close();
+			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
+		}
+
+	protected:
+		template<typename F>
+		fiber accept_more( F callback ) {
+			bool need_yield = true;
+			while ( true ) {
+				if ( stopped() || !pcb ) co_return;
+				if ( need_yield ) co_yield {};
+
+				std::unique_ptr<tcp> next;
+				{
+					std::lock_guard _g{ accept_queue_mtx };
+					if ( accept_queue.empty() ) {
+						need_yield = true;
+						continue;
+					} else {
+						std::swap( next, accept_queue.back() );
+						accept_queue.pop_back();
+						need_yield = accept_queue.empty();
+					}
+				}
+				callback( std::move( next ) );
 			}
 		}
 	};
