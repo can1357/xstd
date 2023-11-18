@@ -524,85 +524,6 @@ namespace xstd::http {
 		}
 	};
 
-	// HTTP agent structure.
-	// - Currently only manages the socket pool, TODO: Caching, cookies.
-	//
-	struct agent {
-		// Releases a connection back to the pool after a request is complete with keep-alive.
-		//
-		virtual void release( unique_stream& sock ) {
-			(void) sock;
-		}
-
-		// Creates a connection using the pool.
-		//
-		virtual unique_stream connect_by_ip( net::ipv4 ip, uint16_t port, net::socket_options opts = {} ) {
-			return { new net::tcp( ip, port, std::move( opts ) ) };
-		}
-		virtual job<result<unique_stream>> connect_by_name( const char* hostname, uint16_t port, net::socket_options opts = {} ) {
-			auto ip = co_await net::resolve_hostname( hostname );
-			if ( !ip ) co_return std::move( ip.status );
-			co_return connect_by_ip( *ip, port, opts );
-		}
-
-		// Virtual dtor.
-		//
-		virtual ~agent() = default;
-		
-		// Global agent (no-op by default).
-		//
-		inline static std::atomic<agent*> g_agent = nullptr;
-		template<typename Type, typename... Tx>
-		inline static void set_global( Tx&&... args ) {
-			// Will never be destroyed.
-			g_agent = new Type( std::forward<Tx>( args )... );
-		}
-		inline static agent& global() {
-			auto* result = g_agent.load( std::memory_order::relaxed );
-			if ( !result ) {
-				result = (agent*) &xstd::make_default<agent>();
-			}
-			return *result;
-		}
-	};
-	struct shared_agent : agent {
-		xstd::xspinlock<> mtx;
-
-		// Connection pool.
-		//
-		robin_hood::unordered_flat_map<uint64_t, unique_stream> connection_pool;
-		static constexpr uint64_t remote_uid( net::ipv4 ip, uint16_t port ) {
-			uint64_t uid = { ip.to_integer() };
-			uid = ( uid << 16 ) | port;
-			return uid;
-		}
-		void release( unique_stream& sock ) override {
-			if ( auto* tcp = sock.get_if<net::tcp>() ) {
-				auto [ip, port] = tcp->get_remote_address();
-				auto uid = remote_uid( ip, port );
-				std::lock_guard _g{ mtx };
-				connection_pool.try_emplace( uid, std::move( sock ) );
-			}
-		}
-		unique_stream connect_by_ip( net::ipv4 ip, uint16_t port, net::socket_options opts = {} ) override {
-			unique_stream result;
-			{
-				std::lock_guard _g{ mtx };
-				auto it = connection_pool.find( remote_uid( ip, port ) );
-				if ( it != connection_pool.end() ) {
-					if ( !it->second.stopped() ) {
-						result = std::move( it->second );
-					}
-					connection_pool.erase( it );
-				}
-			}
-			if ( !result ) {
-				result = agent::connect_by_ip( ip, port, std::move( opts ) );
-			}
-			return result;
-		}
-	};
-
 	// HTTP body helpers.
 	//
 	namespace body {
@@ -756,6 +677,16 @@ namespace xstd::http {
 		vec_buffer      body = {};
 		http::headers   headers = {};
 		body::props     body_props = { 0, body::unknown };
+		exception       connection_error = {};
+
+		// Error state.
+		//
+		bool ok() const {
+			return !connection_error;
+		}
+		exception error() const {
+			return connection_error;
+		}
 
 		// Default, copy, move.
 		//
@@ -767,6 +698,7 @@ namespace xstd::http {
 
 		// By value.
 		//
+		explicit message( exception error ) : connection_error( std::move( error ) ) {}
 		message( vec_buffer body, http::headers headers = {} ) : body( std::move( body ) ), headers( std::move( headers ) ) { this->body_props = { this->body.size(), body::finished }; }
 		message( options&& opt ) : message( std::move( opt.body ), std::move( opt.headers ) ) {}
 
@@ -843,12 +775,26 @@ namespace xstd::http {
 
 		// By value.
 		//
+		explicit response( exception error ) : message( std::move( error ) ) {}
 		response( int status, std::string_view msg = {}, vec_buffer body = {}, http::headers headers = {} ) : message( std::move( body ), std::move( headers ) ), status( status ), status_message( msg ) {
 			if ( this->status_message.empty() )
 				this->status_message = get_status_message( this->status );
 		}
 		response( vec_buffer body, http::headers headers = {} ) : message( std::move( body ), std::move( headers ) ), status( 200 ), status_message( "OK" ) {}
 		response( options&& opt ) : response( opt.status, opt.message, std::move( opt.body ), std::move( opt.headers ) ) {}
+
+		// Error state including status.
+		//
+		bool ok() const {
+			return message::ok() && is_success( status );
+		}
+		exception error() const {
+			if ( !message::ok() )
+				return message::error();
+			if ( !is_success( status ) )
+				return status_message;
+			return {};
+		}
 
 		// Writers.
 		//
@@ -912,6 +858,8 @@ namespace xstd::http {
 			status_and_msg.remove_prefix( 4 );
 			meta->erase( meta->begin(), meta->begin() + xstd::strlen( "HTTP/1.1 " ) + 4 );
 			status_message = std::move( meta ).value();
+			if ( !is_success( status ) && status_message.empty() )
+				status_message = get_status_message( status );
 
 			// Read the headers, set body properties.
 			//
@@ -925,14 +873,14 @@ namespace xstd::http {
 
 		// Sync parser.
 		//
-		static result<response> parse( vec_buffer& io, method_id req_method = INVALID ) {
+		static response parse( vec_buffer& io, method_id req_method = INVALID ) {
 			stream mem{ stream::memory( io ) };
-			result<response> retval = {};
-			if ( !retval.emplace().read( &mem, req_method ).run() ) {
+			response retval = {};
+			if ( !retval.read( &mem, req_method ).run() ) {
 				exception ex = {};
 				if ( mem.errored() )
 					ex = mem.stop_reason();
-				retval.raise( std::move( ex ).value_or( XSTD_ESTR( "unfinished stream" ) ) );
+				retval.connection_error = std::move( ex ).value_or( XSTD_ESTR( "unfinished stream" ) );
 			}
 			io = std::move( mem.buffer_ );
 			return retval;
@@ -942,6 +890,18 @@ namespace xstd::http {
 		//
 		body::props get_body_properties( method_id req_method = INVALID ) const {
 			return message::get_body_properties( req_method, status );
+		}
+
+		// Receives a response from the stream.
+		//
+		static job<response> receive( stream_view stream, method_id req_method = INVALID ) {
+			response res = {};
+			co_await res.read( stream, req_method );
+			if ( stream.errored() )
+				res.connection_error = stream.stop_reason();
+			else if ( !res.keep_alive() )
+				stream.stop();
+			co_return std::move( res );
 		}
 	};
 	struct request : message {
@@ -967,6 +927,7 @@ namespace xstd::http {
 
 		// By value.
 		//
+		explicit request( exception error ) : message( std::move( error ) ) {}
 		request( method_id method, std::string_view path, vec_buffer body = {}, http::headers headers = {} ) : message( std::move( body ), std::move( headers ) ), method( method ), path( path ) {
 			if ( this->method == INVALID )
 				this->method = this->body ? POST : GET;
@@ -1032,14 +993,14 @@ namespace xstd::http {
 
 		// Sync parser.
 		//
-		static result<request> parse( vec_buffer& io ) {
+		static request parse( vec_buffer& io ) {
 			stream mem{ stream::memory( io ) };
-			result<request> retval = {};
-			if ( !retval.emplace().read( &mem ).run() ) {
+			request retval = {};
+			if ( !retval.read( &mem ).run() ) {
 				exception ex = {};
 				if ( mem.errored() )
 					ex = mem.stop_reason();
-				retval.raise( std::move( ex ).value_or( XSTD_ESTR( "unfinished stream" ) ) );
+				retval.connection_error = std::move( ex ).value_or( XSTD_ESTR( "unfinished stream" ) );
 			}
 			io = std::move( mem.buffer_ );
 			return retval;
@@ -1050,122 +1011,97 @@ namespace xstd::http {
 		body::props get_body_properties() const {
 			return message::get_body_properties( method, -1 );
 		}
-	};
 
-	// Incoming versions with saved sockets and deferred body readers.
+		// Receives a request from the stream.
+		//
+		static job<request> receive( stream_view stream ) {
+			request req = {};
+			co_await req.read( stream );
+			if ( stream.errored() )
+				req.connection_error = stream.stop_reason();
+			else if ( !req.keep_alive() )
+				stream.stop();
+			co_return std::move( req );
+		}
+	};
+	
+	// HTTP agent structure.
+	// - Currently only manages the socket pool, TODO: Caching, cookies.
 	//
-	struct incoming_response : response {
-		// State passed over.
+	struct agent : std::enable_shared_from_this<agent> {
+		// Lock guarding the overall structure and the connection pool.
 		//
-		exception      external_error =  {};
-		unique_stream  socket =          nullptr;
-		http::agent*   agent =           nullptr;
+		xstd::xspinlock<>                                       mtx;
+		robin_hood::unordered_flat_map<uint64_t, unique_stream> connection_pool;
 
-		incoming_response() = default;
-		incoming_response( unique_stream socket, http::agent* agent = nullptr ) : socket( std::move( socket ) ), agent( agent ) {}
-		incoming_response( exception error ) : external_error( std::move( error ).value_or( XSTD_ESTR( "unexpected error" ) ) ) {}
-		incoming_response( response&& res ) : response( std::move( res ) ) {}
-		incoming_response( incoming_response&& ) noexcept = default;
-		incoming_response& operator=( incoming_response&& ) noexcept = default;
-
-		// Read body.
+		// Socket wrapper with connection metadata.
 		//
-		task<std::span<const uint8_t>, exception> body() {
-			if ( external_error )
-				co_yield external_error;
-			if ( this->body_props.code != body::finished ) {
-				co_await response::read_body( socket );
+		struct shared_socket {
+			unique_stream          socket;
+			uint64_t               cache_uid;
+			std::weak_ptr<agent>   source;
+
+			stream_state& state() { return socket.state(); }
+			async_buffer& readable() { return socket.readable(); }
+			async_buffer& writable() { return socket.writable(); }
+
+			~shared_socket() {
+				if ( !socket || socket.stopped() ) return;
+				if ( auto agent = source.lock() ) {
+					std::lock_guard _g{ agent->mtx };
+					agent->connection_pool.try_emplace( cache_uid, std::move( socket ) );
+				}
 			}
-			if ( socket.errored() )
-				co_yield socket.stop_reason();
-			co_return response::body;
-		}
+		};
 
-		// Error state.
+		// Creates connection.
 		//
-		bool ok() const { 
-			return is_success( status ) && socket && !socket.errored(); 
-		}
-		exception error() const {
-			if ( external_error ) return external_error;
-			return socket.errored() ? socket.stop_reason() : std::nullopt;
-		}
+		unique_stream connect( net::ipv4 ip, uint16_t port ) {
+			uint64_t uid = ( uint64_t( ip.to_integer() ) << 16 ) | port;
 
-		// Starts receiving a response.
-		//
-		static job<incoming_response> receive( unique_stream socket, bool with_body = true, http::agent* agent = nullptr, method_id req_method = INVALID, vec_buffer&& req_buf = {} ) {
-			incoming_response res = { std::move( socket ), agent };
-			res.response::body = std::move( req_buf );
-			res.response::body.clear();
-			res.status = -1;
-			res.status_message = {};
-			co_await res.read_head( res.socket );
-
-			// If we have an agent to keep-alive and body is worth waiting for skipping, do so.
-			//
-			if ( with_body || ( res.keep_alive() && res.body_props.length <= 64_kb ) ) {
-				co_await res.body();
+			unique_stream result;
+			{
+				std::lock_guard _g{ mtx };
+				auto it = connection_pool.find( uid );
+				if ( it != connection_pool.end() ) {
+					if ( !it->second.stopped() ) {
+						result = std::move( it->second );
+					}
+					connection_pool.erase( it );
+				}
 			}
-
-			co_return std::move( res );
+			return new shared_socket{
+				result ? std::move( result ) : new net::tcp( ip, port ),
+				uid,
+				this->weak_from_this()
+			};
+		}
+		virtual job<result<unique_stream>> connect( const char* hostname, uint16_t port ) {
+			auto ip = co_await net::resolve_hostname( hostname );
+			if ( !ip ) co_return std::move( ip.status );
+			co_return connect( *ip, port );
 		}
 
-		// Release socket on destruction for keep-alive.
+		// Virtual dtor.
 		//
-		void release_socket() {
-			if ( agent && keep_alive() && is_body_read() ) {
-				agent->release( socket );
+		virtual ~agent() = default;
+
+		// Global agent.
+		//
+		inline static xstd::xspinlock<>      g_agent_mtx = {};
+		inline static std::shared_ptr<agent> g_agent = nullptr;
+		inline static void set_global( std::shared_ptr<agent> agent ) {
+			std::lock_guard _g{ g_agent_mtx };
+			g_agent = agent;
+		}
+		inline static std::shared_ptr<agent> global() {
+			std::lock_guard _g{ g_agent_mtx };
+			if ( !g_agent ) {
+				g_agent = std::make_shared<agent>();
 			}
-		}
-		~incoming_response() { release_socket(); }
-	};
-	struct incoming_request : request {
-		stream_view socket = nullptr;
-		bool        body_read = false;
-
-		incoming_request() = default;
-		incoming_request( stream_view socket ) : socket( socket ) {}
-		incoming_request( request&& res ) : request( std::move( res ) ) {}
-		incoming_request( incoming_request&& ) noexcept = default;
-		incoming_request& operator=( incoming_request&& ) noexcept = default;
-
-		// Read body.
-		//
-		task<std::span<const uint8_t>, exception> body() {
-			if ( this->body_props.code != body::finished ) {
-				co_await request::read_body( socket );
-			}
-			if ( socket.errored() )
-				co_yield socket.stop_reason();
-			co_return request::body;
-		}
-
-		// Error state.
-		//
-		exception error() const {
-			return socket.errored() ? socket.stop_reason() : std::nullopt;
-		}
-
-		// Starts receiving a request.
-		//
-		static job<incoming_request> receive( stream_view socket, bool with_body = true, vec_buffer&& req_buf = {} ) {
-			incoming_request res = { std::move( socket ) };
-			res.request::body = std::move( req_buf );
-			res.request::body.clear();
-			co_await res.read_head( res.socket );
-			if ( with_body ) {
-				co_await res.body();
-			}
-			co_return std::move( res );
+			return g_agent;
 		}
 	};
-
-	// Raw request API.
-	//
-	inline job<incoming_response> make_request( request req, unique_stream socket, http::agent* agent = &agent::global() ) {
-		co_await req.write( socket );
-		co_return co_await incoming_response::receive( std::move( socket ), false, agent, req.method, std::move( req.body ) );
-	}
 
 	// Fetch API.
 	//
@@ -1175,49 +1111,99 @@ namespace xstd::http {
 		vec_buffer    body = {};
 		http::headers headers = {};
 
-		// Agent options.
+		// Agent and optional explicit socket.
 		//
-		agent&                   agent =  agent::global();
-		unique_stream            socket = nullptr;
-		net::socket_options      socket_options = {};
+		std::shared_ptr<agent> agent =  agent::global();
+		stream_view            socket = nullptr;
+
+		// Redirection handling.
+		// - Once the limit is exhaused, response code is returned as is.
+		//
+		int32_t                max_redirects = 8;
 	};
-	inline job<incoming_response> fetch( url_view url, method_id method = GET, fetch_options&& opt = {} ) {
-		// Set host header, normalize path into URI.
+	inline job<response> fetch( xstd::url url, method_id method = GET, fetch_options&& opt = {} ) {
+		// Create the request.
 		//
-		if ( url.schema.empty() ) {
-			url.schema = "http";
-		}
-		if ( url.hostname.empty() ) {
-			if ( auto* tcp = opt.socket.get_if<net::tcp>() ) {
-				auto [ip, port] = tcp->get_remote_address();
-				url.hostname = ip.to_string();
-				if ( !url.port && port != url.port_or_default() )
-					url.port = port;
+		request req{ method, {}, std::move( opt.body ), std::move( opt.headers ) };
+		response res = {};
+		while ( true ) {
+			// Determine the protocol.
+			//
+			if ( url.schema.empty() ) {
+				url.schema = "http";
+			} else if ( !detail::fast_ieq( url.schema, "http" ) ) {
+				res.connection_error = exception{ XSTD_ESTR( "protocol '%s' not supported" ), url.schema };
+				break;
 			}
-		}
-		if ( !url.hostname.empty() ) {
-			opt.headers.try_insert( "Host", url.host() );
-		}
 
-		// Establish the socket.
-		//
-		if ( !opt.socket ) {
-			auto sock = co_await opt.agent.connect_by_name( std::string{ url.hostname }.c_str(), url.port_or_default(), opt.socket_options );
-			if ( !sock ) {
-				co_return incoming_response{ std::move( sock.status ) };
+			// Set host header.
+			//
+			req.path = url.pathname;
+			if ( !url.hostname.empty() ) {
+				req.headers.try_emplace( "Host", url.host(), http::headers::merge_overwrite );
 			}
-			opt.socket = *std::move( sock );
-		}
 
-		// Send the request.
-		//
-		co_return co_await make_request( { method, url.pathname, std::move( opt.body ), std::move( opt.headers ) }, std::move( opt.socket ), &opt.agent );
+			// Establish the socket.
+			//
+			unique_stream tmp;
+			stream_view   stream = opt.socket;
+			if ( !stream ) {
+				auto sock = co_await opt.agent->connect( url.hostname.c_str(), url.port_or_default() );
+				if ( !sock ) {
+					res.connection_error = std::move( sock.status );
+					break;
+				}
+				tmp = std::move( sock.value() );
+				stream = tmp;
+			}
+
+			// Send the request.
+			//
+			co_await req.write( stream );
+
+			// Read the response.
+			//
+			co_await res.read( stream, req.method );
+			if ( stream.errored() ) {
+				req.connection_error = stream.stop_reason();
+				break;
+			}
+			else if ( !req.keep_alive() ) {
+				stream.stop();
+				opt.socket = {};
+			}
+
+			// Follow redirects where relevant.
+			//
+			if ( get_status_category( res.status ) == status_category::redirecting && --opt.max_redirects > 0 ) {
+				std::string_view target_loc = res.get_header( "Location" );
+				if ( target_loc.empty() ) break;
+
+				if ( res.status == 303 ) {
+					req.method = GET;
+					req.body.clear();
+				}
+				if ( target_loc.starts_with( "/" ) ) {
+					url.pathname = target_loc;
+				} else {
+					xstd::url new_url = target_loc;
+					if ( new_url.hostname != url.hostname ) {
+						opt.socket = {};
+					}
+					url = std::move( new_url );
+				}
+				res = {};
+				continue;
+			}
+			break;
+		}
+		co_return res;
 	}
 
 	// Wrappers for the most common methods.
 	//
-	inline job<incoming_response> get( url_view url, fetch_options&& opt = {} ) { return fetch( url, GET, std::move( opt ) ); }
-	inline job<incoming_response> put( url_view url, fetch_options&& opt = {} ) { return fetch( url, PUT, std::move( opt ) ); }
-	inline job<incoming_response> post( url_view url, fetch_options&& opt = {} ) { return fetch( url, POST, std::move( opt ) ); }
-	inline job<incoming_response> head( url_view url, fetch_options&& opt = {} ) { return fetch( url, HEAD, std::move( opt ) ); }
+	inline auto get( xstd::url url, fetch_options&& opt = {} ) { return fetch( std::move( url ), GET, std::move( opt ) ); }
+	inline auto put( xstd::url url, fetch_options&& opt = {} ) { return fetch( std::move( url ), PUT, std::move( opt ) ); }
+	inline auto post( xstd::url url, fetch_options&& opt = {} ) { return fetch( std::move( url ), POST, std::move( opt ) ); }
+	inline auto head( xstd::url url, fetch_options&& opt = {} ) { return fetch( std::move( url ), HEAD, std::move( opt ) ); }
 };

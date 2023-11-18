@@ -31,9 +31,8 @@ namespace xstd {
 	// Periodic scheduler deferring upto N tasks and then displaces previously inserted ones.
 	// Tick method should be invoked externally periodically to free the queue.
 	//
+	template<size_t N = std::dynamic_extent>
 	struct periodic_scheduler {
-		static constexpr size_t N = 8;
-
 		std::array<coroutine_handle<>, N> queue;
 		size_t                            idx = 0;
 
@@ -52,6 +51,28 @@ namespace xstd {
 			idx = 0;
 			for ( auto& e : prev )
 				e();
+		}
+
+		~periodic_scheduler() {
+			tick();
+		}
+	};
+	template<>
+	struct periodic_scheduler<std::dynamic_extent> {
+		std::vector<coroutine_handle<>> queue;
+
+		noop_coroutine_handle operator()( coroutine_handle<> handle ) noexcept {
+			queue.emplace_back( handle );
+			return noop_coroutine();
+		}
+
+		void tick() {
+			if ( size_t n = queue.size() ) {
+				for ( size_t i = 0; i != n; i++ ) {
+					queue[ i ]();
+				}
+				queue.erase( queue.begin(), queue.begin() + n );
+			}
 		}
 
 		~periodic_scheduler() {

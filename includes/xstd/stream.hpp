@@ -172,8 +172,13 @@ namespace xstd {
 			auto producer = std::exchange( this->producer, nullptr );
 			auto consumer = std::exchange( this->consumer, nullptr );
 			g.unlock();
-			if ( consumer ) ( sched_leave || chore_scheduler{} )( consumer->continuation )( );
-			if ( producer ) ( for_delete ? noop_scheduler{} : sched_enter || chore_scheduler{} )( producer )( );
+			if ( consumer ) {
+				( sched_leave || chore_scheduler{} )( consumer->continuation )();
+			}
+			if ( producer ) {
+				if ( for_delete ) producer();
+				else              ( sched_enter || chore_scheduler{} )( producer )();
+			}
 		}
 		~async_buffer() { destroy( true ); }
 	};
@@ -234,6 +239,20 @@ namespace xstd {
 			return continuation;
 		}
 		inline void await_resume() const noexcept {}
+
+		// Immediate version with no QoS.
+		//
+		void now( coroutine_handle<>* out = nullptr ) {
+			if ( this->stream.consumer ) {
+				if ( auto hnd = this->stream.consumer->try_continue() ) {
+					hnd = this->stream.sched_leave( hnd );
+					this->stream.consumer = nullptr;
+					this->lock.unlock();
+					if ( out ) *out = hnd;
+					else hnd();
+				}
+			}
+		}
 	};
 	template<typename F>
 	struct async_reader final : detail::buffer_consumer, async_buffer_locked {
@@ -265,6 +284,19 @@ namespace xstd {
 			return producer;
 		}
 		inline result_type await_resume() noexcept {
+			return std::move( result );
+		}
+
+		// Immediate version with no QoS.
+		//
+		result_type now( coroutine_handle<>* out = nullptr ) {
+			if ( this->stream.producer ) {
+				auto hnd = this->stream.sched_enter( stream.producer );
+				this->stream.producer = nullptr;
+				this->lock.unlock();
+				if ( out ) *out = hnd;
+				else hnd();
+			}
 			return std::move( result );
 		}
 	};
