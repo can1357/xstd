@@ -161,7 +161,7 @@ namespace xstd {
 
 		// Kill the coroutines on destruction.
 		//
-		void destroy() {
+		void destroy( bool for_delete = false ) {
 			if ( ended ) return;
 			std::unique_lock g{ lock };
 			if ( ended ) return;
@@ -172,10 +172,10 @@ namespace xstd {
 			auto producer = std::exchange( this->producer, nullptr );
 			auto consumer = std::exchange( this->consumer, nullptr );
 			g.unlock();
-			if ( consumer ) sched_leave( consumer->continuation )();
-			if ( producer ) producer(); // This guy probably has a weak reference, continue ASAP.
+			if ( consumer ) ( sched_leave || chore_scheduler{} )( consumer->continuation )( );
+			if ( producer ) ( for_delete ? noop_scheduler{} : sched_enter || chore_scheduler{} )( producer )( );
 		}
-		~async_buffer() { destroy(); }
+		~async_buffer() { destroy( true ); }
 	};
 
 	using async_buffer_lock = typename async_buffer::unique_lock;
@@ -361,7 +361,8 @@ namespace xstd {
 		// Stop states.
 		//
 		bool stop( stream_stop_code code = stream_stop_killed, exception ex = {} ) {
-			if ( state().stop_code.exchange( code ) != stream_stop_none ) {
+			stream_stop_code expected = stream_stop_none;
+			if ( !state().stop_code.compare_exchange_strong( expected, code ) ) {
 				return false;
 			}
 			if ( !ex ) {
@@ -380,15 +381,10 @@ namespace xstd {
 
 			// Find any async-scheduler and schedule the signal using it.
 			//
-			scheduler_reference ref = {};
-			for ( async_buffer* stream : { &readable(), &writable() } ) {
-				for ( scheduler_reference sched : { stream->sched_enter, stream->sched_leave } ) {
-					ref = sched;
-					if ( ref ) break;
-				}
-				if ( ref ) break;
-			}
-			if ( !ref ) ref = chore_scheduler{};
+			scheduler_reference ref = 
+				readable().sched_enter || readable().sched_leave ||
+				writable().sched_enter || writable().sched_leave ||
+				chore_scheduler{};
 			ref( state().signal( ref ) )( );
 			return true;
 		}

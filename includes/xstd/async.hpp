@@ -99,6 +99,7 @@ namespace xstd {
 		//
 		constexpr bool has_value() const noexcept { return fn != scheduler_reference{}.fn; }
 		constexpr explicit operator bool() const noexcept { return has_value(); }
+		constexpr scheduler_reference operator||( const scheduler_reference& o ) { return has_value() ? *this : o; }
 
 		// Implement the scheduler interface.
 		//

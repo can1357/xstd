@@ -81,7 +81,7 @@ namespace xstd {
 		template<>
 		struct function_store<coroutine_handle<>>
 		{
-#if XSTD_CORO_KNOWN_STRUCT
+#if XSTD_CORO_KNOWN_STRUCT && !MS_COMPILER
 			static std::pair<void( * )( void* ), void*> apply( coroutine_handle<> hnd ) {
 				auto& coro = coroutine_struct<>::from_handle( hnd );
 				return { coro.fn_resume, &coro };
