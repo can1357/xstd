@@ -35,6 +35,7 @@
 #include <array>
 #include <tuple>
 #include <numeric>
+#include <bit>
 
 // [[Configuration]]
 // XSTD_ESTR: Easy to override macro to control any error strings emitted into binary, must return a C string.
@@ -1015,6 +1016,12 @@ FORCE_INLINE static constexpr T bswap( T value ) noexcept
 		return value;
 	else
 		unreachable();
+}
+FORCE_INLINE static constexpr double bswap( double value ) noexcept {
+	return std::bit_cast<double>( bswapq( std::bit_cast<uint64_t>( value ) ) );
+}
+FORCE_INLINE static constexpr float bswap( float value ) noexcept {
+	return std::bit_cast<float>( bswapd( std::bit_cast<uint32_t>( value ) ) );
 }
 
 // Declare cmpxchg primitive.

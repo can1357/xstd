@@ -16,6 +16,13 @@ namespace xstd {
 				::memcpy( dst, src, count * sizeof( T ) );
 			return dst;
 		}
+		FORCE_INLINE static constexpr void fill( uint8_t* dst, uint8_t value, size_t count ) {
+			if ( const_condition( !count ) ) return;
+			if ( std::is_constant_evaluated() )
+				std::fill_n( dst, count, value );
+			else
+				::memset( dst, value, count );
+		}
 		template<typename T>
 		FORCE_INLINE static constexpr T* move( T* dst, const T* src, size_t count ) {
 			if ( const_condition( !count ) ) return dst;
@@ -330,6 +337,12 @@ namespace xstd {
 		FORCE_INLINE constexpr void resize( size_t n ) {
 			mm_resize( n );
 		}
+		FORCE_INLINE constexpr void resize( size_t n, uint8_t fill ) {
+			size_t pos = size();
+			mm_resize( n );
+			if ( pos < n )
+				detail::fill( data() + pos, fill, n - pos );
+		}
 		FORCE_INLINE constexpr void shrink_resize( size_t n ) {
 			mm_shrink_resize( n );
 		}
@@ -528,11 +541,13 @@ namespace xstd {
 
 		// Span generation.
 		//
-		FORCE_INLINE constexpr std::span<const uint8_t> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) const {
-			return std::span{ data(), size() }.subspan(offset, count);
+		template<typename U = uint8_t>
+		FORCE_INLINE constexpr std::span<const U> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) const {
+			return std::span{ (const U*) data(), size() / sizeof( U ) }.subspan(offset, count);
 		}
-		FORCE_INLINE constexpr std::span<uint8_t> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) {
-			return std::span{ data(), size() }.subspan( offset, count );
+		template<typename U = uint8_t>
+		FORCE_INLINE constexpr std::span<U> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) {
+			return std::span{ (U*) data(), size() / sizeof( U ) }.subspan( offset, count );
 		}
 
 		// Non-constexpr utils.
