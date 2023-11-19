@@ -1160,7 +1160,7 @@ namespace xstd::http {
 
 			// Set host header.
 			//
-			req.path = url.pathname;
+			req.path = url.path();
 			if ( !url.hostname.empty() ) {
 				req.headers.try_emplace( "Host", url.host(), http::headers::merge_overwrite );
 			}
@@ -1215,7 +1215,9 @@ namespace xstd::http {
 					if ( new_url.hostname != url.hostname ) {
 						stream = {};
 					}
+					auto prev_q = std::move( url.search );
 					url = std::move( new_url );
+					url.search = std::move( prev_q );
 				}
 				res = {};
 				continue;
