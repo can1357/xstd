@@ -1029,6 +1029,44 @@ namespace xstd::http {
 	// - Currently only manages the socket pool, TODO: Caching, cookies.
 	//
 	struct agent : std::enable_shared_from_this<agent> {
+		// Creates a connection given the hostname or IP.
+		//
+		virtual job<result<unique_stream>> connect( const char* hostname, uint16_t port ) = 0;
+		virtual job<result<unique_stream>> connect( net::ipv4 ip, uint16_t port ) {
+			char buf[ 24 ];
+			sprintf( buf, "%u", bswap( ip.to_integer() ) );
+			co_return co_await connect( buf, port );
+		}
+
+
+		// Utilities.
+		//
+		void set_global() {
+			agent::set_global( shared_from_this() );
+		}
+
+		// Virtual dtor.
+		//
+		virtual ~agent() = default;
+
+		// Global agent.
+		//
+		inline static xstd::xspinlock<>      g_agent_mtx = {};
+		inline static std::shared_ptr<agent> g_agent = nullptr;
+		inline static void set_global( std::shared_ptr<agent> agent ) {
+			std::lock_guard _g{ g_agent_mtx };
+			g_agent = std::move( agent );
+		}
+		template<typename T, typename... Args>
+		inline static void make_global(Args&&... args) {
+			set_global( std::make_shared<T>( std::forward<Args>( args )... ) );
+		}
+		inline static std::shared_ptr<agent> global() {
+			std::lock_guard _g{ g_agent_mtx };
+			return g_agent;
+		}
+	};
+	struct basic_agent : agent {
 		// Lock guarding the overall structure and the connection pool.
 		//
 		xstd::xspinlock<>                                       mtx;
@@ -1037,9 +1075,9 @@ namespace xstd::http {
 		// Socket wrapper with connection metadata.
 		//
 		struct shared_socket {
-			unique_stream          socket;
-			uint64_t               cache_uid;
-			std::weak_ptr<agent>   source;
+			unique_stream              socket;
+			uint64_t                   cache_uid;
+			std::weak_ptr<basic_agent> source;
 
 			stream_state& state() { return socket.state(); }
 			async_buffer& readable() { return socket.readable(); }
@@ -1054,9 +1092,9 @@ namespace xstd::http {
 			}
 		};
 
-		// Creates connection.
+		// Creates a connection given the hostname or IP.
 		//
-		unique_stream connect( net::ipv4 ip, uint16_t port ) {
+		job<result<unique_stream>> connect( net::ipv4 ip, uint16_t port ) override {
 			uint64_t uid = ( uint64_t( ip.to_integer() ) << 16 ) | port;
 
 			unique_stream result;
@@ -1070,33 +1108,16 @@ namespace xstd::http {
 					connection_pool.erase( it );
 				}
 			}
-			return new shared_socket{
+			co_return new shared_socket{
 				result ? std::move( result ) : new net::tcp( ip, port ),
 				uid,
-				this->weak_from_this()
+				std::static_pointer_cast<basic_agent>( shared_from_this() )
 			};
 		}
-		virtual job<result<unique_stream>> connect( const char* hostname, uint16_t port ) {
+		job<result<unique_stream>> connect( const char* hostname, uint16_t port ) override {
 			auto ip = co_await net::resolve_hostname( hostname );
 			if ( !ip ) co_return std::move( ip.status );
-			co_return connect( *ip, port );
-		}
-
-		// Virtual dtor.
-		//
-		virtual ~agent() = default;
-
-		// Global agent.
-		//
-		inline static xstd::xspinlock<>      g_agent_mtx = {};
-		inline static std::shared_ptr<agent> g_agent = nullptr;
-		inline static void set_global( std::shared_ptr<agent> agent ) {
-			std::lock_guard _g{ g_agent_mtx };
-			g_agent = agent;
-		}
-		inline static std::shared_ptr<agent> global() {
-			std::lock_guard _g{ g_agent_mtx };
-			return g_agent;
+			co_return co_await connect( *ip, port );
 		}
 	};
 
@@ -1119,6 +1140,10 @@ namespace xstd::http {
 		int32_t                max_redirects = 8;
 	};
 	inline job<response> fetch( xstd::url url, method_id method = GET, fetch_options&& opt = {} ) {
+		auto        agent = std::move( opt.agent );
+		int32_t     redirects_left = opt.max_redirects;
+		stream_view stream = opt.socket;
+
 		// Create the request.
 		//
 		request req{ method, {}, std::move( opt.body ), std::move( opt.headers ) };
@@ -1143,13 +1168,12 @@ namespace xstd::http {
 			// Establish the socket.
 			//
 			unique_stream tmp;
-			stream_view   stream = opt.socket;
 			if ( !stream ) {
-				if ( !opt.agent ) {
+				if ( !agent ) {
 					res.connection_error = XSTD_ESTR( "neither socket nor agent was specified" );
 					break;
 				}
-				auto sock = co_await opt.agent->connect( url.hostname.c_str(), url.port_or_default() );
+				auto sock = co_await agent->connect( url.hostname.c_str(), url.port_or_default() );
 				if ( !sock ) {
 					res.connection_error = std::move( sock.status );
 					break;
@@ -1171,12 +1195,12 @@ namespace xstd::http {
 			}
 			else if ( !req.keep_alive() ) {
 				stream.stop();
-				opt.socket = {};
+				stream = {};
 			}
 
 			// Follow redirects where relevant.
 			//
-			if ( get_status_category( res.status ) == status_category::redirecting && --opt.max_redirects > 0 ) {
+			if ( get_status_category( res.status ) == status_category::redirecting && --redirects_left > 0 ) {
 				std::string_view target_loc = res.get_header( "Location" );
 				if ( target_loc.empty() ) break;
 
@@ -1189,7 +1213,7 @@ namespace xstd::http {
 				} else {
 					xstd::url new_url = target_loc;
 					if ( new_url.hostname != url.hostname ) {
-						opt.socket = {};
+						stream = {};
 					}
 					url = std::move( new_url );
 				}
