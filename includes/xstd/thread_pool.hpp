@@ -8,6 +8,28 @@
 #include <deque>
 #include <thread>
 
+// [[Configuration]]
+// XSTD_CREATE_THREAD: If set, thread creation will be done via the given function.
+//
+#ifndef XSTD_CREATE_THREAD
+#if WINDOWS_TARGET
+#pragma comment(lib, "ntdll.lib")
+extern "C" {
+	__declspec( dllimport ) int32_t NtClose( void* Handle );
+	__declspec( dllimport ) int32_t NtCreateThreadEx( void** ThreadHandle, unsigned int DesiredAccess, void* ObjectAttributes, void* ProcessHandle, void* StartRoutine, void* Argument, unsigned int CreateFlags, unsigned long long ZeroBits, unsigned long long StackSize, unsigned long long MaximumStackSize, void* AttributeList );
+};
+	#define XSTD_CREATE_THREAD(cb, arg) \
+	do { \
+		void* hnd = nullptr; \
+		NtCreateThreadEx( &hnd, 0x02000000, nullptr, (void*) 0xffffffffffffffff, (void*) cb, arg, 0, 0, 0, 0, nullptr ); \
+		NtClose( hnd ); \
+	} while( false );
+#else
+	#include <thread>
+	#define XSTD_CREATE_THREAD(cb, arg) std::thread{ cb, arg }.detach()
+#endif
+#endif
+
 namespace xstd {
 	// Work item.
 	//
@@ -44,7 +66,7 @@ namespace xstd {
 			return std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 8, 32 );
 		}
 		static void create_thread( void( * cb )( void* ), void* arg ) {
-			std::thread{ cb, arg }.detach();
+			XSTD_CREATE_THREAD( cb, arg );
 		}
 		FORCE_INLINE static int64_t timestamp( int64_t delta_ns ) {
 			return ( time::now().time_since_epoch() / 1ns ) + delta_ns;
