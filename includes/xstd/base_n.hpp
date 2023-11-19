@@ -82,18 +82,18 @@ namespace xstd::encode
 	//
 	namespace impl
 	{
-		template<typename C = char, bool bit_rev = true, typename Dc = dictionary<64>>
-		inline std::vector<uint8_t> rbase_n( std::basic_string_view<C> str, const Dc& dictionary )
+		template<typename C = char, typename Out = std::vector<uint8_t>, bool bit_rev = true, typename Dc = dictionary<64>>
+		inline void rbase_n( Out& result, std::basic_string_view<C> str, const Dc& dictionary )
 		{
 			if ( dictionary.fill() && ( str.length() % dictionary.group_size_out() ) != 0 )
-				return {};
+				return;
 
 			// Calculate the group count and reserve the output.
 			//
-			std::vector<uint8_t> result;
+			size_t pos = result.size();
 			size_t group_count = ( str.size() + dictionary.group_size_out() - 1 ) / dictionary.group_size_out();
-			result.resize( group_count * dictionary.group_size_in() + 1 );
-			uint8_t* rit = result.data();
+			result.resize( pos + group_count * dictionary.group_size_in() + 1, 0 );
+			uint8_t* rit = result.data() + pos;
 
 			// Read each group:
 			//
@@ -129,12 +129,17 @@ namespace xstd::encode
 				}
 			}
 			shrink_resize( result, rit - result.data() );
-			return result;
 		}
 	};
-	template<String S, bool bit_rev = true, typename Dc = dictionary<64>>
-	inline std::vector<uint8_t> rbase_n( S&& str, const Dc& dictionary ) {
-		return impl::rbase_n( string_view_t<S>{ str }, dictionary );
+	template<typename Out = std::vector<uint8_t>, String S = std::string_view, bool bit_rev = true, typename Dc = dictionary<64>>
+	inline void rbase_n( Out& out, S&& str, const Dc& dictionary ) {
+		impl::rbase_n( out, string_view_t<S>{ str }, dictionary );
+	}
+	template<typename Out = std::vector<uint8_t>, String S = std::string_view, bool bit_rev = true, typename Dc = dictionary<64>>
+	inline Out rbase_n( S&& str, const Dc& dictionary ) {
+		Out out = {};
+		impl::rbase_n( out, string_view_t<S>{ str }, dictionary );
+		return out;
 	}
 
 	// Encodes data using a dictionary.
@@ -222,12 +227,24 @@ namespace xstd::encode
 	inline std::basic_string<C> base64_url( T&& c ) {
 		return base_n<C, bit_rev>( &*std::begin( c ), std::size( c ) * sizeof( iterable_val_t<T> ), base64url_dictionary );
 	}
-	template<String S, bool bit_rev = true>
-	inline std::vector<uint8_t> rbase64( S&& str ) {
-		return impl::rbase_n( string_view_t<S>{ str }, base64_dictionary );
+	template<typename Out = std::vector<uint8_t>, String S, bool bit_rev = true>
+	inline void rbase64( Out& out, S&& str ) {
+		impl::rbase_n( out, string_view_t<S>{ str }, base64_dictionary );
 	}
-	template<String S, bool bit_rev = true>
-	inline std::vector<uint8_t> rbase64_url( S&& str ) {
-		return impl::rbase_n( string_view_t<S>{ str }, base64url_dictionary );
+	template<typename Out = std::vector<uint8_t>, String S, bool bit_rev = true>
+	inline Out rbase64( S&& str ) {
+		Out out = {};
+		impl::rbase_n( out, string_view_t<S>{ str }, base64_dictionary );
+		return out;
+	}
+	template<typename Out = std::vector<uint8_t>, String S, bool bit_rev = true>
+	inline void rbase64_url( Out& out, S&& str ) {
+		impl::rbase_n( out, string_view_t<S>{ str }, base64url_dictionary );
+	}
+	template<typename Out = std::vector<uint8_t>, String S, bool bit_rev = true>
+	inline Out rbase64_url( S&& str ) {
+		Out out = {};
+		impl::rbase_n( out, string_view_t<S>{ str }, base64url_dictionary );
+		return out;
 	}
 };
