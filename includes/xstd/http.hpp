@@ -1096,9 +1096,6 @@ namespace xstd::http {
 		}
 		inline static std::shared_ptr<agent> global() {
 			std::lock_guard _g{ g_agent_mtx };
-			if ( !g_agent ) {
-				g_agent = std::make_shared<agent>();
-			}
 			return g_agent;
 		}
 	};
@@ -1148,6 +1145,10 @@ namespace xstd::http {
 			unique_stream tmp;
 			stream_view   stream = opt.socket;
 			if ( !stream ) {
+				if ( !opt.agent ) {
+					res.connection_error = XSTD_ESTR( "neither socket nor agent was specified" );
+					break;
+				}
 				auto sock = co_await opt.agent->connect( url.hostname.c_str(), url.port_or_default() );
 				if ( !sock ) {
 					res.connection_error = std::move( sock.status );
