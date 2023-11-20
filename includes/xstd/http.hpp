@@ -741,7 +741,9 @@ namespace xstd::http {
 			}
 			return http::connection::keep_alive;
 		}
-		bool keep_alive() const { return connection() == connection::keep_alive; }
+		bool keep_alive() const { 
+			return connection() == connection::keep_alive || connection() == connection::upgrade;
+		}
 		bool has_body() const {
 			return body_props.length != 0;
 		}
