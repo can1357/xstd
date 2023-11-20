@@ -465,4 +465,7 @@ namespace xstd {
 			}
 		}
 	};
+
+	template<typename Worker = default_worker>
+	inline thread_pool<Worker> g_default_threadpool;
 };

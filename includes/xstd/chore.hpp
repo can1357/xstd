@@ -11,10 +11,7 @@
 	extern "C" void  XSTD_CHORE_SCHEDULER( void( * cb )( void* ), void* arg, int64_t delay_ns, xstd::event_handle evt );
 #else
 	#include "thread_pool.hpp"
-	namespace xstd {
-		inline thread_pool<> g_default_threadpool = {};
-	};
-	#define XSTD_CHORE_SCHEDULER xstd::g_default_threadpool
+	#define XSTD_CHORE_SCHEDULER xstd::g_default_threadpool<>
 #endif
 
 namespace xstd {
