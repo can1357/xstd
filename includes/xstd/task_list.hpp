@@ -20,79 +20,57 @@ namespace xstd {
 			bool await_ready() const noexcept { return false; }
 			bool await_suspend( coroutine_handle<> hnd ) noexcept {
 				auto* list = this->list;
-				if ( list->push( this, hnd ) ) {
+				this->hnd = hnd;
+				if ( list->push( this ) ) {
 					return false;
 				}
 				return true;
 			}
-			bool await_resume() const noexcept {
-				return hnd == nullptr;
-			}
+			void await_resume() const noexcept {}
 		};
 
 		// List.
 		//
 		LockType lock;
-		entry*   tail = nullptr;
-		entry    head = {};
+		entry* tail = nullptr;
+		entry* head = nullptr;
 
 		// Pushes an entry, returns true if master entry.
 		//
-		bool push( entry* i, coroutine_handle<> hnd ) {
+		bool push( entry* w ) {
 			std::lock_guard _g{ lock };
-			if ( !tail ) {
-				// i =    { nullptr, hnd }
-				// tail = i
-				// pop into head before resume
-				// i =    { discarded }
-				// head = { nullptr, hnd }
-				// tail = &head
-				// 
-				head = { nullptr, hnd };
-				tail = &head;
-				return true;
+			if ( tail ) {
+				tail->next = w;
 			} else {
-				tail->next = i;
-				tail =       i;
-				i->hnd =     hnd;
-				i->next =    nullptr;
-				return false;
+				head = w;
 			}
+			tail = w;
 		}
 
 		// Pops the next entry.
 		//
-		coroutine_handle<> pop() {
-			std::unique_lock g{ lock };
-			while ( true ) {
-				// End condition.
-				//
-				auto* next = head.next;
-				if ( !next ) {
-					dassert( &head == tail );
-					head = { nullptr, nullptr };
-					tail = nullptr;
-					return nullptr;
-				}
-
-				// Pop next item.
-				//
-				head = *next;
-				if ( !head.next ) {
-					dassert( tail == next );
-					tail = &head;
-				}
-				dassert( head.hnd );
-				return head.hnd;
+		entry* pop( bool all = false ) {
+			std::lock_guard _g{ lock };
+			if ( !head ) return nullptr;
+			auto r = head;
+			if ( all || head == tail ) {
+				head = tail = nullptr;
+			} else {
+				head = head->next;
 			}
+			return r;
 		}
+		entry* pop_all() { return pop( true ); }
 
-		// Called after task completion to yield to next entry.
+		// Consumes all pending work.
 		//
-		void yield( bool flag = true ) {
-			if ( flag )
-				while ( auto hnd = pop() )
-					hnd();
+		void consume() {
+			entry* r = pop_all();
+			while ( r ) {
+				entry* next = r->next;
+				r->hnd();
+				r = next;
+			}
 		}
 
 		// Make co-awaitable.

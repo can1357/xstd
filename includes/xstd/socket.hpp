@@ -988,7 +988,7 @@ namespace xstd::net {
 		// Constructed by initial details.
 		//
 		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt )
-			: opt( opt ), proto( proto ), address( address ), port( port ) {}
+			: duplex( opt ), opt( opt ), proto( proto ), address( address ), port( port ) {}
 
 		// Wrappers.
 		//
