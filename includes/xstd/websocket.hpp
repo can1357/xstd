@@ -307,10 +307,4 @@ namespace xstd::ws
 		}
 		return {};
 	}
-	static exception upgrade_validate( unique_stream& out, const http::request& request, http::incoming_response& response ) {
-		auto ex = upgrade_validate( request, response );
-		if ( ex ) response.release_socket();
-		out = std::exchange( response.socket, nullptr );
-		return ex;
-	}
 };
