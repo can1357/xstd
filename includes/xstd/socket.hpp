@@ -47,8 +47,8 @@
 	#include <lwip/timeouts.h>
 	#undef XSTD_WINSOCK
 	#undef XSTD_BERKELEY
-#endif
-#if XSTD_WINSOCK
+	#define XSTD_HAS_TCP 1
+#elif XSTD_WINSOCK
 	#define NOMINMAX
 	#include <WinSock2.h>
 	#include <WinDNS.h>
@@ -57,8 +57,8 @@
 	#include <thread>
 	#undef XSTD_LWIP
 	#undef XSTD_BERKELEY
-#endif
-#if XSTD_BERKELEY
+	#define XSTD_HAS_TCP 1
+#elif XSTD_BERKELEY
 	#include <sys/socket.h>
 	#include <sys/types.h>
 	#include <sys/socket.h>
@@ -67,6 +67,9 @@
 	#include <thread>
 	#undef XSTD_LWIP
 	#undef XSTD_WINSOCK
+	#define XSTD_HAS_TCP 1
+#else
+	#define XSTD_HAS_TCP 0
 #endif
 
 

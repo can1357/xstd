@@ -1066,6 +1066,7 @@ namespace xstd::http {
 			return g_agent;
 		}
 	};
+#if XSTD_HAS_TCP
 	struct basic_agent : agent {
 		// Lock guarding the overall structure and the connection pool.
 		//
@@ -1120,6 +1121,7 @@ namespace xstd::http {
 			co_return co_await connect( *ip, port );
 		}
 	};
+#endif
 
 	// Fetch API.
 	//
