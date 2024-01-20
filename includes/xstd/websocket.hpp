@@ -207,12 +207,7 @@ namespace xstd::ws
 		}
 		auto read( stream_view stream ) {
 			return stream.read_until( [&]( vec_buffer& buf ) {
-				if ( auto err = this->read( buf ) ) {
-					if ( *err ) stream.stop( std::move( *err ) );
-					return true;
-				} else {
-					return false;
-				}
+				return this->read( buf );
 			} );
 		}
 

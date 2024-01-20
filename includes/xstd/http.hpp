@@ -514,12 +514,7 @@ namespace xstd::http {
 		}
 		auto read( stream_view stream ) {
 			return stream.read_until( [&]( vec_buffer& buf ) {
-				if ( auto err = this->read( buf ) ) {
-					if ( *err ) stream.stop( std::move( *err ) );
-					return true;
-				} else {
-					return false;
-				}
+				return this->read( buf );
 			} );
 		}
 	};
@@ -865,7 +860,11 @@ namespace xstd::http {
 
 			// Read the headers, set body properties.
 			//
-			bool ok = co_await this->read_headers( stream );
+			bool ok = true;
+			if ( auto err = co_await this->read_headers( stream ); err == std::nullopt || err->has_value() ) {
+				ok = false;
+				if ( err ) stream.stop( std::move( *err ) );
+			}
 			this->body_props = this->get_body_properties( req_method );
 			co_return ok;
 		}
@@ -985,7 +984,11 @@ namespace xstd::http {
 
 			// Read the headers, set body properties.
 			//
-			bool ok = co_await this->read_headers( stream );
+			bool ok = true;
+			if ( auto err = co_await this->read_headers( stream ); err == std::nullopt || err->has_value() ) {
+				ok = false;
+				if ( err ) stream.stop( std::move( *err ) );
+			}
 			this->body_props = this->get_body_properties();
 			co_return ok;
 		}
