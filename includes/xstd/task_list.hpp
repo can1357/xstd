@@ -21,12 +21,24 @@ namespace xstd {
 			bool await_suspend( coroutine_handle<> hnd ) noexcept {
 				auto* list = this->list;
 				this->hnd = hnd;
-				if ( list->push( this ) ) {
-					return false;
-				}
+				list->push( this );
 				return true;
 			}
 			void await_resume() const noexcept {}
+
+			// Runs this task and the rest of the queue, returning the number of tasks executed.
+			//
+			size_t run() {
+				size_t n = 0;
+				auto it = this;
+				while ( it ) {
+					++n;
+					auto next = std::exchange( it->next, nullptr );
+					it->hnd();
+					it = next;
+				}
+				return n;
+			}
 		};
 
 		// List.
@@ -35,9 +47,9 @@ namespace xstd {
 		entry* tail = nullptr;
 		entry* head = nullptr;
 
-		// Pushes an entry, returns true if master entry.
+		// Pushes an entry.
 		//
-		bool push( entry* w ) {
+		void push( entry* w ) {
 			std::lock_guard _g{ lock };
 			if ( tail ) {
 				tail->next = w;
@@ -45,32 +57,46 @@ namespace xstd {
 				head = w;
 			}
 			tail = w;
+			w->next = nullptr;
 		}
 
-		// Pops the next entry.
+		// Pops a single entry.
 		//
-		entry* pop( bool all = false ) {
+		entry* pop() {
 			std::lock_guard _g{ lock };
-			if ( !head ) return nullptr;
-			auto r = head;
-			if ( all || head == tail ) {
+			auto e = head;
+			if ( !e ) return nullptr;
+
+			if ( e == tail ) {
 				head = tail = nullptr;
 			} else {
-				head = head->next;
+				head = e->next;
 			}
-			return r;
+			e->next = nullptr;
+			return e;
 		}
-		entry* pop_all() { return pop( true ); }
 
-		// Consumes all pending work.
+		// Pops all entries.
 		//
-		void consume() {
-			entry* r = pop_all();
-			while ( r ) {
-				entry* next = r->next;
-				r->hnd();
-				r = next;
-			}
+		entry* pop_all() {
+			std::lock_guard _g{ lock };
+			auto e = head;
+			head = tail = nullptr;
+			return e;
+		}
+
+		// Pops the next entry and executes it.
+		//
+		size_t step() {
+			auto e = pop();
+			return e ? e->run() : 0;
+		}
+
+		// Pops all entries and executes them.
+		//
+		size_t consume() {
+			auto e = pop_all();
+			return e ? e->run() : 0;
 		}
 
 		// Make co-awaitable.

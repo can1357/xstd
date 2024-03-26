@@ -114,6 +114,7 @@ namespace ia32::apic
 		//
 		inline void end_of_interrupt() const noexcept
 		{
+			mfence(); lfence();
 			write_register( end_of_int_register, 0 );
 		}
 
@@ -143,6 +144,7 @@ namespace ia32::apic
 		//
 		inline void send_command( command cmd, uint32_t dst = 0 ) const noexcept
 		{
+			mfence(); lfence();
 			if ( !is_x2apic() )
 			{
 				// Disable interrupts if safe.
