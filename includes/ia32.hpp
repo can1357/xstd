@@ -25334,10 +25334,16 @@ namespace ia32
 	//
 	struct invpcid_descriptor
 	{
-		uint64_t pcid : 12;
-		uint64_t rsvd : 48;
+		static constexpr size_t pcid_bits = 12;
+		static constexpr size_t rsvd_bits = 52;
+
+		uint64_t pcid : pcid_bits;
+		uint64_t rsvd : rsvd_bits;
 		uint64_t address;
 	};
+	static_assert( sizeof( invpcid_descriptor ) == 16, "invpcid_descriptor must be 128 bits" );
+	static_assert( offsetof( invpcid_descriptor, address ) == 8, "invpcid_descriptor::address offset mismatch" );
+	static_assert( invpcid_descriptor::pcid_bits + invpcid_descriptor::rsvd_bits == 64, "bitfields must exactly fill storage unit" );
 	enum class invpcid_type : uint64_t
 	{
 
