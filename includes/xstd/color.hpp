@@ -6,12 +6,10 @@
 #include "type_helpers.hpp"
 #include "math.hpp"
 
-namespace xstd
-{
+namespace xstd {
 	// Define the color models.
 	//
-	enum class color_model
-	{
+	enum class color_model {
 		// Grayscale
 		//
 		monochrome,
@@ -39,105 +37,113 @@ namespace xstd
 
 	// Define the color data types.
 	//
-#pragma pack(push, 1)
+#pragma pack( push, 1 )
 	template<>
-	struct color<color_model::monochrome>
-	{
+	struct color<color_model::monochrome> {
 		bool white;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 	};
 	using monochrome_t = color<color_model::monochrome>;
 
 	template<>
-	struct color<color_model::grayscale>
-	{
+	struct color<color_model::grayscale> {
 		uint8_t lightness;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 	};
 	using grayscale_t = color<color_model::grayscale>;
-	
+
 	template<>
-	struct color<color_model::grayscale_alpha>
-	{
+	struct color<color_model::grayscale_alpha> {
 		uint8_t lightness;
 		uint8_t alpha;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 	};
 	using grayscale_alpha_t = color<color_model::grayscale_alpha>;
 
 	template<>
-	struct color<color_model::rgb>
-	{
+	struct color<color_model::rgb> {
 		uint8_t b;
 		uint8_t g;
 		uint8_t r;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 
 		std::string to_string() const { return fmt::str( "#%02x%02x%02x", r, g, b ); }
 	};
 	using rgb_t = color<color_model::rgb>;
 
 	template<>
-	struct color<color_model::argb>
-	{
+	struct color<color_model::argb> {
 		uint8_t b;
 		uint8_t g;
 		uint8_t r;
 		uint8_t a;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 
 		std::string to_string() const { return fmt::str( "#%02x%02x%02x%02x", r, g, b, a ); }
 	};
 	using argb_t = color<color_model::argb>;
 
 	template<>
-	struct color<color_model::xrgb>
-	{
+	struct color<color_model::xrgb> {
 		uint8_t b;
 		uint8_t g;
 		uint8_t r;
 		uint8_t x;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 	};
 	using xrgb_t = color<color_model::xrgb>;
 
 	template<>
-	struct color<color_model::hsv>
-	{
+	struct color<color_model::hsv> {
 		float h;
 		float s;
 		float v;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 	};
 	using hsv_t = color<color_model::hsv>;
 
 	template<>
-	struct color<color_model::ahsv>
-	{
+	struct color<color_model::ahsv> {
 		float h;
 		float s;
 		float v;
 		float a;
 
 		template<color_model dst>
-		inline constexpr operator color<dst>() const { return cast_color<dst>( *this ); }
+		inline constexpr operator color<dst>() const {
+			return cast_color<dst>( *this );
+		}
 	};
 	using ahsv_t = color<color_model::ahsv>;
-#pragma pack(pop)
+#pragma pack( pop )
 
 	// Conversion to ARGB.
 	//
@@ -145,49 +151,41 @@ namespace xstd
 	static constexpr argb_t to_argb( const color<M>& src );
 
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::monochrome>( const monochrome_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::monochrome>( const monochrome_t& src ) {
 		uint8_t x = src.white ? 255 : 0;
 		return { x, x, x, 255 };
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::grayscale>( const grayscale_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::grayscale>( const grayscale_t& src ) {
 		return { src.lightness, src.lightness, src.lightness, 255 };
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::grayscale_alpha>( const grayscale_alpha_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::grayscale_alpha>( const grayscale_alpha_t& src ) {
 		return { src.lightness, src.lightness, src.lightness, src.alpha };
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::rgb>( const rgb_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::rgb>( const rgb_t& src ) {
 		return { src.b, src.g, src.r, 255 };
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::argb>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::argb>( const argb_t& src ) {
 		return src;
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::xrgb>( const xrgb_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::xrgb>( const xrgb_t& src ) {
 		return { .b = src.b, .g = src.g, .r = src.r, .a = src.x };
 	}
 	template<>
-	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src )
-	{
-		float hh = math::fmod( src.h, math::pi * 2 ) / ( math::pi * 60 / 180 );
+	constexpr argb_t to_argb<color_model::ahsv>( const ahsv_t& src ) {
+		float hh   = math::fmod( src.h, math::pi * 2 ) / ( math::pi * 60 / 180 );
 		uint32_t i = ( uint32_t ) hh;
-		float ff = hh - i;
-		float p = src.v * ( 1 - src.s );
-		float q = src.v * ( 1 - ( src.s * ff ) );
-		float t = src.v * ( 1 - ( src.s * ( 1 - ff ) ) );
+		float ff   = hh - i;
+		float p    = src.v * ( 1 - src.s );
+		float q    = src.v * ( 1 - ( src.s * ff ) );
+		float t    = src.v * ( 1 - ( src.s * ( 1 - ff ) ) );
 
 		std::tuple<float, float, float> res;
-		switch ( i )
-		{
+		switch ( i ) {
 			case 0: res = { src.v, t, p }; break;
 			case 1: res = { q, src.v, p }; break;
 			case 2: res = { p, src.v, t }; break;
@@ -198,15 +196,14 @@ namespace xstd
 		}
 
 		argb_t out = { 0, 0, 0, 0 };
-		out.b = ( uint8_t ) std::clamp<float>( std::get<2>( res ) * 255.0f, 0, 255 );
-		out.g = ( uint8_t ) std::clamp<float>( std::get<1>( res ) * 255.0f, 0, 255 );
-		out.r = ( uint8_t ) std::clamp<float>( std::get<0>( res ) * 255.0f, 0, 255 );
-		out.a = ( uint8_t ) std::clamp<float>( src.a * 255.0f, 0, 255 );
+		out.b      = ( uint8_t ) std::clamp<float>( std::get<2>( res ) * 255.0f, 0, 255 );
+		out.g      = ( uint8_t ) std::clamp<float>( std::get<1>( res ) * 255.0f, 0, 255 );
+		out.r      = ( uint8_t ) std::clamp<float>( std::get<0>( res ) * 255.0f, 0, 255 );
+		out.a      = ( uint8_t ) std::clamp<float>( src.a * 255.0f, 0, 255 );
 		return out;
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t to_argb<color_model::hsv>( const hsv_t& src )
-	{
+	FORCE_INLINE constexpr argb_t to_argb<color_model::hsv>( const hsv_t& src ) {
 		return to_argb<color_model::ahsv>( { src.h, src.s, src.v, 1.0 } );
 	}
 
@@ -216,41 +213,34 @@ namespace xstd
 	static constexpr color<M> from_argb( const argb_t& src );
 
 	template<>
-	FORCE_INLINE constexpr monochrome_t from_argb<color_model::monochrome>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr monochrome_t from_argb<color_model::monochrome>( const argb_t& src ) {
 		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
 		return { x >= 128 };
 	}
 	template<>
-	FORCE_INLINE constexpr grayscale_t from_argb<color_model::grayscale>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr grayscale_t from_argb<color_model::grayscale>( const argb_t& src ) {
 		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
 		return { x };
 	}
 	template<>
-	FORCE_INLINE constexpr grayscale_alpha_t from_argb<color_model::grayscale_alpha>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr grayscale_alpha_t from_argb<color_model::grayscale_alpha>( const argb_t& src ) {
 		uint8_t x = ( ( uint32_t ) ( src.r ) + uint32_t( src.g ) + uint32_t( src.b ) ) / 3;
 		return { x, src.a };
 	}
 	template<>
-	FORCE_INLINE constexpr rgb_t from_argb<color_model::rgb>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr rgb_t from_argb<color_model::rgb>( const argb_t& src ) {
 		return { src.b, src.g, src.r };
 	}
 	template<>
-	FORCE_INLINE constexpr argb_t from_argb<color_model::argb>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr argb_t from_argb<color_model::argb>( const argb_t& src ) {
 		return src;
 	}
 	template<>
-	FORCE_INLINE constexpr xrgb_t from_argb<color_model::xrgb>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr xrgb_t from_argb<color_model::xrgb>( const argb_t& src ) {
 		return { .b = src.b, .g = src.g, .r = src.r, .x = src.a };
 	}
 	template<>
-	constexpr ahsv_t from_argb<color_model::ahsv>( const argb_t& src )
-	{
+	constexpr ahsv_t from_argb<color_model::ahsv>( const argb_t& src ) {
 		float fr = src.r / 255.0f;
 		float fg = src.g / 255.0f;
 		float fb = src.b / 255.0f;
@@ -260,9 +250,9 @@ namespace xstd
 		float rmax = std::max<float>( { fr, fg, fb } );
 
 		ahsv_t out = { 0, 0, 0, 0 };
-		out.a = fa;
-		out.v = rmax;
-		
+		out.a      = fa;
+		out.v      = rmax;
+
 		float delta = rmax - rmin;
 		if ( delta < 0.001 )
 			return out;
@@ -279,8 +269,7 @@ namespace xstd
 		return out;
 	}
 	template<>
-	FORCE_INLINE constexpr hsv_t from_argb<color_model::hsv>( const argb_t& src )
-	{
+	FORCE_INLINE constexpr hsv_t from_argb<color_model::hsv>( const argb_t& src ) {
 		ahsv_t v = from_argb<color_model::ahsv>( src );
 		return { v.h, v.s, v.v };
 	}
@@ -288,13 +277,14 @@ namespace xstd
 	// Declare conversions between color models.
 	//
 	template<color_model dst, color_model src>
-	FORCE_INLINE inline constexpr color<dst> cast_color( const color<src>& s ) { return from_argb<dst>( to_argb<src>( s ) ); }
-	
+	FORCE_INLINE inline constexpr color<dst> cast_color( const color<src>& s ) {
+		return from_argb<dst>( to_argb<src>( s ) );
+	}
+
 	// Helpers to create darker / lighter colors.
 	//
 	template<typename T>
-	FORCE_INLINE inline constexpr T lighten_color( T color, float perc )
-	{
+	FORCE_INLINE inline constexpr T lighten_color( T color, float perc ) {
 		argb_t rcol = argb_t( color );
 
 		float fr = ( float ) rcol.r;
@@ -304,9 +294,9 @@ namespace xstd
 		// Effectively lower HSV.S.
 		//
 		float fmax = std::max<float>( { fr, fg, fb } );
-		fr = fr + ( fmax - fr ) * perc;
-		fg = fg + ( fmax - fg ) * perc;
-		fb = fb + ( fmax - fb ) * perc;
+		fr         = fr + ( fmax - fr ) * perc;
+		fg         = fg + ( fmax - fg ) * perc;
+		fb         = fb + ( fmax - fb ) * perc;
 
 		rcol.r = ( uint8_t ) fr;
 		rcol.g = ( uint8_t ) fg;
@@ -314,8 +304,7 @@ namespace xstd
 		return T( rcol );
 	}
 	template<typename T>
-	FORCE_INLINE inline constexpr T darken_color( T color, float perc )
-	{
+	FORCE_INLINE inline constexpr T darken_color( T color, float perc ) {
 		argb_t rcol = argb_t( color );
 
 		// Effectively lower HSV.V.

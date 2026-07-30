@@ -19,32 +19,28 @@
 
 // Define status codes and the traits.
 //
-namespace xstd
-{
-	namespace ws
-	{
-		enum status_code : uint16_t
-		{
-			status_none =              0,
-			status_shutdown =          1000,
-			status_going_away =        1001,
-			status_protocol_error =    1002,
+namespace xstd {
+	namespace ws {
+		enum status_code : uint16_t {
+			status_none              = 0,
+			status_shutdown          = 1000,
+			status_going_away        = 1001,
+			status_protocol_error    = 1002,
 			status_unknown_operation = 1003,
-			status_unknown =           1005, // Do not send.
-			status_connection_reset =  1006, // Do not send.
-			status_invalid_data =      1007,
-			status_policy_violation =  1008,
-			status_data_too_large =    1009,
+			status_unknown           = 1005,  // Do not send.
+			status_connection_reset  = 1006,  // Do not send.
+			status_invalid_data      = 1007,
+			status_policy_violation  = 1008,
+			status_data_too_large    = 1009,
 			status_missing_extension = 1010,
-			status_unexpected_error =  1011,
+			status_unexpected_error  = 1011,
 		};
 		inline constexpr status_code application_status( uint16_t i ) { return status_code( 4000 + i ); }
 		inline constexpr status_code parser_status( uint16_t i ) { return status_code( 4500 + i ); }
 	};
 
 	template<>
-	struct status_traits<ws::status_code>
-	{
+	struct status_traits<ws::status_code> {
 		static constexpr ws::status_code success_value = ws::status_none;
 		static constexpr ws::status_code failure_value = ws::status_unknown;
 		constexpr static inline bool is_success( uint16_t s ) { return s == ws::status_none; }
@@ -53,35 +49,29 @@ namespace xstd
 
 // Start the websocket implementation.
 //
-namespace xstd::ws
-{
+namespace xstd::ws {
 	static constexpr uint8_t length_extend_u16 = 126;
 	static constexpr uint8_t length_extend_u64 = 127;
 
 	// Websocket opcodes and the traits.
 	//
-	enum class opcode : uint8_t
-	{
+	enum class opcode : uint8_t {
 		continuation = 0,
-		text =         1,
-		binary =       2,
-		close =        8,
-		ping =         9,
-		pong =        10,
-		maximum =     16,
+		text         = 1,
+		binary       = 2,
+		close        = 8,
+		ping         = 9,
+		pong         = 10,
+		maximum      = 16,
 	};
-	static constexpr bool is_control_opcode( opcode op )
-	{
-		return op >= opcode::close;
-	}
+	static constexpr bool is_control_opcode( opcode op ) { return op >= opcode::close; }
 
 	// Networked packet header.
 	//
-	struct net_header
-	{
-		opcode  op     : 4;
-		uint8_t rsvd   : 3;
-		uint8_t fin    : 1;
+	struct net_header {
+		opcode op : 4;
+		uint8_t rsvd : 3;
+		uint8_t fin : 1;
 
 		uint8_t length : 7;
 		uint8_t masked : 1;
@@ -90,7 +80,7 @@ namespace xstd::ws
 			size_t result = sizeof( net_header );
 			result += length == length_extend_u16 ? 2 : 0;
 			result += length == length_extend_u64 ? 8 : 0;
-			result += masked                      ? 4 : 0;
+			result += masked ? 4 : 0;
 			return result;
 		}
 	};
@@ -98,16 +88,16 @@ namespace xstd::ws
 	static constexpr size_t header_length( size_t packet_size, bool masked ) {
 		size_t result = sizeof( net_header );
 		result += packet_size >= length_extend_u16 ? 2 : 0;
-		result += packet_size > UINT16_MAX         ? 6 : 0;
-		result += masked                           ? 4 : 0;
+		result += packet_size > UINT16_MAX ? 6 : 0;
+		result += masked ? 4 : 0;
 		return result;
 	}
 
 	// Masking helper.
 	//
 	static void masked_copy( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key ) {
-		uint8_t* __restrict       dst = ( uint8_t * __restrict ) _dst;
-		const uint8_t* __restrict src = ( const uint8_t * __restrict ) _src;
+		uint8_t* __restrict dst       = ( uint8_t* __restrict ) _dst;
+		const uint8_t* __restrict src = ( const uint8_t* __restrict ) _src;
 
 		if ( !key ) {
 			if ( dst != src )
@@ -116,15 +106,15 @@ namespace xstd::ws
 		}
 
 #if CLANG_COMPILER
-#pragma clang loop vectorize(enable)
+	#pragma clang loop vectorize( enable )
 #endif
 		for ( size_t it = 0; it != len; it++ ) {
 			dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
 		}
 	}
 	static void masked_copy_bwd( void* __restrict _dst, const void* __restrict _src, size_t len, uint32_t key ) {
-		uint8_t* __restrict       dst = ( uint8_t * __restrict ) _dst;
-		const uint8_t* __restrict src = ( const uint8_t * __restrict ) _src;
+		uint8_t* __restrict dst       = ( uint8_t* __restrict ) _dst;
+		const uint8_t* __restrict src = ( const uint8_t* __restrict ) _src;
 
 		if ( !key ) {
 			if ( dst != src )
@@ -133,7 +123,7 @@ namespace xstd::ws
 		}
 
 #if CLANG_COMPILER
-#pragma clang loop vectorize(enable)
+	#pragma clang loop vectorize( enable )
 #endif
 		for ( size_t it = len - 1; ptrdiff_t( it ) >= 0; it-- ) {
 			dst[ it ] = src[ it ] ^ uint8_t( key >> 8 * ( it & 3 ) );
@@ -152,7 +142,7 @@ namespace xstd::ws
 		// Opcode and packet length.
 		//
 		size_t length = 0;
-		opcode op = opcode::maximum;
+		opcode op     = opcode::maximum;
 		bool finished = true;
 
 		// Mask key, omitted if zero.
@@ -172,7 +162,7 @@ namespace xstd::ws
 			if ( buffer.size() < ws::max_net_header_size ) [[unlikely]] {
 				if ( buffer.size() < sizeof( net_header ) )
 					return std::nullopt;
-				size_t hlen = ( (net_header*) buffer.data() )->header_length();
+				size_t hlen = ( ( net_header* ) buffer.data() )->header_length();
 				if ( buffer.size() < hlen )
 					return std::nullopt;
 			}
@@ -180,8 +170,8 @@ namespace xstd::ws
 			// Read and skip the header.
 			//
 			net_header net = buffer.shift_as<net_header>();
-			op = net.op;
-			finished = net.fin;
+			op             = net.op;
+			finished       = net.fin;
 
 			if ( net.length == length_extend_u16 ) {
 				length = bswap( buffer.shift_as<uint16_t>() );
@@ -206,9 +196,7 @@ namespace xstd::ws
 			return nullptr;
 		}
 		auto read( stream_view stream ) {
-			return stream.read_until( [&]( vec_buffer& buf ) {
-				return this->read( buf );
-			} );
+			return stream.read_until( [ & ]( vec_buffer& buf ) { return this->read( buf ); } );
 		}
 
 		// Writers.
@@ -223,13 +211,13 @@ namespace xstd::ws
 			if ( this->length > UINT16_MAX ) {
 				net.length = length_extend_u64;
 				buffer.emplace_back_as<net_header>( net );
-				buffer.emplace_back_as<uint64_t>( bswap( (uint64_t) this->length ) );
+				buffer.emplace_back_as<uint64_t>( bswap( ( uint64_t ) this->length ) );
 			} else if ( this->length >= length_extend_u16 ) {
 				net.length = length_extend_u16;
 				buffer.emplace_back_as<net_header>( net );
-				buffer.emplace_back_as<uint16_t>( bswap( (uint16_t) this->length ) );
+				buffer.emplace_back_as<uint16_t>( bswap( ( uint16_t ) this->length ) );
 			} else {
-				net.length = (uint8_t) this->length;
+				net.length = ( uint8_t ) this->length;
 				buffer.emplace_back_as<net_header>( net );
 			}
 
@@ -239,9 +227,7 @@ namespace xstd::ws
 				buffer.emplace_back_as<uint32_t>( this->mask_key );
 		}
 		auto write( stream_view stream ) const {
-			return stream.write_using( [&]( vec_buffer& buf ) {
-				this->write( buf );
-			} );
+			return stream.write_using( [ & ]( vec_buffer& buf ) { this->write( buf ); } );
 		}
 	};
 
@@ -250,8 +236,8 @@ namespace xstd::ws
 	static constexpr std::string_view sec_guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 	inline std::string accept_sec_key( std::string_view key ) {
 		sha1 sha{};
-		sha.add_bytes( (uint8_t*) key.data(), key.size() );
-		sha.add_bytes( (uint8_t*) sec_guid.data(), sec_guid.size() );
+		sha.add_bytes( ( uint8_t* ) key.data(), key.size() );
+		sha.add_bytes( ( uint8_t* ) sec_guid.data(), sec_guid.size() );
 		return encode::base64( sha.digest() );
 	}
 	inline std::string generate_sec_key() {
@@ -263,24 +249,18 @@ namespace xstd::ws
 	//
 	inline http::request upgrade_request( http::request::options&& opts = {} ) {
 		http::request req{ std::move( opts ) };
-		req.set_headers( {
-			{ "Connection",            "Upgrade" },
-			{ "Cache-Control",         "no-cache" },
-			{ "Upgrade",               "websocket" },
-			{ "Sec-WebSocket-Version", "13" },
-			{ "Sec-WebSocket-Key",     generate_sec_key() }
-		} );
+		req.set_headers( { { "Connection", "Upgrade" }, { "Cache-Control", "no-cache" }, { "Upgrade", "websocket" }, { "Sec-WebSocket-Version", "13" }, { "Sec-WebSocket-Key", generate_sec_key() } } );
 		return req;
 	}
 	inline http::response upgrade_accept( const http::request& reply_to, http::response::options&& opts = {} ) {
 		opts.status = 101;
 		http::response res{ std::move( opts ) };
 		res.set_headers( {
-			{ "Connection",            "Upgrade" },
-			{ "Cache-Control",         "no-cache" },
-			{ "Upgrade",               "websocket" },
+			{ "Connection", "Upgrade" },
+			{ "Cache-Control", "no-cache" },
+			{ "Upgrade", "websocket" },
 			{ "Sec-WebSocket-Version", "13" },
-			{ "Sec-WebSocket-Accept",  accept_sec_key( reply_to.get_header( "Sec-WebSocket-Key" ) ) },
+			{ "Sec-WebSocket-Accept", accept_sec_key( reply_to.get_header( "Sec-WebSocket-Key" ) ) },
 		} );
 		return res;
 	}

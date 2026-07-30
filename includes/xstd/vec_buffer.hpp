@@ -9,7 +9,8 @@ namespace xstd {
 	namespace detail {
 		template<typename T>
 		FORCE_INLINE static constexpr T* copy( T* dst, const T* src, size_t count ) {
-			if ( const_condition( !count ) ) return dst;
+			if ( const_condition( !count ) )
+				return dst;
 			if ( std::is_constant_evaluated() )
 				std::copy_n( src, count, dst );
 			else
@@ -17,7 +18,8 @@ namespace xstd {
 			return dst;
 		}
 		FORCE_INLINE static constexpr void fill( uint8_t* dst, uint8_t value, size_t count ) {
-			if ( const_condition( !count ) ) return;
+			if ( const_condition( !count ) )
+				return;
 			if ( std::is_constant_evaluated() )
 				std::fill_n( dst, count, value );
 			else
@@ -25,7 +27,8 @@ namespace xstd {
 		}
 		template<typename T>
 		FORCE_INLINE static constexpr T* move( T* dst, const T* src, size_t count ) {
-			if ( const_condition( !count ) ) return dst;
+			if ( const_condition( !count ) )
+				return dst;
 			if ( std::is_constant_evaluated() )
 				std::copy_n( src, count, dst );
 			else
@@ -38,20 +41,20 @@ namespace xstd {
 		}
 		template<typename T, typename S = ptrdiff_t>
 		FORCE_INLINE static constexpr T* shift_bwd( T* at, size_t count, S shift ) {
-			return detail::shift_fwd( at, count, -(ptrdiff_t) shift );
+			return detail::shift_fwd( at, count, -( ptrdiff_t ) shift );
 		}
 		FORCE_INLINE static constexpr uint8_t* allocate( size_t count ) {
 			uint8_t* result = nullptr;
 			if ( std::is_constant_evaluated() ) {
-				if ( count ) // This check is actually asserted by caller, only to prevent errors in compilers with no cxpr heap by introducing runtime condition.
+				if ( count )  // This check is actually asserted by caller, only to prevent errors in compilers with no cxpr heap by introducing runtime condition.
 					result = new uint8_t[ count ]();
 			} else {
 				// This check is actually asserted by caller, only optimizing codegen if known at compile time.
 				if ( !const_condition( !count ) ) {
 #ifdef XSTD_VECBUF_ALLOC
-					result = (uint8_t*) XSTD_VECBUF_ALLOC( nullptr, count );
+					result = ( uint8_t* ) XSTD_VECBUF_ALLOC( nullptr, count );
 #else
-					result = (uint8_t*) malloc( count );
+					result = ( uint8_t* ) malloc( count );
 #endif
 				}
 			}
@@ -65,7 +68,8 @@ namespace xstd {
 				if ( const_condition( prev == nullptr ) )
 					return;
 #ifdef XSTD_VECBUF_ALLOC
-				if ( prev ) XSTD_VECBUF_ALLOC( prev, 0 );
+				if ( prev )
+					XSTD_VECBUF_ALLOC( prev, 0 );
 #else
 				free( prev );
 #endif
@@ -90,9 +94,9 @@ namespace xstd {
 				deallocate( prev );
 			} else {
 #ifdef XSTD_VECBUF_ALLOC
-				result = (uint8_t*) XSTD_VECBUF_ALLOC( prev, size );
+				result = ( uint8_t* ) XSTD_VECBUF_ALLOC( prev, size );
 #else
-				result = (uint8_t*) realloc( prev, size );
+				result = ( uint8_t* ) realloc( prev, size );
 #endif
 			}
 			return result;
@@ -104,12 +108,12 @@ namespace xstd {
 	struct TRIVIAL_ABI vec_buffer {
 		// Storage and allocation details.
 		//
-	private:
-		uint8_t* __restrict m_beg  = nullptr;  // Currently used limits.
-		uint8_t*            m_end  = nullptr;  //
-		uint8_t*            m_limit = nullptr; // Allocation limits.
-		uint8_t*            m_base  = nullptr; //
-		
+	   private:
+		uint8_t* __restrict m_beg = nullptr;  // Currently used limits.
+		uint8_t* m_end            = nullptr;  //
+		uint8_t* m_limit          = nullptr;  // Allocation limits.
+		uint8_t* m_base           = nullptr;  //
+
 		// Returns the number of bytes that we're currently using.
 		FORCE_INLINE constexpr size_t mm_active() const { return m_end - m_beg; }
 
@@ -128,9 +132,9 @@ namespace xstd {
 		FORCE_INLINE constexpr uint8_t* mm_reshape( size_t used, size_t total, size_t offset = 0 ) {
 			auto base = ( uint8_t* ) detail::reallocate( mm_base(), total, mm_capacity() );
 
-			m_beg =   base + offset;
-			m_end =   base + offset + used;
-			m_base =  base;
+			m_beg   = base + offset;
+			m_end   = base + offset + used;
+			m_base  = base;
 			m_limit = base + total;
 			return base;
 		}
@@ -142,11 +146,11 @@ namespace xstd {
 
 		// Valdation.
 		FORCE_INLINE constexpr void mm_validate() const {
-			//dassert( m_base <= m_limit );
-			//dassert( m_base <= m_beg && m_beg <= m_limit );
-			//dassert( m_base <= m_end && m_end <= m_limit );
+			// dassert( m_base <= m_limit );
+			// dassert( m_base <= m_beg && m_beg <= m_limit );
+			// dassert( m_base <= m_end && m_end <= m_limit );
 		}
-		
+
 		// Amortization calculation.
 		FORCE_INLINE static constexpr size_t mm_amortize( size_t used, size_t offset = 0 ) {
 			used = used + ( used >> 1 ) + offset;
@@ -190,8 +194,8 @@ namespace xstd {
 			if ( size_t offset = mm_offset() ) {
 				size_t length = mm_active();
 				detail::shift_bwd( m_beg, length, offset );
-				m_beg  = m_base;
-				m_end  = m_base + length;
+				m_beg = m_base;
+				m_end = m_base + length;
 				mm_validate();
 			}
 		}
@@ -225,7 +229,7 @@ namespace xstd {
 			//
 			n -= consumed_off;
 			if ( n ) [[unlikely]] {
-				size_t size =     mm_active();
+				size_t size     = mm_active();
 				size_t copy_len = size - consumed_off;
 				mm_resize( size + n );
 				result = m_beg;
@@ -241,7 +245,7 @@ namespace xstd {
 			if ( !unchecked && mm_active() < n ) [[unlikely]]
 				return nullptr;
 			uint8_t* pbeg = m_beg;
-			m_beg  = pbeg + n;
+			m_beg         = pbeg + n;
 			mm_validate();
 			return pbeg;
 		}
@@ -252,7 +256,7 @@ namespace xstd {
 			if ( !unchecked && mm_active() < n ) [[unlikely]]
 				return nullptr;
 			uint8_t* pend = m_end - n;
-			m_end = pend;
+			m_end         = pend;
 			mm_validate();
 			return pend;
 		}
@@ -267,33 +271,29 @@ namespace xstd {
 			m_beg = m_end - n;
 			mm_validate();
 		}
-	public:
 
+	   public:
 		// Default constructor and size constructor.
 		//
 		constexpr vec_buffer() = default;
 		FORCE_INLINE constexpr vec_buffer( size_t n ) {
-			m_base =  m_beg = n ? detail::allocate( n ) : nullptr;
-			m_limit = m_beg + n;
-			m_end =   m_beg + n;
+			m_base = m_beg = n ? detail::allocate( n ) : nullptr;
+			m_limit        = m_beg + n;
+			m_end          = m_beg + n;
 		}
-		FORCE_INLINE constexpr vec_buffer( size_t n, uint8_t fill ) : vec_buffer( n ) {
-			std::fill_n( m_beg, n, fill );
-		}
+		FORCE_INLINE constexpr vec_buffer( size_t n, uint8_t fill ) : vec_buffer( n ) { std::fill_n( m_beg, n, fill ); }
 
 		// Move by swap.
 		//
-		FORCE_INLINE constexpr vec_buffer( vec_buffer&& other ) noexcept {
-			swap( other ); 
-		}
+		FORCE_INLINE constexpr vec_buffer( vec_buffer&& other ) noexcept { swap( other ); }
 		FORCE_INLINE constexpr vec_buffer& operator=( vec_buffer&& other ) noexcept {
 			swap( other );
 			return *this;
 		}
 		FORCE_INLINE constexpr void swap( vec_buffer& other ) {
-			std::swap( m_beg,   other.m_beg );
-			std::swap( m_end,   other.m_end );
-			std::swap( m_base,  other.m_base );
+			std::swap( m_beg, other.m_beg );
+			std::swap( m_end, other.m_end );
+			std::swap( m_base, other.m_base );
 			std::swap( m_limit, other.m_limit );
 		}
 
@@ -304,7 +304,8 @@ namespace xstd {
 		FORCE_INLINE constexpr vec_buffer( const uint8_t* beg, size_t size ) { assign_range( std::span{ beg, beg + size } ); }
 		FORCE_INLINE constexpr vec_buffer( const vec_buffer& other ) : vec_buffer( std::span{ other } ) {}
 		FORCE_INLINE constexpr vec_buffer& operator=( const vec_buffer& other ) {
-			if ( this == &other ) return *this;
+			if ( this == &other )
+				return *this;
 			assign_range( other );
 			return *this;
 		}
@@ -334,39 +335,23 @@ namespace xstd {
 
 		// Mutators.
 		//
-		FORCE_INLINE constexpr void resize( size_t n ) {
-			mm_resize( n );
-		}
+		FORCE_INLINE constexpr void resize( size_t n ) { mm_resize( n ); }
 		FORCE_INLINE constexpr void resize( size_t n, uint8_t fill ) {
 			size_t pos = size();
 			mm_resize( n );
 			if ( pos < n )
 				detail::fill( data() + pos, fill, n - pos );
 		}
-		FORCE_INLINE constexpr void shrink_resize( size_t n ) {
-			mm_shrink_resize( n );
-		}
-		FORCE_INLINE constexpr void shrink_resize_reverse( size_t n ) {
-			mm_shrink_resize_reverse( n );
-		}
-		FORCE_INLINE constexpr void reserve( size_t n ) {
-			mm_reserve( n );
-		}
-		FORCE_INLINE constexpr void shrink_to_fit() {
-			mm_shrink();
-		}
-		FORCE_INLINE constexpr void clear() {
-			mm_clear();
-		}
-		FORCE_INLINE constexpr void reset() {
-			mm_free();
-		}
-		FORCE_INLINE constexpr void drop_offset() {
-			mm_drop_offset();
-		}
+		FORCE_INLINE constexpr void shrink_resize( size_t n ) { mm_shrink_resize( n ); }
+		FORCE_INLINE constexpr void shrink_resize_reverse( size_t n ) { mm_shrink_resize_reverse( n ); }
+		FORCE_INLINE constexpr void reserve( size_t n ) { mm_reserve( n ); }
+		FORCE_INLINE constexpr void shrink_to_fit() { mm_shrink(); }
+		FORCE_INLINE constexpr void clear() { mm_clear(); }
+		FORCE_INLINE constexpr void reset() { mm_free(); }
+		FORCE_INLINE constexpr void drop_offset() { mm_drop_offset(); }
 		FORCE_INLINE constexpr std::tuple<uint8_t*, uint8_t*, uint8_t*, uint8_t*> release() {
 			auto abeg = mm_base();
-			auto dbeg=  begin();
+			auto dbeg = begin();
 			auto dend = end();
 			auto aend = mm_limit();
 			m_base = m_limit = m_beg = m_end = nullptr;
@@ -392,32 +377,25 @@ namespace xstd {
 			detail::copy( dst, data.data(), data.size() );
 			return dst;
 		}
-		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, const uint8_t* first, const uint8_t* last ) {
-			return insert_range( it, std::span{ first, last } );
-		}
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, const uint8_t* first, const uint8_t* last ) { return insert_range( it, std::span{ first, last } ); }
 		template<typename It1, typename It2>
 		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, It1 first, It2 last ) {
 			size_t count = std::distance( first, last );
-			if constexpr ( std::is_same_v<It1, const uint8_t*>   || std::is_same_v<It1, uint8_t*> ) {
+			if constexpr ( std::is_same_v<It1, const uint8_t*> || std::is_same_v<It1, uint8_t*> ) {
 				return insert_range( it, std::span<const uint8_t>{ first, count } );
-			} 
-			
-			if constexpr ( std::is_same_v<It1, const char*>      || std::is_same_v<It1, char*> ||
-						   std::is_same_v<It1, const std::byte*> || std::is_same_v<It1, std::byte*> ) {
+			}
+
+			if constexpr ( std::is_same_v<It1, const char*> || std::is_same_v<It1, char*> || std::is_same_v<It1, const std::byte*> || std::is_same_v<It1, std::byte*> ) {
 				if ( !std::is_constant_evaluated() ) {
-					return insert_range( it, std::span<const uint8_t>{ (const uint8_t*) first, count } );
+					return insert_range( it, std::span<const uint8_t>{ ( const uint8_t* ) first, count } );
 				}
 			}
 			auto* dst = reserve_range( it, count );
 			std::copy_n( first, count, dst );
 			return dst;
 		}
-		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, std::initializer_list<uint8_t> list ) {
-			return insert( it, list.begin(), list.end() );
-		}
-		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, uint8_t val ) {
-			return insert( it, &val, std::next( &val ) );
-		}
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, std::initializer_list<uint8_t> list ) { return insert( it, list.begin(), list.end() ); }
+		FORCE_INLINE constexpr uint8_t* insert( const uint8_t* it, uint8_t val ) { return insert( it, &val, std::next( &val ) ); }
 		FORCE_INLINE constexpr uint8_t* assign_range( std::span<const uint8_t> data ) {
 			mm_clear();
 			return append_range( data );
@@ -425,9 +403,7 @@ namespace xstd {
 
 		// Appends [count] bytes to the arena and returns the pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* push( size_t count ) {
-			return mm_append( count );
-		}
+		FORCE_INLINE constexpr uint8_t* push( size_t count ) { return mm_append( count ); }
 		FORCE_INLINE constexpr uint8_t* append_range( std::span<const uint8_t> data ) {
 			auto dst = push( data.size() );
 			detail::copy( dst, data.data(), data.size() );
@@ -444,18 +420,12 @@ namespace xstd {
 			}
 			return result;
 		}
-		FORCE_INLINE constexpr void push_back( uint8_t value ) {
-			*push( 1 ) = value;
-		}
-		FORCE_INLINE constexpr uint8_t& emplace_back( uint8_t value ) {
-			return ( *push( 1 ) = value );
-		}
+		FORCE_INLINE constexpr void push_back( uint8_t value ) { *push( 1 ) = value; }
+		FORCE_INLINE constexpr uint8_t& emplace_back( uint8_t value ) { return ( *push( 1 ) = value ); }
 
 		// Prepends [count] bytes to the arena and returns the pointer.
 		//
-		FORCE_INLINE constexpr uint8_t* unshift( size_t count ) {
-			return mm_prepend( count );
-		}
+		FORCE_INLINE constexpr uint8_t* unshift( size_t count ) { return mm_prepend( count ); }
 		FORCE_INLINE constexpr uint8_t* prepend_range( std::span<const uint8_t> data ) {
 			auto dst = unshift( data.size() );
 			detail::copy( dst, data.data(), data.size() );
@@ -472,28 +442,23 @@ namespace xstd {
 			}
 			return result;
 		}
-		FORCE_INLINE constexpr void push_front( uint8_t value ) {
-			*unshift( 1 ) = value;
-		}
-		FORCE_INLINE constexpr uint8_t& emplace_front( uint8_t value ) {
-			return ( *unshift( 1 ) = value );
-		}
+		FORCE_INLINE constexpr void push_front( uint8_t value ) { *unshift( 1 ) = value; }
+		FORCE_INLINE constexpr uint8_t& emplace_front( uint8_t value ) { return ( *unshift( 1 ) = value ); }
 
 		// Removes [count] bytes from the beginning and returns the ephemeral pointer / copies the data.
 		//
-		FORCE_INLINE constexpr uint8_t* shift( size_t count, bool unchecked = true ) {
-			return mm_shift( count, unchecked );
-		}
+		FORCE_INLINE constexpr uint8_t* shift( size_t count, bool unchecked = true ) { return mm_shift( count, unchecked ); }
 		FORCE_INLINE constexpr bool shift_range( std::span<uint8_t> data, bool unchecked = true ) {
 			auto src = shift( data.size(), unchecked );
-			if ( !src ) [[unlikely]] 
+			if ( !src ) [[unlikely]]
 				return data.empty();
 			detail::copy( data.data(), src, data.size() );
 			return true;
 		}
 		FORCE_INLINE constexpr vec_buffer shift_range( size_t n, bool unchecked = true ) {
 			auto src = shift( n, unchecked );
-			if ( !src ) return {};
+			if ( !src )
+				return {};
 
 			vec_buffer result{};
 			if ( empty() ) {
@@ -511,19 +476,18 @@ namespace xstd {
 
 		// Removes [count] bytes from the end and returns the ephemeral pointer / copies the data.
 		//
-		FORCE_INLINE constexpr uint8_t* pop( size_t count, bool unchecked = true ) {
-			return mm_pop( count, unchecked );
-		}
+		FORCE_INLINE constexpr uint8_t* pop( size_t count, bool unchecked = true ) { return mm_pop( count, unchecked ); }
 		FORCE_INLINE constexpr bool pop_range( std::span<uint8_t> data, bool unchecked = true ) {
 			auto src = pop( data.size(), unchecked );
-			if ( !src ) [[unlikely]] 
+			if ( !src ) [[unlikely]]
 				return data.empty();
 			detail::copy( data.data(), src, data.size() );
 			return true;
 		}
 		FORCE_INLINE constexpr vec_buffer pop_range( size_t n, bool unchecked = true ) {
 			auto src = pop( n, unchecked );
-			if ( !src ) return {};
+			if ( !src )
+				return {};
 
 			vec_buffer result{};
 			if ( empty() ) {
@@ -543,43 +507,43 @@ namespace xstd {
 		//
 		template<typename U = uint8_t>
 		FORCE_INLINE constexpr std::span<const U> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) const {
-			return std::span{ (const U*) data(), size() / sizeof( U ) }.subspan(offset, count);
+			return std::span{ ( const U* ) data(), size() / sizeof( U ) }.subspan( offset, count );
 		}
 		template<typename U = uint8_t>
 		FORCE_INLINE constexpr std::span<U> subspan( size_t offset = 0, size_t count = std::dynamic_extent ) {
-			return std::span{ (U*) data(), size() / sizeof( U ) }.subspan( offset, count );
+			return std::span{ ( U* ) data(), size() / sizeof( U ) }.subspan( offset, count );
 		}
 
 		// Non-constexpr utils.
 		//
-		template<typename U, size_t E> constexpr vec_buffer( std::span<U, E> v ) : vec_buffer{ std::span{ (const uint8_t*) v.data(), v.size_bytes() } } {}
-		template<typename U, size_t E> constexpr uint8_t* insert_range( const uint8_t* it, std::span<U, E> v ) { return insert_range( it, std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr uint8_t* assign_range( std::span<U, E> v ) { return assign_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr uint8_t* append_range( std::span<U, E> v ) { return append_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr uint8_t* prepend_range( std::span<U, E> v ) { return prepend_range( std::span{ (const uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr bool pop_range( std::span<U, E> v ) { return pop_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr bool pop_range_if( std::span<U, E> v ) { return pop_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr bool shift_range( std::span<U, E> v ) { return shift_range( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
-		template<typename U, size_t E> constexpr bool shift_range_if( std::span<U, E> v ) { return shift_range_if( std::span{ (uint8_t*) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr vec_buffer( std::span<U, E> v ) : vec_buffer{ std::span{ ( const uint8_t* ) v.data(), v.size_bytes() } } {}
+		template<typename U, size_t E> constexpr uint8_t* insert_range( const uint8_t* it, std::span<U, E> v ) { return insert_range( it, std::span{ ( const uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr uint8_t* assign_range( std::span<U, E> v ) { return assign_range( std::span{ ( const uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr uint8_t* append_range( std::span<U, E> v ) { return append_range( std::span{ ( const uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr uint8_t* prepend_range( std::span<U, E> v ) { return prepend_range( std::span{ ( const uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool pop_range( std::span<U, E> v ) { return pop_range( std::span{ ( uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool pop_range_if( std::span<U, E> v ) { return pop_range_if( std::span{ ( uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool shift_range( std::span<U, E> v ) { return shift_range( std::span{ ( uint8_t* ) v.data(), v.size_bytes() } ); }
+		template<typename U, size_t E> constexpr bool shift_range_if( std::span<U, E> v ) { return shift_range_if( std::span{ ( uint8_t* ) v.data(), v.size_bytes() } ); }
 
-		template<typename U = char> constexpr vec_buffer( std::basic_string_view<U> v ) : vec_buffer{ std::span{v} } {}
+		template<typename U = char> constexpr vec_buffer( std::basic_string_view<U> v ) : vec_buffer{ std::span{ v } } {}
 		template<typename U = char> constexpr uint8_t* insert_range( const uint8_t* it, std::basic_string_view<U> v ) { return insert_range( it, std::span{ v } ); }
 		template<typename U = char> constexpr uint8_t* assign_range( std::basic_string_view<U> v ) { return assign_range( std::span{ v } ); }
 		template<typename U = char> constexpr uint8_t* append_range( std::basic_string_view<U> v ) { return append_range( std::span{ v } ); }
 		template<typename U = char> constexpr uint8_t* prepend_range( std::basic_string_view<U> v ) { return prepend_range( std::span{ v } ); }
 
-		template<typename U = char> constexpr vec_buffer( const std::basic_string<U>& v ) : vec_buffer{ std::span{v} } {}
+		template<typename U = char> constexpr vec_buffer( const std::basic_string<U>& v ) : vec_buffer{ std::span{ v } } {}
 		template<typename U = char> constexpr uint8_t* insert_range( const uint8_t* it, const std::basic_string<U>& v ) { return insert_range( it, std::span{ v } ); }
 		template<typename U = char> constexpr uint8_t* assign_range( const std::basic_string<U>& v ) { return assign_range( std::span{ v } ); }
 		template<typename U = char> constexpr uint8_t* append_range( const std::basic_string<U>& v ) { return append_range( std::span{ v } ); }
 		template<typename U = char> constexpr uint8_t* prepend_range( const std::basic_string<U>& v ) { return prepend_range( std::span{ v } ); }
 
-		template<typename U> constexpr U& pop_as() { return *(U*) pop( sizeof( U ) ); }
-		template<typename U> constexpr U* pop_as_if() { return (U*) pop( sizeof( U ), false ); }
-		template<typename U> constexpr U& shift_as() { return *(U*) shift( sizeof( U ) ); }
-		template<typename U> constexpr U* shift_as_if() { return (U*) shift( sizeof( U ), false ); }
-		template<typename U> constexpr U& emplace_back_as( const U& value ) { return *(U*) append_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
-		template<typename U> constexpr U& emplace_front_as( const U& value ) { return *(U*) prepend_range( std::span{ (const uint8_t*) &value, sizeof( U ) } ); }
+		template<typename U> constexpr U& pop_as() { return *( U* ) pop( sizeof( U ) ); }
+		template<typename U> constexpr U* pop_as_if() { return ( U* ) pop( sizeof( U ), false ); }
+		template<typename U> constexpr U& shift_as() { return *( U* ) shift( sizeof( U ) ); }
+		template<typename U> constexpr U* shift_as_if() { return ( U* ) shift( sizeof( U ), false ); }
+		template<typename U> constexpr U& emplace_back_as( const U& value ) { return *( U* ) append_range( std::span{ ( const uint8_t* ) &value, sizeof( U ) } ); }
+		template<typename U> constexpr U& emplace_front_as( const U& value ) { return *( U* ) prepend_range( std::span{ ( const uint8_t* ) &value, sizeof( U ) } ); }
 
 		// Destructor.
 		//

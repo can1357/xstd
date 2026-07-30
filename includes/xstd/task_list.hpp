@@ -13,14 +13,14 @@ namespace xstd {
 		struct entry {
 			union {
 				basic_task_list* list;
-				entry*           next;
+				entry* next;
 			};
-			coroutine_handle<>   hnd;
+			coroutine_handle<> hnd;
 
 			bool await_ready() const noexcept { return false; }
 			bool await_suspend( coroutine_handle<> hnd ) noexcept {
 				auto* list = this->list;
-				this->hnd = hnd;
+				this->hnd  = hnd;
 				list->push( this );
 				return true;
 			}
@@ -30,7 +30,7 @@ namespace xstd {
 			//
 			size_t run() {
 				size_t n = 0;
-				auto it = this;
+				auto it  = this;
 				while ( it ) {
 					++n;
 					auto next = std::exchange( it->next, nullptr );
@@ -56,7 +56,7 @@ namespace xstd {
 			} else {
 				head = w;
 			}
-			tail = w;
+			tail    = w;
 			w->next = nullptr;
 		}
 
@@ -65,7 +65,8 @@ namespace xstd {
 		entry* pop() {
 			std::lock_guard _g{ lock };
 			auto e = head;
-			if ( !e ) return nullptr;
+			if ( !e )
+				return nullptr;
 
 			if ( e == tail ) {
 				head = tail = nullptr;
@@ -101,10 +102,8 @@ namespace xstd {
 
 		// Make co-awaitable.
 		//
-		entry operator co_await() {
-			return { this };
-		}
+		entry operator co_await() { return { this }; }
 	};
-	using task_list =            basic_task_list<noop_lock>;
+	using task_list            = basic_task_list<noop_lock>;
 	using concurrent_task_list = basic_task_list<xspinlock<>>;
 };

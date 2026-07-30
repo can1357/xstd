@@ -10,28 +10,22 @@
 #include <unordered_set>
 #include <unordered_map>
 
-namespace xstd
-{
-	namespace impl
-	{
+namespace xstd {
+	namespace impl {
 		// Helper to escape DOT strings.
 		//
-		static std::string escape_dot_string( std::string str )
-		{
+		static std::string escape_dot_string( std::string str ) {
 			size_t it = SIZE_MAX;
-			while ( true )
-			{
+			while ( true ) {
 				it = str.find_first_of( "\"\\", it + 1 );
 				if ( it == std::string::npos )
 					break;
 				str.insert( str.begin() + it, '\\' );
 				it += 2;
 			}
-			for ( auto it = 0; it != str.size(); it++ )
-			{
+			for ( auto it = 0; it != str.size(); it++ ) {
 				uint8_t cp = ( uint8_t ) str[ it ];
-				if ( !isprint( cp ) && !isspace( cp ) )
-				{
+				if ( !isprint( cp ) && !isspace( cp ) ) {
 					str.erase( it, 1 );
 					str.insert( it, xstd::fmt::str( "\\\\%02x", cp ) );
 					it += 3;
@@ -44,18 +38,16 @@ namespace xstd
 	};
 
 	template<typename T, bool Directed>
-	struct base_graph
-	{
+	struct base_graph {
 
 		// Basic traits.
 		//
 		static constexpr bool directed = Directed;
-		using value_type = T;
+		using value_type               = T;
 
 		// Entry types.
 		//
-		struct node_entry
-		{
+		struct node_entry {
 			// Value mapped to.
 			//
 			value_type value;
@@ -63,10 +55,12 @@ namespace xstd
 			// DOT attribute map.
 			//
 			std::unordered_map<std::string_view, std::string, ahash<std::string_view>> attributes;
-			auto& attribute( const std::string_view& o, const std::string& v ) { attributes.insert_or_assign( o, v ); return *this; }
+			auto& attribute( const std::string_view& o, const std::string& v ) {
+				attributes.insert_or_assign( o, v );
+				return *this;
+			}
 		};
-		struct edge_entry
-		{
+		struct edge_entry {
 			// Source and destination nodes, interchangable if not directed.
 			//
 			const node_entry* src;
@@ -75,7 +69,10 @@ namespace xstd
 			// DOT attribute map.
 			//
 			std::unordered_map<std::string_view, std::string, ahash<std::string_view>> attributes;
-			auto& attribute( const std::string_view& o, const std::string& v ) { attributes.insert_or_assign( o, v ); return *this; }
+			auto& attribute( const std::string_view& o, const std::string& v ) {
+				attributes.insert_or_assign( o, v );
+				return *this;
+			}
 		};
 
 		// Clusters and subgraphs.
@@ -96,23 +93,30 @@ namespace xstd
 
 		// Attribute lookup.
 		//
-		auto& attribute( const std::string_view& o, const std::string& v ) { graph_attributes.insert_or_assign( o, v ); return *this; }
-		auto& node_attribute( const std::string_view& o, const std::string& v ) { node_attributes.insert_or_assign( o, v ); return *this; }
-		auto& edge_attribute( const std::string_view& o, const std::string& v ) { edge_attributes.insert_or_assign( o, v ); return *this; }
+		auto& attribute( const std::string_view& o, const std::string& v ) {
+			graph_attributes.insert_or_assign( o, v );
+			return *this;
+		}
+		auto& node_attribute( const std::string_view& o, const std::string& v ) {
+			node_attributes.insert_or_assign( o, v );
+			return *this;
+		}
+		auto& edge_attribute( const std::string_view& o, const std::string& v ) {
+			edge_attributes.insert_or_assign( o, v );
+			return *this;
+		}
 
 		// Cluster/Subgraph insertion and lookup.
 		//
-		base_graph& cluster( const std::string& key = {} )
-		{
+		base_graph& cluster( const std::string& key = {} ) {
 			if ( key.empty() )
 				return *anon_subgraphs.emplace_back( std::make_unique<base_graph>(), true ).first;
-			auto& entry = subgraphs[ key ]; 
+			auto& entry = subgraphs[ key ];
 			if ( !entry.first )
 				entry = { std::make_unique<base_graph>(), true };
 			return *entry.first;
 		}
-		base_graph& subgraph( const std::string& key = {} ) 
-		{
+		base_graph& subgraph( const std::string& key = {} ) {
 			if ( key.empty() )
 				return *anon_subgraphs.emplace_back( std::make_unique<base_graph>(), false ).first;
 			auto& entry = subgraphs[ key ];
@@ -123,17 +127,16 @@ namespace xstd
 
 		// Node/Edge insertion and lookup.
 		//
-		std::pair<node_entry*, base_graph*> find_node( const value_type& value, bool or_insert = false )
-		{
+		std::pair<node_entry*, base_graph*> find_node( const value_type& value, bool or_insert = false ) {
 			for ( auto& node : nodes )
 				if ( node->value == value )
 					return { node.get(), this };
-			
-			for ( auto& [k, gr] : subgraphs )
+
+			for ( auto& [ k, gr ] : subgraphs )
 				if ( auto pair = gr.first->find_node( value ); pair.first )
 					return pair;
-			
-			for ( auto& [gr, c] : anon_subgraphs )
+
+			for ( auto& [ gr, c ] : anon_subgraphs )
 				if ( auto pair = gr->find_node( value ); pair.first )
 					return pair;
 
@@ -142,30 +145,21 @@ namespace xstd
 			else
 				return { nullptr, nullptr };
 		}
-		node_entry& node( const value_type& value )
-		{ 
-			return *find_node( value, true ).first;
-		}
-		edge_entry& edge( const value_type& src, const value_type& dst ) 
-		{
-			return edges.emplace_back( edge_entry{ &node( src ), &node( dst ) } );
-		}
+		node_entry& node( const value_type& value ) { return *find_node( value, true ).first; }
+		edge_entry& edge( const value_type& src, const value_type& dst ) { return edges.emplace_back( edge_entry{ &node( src ), &node( dst ) } ); }
 
 		// Prints the graph.
 		//
-		std::string to_string( std::string_view name = "G", size_t depth = 0, size_t* ctr = nullptr ) const
-		{
+		std::string to_string( std::string_view name = "G", size_t depth = 0, size_t* ctr = nullptr ) const {
 			size_t tctr = 0;
-			if ( !ctr ) ctr = &tctr;
+			if ( !ctr )
+				ctr = &tctr;
 
 			std::string result( depth * 2, ' ' );
-			if ( !depth )
-			{
+			if ( !depth ) {
 				result += directed ? "digraph " : "graph ";
 				result += name;
-			}
-			else
-			{
+			} else {
 				result += "subgraph ";
 				result += name;
 			}
@@ -175,52 +169,49 @@ namespace xstd
 			// Print the attributes.
 			//
 			bool attr_pad = false;
-			for ( auto& [k, v] : graph_attributes )
-			{
+			for ( auto& [ k, v ] : graph_attributes ) {
 				result.insert( result.size(), depth * 2, ' ' );
 				result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ";\n";
 				attr_pad = true;
 			}
-			for ( auto& [map, b] : { std::pair{ &node_attributes, "node[" }, std::pair{ &edge_attributes, "edge[" } } )
-			{
+			for ( auto& [ map, b ] : { std::pair{ &node_attributes, "node[" }, std::pair{ &edge_attributes, "edge[" } } ) {
 				if ( map->empty() )
 					continue;
 
 				result.insert( result.size(), depth * 2, ' ' );
 				result += b;
-				for ( auto& [k, v] : node_attributes )
+				for ( auto& [ k, v ] : node_attributes )
 					result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ",";
 				result.pop_back();
 				result += "];\n";
 				attr_pad = true;
 			}
-			if ( attr_pad ) result += "\n";
+			if ( attr_pad )
+				result += "\n";
 
 			// Print subgraphs.
 			//
-			auto render_subgraph = [ & ] ( auto&& name, auto&& subgraph )
-			{
+			auto render_subgraph = [ & ]( auto&& name, auto&& subgraph ) {
 				if ( subgraph.second && !name.starts_with( "cluster_" ) )
 					result += subgraph.first->to_string( name.empty() ? fmt::str( "cluster_%d_%llu", depth, ++*ctr ) : fmt::str( "cluster_%d_%s", depth, name ), depth + 1, ctr );
 				else
 					result += subgraph.first->to_string( name, depth + 1, ctr );
 			};
-			for ( auto& [name, subgraph] : subgraphs )
+			for ( auto& [ name, subgraph ] : subgraphs )
 				render_subgraph( name, subgraph );
 			for ( auto& subgraph : anon_subgraphs )
 				render_subgraph( std::string_view{}, subgraph );
-			if ( !subgraphs.empty() || !anon_subgraphs.empty() ) result += "\n";
+			if ( !subgraphs.empty() || !anon_subgraphs.empty() )
+				result += "\n";
 
 			// Print the nodes.
 			//
-			for ( auto& node : nodes )
-			{
+			for ( auto& node : nodes ) {
 				result.insert( result.size(), depth * 2, ' ' );
 				result += impl::escape_dot_string( fmt::as_string( node->value ) );
-				if ( !node->attributes.empty() )
-				{
+				if ( !node->attributes.empty() ) {
 					result += " [";
-					for ( auto& [k, v] : node->attributes )
+					for ( auto& [ k, v ] : node->attributes )
 						result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ",";
 					result.pop_back();
 					result += "]";
@@ -230,16 +221,14 @@ namespace xstd
 
 			// Print the edges.
 			//
-			for ( auto& edge : edges )
-			{
+			for ( auto& edge : edges ) {
 				result.insert( result.size(), depth * 2, ' ' );
 				result += impl::escape_dot_string( fmt::as_string( edge.src->value ) );
 				result += ( directed ? "->" : "--" );
 				result += impl::escape_dot_string( fmt::as_string( edge.dst->value ) );
-				if ( !edge.attributes.empty() )
-				{
+				if ( !edge.attributes.empty() ) {
 					result += " [";
-					for ( auto& [k, v] : edge.attributes )
+					for ( auto& [ k, v ] : edge.attributes )
 						result += std::string{ k } + "=" + impl::escape_dot_string( v ) + ",";
 					result.pop_back();
 					result += "]";
@@ -254,5 +243,5 @@ namespace xstd
 	};
 
 	template<typename T> using digraph = base_graph<T, true>;
-	template<typename T> using graph =   base_graph<T, false>;
+	template<typename T> using graph   = base_graph<T, false>;
 };

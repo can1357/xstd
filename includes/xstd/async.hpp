@@ -6,17 +6,12 @@
 namespace xstd {
 	// Define the concept of a scheduler and the default instances.
 	//
-	template<typename T>
-	concept Scheduler = requires( T& sched, coroutine_handle<> hnd ) {
-		hnd = sched( hnd );
-	};
-	
+	template<typename T> concept Scheduler = requires( T& sched, coroutine_handle<> hnd ) { hnd = sched( hnd ); };
+
 	// No-op scheduler running the item immediately.
 	//
 	struct noop_scheduler {
-		constexpr coroutine_handle<> operator()( coroutine_handle<> handle ) const noexcept {
-			return handle;
-		}
+		constexpr coroutine_handle<> operator()( coroutine_handle<> handle ) const noexcept { return handle; }
 	};
 
 	// Chore scheduler using the thread-pool.
@@ -34,18 +29,15 @@ namespace xstd {
 	template<size_t N = std::dynamic_extent>
 	struct periodic_scheduler {
 		std::array<coroutine_handle<>, N> queue;
-		size_t                            idx = 0;
+		size_t idx = 0;
 
-		periodic_scheduler() {
-			queue.fill( noop_coroutine() );
-		}
+		periodic_scheduler() { queue.fill( noop_coroutine() ); }
 
-		coroutine_handle<> operator()( coroutine_handle<> handle ) noexcept {
-			return std::exchange( queue[ idx++ & N ], handle );
-		}
+		coroutine_handle<> operator()( coroutine_handle<> handle ) noexcept { return std::exchange( queue[ idx++ & N ], handle ); }
 
 		void tick() {
-			if ( !idx ) return;
+			if ( !idx )
+				return;
 			std::array prev = queue;
 			queue.fill( noop_coroutine() );
 			idx = 0;
@@ -53,9 +45,7 @@ namespace xstd {
 				e();
 		}
 
-		~periodic_scheduler() {
-			tick();
-		}
+		~periodic_scheduler() { tick(); }
 	};
 	template<>
 	struct periodic_scheduler<std::dynamic_extent> {
@@ -75,13 +65,11 @@ namespace xstd {
 			}
 		}
 
-		~periodic_scheduler() {
-			tick();
-		}
+		~periodic_scheduler() { tick(); }
 	};
 
 	// Type-erasing scheduler by reference.
-	// 
+	//
 	struct scheduler_reference {
 		// Inline functions instead of lambda so pointer comparison works.
 		//
@@ -90,19 +78,18 @@ namespace xstd {
 			if constexpr ( Empty<Sched> )
 				return Sched{}( hnd );
 			else
-				return ( *(Sched*) ctx )( hnd );
+				return ( *( Sched* ) ctx )( hnd );
 		}
 
 		// The context and the function pointer, default value is noop_scheduler.
 		//
-		coroutine_handle<>( *fn )( void*, coroutine_handle<> ) = &thunk<noop_scheduler>;
-		void* ctx = nullptr;
+		coroutine_handle<> ( *fn )( void*, coroutine_handle<> ) = &thunk<noop_scheduler>;
+		void* ctx                                               = nullptr;
 
 		// Constructors for each kind.
 		//
 		template<Scheduler Sched> requires Empty<Sched>
-		constexpr scheduler_reference( Sched&& ) : fn( &thunk<std::decay_t<Sched>> ) {
-		}
+		constexpr scheduler_reference( Sched&& ) : fn( &thunk<std::decay_t<Sched>> ) {}
 		template<Scheduler Sched> requires ( !std::is_same_v<std::decay_t<Sched>, scheduler_reference> )
 		constexpr scheduler_reference( Sched& sched ) : fn( &thunk<std::decay_t<Sched>> ) {
 			ctx = Empty<std::decay_t<Sched>> ? nullptr : &sched;
@@ -110,10 +97,10 @@ namespace xstd {
 
 		// Default ctor, copy, move, assign.
 		//
-		constexpr scheduler_reference() noexcept = default;
-		constexpr scheduler_reference( scheduler_reference&& ) noexcept = default;
-		constexpr scheduler_reference( const scheduler_reference& ) noexcept = default;
-		constexpr scheduler_reference& operator=( scheduler_reference&& ) noexcept = default;
+		constexpr scheduler_reference() noexcept                                        = default;
+		constexpr scheduler_reference( scheduler_reference&& ) noexcept                 = default;
+		constexpr scheduler_reference( const scheduler_reference& ) noexcept            = default;
+		constexpr scheduler_reference& operator=( scheduler_reference&& ) noexcept      = default;
 		constexpr scheduler_reference& operator=( const scheduler_reference& ) noexcept = default;
 
 		// Evaluates to true if not no-op.
@@ -124,9 +111,7 @@ namespace xstd {
 
 		// Implement the scheduler interface.
 		//
-		coroutine_handle<> operator()( coroutine_handle<> handle ) const {
-			return fn( ctx, handle );
-		}
+		coroutine_handle<> operator()( coroutine_handle<> handle ) const { return fn( ctx, handle ); }
 	};
 
 	// Switches to an async context.
@@ -135,11 +120,12 @@ namespace xstd {
 	struct yield {
 		Sched schedule;
 
-		constexpr yield() requires Empty<Sched> : schedule{} {}
+		constexpr yield() requires Empty<Sched>
+			: schedule{} {}
 		constexpr yield( Sched sched ) : schedule{ std::move( sched ) } {}
 
 		inline bool await_ready() { return Same<Sched, noop_scheduler>; }
-		inline auto await_suspend( coroutine_handle<> h ) { 
+		inline auto await_suspend( coroutine_handle<> h ) {
 			auto result = schedule( h );
 			if constexpr ( !Same<decltype( result ), noop_coroutine_handle> ) {
 				return result;
@@ -182,27 +168,31 @@ namespace xstd {
 	// Declare yield types and their deduction guides.
 	//
 	template<typename... Tx> struct yield_for;
-	template<typename... Tx> yield_for( const Tx&... )->yield_for<Tx...>;
+	template<typename... Tx> yield_for( const Tx&... ) -> yield_for<Tx...>;
 	template<typename... Tx> struct yield_until;
-	template<typename... Tx> yield_until( const Tx&... )->yield_until<Tx...>;
+	template<typename... Tx> yield_until( const Tx&... ) -> yield_until<Tx...>;
 
 	// Yields the coroutine for a given time.
 	//
 	template<>
 	struct yield_for<> {
 		duration delay;
-		template<Duration D>  yield_for( const D& delay ) : delay( std::chrono::duration_cast<duration>( delay ) ) {}
+		template<Duration D> yield_for( const D& delay ) : delay( std::chrono::duration_cast<duration>( delay ) ) {}
 		template<Timestamp T> yield_for( const T& timestamp ) : yield_for( timestamp.time_since_epoch() - time::now().time_since_epoch() ) {}
 		inline bool await_ready() { return false; }
 		inline void await_suspend( coroutine_handle<> h ) { chore( h, delay ); }
 		inline void await_resume() {}
 	};
-	template<Duration D>  struct yield_for<D>    : yield_for<> { using yield_for<>::yield_for; };
-	template<Timestamp T> struct yield_until<T>  : yield_for<> { using yield_for<>::yield_for; };
+	template<Duration D> struct yield_for<D> : yield_for<> {
+		using yield_for<>::yield_for;
+	};
+	template<Timestamp T> struct yield_until<T> : yield_for<> {
+		using yield_for<>::yield_for;
+	};
 
 	// Yields the coroutine until an event is signalled.
 	//
-	template<> 
+	template<>
 	struct yield_until<event_handle> {
 		event_handle evt;
 		yield_until( event_handle evt ) : evt( evt ) {}
@@ -213,8 +203,12 @@ namespace xstd {
 		inline void await_suspend( coroutine_handle<> h ) { chore( h, evt ); }
 		inline void await_resume() {}
 	};
-	template<> struct yield_until<event>           : yield_until<event_handle> { using yield_until<event_handle>::yield_until; };
-	template<> struct yield_until<event_primitive> : yield_until<event_handle> { using yield_until<event_handle>::yield_until; };
+	template<> struct yield_until<event> : yield_until<event_handle> {
+		using yield_until<event_handle>::yield_until;
+	};
+	template<> struct yield_until<event_primitive> : yield_until<event_handle> {
+		using yield_until<event_handle>::yield_until;
+	};
 
 	// Yields the coroutine until an event is signalled or the given timeout period passes.
 	//
@@ -231,6 +225,10 @@ namespace xstd {
 		inline void await_suspend( coroutine_handle<> h ) { chore( h, evt, timeout ); }
 		inline void await_resume() {}
 	};
-	template<Duration D> struct yield_until<event, D>           : yield_until<event_handle, D> { using yield_until<event_handle, D>::yield_until; };
-	template<Duration D> struct yield_until<event_primitive, D> : yield_until<event_handle, D> { using yield_until<event_handle, D>::yield_until; };
+	template<Duration D> struct yield_until<event, D> : yield_until<event_handle, D> {
+		using yield_until<event_handle, D>::yield_until;
+	};
+	template<Duration D> struct yield_until<event_primitive, D> : yield_until<event_handle, D> {
+		using yield_until<event_handle, D>::yield_until;
+	};
 };

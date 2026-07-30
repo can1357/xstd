@@ -20,22 +20,18 @@ namespace xstd::http {
 		template<typename T>
 		static std::span<const uint8_t> to_span( const T& v ) {
 			auto bytes = std::as_bytes( v );
-			return { (const uint8_t*) bytes.data(), bytes.size() };
+			return { ( const uint8_t* ) bytes.data(), bytes.size() };
 		}
 		template<size_t N>
-		static std::span<const uint8_t> to_span( const char( &ref )[ N ] ) {
-			return { (const uint8_t*) &ref[ 0 ], N - 1 };
+		static std::span<const uint8_t> to_span( const char ( &ref )[ N ] ) {
+			return { ( const uint8_t* ) &ref[ 0 ], N - 1 };
 		}
-		static std::span<const uint8_t> to_span( std::string_view v ) {
-			return { (const uint8_t*) v.data(), v.size() };
-		}
-		static std::span<const uint8_t> to_span( const std::string& v ) {
-			return { (const uint8_t*) v.data(), v.size() };
-		}
+		static std::span<const uint8_t> to_span( std::string_view v ) { return { ( const uint8_t* ) v.data(), v.size() }; }
+		static std::span<const uint8_t> to_span( const std::string& v ) { return { ( const uint8_t* ) v.data(), v.size() }; }
 		template<typename Output, typename... Inputs>
 		static void insert_into( Output& out, size_t at, const Inputs&... in ) {
 			std::span<const uint8_t> spans[] = { to_span( in )... };
-			size_t total = 0;
+			size_t total                     = 0;
 			for ( auto& span : spans )
 				total += span.size();
 
@@ -52,7 +48,7 @@ namespace xstd::http {
 		template<typename Output, typename... Inputs>
 		static void append_into( Output& out, const Inputs&... in ) {
 			std::span<const uint8_t> spans[] = { to_span( in )... };
-			size_t total = 0;
+			size_t total                     = 0;
 			for ( auto& span : spans )
 				total += span.size();
 
@@ -67,18 +63,18 @@ namespace xstd::http {
 
 		static bool fast_ieq( std::string_view input, std::string_view against ) {
 			size_t count = against.size();
-			if ( input.size() != count ) return false;
+			if ( input.size() != count )
+				return false;
 
 			uint32_t mismatch = 0;
 			if ( count > 4 ) {
-				__hint_nounroll()
-				for ( size_t it = 0; ( it + 4 ) <= count; it += 4 ) {
-					mismatch |= ( (uint32_t&) input[ it ] ^ (uint32_t&) against[ it ] );
-				}
-				mismatch |= ( (uint32_t&) input[ count - 4 ] ^ (uint32_t&) against[ count - 4 ] );
+				__hint_nounroll() for ( size_t it = 0; ( it + 4 ) <= count; it += 4 ) { mismatch |= ( ( uint32_t& ) input[ it ] ^ ( uint32_t& ) against[ it ] ); }
+				mismatch |= ( ( uint32_t& ) input[ count - 4 ] ^ ( uint32_t& ) against[ count - 4 ] );
 			} else {
-				if ( count >= 2 ) mismatch |= ( (uint16_t&) input[ count & 1 ] ^ (uint16_t&) against[ count & 1 ] );
-				if ( count >= 1 ) mismatch |= ( (uint8_t&) input[ 0 ] ^ (uint8_t&) against[ 0 ] );
+				if ( count >= 2 )
+					mismatch |= ( ( uint16_t& ) input[ count & 1 ] ^ ( uint16_t& ) against[ count & 1 ] );
+				if ( count >= 1 )
+					mismatch |= ( ( uint8_t& ) input[ 0 ] ^ ( uint8_t& ) against[ 0 ] );
 			}
 			return ( mismatch & 0xDFDFDFDF ) == 0;
 		}
@@ -88,11 +84,11 @@ namespace xstd::http {
 	// If line is not terminated yet returns nullopt.
 	//
 	static std::optional<std::string_view> readln( vec_buffer& buf ) {
-		size_t pos = std::string_view{ (char*) buf.data(), buf.size() }.find( "\r\n" );
+		size_t pos = std::string_view{ ( char* ) buf.data(), buf.size() }.find( "\r\n" );
 		if ( pos == std::string::npos )
 			return std::nullopt;
 		else
-			return std::string_view{ (char*) buf.shift( pos + 2 ), pos };
+			return std::string_view{ ( char* ) buf.shift( pos + 2 ), pos };
 	}
 	static auto readln( stream_view stream ) {
 		return stream.read_until( []( vec_buffer& buf ) -> std::optional<std::string> {
@@ -174,20 +170,26 @@ namespace xstd::http {
 		};
 	};
 	enum class status_category : int {
-		invalid =       0,
+		invalid       = 0,
 		informational = 100,
-		success =       200,
-		redirecting =   300,
-		client_error =  400,
-		server_error =  500,
+		success       = 200,
+		redirecting   = 300,
+		client_error  = 400,
+		server_error  = 500,
 	};
 	static constexpr status_category get_status_category( int status_code ) {
-		if ( status_code <  100 ) return status_category::invalid;
-		if ( status_code <= 199 ) return (status_category) 100;
-		if ( status_code <= 299 ) return (status_category) 200;
-		if ( status_code <= 399 ) return (status_category) 300;
-		if ( status_code <= 499 ) return (status_category) 400;
-		if ( status_code <= 599 ) return (status_category) 500;
+		if ( status_code < 100 )
+			return status_category::invalid;
+		if ( status_code <= 199 )
+			return ( status_category ) 100;
+		if ( status_code <= 299 )
+			return ( status_category ) 200;
+		if ( status_code <= 399 )
+			return ( status_category ) 300;
+		if ( status_code <= 499 )
+			return ( status_category ) 400;
+		if ( status_code <= 599 )
+			return ( status_category ) 500;
 		return status_category::invalid;
 	}
 	static constexpr std::string_view get_status_message( int status_code ) {
@@ -199,24 +201,22 @@ namespace xstd::http {
 		} else {
 			switch ( get_status_category( status_code ) ) {
 				case status_category::informational:
-				case status_category::success:       return "OK"sv;
-				case status_category::redirecting:   return "Redirecting"sv;
-				case status_category::client_error:  return "Bad Request"sv;
+				case status_category::success: return "OK"sv;
+				case status_category::redirecting: return "Redirecting"sv;
+				case status_category::client_error: return "Bad Request"sv;
 				default:
-				case status_category::server_error:  return "Internal Server Error"sv;
+				case status_category::server_error: return "Internal Server Error"sv;
 			}
 		}
 	}
-	static constexpr bool is_success( int status_code )  {
+	static constexpr bool is_success( int status_code ) {
 		switch ( get_status_category( status_code ) ) {
 			case status_category::success:
 			case status_category::informational: return true;
-			default:                             return false;
+			default: return false;
 		}
 	}
-	static constexpr bool is_failure( int status_code ) { 
-		return !is_success( status_code ); 
-	}
+	static constexpr bool is_failure( int status_code ) { return !is_success( status_code ); }
 
 	// HTTP methods.
 	//
@@ -232,17 +232,8 @@ namespace xstd::http {
 		PATCH,
 		INVALID,
 	};
-	static constexpr std::pair<uint32_t, std::string_view> method_map[] = {
-		{ "GET"_wh, "GET" },
-		{ "HEAD"_wh, "HEAD" },
-		{ "POST"_wh, "POST" },
-		{ "PUT"_wh, "PUT" },
-		{ "DELETE"_wh, "DELETE" },
-		{ "CONNECT"_wh, "CONNECT" },
-		{ "OPTIONS"_wh, "OPTIONS" },
-		{ "TRACE"_wh, "TRACE" },
-		{ "PATCH"_wh, "PATCH" }
-	};
+	static constexpr std::pair<uint32_t, std::string_view> method_map[] = { { "GET"_wh, "GET" },         { "HEAD"_wh, "HEAD" },       { "POST"_wh, "POST" },   { "PUT"_wh, "PUT" },    { "DELETE"_wh, "DELETE" },
+																			{ "CONNECT"_wh, "CONNECT" }, { "OPTIONS"_wh, "OPTIONS" }, { "TRACE"_wh, "TRACE" }, { "PATCH"_wh, "PATCH" } };
 	static constexpr std::string_view name_method( method_id id ) {
 		if ( id < INVALID )
 			return method_map[ id ].second;
@@ -250,7 +241,7 @@ namespace xstd::http {
 	}
 	static constexpr method_id find_method( std::string_view name ) {
 		auto method_hash = web_hasher{}( name ).as32();
-		uint8_t id = 0;
+		uint8_t id       = 0;
 		for ( ; id != INVALID; id++ ) {
 			if ( method_map[ id ].first == method_hash ) {
 				break;
@@ -263,8 +254,8 @@ namespace xstd::http {
 	//
 	enum class connection : uint32_t {
 		keep_alive = ( uint32_t ) "keep-alive"_wh,
-		upgrade =    ( uint32_t ) "upgrade"_wh,
-		close =      ( uint32_t ) "close"_wh,
+		upgrade    = ( uint32_t ) "upgrade"_wh,
+		close      = ( uint32_t ) "close"_wh,
 	};
 
 	// Header joining rules.
@@ -291,14 +282,14 @@ namespace xstd::http {
 		{ "Retry-After", {} },
 		{ "Server", {} },
 		{ "User-Agent", {} },
-		// `set-cookie` is always an array. 
+		// `set-cookie` is always an array.
 		{ "Set-Cookie", { "\0"sv } },
 		// For duplicate `cookie` headers, the values are joined together with `; `.
 		{ "Cookie", "; " },
 		// For all other headers, the values are joined together with `, `.
 	};
 	static constexpr std::string_view get_header_join_seperator( std::string_view e ) {
-		for ( auto& [k, v] : header_join_keys ) {
+		for ( auto& [ k, v ] : header_join_keys ) {
 			if ( detail::fast_ieq( k, e ) )
 				return v;
 		}
@@ -307,7 +298,7 @@ namespace xstd::http {
 
 	// HTTP headers structure.
 	//
-	using  headers_init = std::initializer_list<std::pair<std::string_view, std::string_view>>;
+	using headers_init = std::initializer_list<std::pair<std::string_view, std::string_view>>;
 	struct headers {
 		enum merge_kind {
 			merge_discard,
@@ -316,31 +307,23 @@ namespace xstd::http {
 			merge_overwrite_if,
 		};
 		struct header_entry {
-			size_t     k_len =  0;
+			size_t k_len    = 0;
 			vec_buffer line = {};
-			header_entry( std::string_view key, std::string_view value ) : k_len( key.size() ) {
-				detail::append_into( line, key, ": ", value, "\r\n" );
-			}
+			header_entry( std::string_view key, std::string_view value ) : k_len( key.size() ) { detail::append_into( line, key, ": ", value, "\r\n" ); }
 
 			// String conversion.
 			//
-			std::string to_string() const {
-				return std::string{ write().substr( 0, line.size() - 2 ) };
-			}
+			std::string to_string() const { return std::string{ write().substr( 0, line.size() - 2 ) }; }
 
 			// Returns a view of the raw header line.
 			//
-			std::string_view write() const {
-				return std::string_view{ (char*) line.data(), line.size() };
-			}
-			
+			std::string_view write() const { return std::string_view{ ( char* ) line.data(), line.size() }; }
+
 			// Key, value.
 			//
-			std::string_view key() const {
-				return write().substr(0, k_len);
-			}
+			std::string_view key() const { return write().substr( 0, k_len ); }
 			std::string_view value() const {
-				auto result = write().substr(k_len + 2);
+				auto result = write().substr( k_len + 2 );
 				return result.substr( 0, result.size() - 2 );
 			}
 
@@ -376,9 +359,9 @@ namespace xstd::http {
 				return true;
 			}
 		};
-		using iterator =       typename std::vector<header_entry>::iterator;
+		using iterator       = typename std::vector<header_entry>::iterator;
 		using const_iterator = typename std::vector<header_entry>::const_iterator;
-		
+
 		// Underlying storage.
 		//
 		std::vector<header_entry> storage = {};
@@ -389,31 +372,29 @@ namespace xstd::http {
 
 		// Default construction/move/copy.
 		//
-		headers() = default;
-		headers( headers&& ) noexcept = default;
-		headers( const headers& ) = default;
+		headers()                                = default;
+		headers( headers&& ) noexcept            = default;
+		headers( const headers& )                = default;
 		headers& operator=( headers&& ) noexcept = default;
-		headers& operator=( const headers& ) = default;
+		headers& operator=( const headers& )     = default;
 
 		// Construction by list of values.
 		//
-		headers( headers_init entries, bool overwrite = true ) {
-			append_range( entries, overwrite );
-		}
+		headers( headers_init entries, bool overwrite = true ) { append_range( entries, overwrite ); }
 
 		// Searcher.
 		//
 		std::pair<iterator, bool> search( std::string_view key ) {
 			auto beg = std::lower_bound( begin(), end(), key.size(), []( const header_entry& a, size_t b ) { return a.k_len < b; } );
 			for ( auto it = beg; it != storage.end(); ++it ) {
-				if ( it->k_len != key.size() ) break;
-				if ( detail::fast_ieq( it->key(), key ) ) return { it, true };
+				if ( it->k_len != key.size() )
+					break;
+				if ( detail::fast_ieq( it->key(), key ) )
+					return { it, true };
 			}
 			return { beg, false };
 		}
-		std::pair<const_iterator, bool> search( std::string_view key ) const {
-			return const_cast<headers*>( this )->search( key );
-		}
+		std::pair<const_iterator, bool> search( std::string_view key ) const { return const_cast<headers*>( this )->search( key ); }
 		template<typename It>
 		It search_upper( It it ) const {
 			It prev = it;
@@ -426,7 +407,7 @@ namespace xstd::http {
 		// Mutators.
 		//
 		header_entry& try_emplace( std::string_view key, std::string_view value, merge_kind directive = merge_overwrite ) {
-			auto [it, found] = search( key );
+			auto [ it, found ] = search( key );
 			if ( found ) {
 				if ( it->merge( value, directive ) )
 					return *it;
@@ -434,14 +415,10 @@ namespace xstd::http {
 			}
 			return *storage.insert( it, header_entry{ key, value } );
 		}
-		header_entry& try_insert( std::string_view key, std::string_view value ) {
-			return try_emplace( key, value, merge_discard );
-		}
-		header_entry& set( std::string_view key, std::string_view value, bool overwrite = true ) {
-			return try_emplace( key, value, overwrite ? merge_overwrite_if : merge_discard_if );
-		}
+		header_entry& try_insert( std::string_view key, std::string_view value ) { return try_emplace( key, value, merge_discard ); }
+		header_entry& set( std::string_view key, std::string_view value, bool overwrite = true ) { return try_emplace( key, value, overwrite ? merge_overwrite_if : merge_discard_if ); }
 		size_t remove( std::string_view key ) {
-			auto [it, found] = search( key );
+			auto [ it, found ] = search( key );
 			if ( found ) {
 				auto end = search_upper( it );
 				size_t n = end - it;
@@ -452,30 +429,26 @@ namespace xstd::http {
 		}
 		template<typename T>
 		void append_range( T&& range, bool overwrite = true ) {
-			for ( auto& [k, v] : range ) {
+			for ( auto& [ k, v ] : range ) {
 				set( k, v, overwrite );
 			}
 		}
 
 		// Observers.
 		//
-		bool has( std::string_view key ) const {
-			return search( key ).second;
-		}
+		bool has( std::string_view key ) const { return search( key ).second; }
 		std::optional<std::string_view> get_if( std::string_view key ) const {
-			auto [it, found] = search( key );
-			if ( found ) return it->value();
+			auto [ it, found ] = search( key );
+			if ( found )
+				return it->value();
 			return {};
 		}
-		std::string_view get( std::string_view key ) const {
-			return get_if( key ).value_or( ""sv );
-		}
-		std::string_view operator[]( std::string_view key ) const {
-			return get( key );
-		}
+		std::string_view get( std::string_view key ) const { return get_if( key ).value_or( ""sv ); }
+		std::string_view operator[]( std::string_view key ) const { return get( key ); }
 		std::span<const header_entry> list( std::string_view key ) {
-			auto [beg, found] = search( key );
-			if ( !found ) return {};
+			auto [ beg, found ] = search( key );
+			if ( !found )
+				return {};
 			return { std::to_address( beg ), std::to_address( search_upper( beg ) ) };
 		}
 
@@ -487,9 +460,7 @@ namespace xstd::http {
 			}
 		}
 		auto write( stream_view stream ) const {
-			return stream.write_using( [&](vec_buffer& buf) {
-				this->write( buf );
-			} );
+			return stream.write_using( [ & ]( vec_buffer& buf ) { this->write( buf ); } );
 		}
 
 		// Readers.
@@ -497,8 +468,10 @@ namespace xstd::http {
 		std::optional<exception> read( vec_buffer& buf ) {
 			while ( true ) {
 				auto line = readln( buf );
-				if ( !line ) return std::nullopt; // Read more.
-				if ( line->empty() ) return exception{}; // Done reading.
+				if ( !line )
+					return std::nullopt;  // Read more.
+				if ( line->empty() )
+					return exception{};  // Done reading.
 
 				size_t key_end = line->find( ": " );
 				if ( key_end == std::string::npos ) {
@@ -507,15 +480,13 @@ namespace xstd::http {
 				}
 
 				// Set the value.
-				std::string_view key{ line->begin(),                 line->begin() + key_end };
+				std::string_view key{ line->begin(), line->begin() + key_end };
 				std::string_view value{ line->begin() + key_end + 2, line->end() };
 				this->set( key, value, false );
 			}
 		}
 		auto read( stream_view stream ) {
-			return stream.read_until( [&]( vec_buffer& buf ) {
-				return this->read( buf );
-			} );
+			return stream.read_until( [ & ]( vec_buffer& buf ) { return this->read( buf ); } );
 		}
 	};
 
@@ -524,24 +495,24 @@ namespace xstd::http {
 	namespace body {
 		enum encoding {
 			raw,
-			chunked, 
-			unknown,  // not yet evaluated
-			finished, // already read
-			error,    // failure
+			chunked,
+			unknown,   // not yet evaluated
+			finished,  // already read
+			error,     // failure
 		};
 		struct props {
-			size_t   length = 0;
+			size_t length = 0;
 			encoding code = unknown;
 		};
 		static bool is_always_empty( method_id method, int status ) {
-			// Any response to a HEAD request and any response with a 1xx (Informational), 204 (No Content), or 304 (Not Modified) status code is always terminated 
+			// Any response to a HEAD request and any response with a 1xx (Informational), 204 (No Content), or 304 (Not Modified) status code is always terminated
 			// by the first empty line after the header fields, regardless of the header fields present in the message, and thus cannot contain a message body.
 			//
 			if ( method == HEAD || status == 204 || status == 304 || ( 100 <= status && status <= 199 ) ) {
 				return true;
 			}
 
-			// Any 2xx( Successful ) response to a CONNECT request implies that the connection will become a tunnel immediately after the empty line that concludes 
+			// Any 2xx( Successful ) response to a CONNECT request implies that the connection will become a tunnel immediately after the empty line that concludes
 			// the header fields. A client MUST ignore any Content - Length or Transfer - Encoding header fields received in such a message.
 			//
 			if ( method == CONNECT && ( 200 <= status && status <= 299 ) ) {
@@ -565,7 +536,7 @@ namespace xstd::http {
 				return { content_length, content_length ? raw : finished };
 			}
 			// If this is a request message and none of the above are true, then the message body length is zero.
-			// 
+			//
 			else if ( status == -1 ) {
 				return { 0, finished };
 			}
@@ -617,7 +588,7 @@ namespace xstd::http {
 					co_return false;
 				}
 			} else if ( content_length == std::dynamic_extent ) {
-				co_await input.read_until( [&]( auto& ) { return false; } );
+				co_await input.read_until( [ & ]( auto& ) { return false; } );
 				output = co_await input.read( 0, content_length );
 				if ( input.stop_code() != stream_stop_fin ) {
 					co_return false;
@@ -628,14 +599,16 @@ namespace xstd::http {
 		static job<bool> read( vec_buffer& output, stream_view input, props& prop ) {
 			bool ok = false;
 			switch ( prop.code ) {
-				case chunked:  ok = co_await read_chunked( output, input ); break;
-				case raw:      ok = co_await read_raw( output, input, prop.length ); break;
+				case chunked: ok = co_await read_chunked( output, input ); break;
+				case raw: ok = co_await read_raw( output, input, prop.length ); break;
 				case finished: co_return true;
-				case error:    co_return false;
-				default:       break;
+				case error: co_return false;
+				default: break;
 			}
-			if ( ok ) prop = { output.size(), finished };
-			else      prop = { 0,             error };
+			if ( ok )
+				prop = { output.size(), finished };
+			else
+				prop = { 0, error };
 			co_return ok;
 		}
 
@@ -653,7 +626,7 @@ namespace xstd::http {
 			} else {
 				char buffer[ 64 ];
 				auto last_header = xstd::fmt::into( buffer, "Content-Length: %llu\r\n\r\n", input.size() );
-				output.append_range( std::span{ (uint8_t*) last_header.data(), last_header.size() } );
+				output.append_range( std::span{ ( uint8_t* ) last_header.data(), last_header.size() } );
 				output.append_range( input );
 			}
 		}
@@ -663,32 +636,28 @@ namespace xstd::http {
 	//
 	struct message {
 		struct options {
-			vec_buffer    body = {};
+			vec_buffer body       = {};
 			http::headers headers = {};
 		};
 
 		// Data.
 		//
-		vec_buffer      body = {};
-		http::headers   headers = {};
-		body::props     body_props = { 0, body::unknown };
-		exception       connection_error = {};
+		vec_buffer body            = {};
+		http::headers headers      = {};
+		body::props body_props     = { 0, body::unknown };
+		exception connection_error = {};
 
 		// Error state.
 		//
-		bool ok() const {
-			return !connection_error;
-		}
-		exception error() const {
-			return connection_error;
-		}
+		bool ok() const { return !connection_error; }
+		exception error() const { return connection_error; }
 
 		// Default, copy, move.
 		//
-		message() = default;
-		message( message&& ) noexcept = default;
-		message( const message& ) noexcept = default;
-		message& operator=( message&& ) noexcept = default;
+		message()                                     = default;
+		message( message&& ) noexcept                 = default;
+		message( const message& ) noexcept            = default;
+		message& operator=( message&& ) noexcept      = default;
 		message& operator=( const message& ) noexcept = default;
 
 		// By value.
@@ -699,52 +668,35 @@ namespace xstd::http {
 
 		// Header modifiers.
 		//
-		std::string_view get_header( std::string_view key ) const {
-			return headers.get( key );
-		}
-		void set_header( std::string_view key, std::string_view value, bool overwrite = true ) {
-			headers.set( key, value, overwrite );
-		}
-		void set_headers( std::initializer_list<std::pair<std::string_view, std::string_view>> entries, bool overwrite = true ) {
-			headers.append_range( entries, overwrite );
-		}
-		size_t remove_header( std::string_view key ) {
-			return headers.remove( key );
-		}
+		std::string_view get_header( std::string_view key ) const { return headers.get( key ); }
+		void set_header( std::string_view key, std::string_view value, bool overwrite = true ) { headers.set( key, value, overwrite ); }
+		void set_headers( std::initializer_list<std::pair<std::string_view, std::string_view>> entries, bool overwrite = true ) { headers.append_range( entries, overwrite ); }
+		size_t remove_header( std::string_view key ) { return headers.remove( key ); }
 
 		// Readers.
 		//
-		job<bool> read_body( stream_view stream ) {
-			return body::read( body, stream, body_props );
-		}
-		auto read_headers( stream_view stream ) {
-			return headers.read( stream );
-		}
+		job<bool> read_body( stream_view stream ) { return body::read( body, stream, body_props ); }
+		auto read_headers( stream_view stream ) { return headers.read( stream ); }
 
 		// Properties.
 		//
-		body::props get_body_properties( method_id req_method, int status ) const {
-			return body::get_properties( req_method, status, headers );
-		}
+		body::props get_body_properties( method_id req_method, int status ) const { return body::get_properties( req_method, status, headers ); }
 		http::connection connection() const {
 			std::string_view header = headers[ "Connection" ];
 			for ( auto& e : split_fwd<4>( header, ", " ) ) {
-				auto res = (http::connection) web_hasher{}( e ).as32();
-				if ( res == http::connection::keep_alive ) return res;
-				if ( res == http::connection::close ) return res;
-				if ( res == http::connection::upgrade ) return res;
+				auto res = ( http::connection ) web_hasher{}( e ).as32();
+				if ( res == http::connection::keep_alive )
+					return res;
+				if ( res == http::connection::close )
+					return res;
+				if ( res == http::connection::upgrade )
+					return res;
 			}
 			return http::connection::keep_alive;
 		}
-		bool keep_alive() const { 
-			return connection() == connection::keep_alive || connection() == connection::upgrade;
-		}
-		bool has_body() const {
-			return body_props.length != 0;
-		}
-		bool is_body_read() const {
-			return body_props.code == body::finished;
-		}
+		bool keep_alive() const { return connection() == connection::keep_alive || connection() == connection::upgrade; }
+		bool has_body() const { return body_props.length != 0; }
+		bool is_body_read() const { return body_props.code == body::finished; }
 	};
 
 	// HTTP response and request as data types.
@@ -753,21 +705,21 @@ namespace xstd::http {
 		struct options {
 			int status = 200;
 			std::string_view message;
-			vec_buffer body = {};
+			vec_buffer body       = {};
 			http::headers headers = {};
 		};
 
 		// Status line.
 		//
-		int             status =         -1;
-		std::string     status_message = {};
-		
+		int status                 = -1;
+		std::string status_message = {};
+
 		// Default, copy, move.
 		//
-		response() = default;
-		response( response&& ) noexcept = default;
-		response( const response& ) noexcept = default;
-		response& operator=( response&& ) noexcept = default;
+		response()                                      = default;
+		response( response&& ) noexcept                 = default;
+		response( const response& ) noexcept            = default;
+		response& operator=( response&& ) noexcept      = default;
 		response& operator=( const response& ) noexcept = default;
 
 		// By value.
@@ -782,9 +734,7 @@ namespace xstd::http {
 
 		// Error state including status.
 		//
-		bool ok() const {
-			return message::ok() && is_success( status );
-		}
+		bool ok() const { return message::ok() && is_success( status ); }
 		exception error() const {
 			if ( !message::ok() )
 				return message::error();
@@ -797,7 +747,7 @@ namespace xstd::http {
 		//
 		void write( vec_buffer& buf, method_id req_method = INVALID ) const {
 			uint8_t status_buffer[ 3 ] = {};
-			
+
 			int sit = status <= 99 || status > 999 ? 500 : status;
 			for ( int i = 2; i >= 0; i-- ) {
 				status_buffer[ i ] = uint8_t( '0' + sit % 10 );
@@ -809,14 +759,12 @@ namespace xstd::http {
 			body::write( buf, body, req_method, -1 );
 		}
 		auto write( stream_view stream, method_id req_method = INVALID ) const {
-			return stream.write_using( [&]( vec_buffer& buf ) {
-				this->write( buf, req_method );
-			} );
+			return stream.write_using( [ & ]( vec_buffer& buf ) { this->write( buf, req_method ); } );
 		}
 		std::string to_string() const {
 			vec_buffer buf{};
 			write( buf );
-			return std::string{ (char*) buf.data(), buf.size() };
+			return std::string{ ( char* ) buf.data(), buf.size() };
 		}
 		vec_buffer write() const {
 			vec_buffer result = {};
@@ -863,14 +811,13 @@ namespace xstd::http {
 			bool ok = true;
 			if ( auto err = co_await this->read_headers( stream ); err == std::nullopt || err->has_value() ) {
 				ok = false;
-				if ( err ) stream.stop( std::move( *err ) );
+				if ( err )
+					stream.stop( std::move( *err ) );
 			}
 			this->body_props = this->get_body_properties( req_method );
 			co_return ok;
 		}
-		job<bool> read( stream_view stream, method_id req_method = INVALID ) {
-			co_return co_await read_head( stream, req_method ) && co_await read_body( stream );
-		}
+		job<bool> read( stream_view stream, method_id req_method = INVALID ) { co_return co_await read_head( stream, req_method ) && co_await read_body( stream ); }
 
 		// Sync parser.
 		//
@@ -889,9 +836,7 @@ namespace xstd::http {
 
 		// Properties.
 		//
-		body::props get_body_properties( method_id req_method = INVALID ) const {
-			return message::get_body_properties( req_method, status );
-		}
+		body::props get_body_properties( method_id req_method = INVALID ) const { return message::get_body_properties( req_method, status ); }
 
 		// Receives a response from the stream.
 		//
@@ -907,23 +852,23 @@ namespace xstd::http {
 	};
 	struct request : message {
 		struct options {
-			method_id method = INVALID;
+			method_id method      = INVALID;
 			std::string_view path = {};
-			vec_buffer body = {};
+			vec_buffer body       = {};
 			http::headers headers = {};
 		};
 
 		// Request line.
 		//
-		method_id       method = INVALID;
-		std::string     path =   {};
+		method_id method = INVALID;
+		std::string path = {};
 
 		// Default, copy, move.
 		//
-		request() = default;
-		request( request&& ) noexcept = default;
-		request( const request& ) noexcept = default;
-		request& operator=( request&& ) noexcept = default;
+		request()                                     = default;
+		request( request&& ) noexcept                 = default;
+		request( const request& ) noexcept            = default;
+		request& operator=( request&& ) noexcept      = default;
 		request& operator=( const request& ) noexcept = default;
 
 		// By value.
@@ -946,14 +891,12 @@ namespace xstd::http {
 			body::write( buf, body, method, -1 );
 		}
 		auto write( stream_view stream ) const {
-			return stream.write_using( [&]( vec_buffer& buf ) {
-				this->write( buf );
-			} );
+			return stream.write_using( [ & ]( vec_buffer& buf ) { this->write( buf ); } );
 		}
 		std::string to_string() const {
 			vec_buffer buf{};
 			write( buf );
-			return std::string{ (char*) buf.data(), buf.size() };
+			return std::string{ ( char* ) buf.data(), buf.size() };
 		}
 		vec_buffer write() const {
 			vec_buffer result = {};
@@ -970,9 +913,9 @@ namespace xstd::http {
 			if ( !meta ) {
 				co_return false;
 			}
-			auto [method_name, pathname, version] = split_fwd<3>( *meta, " " );
-			method = find_method( method_name );
-			path = pathname;
+			auto [ method_name, pathname, version ] = split_fwd<3>( *meta, " " );
+			method                                  = find_method( method_name );
+			path                                    = pathname;
 			if ( version != "HTTP/1.1" ) {
 				stream.stop( XSTD_ESTR( "invalid request line: http version" ) );
 				co_return false;
@@ -987,14 +930,13 @@ namespace xstd::http {
 			bool ok = true;
 			if ( auto err = co_await this->read_headers( stream ); err == std::nullopt || err->has_value() ) {
 				ok = false;
-				if ( err ) stream.stop( std::move( *err ) );
+				if ( err )
+					stream.stop( std::move( *err ) );
 			}
 			this->body_props = this->get_body_properties();
 			co_return ok;
 		}
-		job<bool> read( stream_view stream ) {
-			co_return co_await read_head( stream ) && co_await read_body( stream );
-		}
+		job<bool> read( stream_view stream ) { co_return co_await read_head( stream ) && co_await read_body( stream ); }
 
 		// Sync parser.
 		//
@@ -1013,9 +955,7 @@ namespace xstd::http {
 
 		// Properties.
 		//
-		body::props get_body_properties() const {
-			return message::get_body_properties( method, -1 );
-		}
+		body::props get_body_properties() const { return message::get_body_properties( method, -1 ); }
 
 		// Receives a request from the stream.
 		//
@@ -1029,7 +969,7 @@ namespace xstd::http {
 			co_return std::move( req );
 		}
 	};
-	
+
 	// HTTP agent structure.
 	// - Currently only manages the socket pool, TODO: Caching, cookies.
 	//
@@ -1046,9 +986,7 @@ namespace xstd::http {
 
 		// Utilities.
 		//
-		void set_global() {
-			agent::set_global( shared_from_this() );
-		}
+		void set_global() { agent::set_global( shared_from_this() ); }
 
 		// Virtual dtor.
 		//
@@ -1056,14 +994,14 @@ namespace xstd::http {
 
 		// Global agent.
 		//
-		inline static xstd::xspinlock<>      g_agent_mtx = {};
+		inline static xstd::xspinlock<> g_agent_mtx  = {};
 		inline static std::shared_ptr<agent> g_agent = nullptr;
 		inline static void set_global( std::shared_ptr<agent> agent ) {
 			std::lock_guard _g{ g_agent_mtx };
 			g_agent = std::move( agent );
 		}
 		template<typename T, typename... Args>
-		inline static void make_global(Args&&... args) {
+		inline static void make_global( Args&&... args ) {
 			set_global( std::make_shared<T>( std::forward<Args>( args )... ) );
 		}
 		inline static std::shared_ptr<agent> global() {
@@ -1075,14 +1013,14 @@ namespace xstd::http {
 	struct basic_agent : agent {
 		// Lock guarding the overall structure and the connection pool.
 		//
-		xstd::xspinlock<>                                       mtx;
+		xstd::xspinlock<> mtx;
 		robin_hood::unordered_flat_map<uint64_t, unique_stream> connection_pool;
 
 		// Socket wrapper with connection metadata.
 		//
 		struct shared_socket {
-			unique_stream              socket;
-			uint64_t                   cache_uid;
+			unique_stream socket;
+			uint64_t cache_uid;
 			std::weak_ptr<basic_agent> source;
 
 			stream_state& state() { return socket.state(); }
@@ -1090,7 +1028,8 @@ namespace xstd::http {
 			async_buffer& writable() { return socket.writable(); }
 
 			~shared_socket() {
-				if ( !socket || socket.stopped() ) return;
+				if ( !socket || socket.stopped() )
+					return;
 				if ( auto agent = source.lock() ) {
 					std::lock_guard _g{ agent->mtx };
 					agent->connection_pool.try_emplace( cache_uid, std::move( socket ) );
@@ -1114,15 +1053,12 @@ namespace xstd::http {
 					connection_pool.erase( it );
 				}
 			}
-			co_return new shared_socket{
-				result ? std::move( result ) : new net::tcp( ip, port ),
-				uid,
-				std::static_pointer_cast<basic_agent>( shared_from_this() )
-			};
+			co_return new shared_socket{ result ? std::move( result ) : new net::tcp( ip, port ), uid, std::static_pointer_cast<basic_agent>( shared_from_this() ) };
 		}
 		job<result<unique_stream>> connect( const char* hostname, uint16_t port ) override {
 			auto ip = co_await net::resolve_hostname( hostname );
-			if ( !ip ) co_return std::move( ip.status );
+			if ( !ip )
+				co_return std::move( ip.status );
 			co_return co_await connect( *ip, port );
 		}
 	};
@@ -1133,23 +1069,23 @@ namespace xstd::http {
 	struct fetch_options {
 		// Message.
 		//
-		vec_buffer    body = {};
+		vec_buffer body       = {};
 		http::headers headers = {};
 
 		// Agent and optional explicit socket.
 		//
-		std::shared_ptr<agent> agent =  agent::global();
-		stream_view            socket = nullptr;
+		std::shared_ptr<agent> agent = agent::global();
+		stream_view socket           = nullptr;
 
 		// Redirection handling.
 		// - Once the limit is exhaused, response code is returned as is.
 		//
-		int32_t                max_redirects = 8;
+		int32_t max_redirects = 8;
 	};
 	inline job<response> fetch( xstd::url url, method_id method = GET, fetch_options&& opt = {} ) {
-		auto        agent = std::move( opt.agent );
-		int32_t     redirects_left = opt.max_redirects;
-		stream_view stream = opt.socket;
+		auto agent             = std::move( opt.agent );
+		int32_t redirects_left = opt.max_redirects;
+		stream_view stream     = opt.socket;
 
 		// Create the request.
 		//
@@ -1185,7 +1121,7 @@ namespace xstd::http {
 					res.connection_error = std::move( sock.status );
 					break;
 				}
-				tmp = std::move( sock.value() );
+				tmp    = std::move( sock.value() );
 				stream = tmp;
 			}
 
@@ -1199,8 +1135,7 @@ namespace xstd::http {
 			if ( stream.errored() ) {
 				req.connection_error = stream.stop_reason();
 				break;
-			}
-			else if ( !req.keep_alive() ) {
+			} else if ( !req.keep_alive() ) {
 				stream.stop();
 				stream = {};
 			}
@@ -1209,7 +1144,8 @@ namespace xstd::http {
 			//
 			if ( get_status_category( res.status ) == status_category::redirecting && --redirects_left > 0 ) {
 				std::string_view target_loc = res.get_header( "Location" );
-				if ( target_loc.empty() ) break;
+				if ( target_loc.empty() )
+					break;
 
 				if ( res.status == 303 ) {
 					req.method = GET;
@@ -1223,8 +1159,8 @@ namespace xstd::http {
 						stream = {};
 					}
 					auto prev_q = std::move( url.search );
-					url = std::move( new_url );
-					url.search = std::move( prev_q );
+					url         = std::move( new_url );
+					url.search  = std::move( prev_q );
 				}
 				res = {};
 				continue;

@@ -2,20 +2,18 @@
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
-namespace xstd
-{
+namespace xstd {
 	// Declares a light-weight std::function replacement.
 	// - Note: will not copy the lambda objects, lifetime is left to the user to be managed.
 	//
 	template<typename F>
 	struct function_view;
 	template<typename Ret, typename... Args>
-	struct function_view<Ret( Args... )>
-	{
+	struct function_view<Ret( Args... )> {
 		// Hold object pointer, invocation wrapper and whether it is const qualified or not.
 		//
-		void* obj = nullptr;
-		Ret( *fn )( void*, Args... ) = nullptr;
+		void* obj                     = nullptr;
+		Ret ( *fn )( void*, Args... ) = nullptr;
 
 		// Null construction.
 		//
@@ -25,55 +23,41 @@ namespace xstd
 		// Construct from any functor.
 		//
 		template<typename F> requires ( !Same<std::decay_t<F>, function_view> )
-		constexpr function_view( F&& functor )
-		{
-			using Fn =     std::decay_t<F>;
+		constexpr function_view( F&& functor ) {
+			using Fn     = std::decay_t<F>;
 			using Traits = function_traits<Fn>;
 
 			obj = &functor;
 
 			// Lambda?
 			//
-			if constexpr( Traits::is_lambda )
-			{
+			if constexpr ( Traits::is_lambda ) {
 				// Stateless lambda?
 				//
-				if constexpr ( Empty<Fn> && DefaultConstructible<Fn> )
-				{
-					fn = [ ] ( void*, Args... args ) -> Ret
-					{
-						return Fn{}( std::forward<Args&&>( args )... );
-					};
+				if constexpr ( Empty<Fn> && DefaultConstructible<Fn> ) {
+					fn = []( void*, Args... args ) -> Ret { return Fn{}( std::forward<Args&&>( args )... ); };
 				}
 				// Stateful lambda.
 				//
-				else
-				{
+				else {
 					obj = ( void* ) &functor;
-					fn = [ ] ( void* obj, Args... args ) -> Ret
-					{
-						return ( *( Fn* ) obj )( std::forward<Args&&>( args )... );
-					};
+					fn  = []( void* obj, Args... args ) -> Ret { return ( *( Fn* ) obj )( std::forward<Args&&>( args )... ); };
 				}
 			}
 			// Function pointer?
 			//
-			else
-			{
+			else {
 				obj = ( void* ) functor;
-				fn = [ ] ( void* obj, Args... args ) -> Ret
-				{
-					return ( ( Fn ) obj )( std::forward<Args&&>( args )... );
-				};
+				fn  = []( void* obj, Args... args ) -> Ret { return ( ( Fn ) obj )( std::forward<Args&&>( args )... ); };
 			}
 		}
 
 		// Default copy/move.
 		//
-		constexpr function_view( function_view&& ) noexcept = default;
-		constexpr function_view( const function_view& ) = default;
+		constexpr function_view( function_view&& ) noexcept            = default;
+		constexpr function_view( const function_view& )                = default;
 		constexpr function_view& operator=( function_view&& ) noexcept = default;
-		constexpr function_view& operator=( const function_view& ) = default;
+		constexpr function_view& operator=( const function_view& )     = default;
 
 		// Validity check via cast to bool.
 		//
@@ -81,14 +65,11 @@ namespace xstd
 
 		// Redirect to functor.
 		//
-		constexpr Ret operator()( Args... args ) const
-		{
-			return fn( obj, std::forward<Args>( args )... );
-		}
+		constexpr Ret operator()( Args... args ) const { return fn( obj, std::forward<Args>( args )... ); }
 	};
 
 	// Deduction guide.
 	//
 	template<typename F>
-	function_view( F )->function_view<typename function_traits<F>::normal_form>;
+	function_view( F ) -> function_view<typename function_traits<F>::normal_form>;
 };

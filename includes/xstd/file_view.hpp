@@ -12,14 +12,14 @@
 // Required imports.
 //
 #if WINDOWS_TARGET
-extern "C" 
-{
-	typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, * PSECURITY_ATTRIBUTES, * LPSECURITY_ATTRIBUTES;
-	__declspec( dllimport ) void* __stdcall CreateFileW( const wchar_t* lpFileName, unsigned long dwDesiredAccess, unsigned long dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, unsigned long dwCreationDisposition, unsigned long dwFlagsAndAttributes, void* hTemplateFile );
-	__declspec( dllimport ) void* __stdcall CreateFileMappingFromApp( void* hFile, PSECURITY_ATTRIBUTES SecurityAttributes, unsigned long PageProtection, unsigned long long MaximumSize, const wchar_t* Name );
-	__declspec( dllimport ) void* __stdcall MapViewOfFileFromApp( void* hFileMappingObject, unsigned long DesiredAccess, unsigned long long FileOffset, size_t NumberOfBytesToMap );
-	__declspec( dllimport ) int __stdcall UnmapViewOfFile( const void* BaseAddress );
-	__declspec( dllimport ) int __stdcall CloseHandle( void* hObject );
+extern "C" {
+typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES, *PSECURITY_ATTRIBUTES, *LPSECURITY_ATTRIBUTES;
+__declspec( dllimport ) void* __stdcall CreateFileW( const wchar_t* lpFileName, unsigned long dwDesiredAccess, unsigned long dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, unsigned long dwCreationDisposition,
+													 unsigned long dwFlagsAndAttributes, void* hTemplateFile );
+__declspec( dllimport ) void* __stdcall CreateFileMappingFromApp( void* hFile, PSECURITY_ATTRIBUTES SecurityAttributes, unsigned long PageProtection, unsigned long long MaximumSize, const wchar_t* Name );
+__declspec( dllimport ) void* __stdcall MapViewOfFileFromApp( void* hFileMappingObject, unsigned long DesiredAccess, unsigned long long FileOffset, size_t NumberOfBytesToMap );
+__declspec( dllimport ) int __stdcall UnmapViewOfFile( const void* BaseAddress );
+__declspec( dllimport ) int __stdcall CloseHandle( void* hObject );
 };
 #else
 	#include <sys/mman.h>
@@ -32,25 +32,22 @@ extern "C"
 
 // Declare a simple interface to map files onto memory.
 //
-namespace xstd::file
-{
+namespace xstd::file {
 #if WINDOWS_TARGET
-	namespace impl
-	{
+	namespace impl {
 		static constexpr any_ptr invalid_handle_value = ~0ull;
 	};
 #endif
 
 	template<TriviallyCopyable T = const uint8_t>
-	struct view
-	{
+	struct view {
 		// Region details.
 		//
 		std::filesystem::path origin = {};
-		T* address = nullptr;
-		size_t length = 0;
+		T* address                   = nullptr;
+		size_t length                = 0;
 #if WINDOWS_TARGET
-		void* file_handle = impl::invalid_handle_value;
+		void* file_handle    = impl::invalid_handle_value;
 		void* mapping_handle = impl::invalid_handle_value;
 #else
 		int fd = -1;
@@ -62,12 +59,14 @@ namespace xstd::file
 
 		// No copy, move via swap.
 		//
-		view( const view& ) = delete;
+		view( const view& )            = delete;
 		view& operator=( const view& ) = delete;
 		view( view&& o ) noexcept { swap( o ); }
-		view& operator=( view&& o ) noexcept { swap( o ); return *this; }
-		void swap( view& o )
-		{
+		view& operator=( view&& o ) noexcept {
+			swap( o );
+			return *this;
+		}
+		void swap( view& o ) {
 			std::swap( origin, o.origin );
 			std::swap( address, o.address );
 			std::swap( length, o.length );
@@ -97,8 +96,7 @@ namespace xstd::file
 
 		// Close the handle on unmap.
 		//
-		~view()
-		{
+		~view() {
 #if WINDOWS_TARGET
 			if ( file_handle == impl::invalid_handle_value )
 				return;
@@ -124,14 +122,16 @@ namespace xstd::file
 			//
 			std::error_code ec;
 			size_t file_length = std::filesystem::file_size( path, ec );
-			if ( ec ) return { io_state::bad_file };
-			if ( file_length % sizeof( T ) ) return { io_state::invalid_alignment };
-		
+			if ( ec )
+				return { io_state::bad_file };
+			if ( file_length % sizeof( T ) )
+				return { io_state::invalid_alignment };
+
 			size_t moffset = offset * sizeof( T );
 			size_t mlength = count * sizeof( T );
 			if ( file_length < ( moffset + mlength ) )
 				return { io_state::reading_beyond_end };
-		
+
 			if ( !mlength )
 				mlength = file_length - moffset;
 			size_t tcount = mlength / sizeof( T );
@@ -141,85 +141,68 @@ namespace xstd::file
 			io_result<view<T>> result;
 			auto& fview = result.emplace();
 
-	#if WINDOWS_TARGET
+#if WINDOWS_TARGET
 			uint32_t file_access;
 			uint32_t mapping_access;
 			uint32_t view_access;
 			if constexpr ( std::is_const_v<T> ) {
-				file_access =    0x80000000; // GENERIC_READ
-				mapping_access = 0x2;        // PAGE_READONLY
-				view_access =    0x4;        // FILE_MAP_READ
+				file_access    = 0x80000000;  // GENERIC_READ
+				mapping_access = 0x2;         // PAGE_READONLY
+				view_access    = 0x4;         // FILE_MAP_READ
 			} else if ( copy_on_write ) {
-				file_access =    0x80000000; // GENERIC_READ
-				mapping_access = 0x2;        // PAGE_READONLY
-				view_access =    0x1;        // FILE_MAP_COPY
+				file_access    = 0x80000000;  // GENERIC_READ
+				mapping_access = 0x2;         // PAGE_READONLY
+				view_access    = 0x1;         // FILE_MAP_COPY
 			} else {
-				file_access =    0xC0000000; // GENERIC_READ | GENERIC_WRITE
-				mapping_access = 0x4;        // PAGE_READWRITE 
-				view_access =    0x2;        // FILE_MAP_WRITE
+				file_access    = 0xC0000000;  // GENERIC_READ | GENERIC_WRITE
+				mapping_access = 0x4;         // PAGE_READWRITE
+				view_access    = 0x2;         // FILE_MAP_WRITE
 			}
 
 			// Open a handle to the file.
 			//
-			fview.origin = path;
-			fview.file_handle = CreateFileW(
-				path.c_str(),
-				file_access,
-				0x7, //FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-				nullptr,
-				0x3, //OPEN_EXISTING,
-				0,
-				nullptr
-			);
-			fview.length = tcount;
-			if ( fview.file_handle != impl::invalid_handle_value )
-			{
+			fview.origin      = path;
+			fview.file_handle = CreateFileW( path.c_str(), file_access,
+											 0x7,  // FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+											 nullptr,
+											 0x3,  // OPEN_EXISTING,
+											 0, nullptr );
+			fview.length      = tcount;
+			if ( fview.file_handle != impl::invalid_handle_value ) {
 				// Map the file.
 				//
-				fview.mapping_handle = CreateFileMappingFromApp(
-					fview.file_handle,
-					nullptr,
-					mapping_access,
-					0,
-					nullptr
-				);
-				fview.address = ( T* ) MapViewOfFileFromApp(
-					fview.mapping_handle,
-					view_access,
-					moffset,
-					mlength
-				);
+				fview.mapping_handle = CreateFileMappingFromApp( fview.file_handle, nullptr, mapping_access, 0, nullptr );
+				fview.address        = ( T* ) MapViewOfFileFromApp( fview.mapping_handle, view_access, moffset, mlength );
 			}
-	#else
+#else
 			uint32_t file_access;
 			uint32_t map_prot;
 			uint32_t map_share;
 			if constexpr ( std::is_const_v<T> ) {
-				file_access =  0x0; // O_RDONLY
-				map_prot =     0x1; // PROT_READ
-				map_share =    0x1; // MAP_SHARED
+				file_access = 0x0;  // O_RDONLY
+				map_prot    = 0x1;  // PROT_READ
+				map_share   = 0x1;  // MAP_SHARED
 			} else if ( copy_on_write ) {
-				file_access =  0x0; // O_RDONLY
-				map_prot =     0x3; // PROT_READ | PROT_WRITE
-				map_share =    0x2; // MAP_PRIVATE
+				file_access = 0x0;  // O_RDONLY
+				map_prot    = 0x3;  // PROT_READ | PROT_WRITE
+				map_share   = 0x2;  // MAP_PRIVATE
 			} else {
-				file_access =  0x2; // O_RDWR
-				map_prot =     0x3; // PROT_READ | PROT_WRITE
-				map_share =    0x1; // MAP_SHARED
+				file_access = 0x2;  // O_RDWR
+				map_prot    = 0x3;  // PROT_READ | PROT_WRITE
+				map_share   = 0x1;  // MAP_SHARED
 			}
 
 			// Open a handle to the file.
 			//
 			fview.origin = path;
-			fview.fd = open( path.string().c_str(), file_access );
+			fview.fd     = open( path.string().c_str(), file_access );
 			fview.length = tcount;
-			if ( fview.fd != -1 )
-			{
+			if ( fview.fd != -1 ) {
 				// Map the file.
 				//
 				fview.address = ( const T* ) mmap( nullptr, mlength, map_prot, map_share, fview.fd, ( int ) moffset );
 			}
-	#endif
+#endif
 			if ( !fview.address )
 				result.raise( io_state::bad_file );
 			return result;

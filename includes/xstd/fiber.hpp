@@ -11,19 +11,19 @@ namespace xstd {
 	// Defines a concept similar to async_task but with the difference that the state can be observed and externally resumed/paused.
 	//
 	struct fiber_control_block : wait_list {
-		static constexpr uintptr_t resume_none =    0;
-		static constexpr uintptr_t resume_bad =     1;
+		static constexpr uintptr_t resume_none    = 0;
+		static constexpr uintptr_t resume_bad     = 1;
 		static constexpr uintptr_t resume_pending = 2;
 
 		std::atomic<uintptr_t> resume_address = resume_none;
-		std::atomic<char>      ref_count      = 2;
-		
+		std::atomic<char> ref_count           = 2;
+
 		coroutine_handle<> try_suspend( coroutine_handle<> coro ) {
 			uintptr_t address = resume_address.load( std::memory_order::relaxed );
 			while ( true ) {
 				switch ( address ) {
 					case resume_none: {
-						if ( resume_address.compare_exchange_strong( address, (uintptr_t) coro.address() ) ) {
+						if ( resume_address.compare_exchange_strong( address, ( uintptr_t ) coro.address() ) ) {
 							return noop_coroutine();
 						}
 						continue;
@@ -33,7 +33,7 @@ namespace xstd {
 #if MS_COMPILER
 						// coroutine is not fully suspended at await_suspend, non std behaviour, non std solutions.
 						//
-						chore( [coro] { coro.destroy(); }, 1s );
+						chore( [ coro ] { coro.destroy(); }, 1s );
 #else
 						coro.destroy();
 #endif
@@ -46,7 +46,6 @@ namespace xstd {
 						}
 						continue;
 					}
-
 				}
 			}
 		}
@@ -60,13 +59,11 @@ namespace xstd {
 						}
 						continue;
 					}
-					case resume_bad:
-						return nullptr;
-					case resume_pending:
-						return nullptr;
+					case resume_bad: return nullptr;
+					case resume_pending: return nullptr;
 					default: {
 						if ( resume_address.compare_exchange_strong( address, resume_pending ) ) {
-							return coroutine_handle<>::from_address( (void*) address );
+							return coroutine_handle<>::from_address( ( void* ) address );
 						}
 						continue;
 					}
@@ -84,12 +81,11 @@ namespace xstd {
 						}
 						continue;
 					}
-					case resume_bad:
-						return;
+					case resume_bad: return;
 					default: {
 						if ( resume_address.compare_exchange_strong( address, resume_pending ) ) {
 							this->signal_async();
-							return coroutine_handle<>::from_address( (void*) address ).destroy();
+							return coroutine_handle<>::from_address( ( void* ) address ).destroy();
 						}
 						continue;
 					}
@@ -128,53 +124,46 @@ namespace xstd {
 			return *this;
 		}
 		fiber_view( fiber_view&& o ) noexcept { swap( o ); }
-		fiber_view& operator=( fiber_view&& o ) noexcept { swap( o ); return *this; }
-		void swap( fiber_view& o ) {
-			std::swap( blk, o.blk );
+		fiber_view& operator=( fiber_view&& o ) noexcept {
+			swap( o );
+			return *this;
 		}
+		void swap( fiber_view& o ) { std::swap( blk, o.blk ); }
 
 		// Signals the fiber to resume.
 		//
 		template<Scheduler S>
 		bool resume( S&& sched ) {
 			if ( auto h = blk->try_resume() ) {
-				sched(h)();
+				sched( h )();
 				return true;
 			}
 			return false;
 		}
-		bool resume_sync() {
-			return resume( noop_scheduler{} );
-		}
-		bool resume() {
-			return resume( chore_scheduler{} );
-		}
+		bool resume_sync() { return resume( noop_scheduler{} ); }
+		bool resume() { return resume( chore_scheduler{} ); }
 
 		// Returns true if the fiber is currently executing.
 		//
-		bool running() const {
-			return !blk || blk->resume_address.load( std::memory_order::relaxed ) <= fiber_control_block::resume_pending;
-		}
+		bool running() const { return !blk || blk->resume_address.load( std::memory_order::relaxed ) <= fiber_control_block::resume_pending; }
 
 		// Returns true if not yet complete.
 		//
-		bool pending() const { 
-			return blk && !blk->is_settled(); 
-		}
-		explicit operator bool() const { 
-			return pending(); 
-		}
+		bool pending() const { return blk && !blk->is_settled(); }
+		explicit operator bool() const { return pending(); }
 
 		// Marks the fiber for death next time it runs.
 		//
 		void kill() {
-			if ( blk ) blk->try_kill();
+			if ( blk )
+				blk->try_kill();
 		}
 
 		// Waits until the fiber completes.
 		//
 		void join() {
-			if ( blk ) blk->wait();
+			if ( blk )
+				blk->wait();
 		}
 
 		// Marks the fiber for death next time and waits until the fiber completes.
@@ -189,7 +178,8 @@ namespace xstd {
 		// Unref on destruction.
 		//
 		~fiber_view() {
-			if ( blk ) blk->unref();
+			if ( blk )
+				blk->unref();
 		}
 	};
 	struct fiber : fiber_view {
@@ -199,9 +189,7 @@ namespace xstd {
 			struct pause_yield {
 				fiber_control_block* cb = nullptr;
 				inline bool await_ready() { return false; }
-				inline coroutine_handle<> await_suspend( coroutine_handle<> h ) {
-					return cb->try_suspend( h );
-				}
+				inline coroutine_handle<> await_suspend( coroutine_handle<> h ) { return cb->try_suspend( h ); }
 				inline void await_resume() {}
 			};
 
@@ -214,11 +202,9 @@ namespace xstd {
 			pause_yield yield_value( std::monostate ) { return { blk }; }
 			void return_void() {}
 			XSTDC_UNHANDLED_RETHROW;
-			~promise_type() {
-				blk->unref();
-			}
+			~promise_type() { blk->unref(); }
 		};
-		
+
 		// Default, by pointer and null constructors.
 		//
 		constexpr fiber() = default;
@@ -227,10 +213,13 @@ namespace xstd {
 
 		// No copy, move by swap.
 		//
-		fiber( const fiber& ) = delete;
+		fiber( const fiber& )            = delete;
 		fiber& operator=( const fiber& ) = delete;
 		fiber( fiber&& o ) noexcept { swap( o ); }
-		fiber& operator=( fiber&& o ) noexcept { swap( o ); return *this; }
+		fiber& operator=( fiber&& o ) noexcept {
+			swap( o );
+			return *this;
+		}
 
 		// Destroy on destruction.
 		//

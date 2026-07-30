@@ -7,58 +7,54 @@
 #include "narrow_cast.hpp"
 #include "image_view.hpp"
 
-namespace xstd
-{
+namespace xstd {
 	// Magic numbers.
 	//
-	static constexpr uint16_t bmp_signature = 0x4D42; // 'BM'
+	static constexpr uint16_t bmp_signature = 0x4D42;  // 'BM'
 
 	// File headers.
 	//
-#pragma pack(push, 1)
-	struct dib_header_t
-	{
+#pragma pack( push, 1 )
+	struct dib_header_t {
 		// Size of the header itself.
 		//
-		uint32_t     header_size;
+		uint32_t header_size;
 
 		// Image dimensions.
 		//
-		int32_t      width;
-		int32_t      height;
-		uint16_t     planes;
-		uint16_t     bits_per_pixel;
+		int32_t width;
+		int32_t height;
+		uint16_t planes;
+		uint16_t bits_per_pixel;
 
 		// Storage details.
 		//
-		uint32_t     compression;
-		uint32_t     size_image;
+		uint32_t compression;
+		uint32_t size_image;
 
 		// Measurement details.
 		//
-		uint32_t     x_ppm;
-		uint32_t     y_ppm;
+		uint32_t x_ppm;
+		uint32_t y_ppm;
 
 		// Color table.
 		//
-		uint32_t     len_color_table;
-		uint32_t     num_color_table_important;
+		uint32_t len_color_table;
+		uint32_t num_color_table_important;
 	};
-	struct bmp_header_t
-	{
-		uint16_t     signature;
-		uint32_t     file_size;
-		uint32_t     reserved;
-		uint32_t     offset_image;
+	struct bmp_header_t {
+		uint16_t signature;
+		uint32_t file_size;
+		uint32_t reserved;
+		uint32_t offset_image;
 		dib_header_t dib;
 	};
-#pragma pack(pop)
+#pragma pack( pop )
 
 	// Given a span view of a BMP image, invokes the visitor with a xstd::basic_image_view, returns an exception if relevant.
 	//
 	template<typename F>
-	inline xstd::exception visit_bmp( std::span<const uint8_t> stream, F&& func ) 
-	{
+	inline xstd::exception visit_bmp( std::span<const uint8_t> stream, F&& func ) {
 		// Get the header.
 		//
 		if ( stream.size() < sizeof( bmp_header_t ) )
@@ -84,71 +80,65 @@ namespace xstd
 
 		// Validate the size and read the image.
 		//
-		bool top_down = header->dib.height < 0;
-		size_t line_count = top_down ? -header->dib.height : header->dib.height;
+		bool top_down      = header->dib.height < 0;
+		size_t line_count  = top_down ? -header->dib.height : header->dib.height;
 		size_t stream_size = header->dib.width * line_count * ( header->dib.bits_per_pixel / 8 );
 		if ( ( header->offset_image + stream_size ) > header->file_size )
 			return xstd::exception{ XSTD_ESTR( "BMP pixel stream underflow." ) };
 
 		auto* begin = stream.data() + header->offset_image;
-		switch ( header->dib.bits_per_pixel )
-		{
-			case 24:
-			{
+		switch ( header->dib.bits_per_pixel ) {
+			case 24: {
 				if ( top_down )
 					func( basic_image_view<color_model::rgb, image_orientation::top_down>{ ( rgb_t* ) begin, ( uint32_t ) header->dib.width, line_count } );
 				else
 					func( basic_image_view<color_model::rgb, image_orientation::bottom_up>{ ( rgb_t* ) begin, ( uint32_t ) header->dib.width, line_count } );
 				return xstd::exception{};
 			}
-			case 32:
-			{
+			case 32: {
 				if ( top_down )
 					func( basic_image_view<color_model::argb, image_orientation::top_down>{ ( argb_t* ) begin, ( uint32_t ) header->dib.width, line_count } );
 				else
 					func( basic_image_view<color_model::argb, image_orientation::bottom_up>{ ( argb_t* ) begin, ( uint32_t ) header->dib.width, line_count } );
 				return xstd::exception{};
 			}
-			default:
-				return xstd::exception{ XSTD_ESTR( "BMP pixel format unrecognized." ) };
+			default: return xstd::exception{ XSTD_ESTR( "BMP pixel format unrecognized." ) };
 		}
 	}
 
 	// BMP writer implementation.
 	//
-	namespace impl
-	{
+	namespace impl {
 		template<xstd::image_orientation O, color_model Dst, typename Src>
-		inline std::vector<uint8_t> write_bmp( const Src* __restrict src, size_t width, size_t height )
-		{
+		inline std::vector<uint8_t> write_bmp( const Src* __restrict src, size_t width, size_t height ) {
 			// Calculate and reserve the memory for output.
 			//
-			size_t raw_img_size = width * height * sizeof( color<Dst> );
+			size_t raw_img_size      = width * height * sizeof( color<Dst> );
 			std::vector<uint8_t> out = xstd::make_uninitialized_vector<uint8_t>( sizeof( bmp_header_t ) + raw_img_size );
 
 			// Write the base BMP header.
 			//
 			bmp_header_t* hdr = ( bmp_header_t* ) out.data();
-			hdr->signature = bmp_signature;
-			hdr->file_size = out.size();
-			hdr->reserved = 0;
+			hdr->signature    = bmp_signature;
+			hdr->file_size    = out.size();
+			hdr->reserved     = 0;
 			hdr->offset_image = sizeof( bmp_header_t );
 
 			// Write the DIB header.
 			//
-			hdr->dib.header_size = sizeof( dib_header_t );
-			hdr->dib.width = narrow_cast< int32_t >( width );
-			hdr->dib.height = O == xstd::image_orientation::top_down ? -narrow_cast< int32_t >( height ) : narrow_cast< int32_t >( height );
-			hdr->dib.planes = 1;
-			hdr->dib.bits_per_pixel = sizeof( color<Dst> ) * 8;
-			hdr->dib.compression = 0;
-			hdr->dib.size_image = raw_img_size;
-			hdr->dib.len_color_table = 0;
+			hdr->dib.header_size               = sizeof( dib_header_t );
+			hdr->dib.width                     = narrow_cast<int32_t>( width );
+			hdr->dib.height                    = O == xstd::image_orientation::top_down ? -narrow_cast<int32_t>( height ) : narrow_cast<int32_t>( height );
+			hdr->dib.planes                    = 1;
+			hdr->dib.bits_per_pixel            = sizeof( color<Dst> ) * 8;
+			hdr->dib.compression               = 0;
+			hdr->dib.size_image                = raw_img_size;
+			hdr->dib.len_color_table           = 0;
 			hdr->dib.num_color_table_important = 0;
 
 			// Write the image itself.
 			//
-			auto* dst = ( color<Dst>* )( hdr + 1 );
+			auto* dst = ( color<Dst>* ) ( hdr + 1 );
 			for ( size_t i = 0; i != ( width * height ); i++ )
 				dst[ i ] = src[ i ];
 			return out;
@@ -158,16 +148,14 @@ namespace xstd
 	// Given an image view, writes it as a BMP file.
 	//
 	template<color_model C, image_orientation O>
-	inline std::vector<uint8_t> write_bmp( const basic_image_view<C, O>& img ) 
-	{
+	inline std::vector<uint8_t> write_bmp( const basic_image_view<C, O>& img ) {
 		return impl::write_bmp<O, C>( img.source, img.width(), img.height() );
 	}
 
 	// Given a raw buffer of any color type, writes it as a BMP file.
 	//
 	template<xstd::image_orientation O, color_model As = color_model::argb, typename Color>
-	inline std::vector<uint8_t> write_bmp( const Color* col, size_t width, size_t height )
-	{
+	inline std::vector<uint8_t> write_bmp( const Color* col, size_t width, size_t height ) {
 		return impl::write_bmp<O, As, Color>( col, width, height );
 	}
 };

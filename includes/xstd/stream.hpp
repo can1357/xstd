@@ -14,11 +14,11 @@ namespace xstd {
 	// Stream stop code.
 	//
 	enum stream_stop_code : uint8_t {
-		stream_stop_none =     0,
-		stream_stop_fin =      1,
-		stream_stop_killed =   2,
-		stream_stop_timeout =  3,
-		stream_stop_error =    4,
+		stream_stop_none    = 0,
+		stream_stop_fin     = 1,
+		stream_stop_killed  = 2,
+		stream_stop_timeout = 3,
+		stream_stop_error   = 4,
 	};
 
 	// Stream state.
@@ -27,8 +27,8 @@ namespace xstd {
 		// Set if stream has ended.
 		//
 		std::atomic<stream_stop_code> stop_code = stream_stop_none;
-		exception                     stop_reason = {};
-		std::atomic<bool>             stop_written = false;
+		exception stop_reason                   = {};
+		std::atomic<bool> stop_written          = false;
 
 		// Stop details.
 		//
@@ -47,7 +47,7 @@ namespace xstd {
 
 	namespace detail {
 		struct buffer_consumer {
-			coroutine_handle<>         continuation = {};
+			coroutine_handle<> continuation           = {};
 			virtual coroutine_handle<> try_continue() = 0;
 		};
 		struct take_counted {
@@ -87,7 +87,7 @@ namespace xstd {
 	//
 	struct async_buffer : vec_buffer {
 		struct unique_lock {
-			xspinlock<>*    lck =  nullptr;
+			xspinlock<>* lck     = nullptr;
 			task_priority_t prev = 0;
 
 			unique_lock() = default;
@@ -102,11 +102,14 @@ namespace xstd {
 				this->lck = &buf.lock;
 				lck->lock( prev );
 			}
-			
-			unique_lock( const unique_lock& ) = delete;
+
+			unique_lock( const unique_lock& )            = delete;
 			unique_lock& operator=( const unique_lock& ) = delete;
 			unique_lock( unique_lock&& o ) noexcept { swap( o ); }
-			unique_lock& operator=( unique_lock&& o ) noexcept { swap( o ); return *this; }
+			unique_lock& operator=( unique_lock&& o ) noexcept {
+				swap( o );
+				return *this;
+			}
 			void swap( unique_lock& o ) {
 				std::swap( lck, o.lck );
 				std::swap( prev, o.prev );
@@ -127,18 +130,18 @@ namespace xstd {
 
 		// Lock and minimal state associated with the stream.
 		//
-		uint8_t             ended : 1 = false;
-		uint8_t             fin   : 1 = false;
+		uint8_t ended : 1               = false;
+		uint8_t fin : 1                 = false;
 		scheduler_reference sched_enter = noop_scheduler{};
 		scheduler_reference sched_leave = noop_scheduler{};
-		mutable xspinlock<> lock = {};
+		mutable xspinlock<> lock        = {};
 
 		// Producer handle that signals "consumer wants more data" and the high watermark
 		// which is the amount of bytes in the buffer after which the producer stops getting
 		// repetitively called unless specifically requested.
 		//
-		coroutine_handle<>   producer = {};
-		size_t               high_watermark = 256_kb;
+		coroutine_handle<> producer = {};
+		size_t high_watermark       = 256_kb;
 
 		FORCE_INLINE void set_producer( coroutine_handle<> p, unique_lock& l ) {
 			unique_lock _g{ std::move( l ) };
@@ -162,22 +165,26 @@ namespace xstd {
 		// Kill the coroutines on destruction.
 		//
 		void destroy( bool for_delete = false ) {
-			if ( ended ) return;
+			if ( ended )
+				return;
 			std::unique_lock g{ lock };
-			if ( ended ) return;
+			if ( ended )
+				return;
 			ended = 1;
-			fin = 1;
+			fin   = 1;
 			shrink_to_fit();
 			high_watermark = std::dynamic_extent;
-			auto producer = std::exchange( this->producer, nullptr );
-			auto consumer = std::exchange( this->consumer, nullptr );
+			auto producer  = std::exchange( this->producer, nullptr );
+			auto consumer  = std::exchange( this->consumer, nullptr );
 			g.unlock();
 			if ( consumer ) {
 				( sched_leave || chore_scheduler{} )( consumer->continuation )();
 			}
 			if ( producer ) {
-				if ( for_delete ) producer();
-				else              ( sched_enter || chore_scheduler{} )( producer )();
+				if ( for_delete )
+					producer();
+				else
+					( sched_enter || chore_scheduler{} )( producer )();
 			}
 		}
 		~async_buffer() { destroy( true ); }
@@ -194,28 +201,22 @@ namespace xstd {
 
 		async_buffer* get() const { return &stream; }
 		async_buffer* operator->() const { return get(); }
-		
+
 		vec_buffer& buffer() const { return stream; }
 	};
 
 	// Async reader/writer functions.
 	//
 	struct async_writer_stall : async_buffer_locked {
-		async_writer_stall( async_buffer_locked&& buffer )
-			: async_buffer_locked( std::move( buffer ) ) {}
+		async_writer_stall( async_buffer_locked&& buffer ) : async_buffer_locked( std::move( buffer ) ) {}
 
-		inline bool await_ready() noexcept { 
-			return !!this->stream.consumer || this->stream.ended;
-		}
-		inline void await_suspend( coroutine_handle<> h ) noexcept { 
-			this->stream.set_producer( h, this->lock ); 
-		}
+		inline bool await_ready() noexcept { return !!this->stream.consumer || this->stream.ended; }
+		inline void await_suspend( coroutine_handle<> h ) noexcept { this->stream.set_producer( h, this->lock ); }
 		inline void await_resume() const noexcept {}
 	};
 	struct async_writer_flush : async_buffer_locked {
 		bool is_producer = false;
-		async_writer_flush( async_buffer_locked&& buffer, bool is_producer = false )
-			: async_buffer_locked( std::move( buffer ) ), is_producer( is_producer ) {}
+		async_writer_flush( async_buffer_locked&& buffer, bool is_producer = false ) : async_buffer_locked( std::move( buffer ) ), is_producer( is_producer ) {}
 
 		inline bool await_ready() noexcept { return this->stream.ended; }
 		inline coroutine_handle<> await_suspend( coroutine_handle<> continuation ) noexcept {
@@ -223,7 +224,7 @@ namespace xstd {
 				// Consume the data, if finished yield to it, else to self.
 				//
 				if ( auto hnd = this->stream.consumer->try_continue() ) {
-					hnd = this->stream.sched_leave( hnd );
+					hnd                   = this->stream.sched_leave( hnd );
 					this->stream.consumer = nullptr;
 					this->stream.set_producer( continuation, this->lock );
 					return hnd;
@@ -245,11 +246,13 @@ namespace xstd {
 		void now( coroutine_handle<>* out = nullptr ) {
 			if ( this->stream.consumer ) {
 				if ( auto hnd = this->stream.consumer->try_continue() ) {
-					hnd = this->stream.sched_leave( hnd );
+					hnd                   = this->stream.sched_leave( hnd );
 					this->stream.consumer = nullptr;
 					this->lock.unlock();
-					if ( out ) *out = hnd;
-					else hnd();
+					if ( out )
+						*out = hnd;
+					else
+						hnd();
 				}
 			}
 		}
@@ -257,12 +260,11 @@ namespace xstd {
 	template<typename F>
 	struct async_reader final : detail::buffer_consumer, async_buffer_locked {
 		using result_type = decltype( std::declval<F>()( std::declval<vec_buffer&>() ) );
-		
-		F                     fn;
-		result_type           result = {};
 
-		async_reader( async_buffer& stream, F&& fn ) 
-			: async_buffer_locked( stream ), fn( std::forward<F>( fn ) ), result( this->fn( stream ) ) {}
+		F fn;
+		result_type result = {};
+
+		async_reader( async_buffer& stream, F&& fn ) : async_buffer_locked( stream ), fn( std::forward<F>( fn ) ), result( this->fn( stream ) ) {}
 
 		// Consumer interface.
 		//
@@ -273,29 +275,27 @@ namespace xstd {
 
 		// Awaitable.
 		//
-		inline bool await_ready() noexcept {
-			return !!result || this->stream.fin;
-		}
+		inline bool await_ready() noexcept { return !!result || this->stream.fin; }
 		inline coroutine_handle<> await_suspend( coroutine_handle<> continuation ) noexcept {
-			this->continuation = continuation;
-			auto producer = stream.producer ? this->stream.sched_enter( stream.producer ) : noop_coroutine();
+			this->continuation    = continuation;
+			auto producer         = stream.producer ? this->stream.sched_enter( stream.producer ) : noop_coroutine();
 			this->stream.producer = nullptr;
 			this->stream.set_consumer( this, this->lock );
 			return producer;
 		}
-		inline result_type await_resume() noexcept {
-			return std::move( result );
-		}
+		inline result_type await_resume() noexcept { return std::move( result ); }
 
 		// Immediate version with no QoS.
 		//
 		result_type now( coroutine_handle<>* out = nullptr ) {
 			if ( this->stream.producer ) {
-				auto hnd = this->stream.sched_enter( stream.producer );
+				auto hnd              = this->stream.sched_enter( stream.producer );
 				this->stream.producer = nullptr;
 				this->lock.unlock();
-				if ( out ) *out = hnd;
-				else hnd();
+				if ( out )
+					*out = hnd;
+				else
+					hnd();
 			}
 			return std::move( result );
 		}
@@ -313,7 +313,7 @@ namespace xstd {
 		const async_buffer& readable() const { return ( ( Self* ) static_cast<const Self*>( this ) )->readable(); }
 		async_buffer& writable() { return ( ( Self* ) static_cast<const Self*>( this ) )->writable(); }
 		const async_buffer& writable() const { return ( ( Self* ) static_cast<const Self*>( this ) )->writable(); }
-		
+
 		// Writes more data to the stream.
 		//
 		template<typename F>
@@ -340,9 +340,10 @@ namespace xstd {
 
 				if ( buffer->consumer ) {
 					hnd = buffer->consumer->try_continue();
-					if ( !hnd ) hnd = buffer->consumer->continuation;
+					if ( !hnd )
+						hnd = buffer->consumer->continuation;
 					buffer->consumer = nullptr;
-					hnd = buffer->sched_leave( hnd );
+					hnd              = buffer->sched_leave( hnd );
 				} else {
 					hnd = noop_coroutine();
 				}
@@ -356,39 +357,21 @@ namespace xstd {
 		template<typename F>
 		decltype( auto ) peek_using( F&& fn ) {
 			async_buffer_locked buffer{ readable() };
-			return fn( (const vec_buffer&) buffer.buffer() );
+			return fn( ( const vec_buffer& ) buffer.buffer() );
 		}
 		template<typename F>
 		async_reader<F> read_until( F&& fn ) {
-			return { readable(), (F&&) fn };
+			return { readable(), ( F&& ) fn };
 		}
-		auto read( size_t min, size_t max ) -> async_reader<detail::take_counted> {
-			return { readable(), { min, max } };
-		}
-		auto read( size_t count ) -> async_reader<detail::take_counted> {
-			return { readable(), { count, count } };
-		}
-		auto read() -> async_reader<detail::take_counted> {
-			return { readable(), { 1, std::dynamic_extent } };
-		}
-		auto read_into( uint8_t* out, size_t min, size_t max ) -> async_reader<detail::take_into_counted> {
-			return { readable(), { out, min, max } };
-		}
-		auto read_into( uint8_t* out, size_t count ) -> async_reader<detail::take_into_counted> {
-			return { readable(), { out, count, count } };
-		}
-		auto read_into( std::span<uint8_t> out, size_t min ) -> async_reader<detail::take_into_counted> {
-			return { readable(), { out.data(), min, out.size() } };
-		}
-		auto read_into( std::span<uint8_t> out ) -> async_reader<detail::take_into_counted> {
-			return { readable(), { out.data(), out.size(), out.size() } };
-		}
-		auto wait_until_shutdown() -> async_reader<detail::wait_shutdown> {
-			return { readable(), {} };
-		}
-		bool is_shutting_down() {
-			return readable().fin;
-		}
+		auto read( size_t min, size_t max ) -> async_reader<detail::take_counted> { return { readable(), { min, max } }; }
+		auto read( size_t count ) -> async_reader<detail::take_counted> { return { readable(), { count, count } }; }
+		auto read() -> async_reader<detail::take_counted> { return { readable(), { 1, std::dynamic_extent } }; }
+		auto read_into( uint8_t* out, size_t min, size_t max ) -> async_reader<detail::take_into_counted> { return { readable(), { out, min, max } }; }
+		auto read_into( uint8_t* out, size_t count ) -> async_reader<detail::take_into_counted> { return { readable(), { out, count, count } }; }
+		auto read_into( std::span<uint8_t> out, size_t min ) -> async_reader<detail::take_into_counted> { return { readable(), { out.data(), min, out.size() } }; }
+		auto read_into( std::span<uint8_t> out ) -> async_reader<detail::take_into_counted> { return { readable(), { out.data(), out.size(), out.size() } }; }
+		auto wait_until_shutdown() -> async_reader<detail::wait_shutdown> { return { readable(), {} }; }
+		bool is_shutting_down() { return readable().fin; }
 
 		// Stop states.
 		//
@@ -399,11 +382,11 @@ namespace xstd {
 			}
 			if ( !ex ) {
 				switch ( code ) {
-					case stream_stop_fin:     ex = XSTD_ESTR( "fin" );           break;
-					case stream_stop_killed:  ex = XSTD_ESTR( "destroyed" );     break;
-					case stream_stop_timeout: ex = XSTD_ESTR( "timeout" );       break;
-					case stream_stop_error:   ex = XSTD_ESTR( "general error" ); break;
-					default:                  ex = XSTD_ESTR( "unknown error" ); break;
+					case stream_stop_fin: ex = XSTD_ESTR( "fin" ); break;
+					case stream_stop_killed: ex = XSTD_ESTR( "destroyed" ); break;
+					case stream_stop_timeout: ex = XSTD_ESTR( "timeout" ); break;
+					case stream_stop_error: ex = XSTD_ESTR( "general error" ); break;
+					default: ex = XSTD_ESTR( "unknown error" ); break;
 				}
 			}
 			state().stop_reason = std::move( ex ).value_or( XSTD_ESTR( "unknown error" ) );
@@ -413,16 +396,11 @@ namespace xstd {
 
 			// Find any async-scheduler and schedule the signal using it.
 			//
-			scheduler_reference ref = 
-				readable().sched_enter || readable().sched_leave ||
-				writable().sched_enter || writable().sched_leave ||
-				chore_scheduler{};
-			ref( state().signal( ref ) )( );
+			scheduler_reference ref = readable().sched_enter || readable().sched_leave || writable().sched_enter || writable().sched_leave || chore_scheduler{};
+			ref( state().signal( ref ) )();
 			return true;
 		}
-		bool stop( exception ex ) {
-			return stop( stream_stop_error, std::move( ex ) );
-		}
+		bool stop( exception ex ) { return stop( stream_stop_error, std::move( ex ) ); }
 
 		// Stop details.
 		//
@@ -444,7 +422,7 @@ namespace xstd {
 	//
 	struct stream : stream_utils<stream> {
 		ref<stream_state> state_ = make_refc<stream_state>();
-		async_buffer      buffer_ = {};
+		async_buffer buffer_     = {};
 
 		stream_state& state() { return *state_; }
 		async_buffer& readable() { return buffer_; }
@@ -452,84 +430,84 @@ namespace xstd {
 
 		// Creates an instance from memory.
 		//
-		static stream memory( vec_buffer mem = {} ) {
-			return { .buffer_ = { std::move( mem ), /*.ended=*/ 0, /*.fin=*/ 1 } };
-		}
+		static stream memory( vec_buffer mem = {} ) { return { .buffer_ = { std::move( mem ), /*.ended=*/0, /*.fin=*/1 } }; }
 
 		// Destroy all coroutines on destruction.
 		//
 		~stream() { stop( stream_stop_killed ); }
 	};
-	
+
 	// Type erased async streams.
 	//
 	namespace detail {
 		template<typename R, typename... Ax>
-		using cb_asfn_t = R(*)( void* ctx, Ax... args );
+		using cb_asfn_t = R ( * )( void* ctx, Ax... args );
 
 		// Traits list.
 		//
 		struct stream_traits {
-			cb_asfn_t<stream_state*, async_buffer**, async_buffer**>  unpack = nullptr;
-			cb_asfn_t<void>                                           dtor = nullptr;
+			cb_asfn_t<stream_state*, async_buffer**, async_buffer**> unpack = nullptr;
+			cb_asfn_t<void> dtor                                            = nullptr;
 		};
 		template<typename U>
 		struct stream_traits_for : stream_traits {
 			constexpr stream_traits_for() {
 				this->unpack = &_unpack;
-				this->dtor =   &_dtor;
+				this->dtor   = &_dtor;
 			}
-			static stream_state* _unpack( void* ptr, async_buffer** rb, async_buffer** wb ) { 
-				auto* s = (U*) ptr;
-				*rb = &s->readable();
-				*wb = &s->writable();
+			static stream_state* _unpack( void* ptr, async_buffer** rb, async_buffer** wb ) {
+				auto* s = ( U* ) ptr;
+				*rb     = &s->readable();
+				*wb     = &s->writable();
 				return &s->state();
 			}
-			static void _dtor( void* ptr ) { delete (U*) ptr; }
+			static void _dtor( void* ptr ) { delete ( U* ) ptr; }
 		};
 		template<typename U>
 		inline constexpr stream_traits stream_traits_v = stream_traits_for<U>{};
 	};
 	struct stream_view : stream_utils<stream_view> {
-		void*                        ptr = nullptr;
+		void* ptr                           = nullptr;
 		const detail::stream_traits* traits = nullptr;
-		async_buffer*                readable_ = nullptr;
-		async_buffer*                writable_ = nullptr;
-		stream_state*                state_ = nullptr;
+		async_buffer* readable_             = nullptr;
+		async_buffer* writable_             = nullptr;
+		stream_state* state_                = nullptr;
 
 		// Construction by reference.
 		//
 		template<typename T>
 		stream_view( T* p, bool swap = false ) {
 			if constexpr ( std::is_base_of_v<stream_view, T> ) {
-				ptr =       p->ptr;
-				traits =    p->traits;
-				if ( !ptr ) return;
-				state_ =    traits->unpack( this->ptr, &this->readable_, &this->writable_ );
+				ptr    = p->ptr;
+				traits = p->traits;
+				if ( !ptr )
+					return;
+				state_ = traits->unpack( this->ptr, &this->readable_, &this->writable_ );
 			} else {
-				ptr =       p;
-				traits =    &detail::stream_traits_v<T>;
+				ptr       = p;
+				traits    = &detail::stream_traits_v<T>;
 				readable_ = &p->readable();
 				writable_ = &p->writable();
 				state_    = &p->state();
 			}
-			if ( swap ) std::swap( readable_, writable_ );
+			if ( swap )
+				std::swap( readable_, writable_ );
 		}
 
 		// Default copy/move.
 		//
 		stream_view() = default;
 		stream_view( std::nullptr_t ) {}
-		stream_view( stream_view&& ) noexcept = default;
-		stream_view( const stream_view& ) = default;
+		stream_view( stream_view&& ) noexcept            = default;
+		stream_view( const stream_view& )                = default;
 		stream_view& operator=( stream_view&& ) noexcept = default;
-		stream_view& operator=( const stream_view& ) = default;
+		stream_view& operator=( const stream_view& )     = default;
 		void swap( stream_view& o ) {
-			std::swap( ptr,       o.ptr );
-			std::swap( traits,    o.traits );
+			std::swap( ptr, o.ptr );
+			std::swap( traits, o.traits );
 			std::swap( readable_, o.readable_ );
 			std::swap( writable_, o.writable_ );
-			std::swap( state_,    o.state_ );
+			std::swap( state_, o.state_ );
 		}
 
 		// Observers.
@@ -541,8 +519,8 @@ namespace xstd {
 		bool operator<( const stream_view& o ) const { return ptr <= o.ptr; };
 
 		template<typename U> bool is() const { return traits == &detail::stream_traits_v<U>; }
-		template<typename U> U& get() const { return *(U*) ptr; }
-		template<typename U> U* get_if() const { return this->template is<U>() ? (U*) ptr : nullptr; }
+		template<typename U> U& get() const { return *( U* ) ptr; }
+		template<typename U> U* get_if() const { return this->template is<U>() ? ( U* ) ptr : nullptr; }
 
 		// Implementation.
 		//
@@ -562,15 +540,16 @@ namespace xstd {
 			unique_stream tmp{};
 			this->swap( tmp );
 		}
-		void reset( unique_stream tmp ) {
-			this->swap( tmp );
-		}
+		void reset( unique_stream tmp ) { this->swap( tmp ); }
 
 		// Move construction, no copy.
 		//
 		unique_stream( unique_stream&& o ) noexcept { this->swap( o ); }
-		unique_stream& operator=( unique_stream&& o ) noexcept { this->swap( o ); return *this; }
-		unique_stream( const unique_stream& ) = delete;
+		unique_stream& operator=( unique_stream&& o ) noexcept {
+			this->swap( o );
+			return *this;
+		}
+		unique_stream( const unique_stream& )            = delete;
 		unique_stream& operator=( const unique_stream& ) = delete;
 
 		// Destructor.
@@ -593,14 +572,14 @@ namespace xstd {
 	};
 	struct duplex : stream_utils<duplex> {
 		ref<stream_state> state_ = make_refc<stream_state>();
-		async_buffer      input_ = {};
-		async_buffer      output_ = {};
+		async_buffer input_      = {};
+		async_buffer output_     = {};
 
 		duplex( duplex_options options = {} ) {
 			writable().high_watermark = options.writable_high_watermark;
-			writable().sched_enter =    options.writable_scheduler;
+			writable().sched_enter    = options.writable_scheduler;
 			readable().high_watermark = options.readable_high_watermark;
-			readable().sched_leave =    options.readable_scheduler;
+			readable().sched_leave    = options.readable_scheduler;
 		}
 
 		stream_state& state() { return *state_; }

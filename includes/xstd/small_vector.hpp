@@ -7,29 +7,27 @@
 
 // Implements a vector similar to stack_vector but with a friendlier copy implementation and more compact storage.
 //
-namespace xstd
-{
+namespace xstd {
 	template<typename T, size_t N>
-	struct small_vector
-	{
+	struct small_vector {
 		// Container traits.
 		//
-		using iterator =               T*;
-		using const_iterator =         const T*;
-		using pointer =                T*;
-		using const_pointer =          const T*;
-		using reference =              T&;
-		using const_reference =        const T&;
-		using value_type =             T;
-		using reverse_iterator =       std::reverse_iterator<iterator>;
+		using iterator               = T*;
+		using const_iterator         = const T*;
+		using pointer                = T*;
+		using const_pointer          = const T*;
+		using reference              = T&;
+		using const_reference        = const T&;
+		using value_type             = T;
+		using reverse_iterator       = std::reverse_iterator<iterator>;
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-		using size_type =              integral_shrink_t<N>;
-		using difference_type =        std::make_signed_t<size_type>;
+		using size_type              = integral_shrink_t<N>;
+		using difference_type        = std::make_signed_t<size_type>;
 
 		// Raw space.
 		//
 		alignas( T ) uint8_t space[ sizeof( T[ N ] ) ] = {};
-		size_type length = 0;
+		size_type length                               = 0;
 
 		// Default construction.
 		//
@@ -38,29 +36,24 @@ namespace xstd
 		// Construction by value.
 		//
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		small_vector( It1&& first, It2&& last )
-		{
+		small_vector( It1&& first, It2&& last ) {
 			length = ( size_type ) std::distance( first, last );
 			std::uninitialized_copy( first, last, begin() );
 		}
 		template<Iterable C = std::initializer_list<T>>
 		small_vector( const C& source ) : small_vector( std::begin( source ), std::end( source ) ) {}
-		
+
 		// Construction by length.
 		//
 		small_vector( size_t n ) requires DefaultConstructible<T>
 		{
 			resize( n );
 		}
-		small_vector( size_t n, const T& value )
-		{
-			resize( n, value );
-		}
+		small_vector( size_t n, const T& value ) { resize( n, value ); }
 
 		// Implement copy/move construction and assignment.
 		//
-		small_vector( small_vector&& o ) noexcept
-		{
+		small_vector( small_vector&& o ) noexcept {
 			length = std::exchange( o.length, 0 );
 			std::uninitialized_move_n( o.begin(), length, begin() );
 		}
@@ -69,8 +62,7 @@ namespace xstd
 			length = o.length;
 			std::uninitialized_copy_n( o.begin(), length, begin() );
 		}
-		small_vector& operator=( small_vector&& o ) noexcept
-		{
+		small_vector& operator=( small_vector&& o ) noexcept {
 			clear();
 			length = std::exchange( o.length, 0 );
 			std::uninitialized_move_n( o.begin(), length, begin() );
@@ -83,8 +75,7 @@ namespace xstd
 			std::uninitialized_copy_n( o.begin(), length, begin() );
 			return *this;
 		}
-		void swap( small_vector& o )
-		{
+		void swap( small_vector& o ) {
 			if constexpr ( TriviallyMoveConstructible<T> )
 				return trivial_swap( *this, o );
 
@@ -100,35 +91,25 @@ namespace xstd
 
 		// Value removal.
 		//
-		iterator erase( const_iterator first, const_iterator last )
-		{
+		iterator erase( const_iterator first, const_iterator last ) {
 			size_t count = ( size_type ) std::distance( first, last );
 			std::destroy_n( first, count );
 			std::uninitialized_move( ( iterator ) last, end(), ( iterator ) first );
 			length -= count;
 			return ( iterator ) first;
 		}
-		iterator erase( const_iterator pos )
-		{
-			return erase( pos, pos + 1 );
-		}
-		void pop_back()
-		{
+		iterator erase( const_iterator pos ) { return erase( pos, pos + 1 ); }
+		void pop_back() {
 			std::destroy_at( &back() );
 			--length;
 		}
-		void clear()
-		{
-			std::destroy_n( begin(), std::exchange( length, 0 ) );
-		}
+		void clear() { std::destroy_n( begin(), std::exchange( length, 0 ) ); }
 
 		// Value insertion.
 		//
 		template<typename... Tx>
-		reference emplace( const_iterator pos, Tx&&... args )
-		{
-			if ( length )
-			{
+		reference emplace( const_iterator pos, Tx&&... args ) {
+			if ( length ) {
 				for ( auto it = end() - 1; it >= pos; --it )
 					std::uninitialized_move_n( it, 1, it + 1 );
 			}
@@ -137,13 +118,11 @@ namespace xstd
 			return *( iterator ) pos;
 		}
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		iterator insert( const_iterator pos, It1&& first, It2&& last )
-		{
+		iterator insert( const_iterator pos, It1&& first, It2&& last ) {
 			auto count = ( size_type ) std::distance( first, last );
 			if ( ( length + count ) > N )
 				return nullptr;
-			if ( length )
-			{
+			if ( length ) {
 				for ( auto it = end() - 1; it >= pos; --it )
 					std::uninitialized_move_n( it, 1, it + count );
 			}
@@ -151,31 +130,22 @@ namespace xstd
 			length += count;
 			return ( iterator ) pos;
 		}
-		iterator insert( const_iterator pos, const T& value )
-		{
-			return &emplace( pos, value );
-		}
-		iterator insert( const_iterator pos, T&& value )
-		{
-			return &emplace( pos, std::move( value ) );
-		}
-		bool push_back( const T& value )
-		{
+		iterator insert( const_iterator pos, const T& value ) { return &emplace( pos, value ); }
+		iterator insert( const_iterator pos, T&& value ) { return &emplace( pos, std::move( value ) ); }
+		bool push_back( const T& value ) {
 			if ( length == N )
 				return false;
 			emplace( end(), value );
 			return true;
 		}
-		bool push_back( T&& value )
-		{
+		bool push_back( T&& value ) {
 			if ( length == N )
 				return false;
 			emplace( end(), std::move( value ) );
 			return true;
 		}
 		template<typename... Tx>
-		reference emplace_back( Tx&&... args )
-		{
+		reference emplace_back( Tx&&... args ) {
 			return emplace( end(), std::forward<Tx>( args )... );
 		}
 		void resize( size_t n ) requires DefaultConstructible<T>
@@ -186,8 +156,7 @@ namespace xstd
 				std::destroy_n( begin() + n, length - n );
 			length = ( size_type ) n;
 		}
-		void resize( size_t n, const T& value )
-		{
+		void resize( size_t n, const T& value ) {
 			if ( n > length )
 				std::uninitialized_fill_n( begin() + length, n - length, value );
 			else
@@ -198,8 +167,7 @@ namespace xstd
 		// Value assignment.
 		//
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		iterator assign( It1&& first, It2&& last )
-		{
+		iterator assign( It1&& first, It2&& last ) {
 			clear();
 			return insert( begin(), std::forward<It1>( first ), std::forward<It2>( last ) );
 		}
@@ -211,7 +179,10 @@ namespace xstd
 		// Container interface.
 		//
 		constexpr bool empty() const { return length == 0; }
-		constexpr size_t size() const { assume( length <= N ); return length; }
+		constexpr size_t size() const {
+			assume( length <= N );
+			return length;
+		}
 		constexpr size_t max_size() const { return N; }
 		constexpr size_t capacity() const { return N; }
 		iterator data() { return &at( 0 ); }
@@ -240,7 +211,10 @@ namespace xstd
 
 		// Decay to vector.
 		//
-		constexpr operator std::vector<T>() requires DefaultConstructible<T> { return { begin(), end() }; }
+		constexpr operator std::vector<T>() requires DefaultConstructible<T>
+		{
+			return { begin(), end() };
+		}
 
 		// Indexing.
 		//
@@ -256,8 +230,7 @@ namespace xstd
 		// Comparison.
 		//
 		template<Iterable C>
-		bool operator==( const C& c ) const
-		{
+		bool operator==( const C& c ) const {
 			if ( std::size( c ) != size() )
 				return false;
 			return std::equal( std::begin( c ), std::end( c ), begin() );
@@ -268,25 +241,24 @@ namespace xstd
 	// If trivial type, implement the constexpr version.
 	//
 	template<typename T, size_t N> requires ( DefaultConstructible<T> && TriviallyDestructable<T> )
-	struct small_vector<T, N>
-	{
+	struct small_vector<T, N> {
 		// Container traits.
 		//
-		using iterator =               T*;
-		using const_iterator =         const T*;
-		using pointer =                T*;
-		using const_pointer =          const T*;
-		using reference =              T&;
-		using const_reference =        const T&;
-		using value_type =             T;
-		using reverse_iterator =       std::reverse_iterator<iterator>;
+		using iterator               = T*;
+		using const_iterator         = const T*;
+		using pointer                = T*;
+		using const_pointer          = const T*;
+		using reference              = T&;
+		using const_reference        = const T&;
+		using value_type             = T;
+		using reverse_iterator       = std::reverse_iterator<iterator>;
 		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-		using size_type =              integral_shrink_t<N>;
-		using difference_type =        std::make_signed_t<size_type>;
+		using size_type              = integral_shrink_t<N>;
+		using difference_type        = std::make_signed_t<size_type>;
 
 		// Raw space.
 		//
-		T space[ N ] = {};
+		T space[ N ]     = {};
 		size_type length = 0;
 
 		// Default construction.
@@ -296,53 +268,41 @@ namespace xstd
 		// Construction by value.
 		//
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		constexpr small_vector( It1&& first, It2&& last )
-		{
+		constexpr small_vector( It1&& first, It2&& last ) {
 			length = ( size_type ) std::distance( first, last );
 			std::copy( first, last, begin() );
 		}
 		template<Iterable C = std::initializer_list<T>>
 		constexpr small_vector( const C& source ) : small_vector( std::begin( source ), std::end( source ) ) {}
-		
+
 		// Construction by length.
 		//
-		constexpr small_vector( size_t n )
-		{
-			resize( n );
-		}
-		constexpr small_vector( size_t n, const T& value )
-		{
-			resize( n, value );
-		}
+		constexpr small_vector( size_t n ) { resize( n ); }
+		constexpr small_vector( size_t n, const T& value ) { resize( n, value ); }
 
 		// Implement copy/move construction and assignment.
 		//
-		constexpr small_vector( small_vector&& o ) noexcept
-		{
+		constexpr small_vector( small_vector&& o ) noexcept {
 			length = std::exchange( o.length, 0 );
 			std::copy_n( std::make_move_iterator( o.begin() ), length, begin() );
 		}
-		constexpr small_vector( const small_vector& o )
-		{
+		constexpr small_vector( const small_vector& o ) {
 			length = o.length;
 			std::copy_n( o.begin(), length, begin() );
 		}
-		constexpr small_vector& operator=( small_vector&& o ) noexcept
-		{
+		constexpr small_vector& operator=( small_vector&& o ) noexcept {
 			clear();
 			length = std::exchange( o.length, 0 );
 			std::copy_n( std::make_move_iterator( o.begin() ), length, begin() );
 			return *this;
 		}
-		constexpr small_vector& operator=( const small_vector& o )
-		{
+		constexpr small_vector& operator=( const small_vector& o ) {
 			clear();
 			length = o.length;
 			std::copy_n( o.begin(), length, begin() );
 			return *this;
 		}
-		constexpr void swap( small_vector& o )
-		{
+		constexpr void swap( small_vector& o ) {
 			if constexpr ( TriviallyMoveConstructible<T> )
 				if ( !std::is_constant_evaluated() )
 					return trivial_swap( *this, o );
@@ -359,37 +319,25 @@ namespace xstd
 
 		// Value removal.
 		//
-		constexpr iterator erase( const_iterator _first, const_iterator _last )
-		{
+		constexpr iterator erase( const_iterator _first, const_iterator _last ) {
 			iterator first = &space[ _first - begin() ];
-			iterator last = &space[ _last - begin() ];
+			iterator last  = &space[ _last - begin() ];
 
 			size_t count = ( size_type ) std::distance( first, last );
 			std::copy( std::make_move_iterator( last ), std::make_move_iterator( end() ), first );
 			length -= count;
 			return first;
 		}
-		constexpr iterator erase( const_iterator pos )
-		{
-			return erase( pos, pos + 1 );
-		}
-		constexpr void pop_back()
-		{
-			--length;
-		}
-		constexpr void clear()
-		{
-			length = 0;
-		}
+		constexpr iterator erase( const_iterator pos ) { return erase( pos, pos + 1 ); }
+		constexpr void pop_back() { --length; }
+		constexpr void clear() { length = 0; }
 
 		// Value insertion.
 		//
 		template<typename... Tx>
-		constexpr reference emplace( const_iterator _pos, Tx&&... args )
-		{
+		constexpr reference emplace( const_iterator _pos, Tx&&... args ) {
 			iterator pos = &space[ _pos - cbegin() ];
-			if ( length )
-			{
+			if ( length ) {
 				for ( auto it = end() - 1; it >= pos; --it )
 					it[ 1 ] = it[ 0 ];
 			}
@@ -398,15 +346,13 @@ namespace xstd
 			return *pos;
 		}
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		constexpr iterator insert( const_iterator _pos, It1&& first, It2&& last )
-		{
+		constexpr iterator insert( const_iterator _pos, It1&& first, It2&& last ) {
 			iterator pos = &space[ _pos - cbegin() ];
 
 			auto count = ( size_type ) std::distance( first, last );
 			if ( ( length + count ) > N )
 				return nullptr;
-			if ( length )
-			{
+			if ( length ) {
 				for ( auto it = end() - 1; it >= pos; --it )
 					std::copy_n( it, 1, it + count );
 			}
@@ -414,35 +360,25 @@ namespace xstd
 			length += count;
 			return pos;
 		}
-		constexpr iterator insert( const_iterator pos, const T& value )
-		{
-			return &emplace( pos, value );
-		}
-		constexpr iterator insert( const_iterator pos, T&& value )
-		{
-			return &emplace( pos, std::move( value ) );
-		}
-		constexpr bool push_back( const T& value )
-		{
+		constexpr iterator insert( const_iterator pos, const T& value ) { return &emplace( pos, value ); }
+		constexpr iterator insert( const_iterator pos, T&& value ) { return &emplace( pos, std::move( value ) ); }
+		constexpr bool push_back( const T& value ) {
 			if ( length == N )
 				return false;
 			emplace( end(), value );
 			return true;
 		}
-		constexpr bool push_back( T&& value )
-		{
+		constexpr bool push_back( T&& value ) {
 			if ( length == N )
 				return false;
 			emplace( end(), std::move( value ) );
 			return true;
 		}
 		template<typename... Tx>
-		constexpr reference emplace_back( Tx&&... args )
-		{
+		constexpr reference emplace_back( Tx&&... args ) {
 			return emplace( end(), std::forward<Tx>( args )... );
 		}
-		constexpr void resize( size_t n, const T& value = {} )
-		{
+		constexpr void resize( size_t n, const T& value = {} ) {
 			if ( n > length )
 				std::fill_n( begin() + length, n - length, value );
 			length = ( size_type ) n;
@@ -451,8 +387,7 @@ namespace xstd
 		// Value assignment.
 		//
 		template<typename It1, typename It2> requires ( ConvertibleIterator<T, It1> && ConvertibleIterator<T, It2> )
-		constexpr iterator assign( It1&& first, It2&& last )
-		{
+		constexpr iterator assign( It1&& first, It2&& last ) {
 			clear();
 			return insert( begin(), std::forward<It1>( first ), std::forward<It2>( last ) );
 		}
@@ -461,7 +396,10 @@ namespace xstd
 		// Container interface.
 		//
 		constexpr bool empty() const { return length == 0; }
-		constexpr size_t size() const { assume( length <= N ); return length; }
+		constexpr size_t size() const {
+			assume( length <= N );
+			return length;
+		}
 		constexpr size_t max_size() const { return N; }
 		constexpr size_t capacity() const { return N; }
 		constexpr iterator data() { return &at( 0 ); }
@@ -490,7 +428,10 @@ namespace xstd
 
 		// Decay to vector.
 		//
-		operator std::vector<T>() requires DefaultConstructible<T> { return { begin(), end() }; }
+		operator std::vector<T>() requires DefaultConstructible<T>
+		{
+			return { begin(), end() };
+		}
 
 		// Indexing.
 		//
@@ -506,8 +447,7 @@ namespace xstd
 		// Comparison.
 		//
 		template<Iterable C>
-		constexpr bool operator==( const C& c ) const
-		{
+		constexpr bool operator==( const C& c ) const {
 			if ( std::size( c ) != size() )
 				return false;
 			return std::equal( std::begin( c ), std::end( c ), begin() );

@@ -1,0 +1,7 @@
+# Vendored third-party — keep upstream formatting.
+includes/xstd/sse2neon.h
+includes/xstd/plf_colony.hpp
+includes/xstd/robin_hood.hpp
+includes/ia32.hpp
+includes/ia32/**
+includes/frozen/**

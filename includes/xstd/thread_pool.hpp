@@ -12,29 +12,30 @@
 // XSTD_CREATE_THREAD: If set, thread creation will be done via the given function.
 //
 #ifndef XSTD_CREATE_THREAD
-#if WINDOWS_TARGET
-#pragma comment(lib, "ntdll.lib")
+	#if WINDOWS_TARGET
+		#pragma comment( lib, "ntdll.lib" )
 extern "C" {
-	__declspec( dllimport ) int32_t NtClose( void* Handle );
-	__declspec( dllimport ) int32_t NtCreateThreadEx( void** ThreadHandle, unsigned int DesiredAccess, void* ObjectAttributes, void* ProcessHandle, void* StartRoutine, void* Argument, unsigned int CreateFlags, unsigned long long ZeroBits, unsigned long long StackSize, unsigned long long MaximumStackSize, void* AttributeList );
+__declspec( dllimport ) int32_t NtClose( void* Handle );
+__declspec( dllimport ) int32_t NtCreateThreadEx( void** ThreadHandle, unsigned int DesiredAccess, void* ObjectAttributes, void* ProcessHandle, void* StartRoutine, void* Argument, unsigned int CreateFlags, unsigned long long ZeroBits,
+												  unsigned long long StackSize, unsigned long long MaximumStackSize, void* AttributeList );
 };
-	#define XSTD_CREATE_THREAD(cb, arg) \
-	do { \
-		void* hnd = nullptr; \
-		NtCreateThreadEx( &hnd, 0x02000000, nullptr, (void*) 0xffffffffffffffff, (void*) cb, arg, 0, 0, 0, 0, nullptr ); \
-		NtClose( hnd ); \
-	} while( false );
-#else
-	#include <thread>
-	#define XSTD_CREATE_THREAD(cb, arg) std::thread{ cb, arg }.detach()
-#endif
+		#define XSTD_CREATE_THREAD( cb, arg )                                                                                                                                                                                                  \
+			do {                                                                                                                                                                                                                               \
+				void* hnd = nullptr;                                                                                                                                                                                                           \
+				NtCreateThreadEx( &hnd, 0x02000000, nullptr, ( void* ) 0xffffffffffffffff, ( void* ) cb, arg, 0, 0, 0, 0, nullptr );                                                                                                           \
+				NtClose( hnd );                                                                                                                                                                                                                \
+			} while ( false );
+	#else
+		#include <thread>
+		#define XSTD_CREATE_THREAD( cb, arg ) std::thread{ cb, arg }.detach()
+	#endif
 #endif
 
 namespace xstd {
 	// Work item.
 	//
 	struct work_item {
-		void( *cb )( void* );
+		void ( *cb )( void* );
 		void* arg;
 
 		FORCE_INLINE void operator()() { cb( arg ); }
@@ -42,10 +43,11 @@ namespace xstd {
 	};
 	struct deferred_work_item : work_item {
 		mutable event_handle evt = {};
-		int64_t              timeout = 0;
+		int64_t timeout          = 0;
 
 		FORCE_INLINE bool is_ready( int64_t now ) const {
-			if ( timeout < now ) return true;
+			if ( timeout < now )
+				return true;
 			return evt && event_primitive::from_handle( evt ).peek();
 		}
 	};
@@ -57,25 +59,19 @@ namespace xstd {
 		// Traits.
 		//
 #if WINDOWS_TARGET && USER_TARGET
-		static constexpr int32_t yield_per_acquire = 256; // ~ 10ms re-scheduling hit
+		static constexpr int32_t yield_per_acquire = 256;  // ~ 10ms re-scheduling hit
 #else
 		static constexpr int32_t yield_per_acquire = 24;  // < 1ms re-scheduling hit
 #endif
 		static constexpr bool is_lazy = true;
-		static size_t get_ideal_worker_count() {
-			return std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 8, 32 );
-		}
-		static void create_thread( void( * cb )( void* ), void* arg ) {
-			XSTD_CREATE_THREAD( cb, arg );
-		}
-		FORCE_INLINE static int64_t timestamp( int64_t delta_ns ) {
-			return ( time::now().time_since_epoch() / 1ns ) + delta_ns;
-		}
+		static size_t get_ideal_worker_count() { return std::clamp<size_t>( 2 * std::thread::hardware_concurrency(), 8, 32 ); }
+		static void create_thread( void ( *cb )( void* ), void* arg ) { XSTD_CREATE_THREAD( cb, arg ); }
+		FORCE_INLINE static int64_t timestamp( int64_t delta_ns ) { return ( time::now().time_since_epoch() / 1ns ) + delta_ns; }
 
 		// Local state.
 		//
 		Self* next_idle = nullptr;
-		bool  idle =      false;
+		bool idle       = false;
 
 		// Worker hooks.
 		//
@@ -94,9 +90,7 @@ namespace xstd {
 			event.wait();
 			return event.reset();
 		}
-		FORCE_INLINE void signal() {
-			event.notify();
-		}
+		FORCE_INLINE void signal() { event.notify(); }
 	};
 
 	// Immediate queue type.
@@ -105,18 +99,19 @@ namespace xstd {
 	struct work_queue;
 	template<typename Worker>
 	struct work_queue<work_item, Worker> {
-		xspinlock<>            lock = {};
-		std::atomic<uint16_t>  pressure = 0;
-		std::deque<work_item>  list =      {};
-		Worker*                idle_list = nullptr;
-		std::atomic<bool>      is_empty = false;
+		xspinlock<> lock               = {};
+		std::atomic<uint16_t> pressure = 0;
+		std::deque<work_item> list     = {};
+		Worker* idle_list              = nullptr;
+		std::atomic<bool> is_empty     = false;
 
 		// Custom locking logic for worker-side to collect more tasks before committing a sleep.
 		//
 		FORCE_INLINE bool lock_as_worker( bool was_idle ) {
 			// Increment pressure.
 			//
-			if ( !was_idle ) ++pressure;
+			if ( !was_idle )
+				++pressure;
 
 			// Enter acquisition loop:
 			//
@@ -162,10 +157,10 @@ namespace xstd {
 		// Gets the next worker to signal to increase pressure if 0.
 		//
 		FORCE_INLINE Worker* locked_wakeup_one() {
-			Worker* w = idle_list;
+			Worker* w         = idle_list;
 			uint16_t expected = pressure.load( std::memory_order::relaxed );
 			if ( w && !expected ) [[unlikely]] {
-				++pressure; // Weakened, can be > 1 after execution, don't care.
+				++pressure;  // Weakened, can be > 1 after execution, don't care.
 				idle_list = w->next_idle;
 				return w;
 			}
@@ -182,7 +177,7 @@ namespace xstd {
 				// Insert into idle list, unlock and halt.
 				//
 				worker.next_idle = idle_list;
-				idle_list = &worker;
+				idle_list        = &worker;
 				unlock_as_worker();
 				return worker.halt();
 			}
@@ -202,7 +197,8 @@ namespace xstd {
 			}
 
 			unlock_as_worker();
-			if ( w ) w->signal();
+			if ( w )
+				w->signal();
 
 			// Execute the work.
 			//
@@ -211,7 +207,7 @@ namespace xstd {
 
 		// Appends work to the queue.
 		//
-		NO_INLINE void push( void( * cb )( void* ), void* arg ) {
+		NO_INLINE void push( void ( *cb )( void* ), void* arg ) {
 			is_empty.store( false, std::memory_order::relaxed );
 			std::unique_lock g{ lock };
 			list.emplace_back( work_item{ cb, arg } );
@@ -230,7 +226,7 @@ namespace xstd {
 			Worker* w;
 			{
 				std::lock_guard _g{ lock };
-				w = idle_list;
+				w         = idle_list;
 				idle_list = nullptr;
 			}
 
@@ -246,11 +242,11 @@ namespace xstd {
 	template<typename Worker>
 	struct work_queue<deferred_work_item, Worker> {
 		static constexpr size_t max_locked_traversal = 32;
-		
-		xspinlock<>                   lock =      {};
-		std::list<deferred_work_item> list =      {};
-		Worker*                       idle =      nullptr;
-		uint32_t                      sleep_hint = 0;
+
+		xspinlock<> lock                   = {};
+		std::list<deferred_work_item> list = {};
+		Worker* idle                       = nullptr;
+		uint32_t sleep_hint                = 0;
 
 		// Locking logic assuming proper TPR.
 		//
@@ -287,7 +283,7 @@ namespace xstd {
 			}
 
 			std::list<deferred_work_item> ready_list = {};
-			auto split_ready_from = [ & ]( std::list<deferred_work_item>& other ) FORCE_INLINE {
+			auto split_ready_from                    = [ & ]( std::list<deferred_work_item>& other ) FORCE_INLINE {
 				int64_t current_time = Worker::timestamp( 0 );
 				for ( auto it = other.begin(); it != other.end(); ) {
 					if ( auto entry = it++; entry->is_ready( current_time ) ) {
@@ -315,7 +311,7 @@ namespace xstd {
 				if ( !list.empty() ) {
 					split_ready_from( list );
 					list.splice( list.end(), backlog, backlog.begin(), backlog.end() );
-				} 
+				}
 				// Otherwise, swap the lists.
 				//
 				else {
@@ -346,9 +342,9 @@ namespace xstd {
 
 		// Appends work to the queue.
 		//
-		NO_INLINE void push( void( * cb )( void* ), void* arg, int64_t timeout, event_handle evt ) {
+		NO_INLINE void push( void ( *cb )( void* ), void* arg, int64_t timeout, event_handle evt ) {
 			std::unique_lock g{ lock };
-			list.emplace_front( deferred_work_item{ work_item{cb, arg}, evt, timeout } );
+			list.emplace_front( deferred_work_item{ work_item{ cb, arg }, evt, timeout } );
 
 			// Wake up if idle.
 			//
@@ -358,17 +354,18 @@ namespace xstd {
 				w->signal();
 			}
 		}
-		
+
 		// Wakes up all threads, used for stopping the thread pool.
 		//
 		void wakeup_all() {
 			Worker* w;
 			{
 				std::lock_guard _g{ lock };
-				w = idle;
+				w    = idle;
 				idle = nullptr;
 			}
-			if ( w ) w->signal();
+			if ( w )
+				w->signal();
 		}
 	};
 
@@ -378,14 +375,14 @@ namespace xstd {
 	struct thread_pool {
 		// Immediate and the deferred queue.
 		//
-		work_queue<work_item, Worker>          queue = {};
-		work_queue<deferred_work_item, Worker> deferred_queue  = {};
+		work_queue<work_item, Worker> queue                   = {};
+		work_queue<deferred_work_item, Worker> deferred_queue = {};
 
 		// Thread pool state.
 		//
 		std::atomic<size_t> num_threads = 0;
-		spinlock            state_lock = {};
-		bool                running = false;
+		spinlock state_lock             = {};
+		bool running                    = false;
 
 		// Thread logic.
 		//
@@ -400,20 +397,21 @@ namespace xstd {
 			this->num_threads--;
 		}
 		NO_INLINE static void aux_entry_point( void* ctx ) {
-			auto& tp = *(thread_pool*) ctx;
+			auto& tp = *( thread_pool* ) ctx;
 			return tp.work( tp.queue );
 		}
 		NO_INLINE static void master_entry_point( void* ctx ) {
-			auto& tp = *(thread_pool*) ctx;
+			auto& tp = *( thread_pool* ) ctx;
 			return tp.work( tp.deferred_queue );
 		}
 
 		// Queues new work, starts the thread-pool if lazily started.
 		//
-		FORCE_INLINE void push( void( * cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) {
+		FORCE_INLINE void push( void ( *cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) {
 			if ( evt || delay_ns > ( 1ms / 1ns ) ) {
 				int64_t timeout = INT64_MAX;
-				if ( delay_ns > 0 ) timeout = Worker::timestamp( delay_ns );
+				if ( delay_ns > 0 )
+					timeout = Worker::timestamp( delay_ns );
 				deferred_queue.push( cb, arg, timeout, evt );
 			} else {
 				queue.push( cb, arg );
@@ -425,9 +423,7 @@ namespace xstd {
 				}
 			}
 		}
-		FORCE_INLINE void operator()( void( * cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) { 
-			return push( cb, arg, delay_ns, evt );
-		}
+		FORCE_INLINE void operator()( void ( *cb )( void* ), void* arg, int64_t delay_ns = 0, event_handle evt = nullptr ) { return push( cb, arg, delay_ns, evt ); }
 
 		// Starts/stops the threads.
 		//
@@ -442,7 +438,8 @@ namespace xstd {
 		template<typename... Tx>
 		void start( Tx&&... args ) {
 			std::lock_guard _g{ state_lock };
-			if ( running ) return;
+			if ( running )
+				return;
 			running = true;
 
 			size_t target_count = std::max<size_t>( 2, Worker::get_ideal_worker_count() );
@@ -455,7 +452,8 @@ namespace xstd {
 		}
 		void stop() {
 			std::lock_guard _g{ state_lock };
-			if ( !running ) return;
+			if ( !running )
+				return;
 			running = false;
 
 			while ( num_threads ) {

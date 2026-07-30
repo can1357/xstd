@@ -4,14 +4,11 @@
 #include "event.hpp"
 #include "chore.hpp"
 
-namespace xstd
-{
-	namespace impl
-	{
+namespace xstd {
+	namespace impl {
 		// Basic traits every timer has.
 		//
-		struct timer_base
-		{
+		struct timer_base {
 			event signal_event = {};
 			duration interval;
 			bool canceled = false;
@@ -26,18 +23,15 @@ namespace xstd
 		// Implementation based on the functor passed.
 		//
 		template<typename F>
-		struct timer_store : timer_base
-		{
+		struct timer_store : timer_base {
 			F functor;
 			timer_store( F&& fn, duration interval ) : timer_base( interval ), functor( std::forward<F>( fn ) ) {}
 
-			void execute()
-			{
+			void execute() {
 				// Reset signal event, check for cancellation.
 				//
 				timer_base::signal_event.reset();
-				if ( timer_base::canceled ) [[unlikely]]
-				{
+				if ( timer_base::canceled ) [[unlikely]] {
 					delete this;
 					return;
 				}
@@ -50,8 +44,7 @@ namespace xstd
 				//
 				schedule( false );
 			}
-			FORCE_INLINE inline void schedule( bool first_time )
-			{
+			FORCE_INLINE inline void schedule( bool first_time ) {
 				if ( first_time )
 					xstd::chore( [ & ] { execute(); } );
 				else
@@ -62,8 +55,7 @@ namespace xstd
 
 	// Unique timer class.
 	//
-	struct timer
-	{
+	struct timer {
 		impl::timer_base* base = nullptr;
 
 		// Null timer.
@@ -78,9 +70,8 @@ namespace xstd
 		// Constructed by the functor and the interval.
 		//
 		template<typename F, Duration D>
-		timer( F&& fn, D interval, bool deferred_start = false )
-		{
-			auto* store = new impl::timer_store<F>( std::forward<F>( fn ), std::chrono::duration_cast< duration >( interval ) );
+		timer( F&& fn, D interval, bool deferred_start = false ) {
+			auto* store = new impl::timer_store<F>( std::forward<F>( fn ), std::chrono::duration_cast<duration>( interval ) );
 			store->schedule( !deferred_start );
 			base = store;
 		}
@@ -88,15 +79,14 @@ namespace xstd
 		// Move by swap.
 		//
 		constexpr timer( timer&& other ) noexcept : base( std::exchange( other.base, nullptr ) ) {}
-		constexpr timer& operator=( timer&& other ) noexcept
-		{
+		constexpr timer& operator=( timer&& other ) noexcept {
 			std::swap( base, other.base );
 			return *this;
 		}
 
 		// No copy allowed.
 		//
-		timer( const timer& ) = delete;
+		timer( const timer& )            = delete;
 		timer& operator=( const timer& ) = delete;
 
 		// Validity check.
@@ -111,32 +101,26 @@ namespace xstd
 		// Getter/setters of the interval.
 		//
 		duration interval() const { return base->interval; }
-		void set_interval( duration interval )
-		{
+		void set_interval( duration interval ) {
 			base->interval = interval;
 			signal();
 		}
 
 		// Cancels the timer.
 		//
-		void cancel()
-		{
-			auto* timer = release();
+		void cancel() {
+			auto* timer     = release();
 			timer->canceled = true;
 			timer->signal();
 		}
 
 		// Releases the timer so that the destructor will not cancel it.
 		//
-		impl::timer_base* release()
-		{
-			return std::exchange( base, nullptr );
-		}
+		impl::timer_base* release() { return std::exchange( base, nullptr ); }
 
 		// Destructor cancels the timer.
 		//
-		~timer()
-		{
+		~timer() {
 			if ( valid() )
 				cancel();
 		}

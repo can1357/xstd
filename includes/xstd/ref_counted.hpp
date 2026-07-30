@@ -2,8 +2,7 @@
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
-namespace xstd
-{
+namespace xstd {
 	struct ref_counted_base {
 		mutable std::atomic<uint32_t> ref_count = { 1 };
 	};
@@ -11,19 +10,19 @@ namespace xstd
 	// Simple implementation of shared_ptr with known destructor and simpler reference counting.
 	//
 	template<typename T>
-	struct ref
-	{
-		struct wrapper : ref_counted_base, T { using T::T; };
+	struct ref {
+		struct wrapper : ref_counted_base, T {
+			using T::T;
+		};
 		using store_type = std::conditional_t<HasBase<ref_counted_base, T>, T, wrapper>;
 
 		store_type* ptr = nullptr;
 
 		// Construction by pointer.
 		//
-		constexpr explicit ref( store_type* ptr, bool add_ref = true ) : ptr( ptr )
-		{ 
-			if ( ptr && add_ref ) 
-				ptr->ref_count++; 
+		constexpr explicit ref( store_type* ptr, bool add_ref = true ) : ptr( ptr ) {
+			if ( ptr && add_ref )
+				ptr->ref_count++;
 		}
 
 		// Null reference.
@@ -43,9 +42,7 @@ namespace xstd
 			reset( o.ptr );
 			return *this;
 		}
-		constexpr void swap( ref& o ) {
-			std::swap( ptr, o.ptr );
-		}
+		constexpr void swap( ref& o ) { std::swap( ptr, o.ptr ); }
 
 		// Type cast.
 		//
@@ -54,9 +51,9 @@ namespace xstd
 		template<typename Ty> requires ( std::is_base_of_v<T, Ty> && std::has_virtual_destructor_v<T> )
 		constexpr ref( ref<Ty>&& o ) : ref( o.release(), false ) {}
 		template<typename Ty>
-		explicit ref( const ref<Ty>& o ) : ref( (store_type*) o.ptr, true ) {}
+		explicit ref( const ref<Ty>& o ) : ref( ( store_type* ) o.ptr, true ) {}
 		template<typename Ty>
-		explicit ref( ref<Ty>&& o ) : ref( (store_type*) o.release(), false ) {}
+		explicit ref( ref<Ty>&& o ) : ref( ( store_type* ) o.release(), false ) {}
 
 		// Reset and release.
 		//
@@ -83,10 +80,8 @@ namespace xstd
 
 		// Reference helpers.
 		//
-		size_t inc_ref() const { 
-			return ++ptr->ref_count; 
-		}
-		size_t dec_ref() const { 
+		size_t inc_ref() const { return ++ptr->ref_count; }
+		size_t dec_ref() const {
 			size_t n = --ptr->ref_count;
 			fassert( n != 0 );
 			return n;
@@ -107,18 +102,15 @@ namespace xstd
 	// enable_shared_from_this equivalent.
 	//
 	template<typename T>
-	struct ref_counted : ref_counted_base
-	{
-		void inc_ref() const {
-			this->ref_count++;
-		}
+	struct ref_counted : ref_counted_base {
+		void inc_ref() const { this->ref_count++; }
 		template<typename Ty = T>
 		void dec_ref() const {
 			if ( !--this->ref_count )
 				delete const_cast<Ty*>( static_cast<const Ty*>( this ) );
 		}
 		template<typename Ty = T>
-		ref<Ty> add_ref() {  
+		ref<Ty> add_ref() {
 			return ref<Ty>{ static_cast<Ty*>( this ) };
 		}
 		template<typename Ty = T>
@@ -129,8 +121,8 @@ namespace xstd
 
 	// Creates a ref-counted object.
 	//
-	template<typename T, typename... Tx> 
-	inline ref<T> make_refc( Tx&&... args ) { 
+	template<typename T, typename... Tx>
+	inline ref<T> make_refc( Tx&&... args ) {
 		using V = typename ref<T>::store_type;
 		return ref<T>( new V( std::forward<Tx>( args )... ), false );
 	}

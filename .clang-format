@@ -1,0 +1,66 @@
+# xstd house style: tabs, attached braces, spaces inside parentheses.
+# Requires clang-format >= 19 (BreakTemplateDeclarations: Leave, KeepEmptyLines); tested with 22.
+Language: Cpp
+Standard: c++20
+BasedOnStyle: Google
+ColumnLimit: 240
+IndentWidth: 4
+TabWidth: 4
+UseTab: ForContinuationAndIndentation
+NamespaceIndentation: All
+FixNamespaceComments: false
+IncludeBlocks: Preserve
+SortIncludes: Never
+IndentPPDirectives: BeforeHash
+MaxEmptyLinesToKeep: 2
+KeepEmptyLines:
+  AtStartOfBlock: true
+
+# Spacing: `if ( x )`, `fn( a, b )`, `arr[ i ]`, `( T ) cast`.
+SpaceAfterTemplateKeyword: false
+SpaceAfterCStyleCast: true
+SpacesInSquareBrackets: true
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  InCStyleCasts: true
+  Other: true
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+  AfterControlStatements: true
+  AfterRequiresInClause: true
+  AfterRequiresInExpression: false
+
+# Braces: attached everywhere.
+BreakBeforeBraces: Attach
+
+AllowShortFunctionsOnASingleLine: All
+AllowShortLambdasOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortEnumsOnASingleLine: true
+
+# Templates: respect the author's same-line vs own-line choice.
+BreakTemplateDeclarations: Leave
+
+# Alignment.
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveDeclarations: None
+AlignEscapedNewlines: Right
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Constructors.
+PackConstructorInitializers: NextLine
+
+# C++20 concepts / requires.
+BreakBeforeConceptDeclarations: Allowed
+IndentRequiresClause: false
+# WithPreceding: leading clauses break before the declaration (readable structs).
+# Cost: a trailing requires clause forces the function `{` onto its own line —
+# no clang-format mode merges those bodies without also joining leading clauses.
+RequiresClausePosition: WithPreceding
+RequiresExpressionIndentation: OuterScope

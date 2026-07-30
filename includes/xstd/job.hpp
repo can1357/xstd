@@ -9,7 +9,8 @@ namespace xstd {
 			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<T> handle ) noexcept {
 				coroutine_handle<> onto = handle.promise().continuation;
-				if ( onto ) return onto;
+				if ( onto )
+					return onto;
 				handle.destroy();
 				return noop_coroutine();
 			}
@@ -23,7 +24,7 @@ namespace xstd {
 	struct job {
 		struct promise_type {
 			coroutine_handle<> continuation = {};
-			std::optional<T>* placement = nullptr;
+			std::optional<T>* placement     = nullptr;
 
 			FORCE_INLINE inline job get_return_object() { return *this; }
 			FORCE_INLINE inline suspend_always initial_suspend() noexcept { return {}; }
@@ -37,13 +38,13 @@ namespace xstd {
 		};
 		struct awaiter {
 			unique_coroutine<promise_type> handle = nullptr;
-			std::optional<T> placement = std::nullopt;
+			std::optional<T> placement            = std::nullopt;
 
 			FORCE_INLINE inline bool await_ready() noexcept { return false; }
 			FORCE_INLINE inline coroutine_handle<> await_suspend( coroutine_handle<> hnd ) noexcept {
-				auto& pr = handle.promise();
+				auto& pr        = handle.promise();
 				pr.continuation = hnd;
-				pr.placement = &placement;
+				pr.placement    = &placement;
 				return handle.hnd;
 			}
 			FORCE_INLINE inline T await_resume() noexcept {
@@ -62,7 +63,7 @@ namespace xstd {
 		//
 		constexpr job() = default;
 		constexpr job( std::nullptr_t ) : handle( nullptr ) {}
-		constexpr job( job&& ) noexcept = default;
+		constexpr job( job&& ) noexcept            = default;
 		constexpr job& operator=( job&& ) noexcept = default;
 
 		// Observers.
@@ -80,14 +81,15 @@ namespace xstd {
 		//
 		FORCE_INLINE T run( bool spin = false ) {
 			std::optional<T> placement;
-			auto& pr = handle.promise();
+			auto& pr        = handle.promise();
 			pr.continuation = noop_coroutine();
-			pr.placement = &placement;
+			pr.placement    = &placement;
 			handle();
 			if ( spin ) {
 				for ( size_t i = 0; !handle.done(); ++i ) [[unlikely]] {
 					yield_cpu();
-					if ( i > 1000 ) std::this_thread::sleep_for( 1ms );
+					if ( i > 1000 )
+						std::this_thread::sleep_for( 1ms );
 				}
 			} else {
 				fassert( handle.done() );
@@ -99,8 +101,9 @@ namespace xstd {
 		// Tails into a job from another coroutine discarding the result.
 		//
 		FORCE_INLINE coroutine_handle<> chain( coroutine_handle<> hnd ) {
-			if ( !handle ) return hnd;
-			auto& pr = handle.promise();
+			if ( !handle )
+				return hnd;
+			auto& pr        = handle.promise();
 			pr.continuation = hnd;
 			return handle.hnd;
 		}
@@ -139,7 +142,7 @@ namespace xstd {
 		//
 		constexpr job() = default;
 		constexpr job( std::nullptr_t ) : handle( nullptr ) {}
-		job( job&& ) noexcept = default;
+		job( job&& ) noexcept            = default;
 		job& operator=( job&& ) noexcept = default;
 
 		// Observers.
@@ -156,13 +159,14 @@ namespace xstd {
 		// Executes the job synchronously, waits for the result.
 		//
 		FORCE_INLINE void run( bool spin = false ) {
-			auto& pr = handle.promise();
+			auto& pr        = handle.promise();
 			pr.continuation = noop_coroutine();
 			handle();
 			if ( spin ) {
 				for ( size_t i = 0; !handle.done(); ++i ) [[unlikely]] {
 					yield_cpu();
-					if ( i > 1000 ) std::this_thread::sleep_for( 1ms );
+					if ( i > 1000 )
+						std::this_thread::sleep_for( 1ms );
 				}
 			} else {
 				fassert( handle.done() );
@@ -172,8 +176,9 @@ namespace xstd {
 		// Tails into a job from another coroutine discarding the result.
 		//
 		FORCE_INLINE coroutine_handle<> chain( coroutine_handle<> hnd ) {
-			if ( !handle ) return hnd;
-			auto& pr = handle.promise();
+			if ( !handle )
+				return hnd;
+			auto& pr        = handle.promise();
 			pr.continuation = hnd;
 			return handle.hnd;
 		}

@@ -26,50 +26,38 @@
 // Macro wrapping ANSI escape codes, can be replaced by '#define ANSI_ESCAPE(...)' in legacy Windows to disable colors completely.
 //
 #ifndef ANSI_ESCAPE
-	#define ANSI_ESCAPE(...) ("\x1B[" __VA_ARGS__)
+	#define ANSI_ESCAPE( ... ) ( "\x1B[" __VA_ARGS__ )
 #endif
 
 // Ignore format warnings.
 //
 #if GNU_COMPILER
-	 #pragma GCC diagnostic ignored "-Wformat"
+	#pragma GCC diagnostic ignored "-Wformat"
 #endif
 
-namespace xstd::fmt
-{
-	namespace impl
-	{
+namespace xstd::fmt {
+	namespace impl {
 		// Types that will require no explicit conversion to string when being passed to *printf will pass.
 		//
-		template<typename T>
-		concept CFormatStringArgument = 
-			Fundamental<T> || Enum<T>  ||
-			Pointer<T>     || Array<T>;
-		template<typename T>
-		concept ValidFormatStringArgument = 
-			CFormatStringArgument<T> || 
-			Same<std::string, T> ||
-			Same<std::u8string, T>;
+		template<typename T> concept CFormatStringArgument     = Fundamental<T> || Enum<T> || Pointer<T> || Array<T>;
+		template<typename T> concept ValidFormatStringArgument = CFormatStringArgument<T> || Same<std::string, T> || Same<std::u8string, T>;
 
-		template<typename... Tx> struct conv_count { static constexpr size_t value = ( ( ValidFormatStringArgument<Tx> ? 0 : 1 ) + ... ); };
-		template<> struct conv_count<> { static constexpr size_t value = 0; };
+		template<typename... Tx> struct conv_count {
+			static constexpr size_t value = ( ( ValidFormatStringArgument<Tx> ? 0 : 1 ) + ... );
+		};
+		template<> struct conv_count<> {
+			static constexpr size_t value = 0;
+		};
 
-		template<typename... Tx> 
-		using format_buffer_for = std::conditional_t<(conv_count<Tx...>::value==0), std::monostate, small_vector<std::string, conv_count<Tx...>::value>>;
+		template<typename... Tx>
+		using format_buffer_for = std::conditional_t<( conv_count<Tx...>::value == 0 ), std::monostate, small_vector<std::string, conv_count<Tx...>::value>>;
 	};
-	namespace impl
-	{
+	namespace impl {
 		// Fixes the type name to be more friendly.
 		//
-		inline static std::string fix_type_name( std::string in )
-		{
-			static const std::string_view remove_list[] = {
-				"struct ",
-				"class ",
-				"enum "
-			};
-			for ( auto& str : remove_list )
-			{
+		inline static std::string fix_type_name( std::string in ) {
+			static const std::string_view remove_list[] = { "struct ", "class ", "enum " };
+			for ( auto& str : remove_list ) {
 				if ( in.starts_with( str ) )
 					return fix_type_name( in.substr( str.length() ) );
 
@@ -84,16 +72,14 @@ namespace xstd::fmt
 	// Prints an unsigned hexadecimal number with a prefix and optionally no leading zeroes.
 	//
 	template<bool LeadingZeroes, Unsigned I>
-	FORCE_INLINE inline static std::string print_ux( I x, std::string_view pfx = {} )
-	{
+	FORCE_INLINE inline static std::string print_ux( I x, std::string_view pfx = {} ) {
 		// Calculate the digit count, if no leading zeroes requested, shift it so that BSWAP will not discard the result.
 		//
 		constexpr bitcnt_t max_digits = bitcnt_t( sizeof( I ) * 2 );
-		bitcnt_t digits = max_digits;
-		if constexpr ( !LeadingZeroes )
-		{
+		bitcnt_t digits               = max_digits;
+		if constexpr ( !LeadingZeroes ) {
 			digits = 1 + ( msb( x | 0xF ) / 4 );
-			x = rotr( x, digits * 4 );
+			x      = rotr( x, digits * 4 );
 		}
 
 		// Allocate the string.
@@ -113,14 +99,12 @@ namespace xstd::fmt
 
 		// If leading zeroes requested, simply store the vector.
 		//
-		if constexpr ( LeadingZeroes )
-		{
+		if constexpr ( LeadingZeroes ) {
 			store_misaligned( it, chars );
 		}
 		// Otherwise, copy the requested digit count.
 		//
-		else
-		{
+		else {
 			assume( digits <= max_digits );
 			for ( bitcnt_t i = 0; i != digits; i++ )
 				*it++ = chars[ i ];
@@ -128,28 +112,23 @@ namespace xstd::fmt
 		return result;
 	}
 	template<bool LeadingZeroes, Integral I>
-	inline std::string print_ix( I value )
-	{
-		if constexpr ( Unsigned<I> )
-		{
+	inline std::string print_ix( I value ) {
+		if constexpr ( Unsigned<I> ) {
 			return print_ux<LeadingZeroes, I>( value, "0x" );
-		}
-		else
-		{
-			using U = std::make_unsigned_t<I>;
+		} else {
+			using U              = std::make_unsigned_t<I>;
 			std::string_view pfx = "-0x";
-			if ( Signed<I> && value < 0 ) value = -value;
-			else                          pfx.remove_prefix( 1 );
+			if ( Signed<I> && value < 0 )
+				value = -value;
+			else
+				pfx.remove_prefix( 1 );
 			return print_ux<LeadingZeroes, U>( ( U ) value, pfx );
 		}
 	}
 
 	// Prints a pointer.
 	//
-	inline static std::string print_pointer( any_ptr ptr )
-	{
-		return print_ux<true>( ptr.address );
-	}
+	inline static std::string print_pointer( any_ptr ptr ) { return print_ux<true>( ptr.address ); }
 
 	// Formats the integer into a hexadecimal.
 	//
@@ -158,10 +137,9 @@ namespace xstd::fmt
 
 	// Formats the integer into a signed hexadecimal with explicit + if positive.
 	//
-	inline std::string offset( int64_t value )
-	{
+	inline std::string offset( int64_t value ) {
 		char pfx[ 4 ] = { 0, ' ', '0', 'x' };
-		pfx[ 0 ] = value < 0 ? '-' : '+';
+		pfx[ 0 ]      = value < 0 ? '-' : '+';
 		return print_ux<false>( ( uint64_t ) value, std::string_view{ std::begin( pfx ), std::end( pfx ) } );
 	}
 
@@ -169,19 +147,17 @@ namespace xstd::fmt
 	// redirect to static type name if RTTI is not supported.
 	//
 	template<typename T>
-	static std::string_view static_type_name()
-	{
+	static std::string_view static_type_name() {
 #if HAS_RTTI
 		static const std::string value = impl::fix_type_name( compiler_demangle_type_name( typeid( T ) ) );
 #else
-		static constexpr auto str = type_tag<T>::to_string();
+		static constexpr auto str      = type_tag<T>::to_string();
 		static const std::string value = std::string{ str };
 #endif
 		return value;
 	}
 	template<typename T>
-	static std::string dynamic_type_name( const T& o )
-	{
+	static std::string dynamic_type_name( const T& o ) {
 #if HAS_RTTI
 		return impl::fix_type_name( compiler_demangle_type_name( typeid( o ) ) );
 #else
@@ -191,38 +167,30 @@ namespace xstd::fmt
 
 	// XSTD string-convertable types implement [std::string T::to_string() const] or override the string_formatter.
 	//
-	namespace impl
-	{
-		template<typename T> 
-		concept FormattableByMember = requires( const T& v ) { v.to_string(); };
+	namespace impl {
+		template<typename T> concept FormattableByMember = requires( const T& v ) { v.to_string(); };
 	};
-	template<typename T> 
+	template<typename T>
 	struct string_formatter;
 	template<impl::FormattableByMember T>
-	struct string_formatter<T>
-	{
+	struct string_formatter<T> {
 		FORCE_INLINE inline std::string operator()( const T& value ) const { return value.to_string(); }
 	};
-	template<typename T> 
-	concept CustomStringConvertible = requires( const T& v ) { string_formatter<T>{}( v ); };
-	template<typename T>
-	concept StdStringConvertible = requires( T v ) { std::to_string( v ); };
+	template<typename T> concept CustomStringConvertible = requires( const T& v ) { string_formatter<T>{}( v ); };
+	template<typename T> concept StdStringConvertible    = requires( T v ) { std::to_string( v ); };
 
 	// Converts any given object to a string.
 	//
 	template<typename T>
 	inline auto as_string( T&& x );
-	template<typename T>
-	concept StringConvertible = NonVoid<decltype( as_string( std::declval<T>() ) )>;
-	
+	template<typename T> concept StringConvertible = NonVoid<decltype( as_string( std::declval<T>() ) )>;
+
 	template<StringConvertible... Tx> requires ( sizeof...( Tx ) != 1 )
-	FORCE_INLINE inline std::string as_string( Tx&&... args )
-	{
-		if constexpr ( sizeof...( Tx ) != 0 )
-		{
+	FORCE_INLINE inline std::string as_string( Tx&&... args ) {
+		if constexpr ( sizeof...( Tx ) != 0 ) {
 			std::string result = ( ( ' ' + as_string<Tx>( std::forward<Tx>( args ) ) + ',' ) + ... );
-			result.front() = '{';
-			result.back() =  '}';
+			result.front()     = '{';
+			result.back()      = '}';
 			return result;
 		}
 		return "{}";
@@ -239,142 +207,83 @@ namespace xstd::fmt
 		FORCE_INLINE inline std::string operator()( std::nullopt_t ) const { return "nullopt"; }
 	};
 	template<StringConvertible... Tx>
-	struct string_formatter<std::variant<Tx...>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::variant<Tx...>& value ) const
-		{ 
-			if constexpr ( sizeof...( Tx ) == 0 )
-			{
+	struct string_formatter<std::variant<Tx...>> {
+		FORCE_INLINE inline std::string operator()( const std::variant<Tx...>& value ) const {
+			if constexpr ( sizeof...( Tx ) == 0 ) {
 				return as_string();
-			}
-			else
-			{
-				return std::visit( [ ] ( const auto& arg )
-				{
-					return as_string( arg );
-				}, value );
+			} else {
+				return std::visit( []( const auto& arg ) { return as_string( arg ); }, value );
 			}
 		}
 	};
 	template<StringConvertible T1, StringConvertible T2>
-	struct string_formatter<std::pair<T1, T2>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::pair<T1, T2>& value ) const
-		{
-			return as_string( value.first, value.second );
-		}
+	struct string_formatter<std::pair<T1, T2>> {
+		FORCE_INLINE inline std::string operator()( const std::pair<T1, T2>& value ) const { return as_string( value.first, value.second ); }
 	};
 	template<StringConvertible... Tx>
-	struct string_formatter<std::tuple<Tx...>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::tuple<Tx...>& value ) const
-		{
-			return std::apply( [ ] ( const auto&... args ) { return as_string( args... ); }, value );
+	struct string_formatter<std::tuple<Tx...>> {
+		FORCE_INLINE inline std::string operator()( const std::tuple<Tx...>& value ) const {
+			return std::apply( []( const auto&... args ) { return as_string( args... ); }, value );
 		}
 	};
 	template<StringConvertible T>
-	struct string_formatter<std::reference_wrapper<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::reference_wrapper<T>& value ) const
-		{
-			return as_string( value.get() );
+	struct string_formatter<std::reference_wrapper<T>> {
+		FORCE_INLINE inline std::string operator()( const std::reference_wrapper<T>& value ) const { return as_string( value.get() ); }
+	};
+	template<StringConvertible T>
+	struct string_formatter<std::optional<T>> {
+		FORCE_INLINE inline std::string operator()( const std::optional<T>& value ) const {
+			if ( value )
+				return as_string( value.value() );
+			else
+				return string_formatter<std::nullopt_t>{}( std::nullopt );
 		}
 	};
 	template<StringConvertible T>
-	struct string_formatter<std::optional<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::optional<T>& value ) const
-		{
-			if ( value ) return as_string( value.value() );
-			else         return as_string( std::nullopt );
-		}
+	struct string_formatter<std::atomic<T>> {
+		FORCE_INLINE inline std::string operator()( const std::atomic<T>& value ) const { return as_string( value.load( std::memory_order::relaxed ) ); }
 	};
 	template<StringConvertible T>
-	struct string_formatter<std::atomic<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::atomic<T>& value ) const
-		{
-			return as_string( value.load( std::memory_order::relaxed ) );
-		}
+	struct string_formatter<std::atomic_ref<T>> {
+		FORCE_INLINE inline std::string operator()( const std::atomic_ref<T>& value ) const { return as_string( value.load( std::memory_order::relaxed ) ); }
 	};
 	template<StringConvertible T>
-	struct string_formatter<std::atomic_ref<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::atomic_ref<T>& value ) const
-		{
-			return as_string( value.load( std::memory_order::relaxed ) );
-		}
+	struct string_formatter<std::shared_ptr<T>> {
+		FORCE_INLINE inline std::string operator()( const std::shared_ptr<T>& value ) const { return as_string( value.get() ); }
 	};
 	template<StringConvertible T>
-	struct string_formatter<std::shared_ptr<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::shared_ptr<T>& value ) const
-		{
-			return as_string( value.get() );
-		}
+	struct string_formatter<std::unique_ptr<T>> {
+		FORCE_INLINE inline std::string operator()( const std::unique_ptr<T>& value ) const { return as_string( value.get() ); }
 	};
 	template<StringConvertible T>
-	struct string_formatter<std::unique_ptr<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::unique_ptr<T>& value ) const
-		{
-			return as_string( value.get() );
-		}
-	};
-	template<StringConvertible T>
-	struct string_formatter<std::weak_ptr<T>>
-	{
-		FORCE_INLINE inline std::string operator()( const std::weak_ptr<T>& value ) const
-		{
-			return as_string( value.lock() );
-		}
+	struct string_formatter<std::weak_ptr<T>> {
+		FORCE_INLINE inline std::string operator()( const std::weak_ptr<T>& value ) const { return as_string( value.lock() ); }
 	};
 	template<Duration D>
-	struct string_formatter<D>
-	{
-		FORCE_INLINE inline std::string operator()( D value ) const
-		{
-			return time::to_string( value );
-		}
+	struct string_formatter<D> {
+		FORCE_INLINE inline std::string operator()( D value ) const { return time::to_string( value ); }
 	};
 	template<>
-	struct string_formatter<std::filesystem::directory_entry>
-	{
-		FORCE_INLINE inline std::string operator()( const std::filesystem::directory_entry& value ) const
-		{
-			return value.path().string();
-		}
+	struct string_formatter<std::filesystem::directory_entry> {
+		FORCE_INLINE inline std::string operator()( const std::filesystem::directory_entry& value ) const { return value.path().string(); }
 	};
 	template<>
-	struct string_formatter<std::filesystem::path>
-	{
-		FORCE_INLINE inline std::string operator()( const std::filesystem::path& value ) const
-		{
-			return value.string();
-		}
+	struct string_formatter<std::filesystem::path> {
+		FORCE_INLINE inline std::string operator()( const std::filesystem::path& value ) const { return value.string(); }
 	};
 	template<typename T> requires HasBase<T, std::exception>
-	struct string_formatter<T>
-	{
-		FORCE_INLINE inline std::string operator()( const T& value ) const
-		{
-			return value.what();
-		}
+	struct string_formatter<T> {
+		FORCE_INLINE inline std::string operator()( const T& value ) const { return value.what(); }
 	};
 	template<typename T, size_t N>
-	struct string_formatter<xvec<T, N>>
-	{
-		FORCE_INLINE inline std::string operator()( xvec<T, N> value ) const
-		{
-			return as_string( value.to_array() );
-		}
+	struct string_formatter<xvec<T, N>> {
+		FORCE_INLINE inline std::string operator()( xvec<T, N> value ) const { return as_string( value.to_array() ); }
 	};
 
 	// Converts any given object to a string.
 	//
 	template<typename T>
-	inline auto as_string( T&& x )
-	{
+	inline auto as_string( T&& x ) {
 		using base_type = std::decay_t<T>;
 
 		// Custom conversion.
@@ -397,75 +306,59 @@ namespace xstd::fmt
 			return hex( x );
 		else if constexpr ( Same<base_type, bool> )
 			return x ? std::string{ "true" } : std::string{ "false" };
-		else if constexpr ( Same<base_type, uint8_t> )
-		{
+		else if constexpr ( Same<base_type, uint8_t> ) {
 			std::string buf( 4, '\x0' );
 			buf[ 0 ] = '0';
 			buf[ 1 ] = 'x';
 			print_hex_digit( &buf[ 2 ], x, true );
 			return buf;
-		}
-		else if constexpr ( Same<base_type, char> )
-		{
-			if ( isgraph( x ) )
-			{
+		} else if constexpr ( Same<base_type, char> ) {
+			if ( isgraph( x ) ) {
 				std::string s( 2 + 1, '\'' );
 				s[ 1 ] = x;
 				return s;
-			}
-			else
-			{
+			} else {
 				std::string s( 2 + 3, '\'' );
 				s[ 1 ] = '\\';
 				print_hex_digit( &s[ 2 ], x, false );
 				return s;
 			}
-		}
-		else if constexpr ( StdStringConvertible<T> )
-		{
+		} else if constexpr ( StdStringConvertible<T> ) {
 			return std::to_string( x );
 		}
 		// Pointers:
 		//
-		else if constexpr ( Pointer<base_type> )
-		{
+		else if constexpr ( Pointer<base_type> ) {
 			using E = typename std::pointer_traits<base_type>::element_type;
-			if constexpr ( !Pointer<std::decay_t<E>> && StringConvertible<E> )
-			{
-				if ( x ) return as_string( *x );
-				else     return std::string{ "nullptr" };
-			}
-			else
-			{
+			if constexpr ( !Pointer<std::decay_t<E>> && StringConvertible<E> ) {
+				if ( x )
+					return as_string( *x );
+				else
+					return std::string{ "nullptr" };
+			} else {
 				return print_pointer( x );
 			}
 		}
 		// Containers:
 		//
-		else if constexpr ( Iterable<T> )
-		{
-			if constexpr ( StringConvertible<iterable_val_t<T>> )
-			{
+		else if constexpr ( Iterable<T> ) {
+			if constexpr ( StringConvertible<iterable_val_t<T>> ) {
 				std::string items = {};
 				for ( auto&& entry : std::forward<T>( x ) )
-					items += as_string( std::forward<decltype(entry)>( entry ) ) + ", ";
-				if ( !items.empty() ) items.resize( items.size() - 2 );
+					items += as_string( std::forward<decltype( entry )>( entry ) ) + ", ";
+				if ( !items.empty() )
+					items.resize( items.size() - 2 );
 				return '{' + items + '}';
-			}
-			else
-			{
-				return; // void
+			} else {
+				return;  // void
 			}
 		}
 		// Finally check for tiable types.
 		//
-		else if constexpr ( Tiable<base_type> )
-		{
+		else if constexpr ( Tiable<base_type> ) {
 			return as_string( make_mutable( x ).tie() );
-		}
-		else
-		{
-			return; // void
+		} else {
+			return;  // void
 		}
 	}
 
@@ -474,7 +367,7 @@ namespace xstd::fmt
 	template<typename B, typename T>
 	inline auto fix_parameter( B& buffer, T&& x ) {
 		using base_type = std::decay_t<T>;
-		
+
 		if constexpr ( CustomStringConvertible<base_type> )
 			return buffer.emplace_back( string_formatter<base_type>{}( std::forward<T>( x ) ) ).data();
 		else if constexpr ( impl::CFormatStringArgument<base_type> )
@@ -486,7 +379,7 @@ namespace xstd::fmt
 		else if constexpr ( StringConvertible<base_type> )
 			return buffer.emplace_back( as_string( std::forward<T>( x ) ) ).data();
 		else
-			return type_tag<T>{}; // Error.
+			return type_tag<T>{};  // Error.
 	}
 
 	// nprintf wrapper.
@@ -507,23 +400,23 @@ namespace xstd::fmt
 		using char_traits = std::char_traits<C>;
 
 		if constexpr ( sizeof...( Tx ) > 0 ) {
-			auto print_to_buffer = [&]( const C* fmt_str, auto&&... args ) FORCE_INLINE {
-				int lim = (int) (intptr_t) ( buffer.size() - 1 );
-				int n =   nsprintf( buffer.data(), buffer.size(), fmt_str, args... );
-				n = std::clamp( n, 0, lim );
+			auto print_to_buffer = [ & ]( const C* fmt_str, auto&&... args ) FORCE_INLINE {
+				int lim = ( int ) ( intptr_t ) ( buffer.size() - 1 );
+				int n   = nsprintf( buffer.data(), buffer.size(), fmt_str, args... );
+				n       = std::clamp( n, 0, lim );
 				return std::basic_string_view<C>{ buffer.data(), buffer.data() + n };
 			};
 			impl::format_buffer_for<std::decay_t<Tx>...> buf = {};
 			return print_to_buffer( fmt_str, fix_parameter( buf, std::forward<Tx>( ps ) )... );
 		} else {
 			size_t n = char_traits::length( fmt_str );
-			n = std::min( n, buffer.size() );
+			n        = std::min( n, buffer.size() );
 			char_traits::copy( buffer.data(), fmt_str, n );
 			return { buffer.data(), buffer.data() + n };
 		}
 	}
 	template<typename C, size_t N, typename... Tx>
-	FORCE_INLINE static std::basic_string_view<C> into( C( &buffer )[ N ], const C* fmt_str, Tx&&... ps ) {
+	FORCE_INLINE static std::basic_string_view<C> into( C ( &buffer )[ N ], const C* fmt_str, Tx&&... ps ) {
 		return into( std::span{ &buffer[ 0 ], N }, fmt_str, std::forward<Tx>( ps )... );
 	}
 	template<typename C, typename F, typename... Tx> requires Invocable<F, C*, size_t>
@@ -531,12 +424,13 @@ namespace xstd::fmt
 		using char_traits = std::char_traits<C>;
 
 		if constexpr ( sizeof...( Tx ) > 0 ) {
-			auto print_to_buffer = [&]( const C* fmt_str, auto&&... args ) FORCE_INLINE {
+			auto print_to_buffer = [ & ]( const C* fmt_str, auto&&... args ) FORCE_INLINE {
 				C small_buffer[ 32 ];
 				int n = nsprintf( &small_buffer[ 0 ], 32, fmt_str, args... );
-				if ( n < 0 ) n = 0;
-				
-				C* buffer = allocator( size_t( n ) );
+				if ( n < 0 )
+					n = 0;
+
+				C* buffer                        = allocator( size_t( n ) );
 				std::basic_string_view<C> result = { buffer, buffer + n };
 				if ( n <= 31 ) {
 					char_traits::copy( buffer, small_buffer, size_t( n + 1 ) );
@@ -548,7 +442,7 @@ namespace xstd::fmt
 			impl::format_buffer_for<std::decay_t<Tx>...> buf = {};
 			return print_to_buffer( fmt_str, fix_parameter( buf, std::forward<Tx>( ps ) )... );
 		} else {
-			size_t n = char_traits::length( fmt_str );
+			size_t n  = char_traits::length( fmt_str );
 			C* buffer = allocator( n );
 			char_traits::copy( buffer, fmt_str, n );
 			return { buffer, buffer + n };
@@ -557,13 +451,23 @@ namespace xstd::fmt
 	template<typename... Tx>
 	inline std::string str( const char* fmt_str, Tx&&... ps ) {
 		std::string result;
-		into( [ & ]( size_t n ) FORCE_INLINE { result.resize( n ); return result.data(); }, fmt_str, std::forward<Tx>( ps )... );
+		into(
+			[ & ]( size_t n ) FORCE_INLINE {
+				result.resize( n );
+				return result.data();
+			},
+			fmt_str, std::forward<Tx>( ps )... );
 		return result;
 	}
 	template<typename... Tx>
-	inline std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps ) { 
+	inline std::wstring wstr( const wchar_t* fmt_str, Tx&&... ps ) {
 		std::wstring result;
-		into( [ & ]( size_t n ) FORCE_INLINE { result.resize( n ); return result.data(); }, fmt_str, std::forward<Tx>( ps )... );
+		into(
+			[ & ]( size_t n ) FORCE_INLINE {
+				result.resize( n );
+				return result.data();
+			},
+			fmt_str, std::forward<Tx>( ps )... );
 		return result;
 	}
 };
@@ -571,8 +475,7 @@ namespace xstd::fmt
 
 // Export the concepts.
 //
-namespace xstd
-{
+namespace xstd {
 	using fmt::CustomStringConvertible;
 	using fmt::StdStringConvertible;
 	using fmt::StringConvertible;

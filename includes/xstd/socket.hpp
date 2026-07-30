@@ -15,21 +15,21 @@
 // Detect the underlying system libraries.
 //
 #ifndef XSTD_LWIP
-	#if KERNEL_TARGET && __has_include(<lwip/sys.h>)
+	#if KERNEL_TARGET && __has_include( <lwip/sys.h>)
 		#define XSTD_LWIP 1
 	#else
 		#define XSTD_LWIP 0
 	#endif
 #endif
 #ifndef XSTD_BERKELEY
-	#if __has_include(<sys/socket.h>)
+	#if __has_include( <sys/socket.h>)
 		#define XSTD_BERKELEY 1
 	#else
 		#define XSTD_BERKELEY 0
 	#endif
 #endif
 #ifndef XSTD_WINSOCK
-	#if !KERNEL_TARGET && __has_include(<WinSock2.h>)
+	#if !KERNEL_TARGET && __has_include( <WinSock2.h>)
 		#define XSTD_WINSOCK 1
 	#else
 		#define XSTD_WINSOCK 0
@@ -53,7 +53,7 @@
 	#include <WinSock2.h>
 	#include <WinDNS.h>
 	#include <WS2tcpip.h>
-	#pragma comment(lib, "ws2_32.lib")
+	#pragma comment( lib, "ws2_32.lib" )
 	#include <thread>
 	#undef XSTD_LWIP
 	#undef XSTD_BERKELEY
@@ -61,7 +61,11 @@
 #elif XSTD_BERKELEY
 	#include <sys/socket.h>
 	#include <sys/types.h>
-	#include <sys/socket.h>
+	#include <sys/select.h>
+	#include <netinet/in.h>
+	#include <netinet/tcp.h>
+	#include <unistd.h>
+	#include <fcntl.h>
 	#include <poll.h>
 	#include <netdb.h>
 	#include <thread>
@@ -70,6 +74,10 @@
 	#define XSTD_HAS_TCP 1
 #else
 	#define XSTD_HAS_TCP 0
+#endif
+
+#ifndef SOL_TCP
+	#define SOL_TCP IPPROTO_TCP
 #endif
 
 
@@ -93,9 +101,9 @@ namespace xstd::net {
 
 		// Copy, move and compare.
 		//
-		constexpr ipv4( ipv4&& ) noexcept = default;
-		constexpr ipv4& operator=( ipv4&& ) noexcept = default;
-		constexpr ipv4( const ipv4& ) noexcept = default;
+		constexpr ipv4( ipv4&& ) noexcept                 = default;
+		constexpr ipv4& operator=( ipv4&& ) noexcept      = default;
+		constexpr ipv4( const ipv4& ) noexcept            = default;
 		constexpr ipv4& operator=( const ipv4& ) noexcept = default;
 		constexpr bool operator!=( const ipv4& o ) const { return to_integer() != o.to_integer(); }
 		constexpr bool operator==( const ipv4& o ) const { return to_integer() == o.to_integer(); }
@@ -120,11 +128,11 @@ namespace xstd::net {
 			//
 			uint32_t value = 0, part = 0;
 			int shift = 32;
-			
+
 			// For each character:
 			//
 			const char* it = str;
-			size_t limit = count;
+			size_t limit   = count;
 			while ( size_t( it - str ) < limit ) {
 				// If digit:
 				//
@@ -137,7 +145,7 @@ namespace xstd::net {
 					uint32_t chk2 = part << ( -shift & 31 );
 					if ( chk2 < chk1 ) [[unlikely]] {
 						value = part = 0;
-						it = str;
+						it           = str;
 						break;
 					}
 				}
@@ -148,14 +156,14 @@ namespace xstd::net {
 					//
 					if ( part > 0xff ) [[unlikely]] {
 						value = part = 0;
-						it = str;
+						it           = str;
 						break;
 					}
 					value = part | ( value << 8 );
-					part =  0;
+					part  = 0;
 					shift -= 8;
 					it++;
-				} 
+				}
 				// Else break.
 				//
 				else {
@@ -173,7 +181,7 @@ namespace xstd::net {
 		}
 		static constexpr ipv4 parse( std::string_view& sv ) {
 			size_t count = sv.size();
-			ipv4 result = ipv4::parse( sv.data(), count );
+			ipv4 result  = ipv4::parse( sv.data(), count );
 			sv.remove_prefix( count );
 			return result;
 		}
@@ -183,8 +191,8 @@ namespace xstd::net {
 		//
 		constexpr ipv4( const ip_addr_t& lwip ) : ipv4( lwip.addr ) {}
 		constexpr ipv4( const ip_addr_t* lwip ) : ipv4( lwip ? lwip->addr : 0 ) {}
-		ip_addr_t* lwip() { return (ip_addr_t*) this; }
-		const ip_addr_t* lwip() const { return (const ip_addr_t*) this; }
+		ip_addr_t* lwip() { return ( ip_addr_t* ) this; }
+		const ip_addr_t* lwip() const { return ( const ip_addr_t* ) this; }
 #endif
 	};
 
@@ -198,18 +206,16 @@ namespace xstd::net {
 
 		// Output.
 		//
-		mutable xstd::result<ipv4> result = {};
+		mutable xstd::result<ipv4> result    = {};
 		std::coroutine_handle<> continuation = nullptr;
 
 		bool await_ready() const { return result.success(); }
 		bool await_suspend( std::coroutine_handle<> hnd );
 		xstd::result<ipv4> await_resume() const { return std::move( result ); }
 	};
-	using fn_dns_hook = bool(*)( dns_query_awaitable*, std::coroutine_handle<> );
+	using fn_dns_hook             = bool ( * )( dns_query_awaitable*, std::coroutine_handle<> );
 	inline fn_dns_hook g_dns_hook = nullptr;
-	inline dns_query_awaitable query_dns_a( const char* hostname, bool no_hook = false ) {
-		return { hostname, no_hook };
-	}
+	inline dns_query_awaitable query_dns_a( const char* hostname, bool no_hook = false ) { return { hostname, no_hook }; }
 
 	// Hostname resolver with fallback to DNS.
 	//
@@ -230,84 +236,88 @@ namespace xstd::net {
 		tcp,
 	};
 	struct socket_options : duplex_options {
-		xstd::duration                conn_timeout =   10s;
-		int                           listen_backlog = 128;
-		xstd::duration                max_stall =      250ms;
-		xstd::duration                linger =         30s;
-		uint32_t                      recvbuf =        ( uint32_t ) 512_kb;
-		uint32_t                      sendbuf =        ( uint32_t ) 512_kb;
-		bool                          nodelay =        true;
-		bool                          timestamps =     false;
-		bool                          reuse =          true;
-		std::optional<xstd::duration> keepalive =      std::nullopt;
+		xstd::duration conn_timeout             = 10s;
+		int listen_backlog                      = 128;
+		xstd::duration max_stall                = 250ms;
+		xstd::duration linger                   = 30s;
+		uint32_t recvbuf                        = ( uint32_t ) 512_kb;
+		uint32_t sendbuf                        = ( uint32_t ) 512_kb;
+		bool nodelay                            = true;
+		bool timestamps                         = false;
+		bool reuse                              = true;
+		std::optional<xstd::duration> keepalive = std::nullopt;
 	};
 
 	// Definition via Berkeley/Winsock:
 	//
 #if XSTD_WINSOCK || XSTD_BERKELEY
 	using socket_error = int;
-#if XSTD_WINSOCK
-	#define SOL_TCP IPPROTO_TCP
-	using socket_t = uintptr_t;
+	#if XSTD_WINSOCK
+		#define SOL_TCP IPPROTO_TCP
+	using socket_t                           = uintptr_t;
+	using socket_length_t                    = int;
 	static constexpr socket_t invalid_socket = ~0ull;
-#else
-	using socket_t = int;
+	#else
+	using socket_t                           = int;
+	using socket_length_t                    = socklen_t;
 	static constexpr socket_t invalid_socket = -1;
-#endif
+	#endif
 
 	namespace detail {
 		// Wrappers around functions differing between WSA / Berkeley standards.
 		//
 		static socket_error init_networking() {
-#if XSTD_WINSOCK
+	#if XSTD_WINSOCK
 			static WSADATA wsa;
 			static socket_error status = ::WSAStartup( 0x0202, &wsa );
 			if ( status )
 				return status;
-#endif
+	#endif
 			return 0;
 		}
 		static socket_error close_socket( socket_t fd ) {
 			if ( fd != invalid_socket ) {
-#if XSTD_WINSOCK
+	#if XSTD_WINSOCK
 				return ::closesocket( fd );
-#else
+	#else
 				return ::close( fd );
-#endif
+	#endif
 			}
 			return 0;
 		}
 		static socket_error get_last_error( socket_error value_or = {} ) {
 			socket_error err;
-#if XSTD_WINSOCK
-			err = (socket_error) __readgsdword( 0x68 );
-#else
+	#if XSTD_WINSOCK
+			err = ( socket_error ) __readgsdword( 0x68 );
+	#else
 			err = errno;
-#endif
+	#endif
 			return err ? err : value_or;
 		}
 		static socket_error set_blocking( socket_t fd, bool blocking ) {
-#if XSTD_WINSOCK
+	#if XSTD_WINSOCK
 			unsigned long ionbio = blocking ? 0 : 1;
 			if ( socket_error err = ioctlsocket( fd, FIONBIO, &ionbio ); !err ) {
 				return 0;
 			} else {
 				return get_last_error( err );
 			}
-#else
+	#else
 			int flags = fcntl( fd, F_GETFL, 0 );
 			if ( flags != -1 ) {
-				if ( blocking ) flags &= ~O_NONBLOCK;
-				else            flags |=  O_NONBLOCK;
+				if ( blocking )
+					flags &= ~O_NONBLOCK;
+				else
+					flags |= O_NONBLOCK;
 				return fcntl( fd, F_SETFL, flags );
 			} else {
 				return get_last_error( -1 );
 			}
-#endif
+	#endif
 		}
 		static socket_error create_socket( socket_t* out, int af, int type, std::optional<int> protocol = std::nullopt ) {
 			socket_error err = 0;
-#if XSTD_WINSOCK
+	#if XSTD_WINSOCK
 			if ( !protocol ) {
 				if ( type == SOCK_STREAM ) {
 					protocol = IPPROTO_TCP;
@@ -321,7 +331,7 @@ namespace xstd::net {
 			if ( fd == invalid_socket ) {
 				err = get_last_error( -1 );
 			}
-#else
+	#else
 			if ( !protocol ) {
 				protocol = 0;
 			}
@@ -329,7 +339,7 @@ namespace xstd::net {
 			if ( fd == invalid_socket ) {
 				err = get_last_error( -1 );
 			}
-#endif
+	#endif
 			if ( err ) {
 				close_socket( fd );
 				fd = invalid_socket;
@@ -339,14 +349,12 @@ namespace xstd::net {
 		}
 		static timeval to_timeval( xstd::duration dur ) {
 			int64_t usec = dur / 1us;
-			timeval tv = {};
-			tv.tv_sec = (int32_t) std::clamp<int64_t>( usec / int64_t( 1s / 1us ), INT32_MIN, INT32_MAX );
-			tv.tv_usec = (int32_t) std::clamp<int64_t>( usec % int64_t( 1s / 1us ), INT32_MIN, INT32_MAX );
+			timeval tv   = {};
+			tv.tv_sec    = ( int32_t ) std::clamp<int64_t>( usec / int64_t( 1s / 1us ), INT32_MIN, INT32_MAX );
+			tv.tv_usec   = ( int32_t ) std::clamp<int64_t>( usec % int64_t( 1s / 1us ), INT32_MIN, INT32_MAX );
 			return tv;
 		}
-		static xstd::duration from_timeval( const timeval& dur ) {
-			return xstd::duration( 1s ) * dur.tv_sec + xstd::duration( 1us ) * dur.tv_usec;
-		}
+		static xstd::duration from_timeval( const timeval& dur ) { return xstd::duration( 1s ) * dur.tv_sec + xstd::duration( 1us ) * dur.tv_usec; }
 	};
 
 	// Implement DNS resolution.
@@ -367,11 +375,11 @@ namespace xstd::net {
 		//
 		addrinfo hints = {};
 		memset( &hints, 0, sizeof( addrinfo ) );
-		hints.ai_family =   AF_INET;
+		hints.ai_family   = AF_INET;
 		hints.ai_socktype = SOCK_STREAM;
-#if XSTD_WINSOCK
-		hints.ai_flags =   AI_DNS_ONLY | AI_BYPASS_DNS_CACHE;
-#endif
+	#if XSTD_WINSOCK
+		hints.ai_flags = AI_DNS_ONLY | AI_BYPASS_DNS_CACHE;
+	#endif
 
 		// Parse the result.
 		//
@@ -383,9 +391,10 @@ namespace xstd::net {
 		ipv4 ip = {};
 		for ( auto i = result; i; i = i->ai_next ) {
 			if ( i->ai_addr->sa_family == AF_INET ) {
-				struct sockaddr_in* p = (struct sockaddr_in*) i->ai_addr;
-				ip = p->sin_addr.s_addr;
-				if ( ip ) break;
+				struct sockaddr_in* p = ( struct sockaddr_in* ) i->ai_addr;
+				ip                    = p->sin_addr.s_addr;
+				if ( ip )
+					break;
 			}
 		}
 		freeaddrinfo( result );
@@ -396,41 +405,40 @@ namespace xstd::net {
 	// Base of the stream.
 	//
 	struct socket : duplex {
-	protected:
+	   protected:
 		// Options.
 		//
-		socket_options  opt = {};
+		socket_options opt    = {};
 		socket_protocol proto = {};
 
 		// File descriptor and remote connection details.
 		//
-		socket_t        fd = invalid_socket;
-		ipv4            address = {};
-		uint16_t        port = 0;
+		socket_t fd   = invalid_socket;
+		ipv4 address  = {};
+		uint16_t port = 0;
 
 		// Constructed by initial details.
 		//
-		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt )
-			: duplex( opt ), opt( opt ), proto( proto ), address( address ), port( port ) {
-		}
+		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt ) : duplex( opt ), opt( opt ), proto( proto ), address( address ), port( port ) {}
 
 		// Wrappers.
 		//
-	public:
+	   public:
 		socket_error set_socket_opt( int level, int name, const void* data, size_t len ) {
-			socket_error status = ::setsockopt( fd, level, name, (const char*) data, (int) len );
-#if XSTD_WINSOCK
+			socket_error status = ::setsockopt( fd, level, name, ( const char* ) data, ( int ) len );
+	#if XSTD_WINSOCK
 			status = status == -1 ? detail::get_last_error( status ) : 0;
-#endif
+	#endif
 			return status;
 		}
 		socket_error get_socket_opt( int level, int name, void* data, size_t* len ) {
-			int rlen = (int) *len;
-			socket_error status = ::getsockopt( this->fd, level, name, (char*) data, &rlen );
-#if XSTD_WINSOCK
+			socket_length_t rlen = ( socket_length_t ) *len;
+			socket_error status  = ::getsockopt( this->fd, level, name, ( char* ) data, &rlen );
+	#if XSTD_WINSOCK
 			status = status == -1 ? detail::get_last_error( status ) : 0;
-#endif
-			if ( !status ) *len = (size_t) std::max( 0, rlen );
+	#endif
+			if ( !status )
+				*len = ( size_t ) std::max<socket_length_t>( 0, rlen );
 			return status;
 		}
 		template<typename T>
@@ -445,13 +453,13 @@ namespace xstd::net {
 		template<typename T>
 		socket_error get_socket_opt( int level, int name, T& val ) {
 			if constexpr ( std::is_same_v<T, xstd::duration> ) {
-				timeval tv = detail::to_timeval( val );
-				size_t  sz = sizeof( timeval );
+				timeval tv       = detail::to_timeval( val );
+				size_t sz        = sizeof( timeval );
 				socket_error err = get_socket_opt( level, name, &tv, &sz );
-				val = detail::from_timeval( tv );
+				val              = detail::from_timeval( tv );
 				return err;
 			} else {
-				size_t  sz = sizeof( T );
+				size_t sz = sizeof( T );
 				return get_socket_opt( level, name, &val, &sz );
 			}
 		}
@@ -464,62 +472,62 @@ namespace xstd::net {
 			return err;
 		}
 		socket_error get_socket_error() {
-			socket_error error = 0;
+			socket_error error     = 0;
 			socket_error opt_error = get_socket_opt( SOL_SOCKET, SO_ERROR, error );
 			return error ? error : opt_error;
 		}
 		std::optional<socket_error> socket_connect() {
 			sockaddr_in addr;
 			memset( &addr, 0, sizeof( sockaddr_in ) );
-			addr.sin_family = AF_INET;
-			addr.sin_port = bswap( this->port );
+			addr.sin_family      = AF_INET;
+			addr.sin_port        = bswap( this->port );
 			addr.sin_addr.s_addr = this->address;
-#if XSTD_WINSOCK
-			if ( ::WSAConnect( this->fd, (const sockaddr*) &addr, sizeof( addr ), nullptr, nullptr, nullptr, nullptr ) == -1 ) {
+	#if XSTD_WINSOCK
+			if ( ::WSAConnect( this->fd, ( const sockaddr* ) &addr, sizeof( addr ), nullptr, nullptr, nullptr, nullptr ) == -1 ) {
 				if ( auto err = detail::get_last_error(); err == WSAEWOULDBLOCK ) {
 					return std::nullopt;
 				} else {
 					return err;
 				}
 			}
-#else
-			if ( ::connect( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
+	#else
+			if ( ::connect( this->fd, ( const sockaddr* ) &addr, sizeof( addr ) ) == -1 ) {
 				if ( auto err = detail::get_last_error(); err == EINPROGRESS ) {
 					return std::nullopt;
 				} else {
 					return err;
 				}
 			}
-#endif
+	#endif
 			return 0;
 		}
 		socket_error socket_bind() {
 			sockaddr_in addr;
 			memset( &addr, 0, sizeof( sockaddr_in ) );
-			addr.sin_family = AF_INET;
-			addr.sin_port = bswap( this->port );
+			addr.sin_family      = AF_INET;
+			addr.sin_port        = bswap( this->port );
 			addr.sin_addr.s_addr = this->address;
-#if XSTD_WINSOCK
-			if ( ::bind( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
+	#if XSTD_WINSOCK
+			if ( ::bind( this->fd, ( const sockaddr* ) &addr, sizeof( addr ) ) == -1 ) {
 				return detail::get_last_error( -1 );
 			}
-#else
-			if ( ::bind( this->fd, (const sockaddr*) &addr, sizeof( addr ) ) == -1 ) {
+	#else
+			if ( ::bind( this->fd, ( const sockaddr* ) &addr, sizeof( addr ) ) == -1 ) {
 				return detail::get_last_error( -1 );
 			}
-#endif
+	#endif
 			return 0;
 		}
 		socket_error socket_poll( pollfd& desc, duration timeout ) {
-#if XSTD_WINSOCK
+	#if XSTD_WINSOCK
 			if ( ::WSAPoll( &desc, 1, timeout / 1ms ) == -1 ) {
 				return detail::get_last_error( -1 );
 			}
-#else
+	#else
 			if ( ::poll( &desc, 1, timeout / 1ms ) == -1 ) {
 				return detail::get_last_error( -1 );
 			}
-#endif
+	#endif
 			return 0;
 		}
 		socket_error socket_listen() {
@@ -531,23 +539,23 @@ namespace xstd::net {
 		std::tuple<socket_t, ipv4, uint16_t> socket_accept() {
 			sockaddr_in addr;
 			memset( &addr, 0, sizeof( sockaddr_in ) );
-			int len = sizeof( addr );
+			socket_length_t len = sizeof( addr );
 			socket_t sock;
-#if XSTD_WINSOCK
-			sock = ::WSAAccept( this->fd, (sockaddr*) &addr, &len, nullptr, 0 );
-#else
-			sock = ::accept( this->fd, (sockaddr*) &addr, &len );
-#endif
+	#if XSTD_WINSOCK
+			sock = ::WSAAccept( this->fd, ( sockaddr* ) &addr, &len, nullptr, 0 );
+	#else
+			sock = ::accept( this->fd, ( sockaddr* ) &addr, &len );
+	#endif
 			return { sock, addr.sin_addr.s_addr, bswap( addr.sin_port ) };
 		}
 		bool socket_receive( std::span<uint8_t>& buffer, int flags = 0 ) {
 			bool need_poll = false;
-#if XSTD_WINSOCK
+	#if XSTD_WINSOCK
 			if ( buffer.size() > UINT32_MAX )
-				buffer = buffer.subspan( 0, (size_t) UINT32_MAX );
-			DWORD  count = 0;
-			DWORD  ioflags = (DWORD) flags;
-			WSABUF bufdesc = { (uint32_t) buffer.size(), (char*) buffer.data() };
+				buffer = buffer.subspan( 0, ( size_t ) UINT32_MAX );
+			DWORD count    = 0;
+			DWORD ioflags  = ( DWORD ) flags;
+			WSABUF bufdesc = { ( uint32_t ) buffer.size(), ( char* ) buffer.data() };
 			if ( socket_error result = ::WSARecv( this->fd, &bufdesc, 1, &count, &ioflags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
@@ -555,34 +563,34 @@ namespace xstd::net {
 				need_poll = true;
 			}
 			buffer = buffer.subspan( 0, count );
-#else
+	#else
 			if ( buffer.size() > INT32_MAX )
-				buffer = buffer.subspan( 0, (size_t) INT32_MAX );
-			if ( socket_error result = ::recv( this->fd, (char*) buffer.data(), (int) buffer.size(), flags ); result == -1 ) [[unlikely]] {
+				buffer = buffer.subspan( 0, ( size_t ) INT32_MAX );
+			if ( socket_error result = ::recv( this->fd, ( char* ) buffer.data(), ( int ) buffer.size(), flags ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != EINTR && e != EINPROGRESS && e != EAGAIN && e != EWOULDBLOCK ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
 				}
 				need_poll = true;
 			} else {
-				buffer = buffer.subspan( 0, (uint32_t) result );
+				buffer = buffer.subspan( 0, ( uint32_t ) result );
 			}
-#endif
+	#endif
 			return need_poll;
 		}
 		bool socket_send( std::span<const uint8_t>& buffer, int flags = 0 ) {
 			uint32_t write_count = buffer.size() > opt.sendbuf ? opt.sendbuf : uint32_t( buffer.size() );
-			uint32_t count = 0;
-			bool need_poll = false;
-#if XSTD_WINSOCK
-			WSABUF bufdesc = { write_count, (char*) buffer.data() };
-			if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, (DWORD*) &count, (DWORD) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
+			uint32_t count       = 0;
+			bool need_poll       = false;
+	#if XSTD_WINSOCK
+			WSABUF bufdesc = { write_count, ( char* ) buffer.data() };
+			if ( socket_error result = ::WSASend( this->fd, &bufdesc, 1, ( DWORD* ) &count, ( DWORD ) flags, nullptr, nullptr ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != WSAEINTR && e != WSAEINPROGRESS && e != WSAEWOULDBLOCK && e != WSAEMSGSIZE ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
 				}
 				need_poll = true;
 			}
-#else
-			if ( socket_error result = ::send( this->fd, (char*) buffer.data(), (int)write_count, flags ); result == -1 ) [[unlikely]] {
+	#else
+			if ( socket_error result = ::send( this->fd, ( char* ) buffer.data(), ( int ) write_count, flags ); result == -1 ) [[unlikely]] {
 				if ( auto e = detail::get_last_error( result ); e != EINTR && e != EINPROGRESS && e != EAGAIN && e != EWOULDBLOCK ) {
 					this->raise_error( XSTD_ESTR( "socket error: %d" ), e );
 				} else if ( e == EWOULDBLOCK || e == EAGAIN ) {
@@ -590,38 +598,42 @@ namespace xstd::net {
 				}
 				need_poll = true;
 			} else {
-				count = (uint32_t) result;
+				count = ( uint32_t ) result;
 			}
-#endif
+	#endif
 			buffer = buffer.subspan( count );
 			return need_poll;
 		}
 
 		// Remote/local address.
 		//
-		std::pair<ipv4, uint16_t> get_remote_address() {
-			return { address, port };
-		}
+		std::pair<ipv4, uint16_t> get_remote_address() { return { address, port }; }
 		std::pair<ipv4, uint16_t> get_local_address() {
 			sockaddr_in addr;
 			memset( &addr, 0, sizeof( sockaddr_in ) );
-			addr.sin_family = AF_INET;
-			int len = sizeof( sockaddr_in );
-			getsockname( this->fd, (sockaddr*) &addr, &len );
+			addr.sin_family     = AF_INET;
+			socket_length_t len = sizeof( sockaddr_in );
+			::getsockname( this->fd, ( sockaddr* ) &addr, &len );
 			return { addr.sin_addr.s_addr, bswap( addr.sin_port ) };
 		}
 
 		// Configuration.
 		//
 		void socket_reconfig_tcp() {
+	#if defined( TCP_NODELAY )
 			this->try_set_socket_opt( SOL_TCP, TCP_NODELAY, opt.nodelay );
-#if XSTD_WINSOCK
-			this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMPS, opt.timestamps );
-#else
+	#endif
+	#if defined( TCP_TIMESTAMP )
 			this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMP, opt.timestamps );
-#endif
+	#elif defined( TCP_TIMESTAMPS )
+			this->try_set_socket_opt( SOL_TCP, TCP_TIMESTAMPS, opt.timestamps );
+	#endif
 			if ( opt.keepalive ) {
+	#if defined( TCP_KEEPIDLE )
 				this->set_socket_opt( SOL_TCP, TCP_KEEPIDLE, uint32_t( *opt.keepalive / 1s ) );
+	#elif defined( TCP_KEEPALIVE )
+				this->set_socket_opt( SOL_TCP, TCP_KEEPALIVE, uint32_t( *opt.keepalive / 1s ) );
+	#endif
 			}
 		}
 		void socket_reconfig() {
@@ -638,12 +650,13 @@ namespace xstd::net {
 				socket_reconfig_tcp();
 		}
 		int socket_shutdown( bool r, bool w ) {
-			if ( !r && !w ) return 0;
-#if XSTD_WINSOCK
+			if ( !r && !w )
+				return 0;
+	#if XSTD_WINSOCK
 			int code = r ? SD_RECEIVE : ( w ? SD_SEND : SD_BOTH );
-#else
+	#else
 			int code = r ? SHUT_RD : ( w ? SHUT_WR : SHUT_RDWR );
-#endif
+	#endif
 			if ( ::shutdown( this->fd, code ) == -1 ) {
 				return detail::get_last_error( -1 );
 			} else {
@@ -656,31 +669,21 @@ namespace xstd::net {
 				socket_reconfig();
 			}
 		}
-		const socket_options& get_options() {
-			return this->opt;
-		}
-		socket_t get_fd() const {
-			return fd;
-		}
+		const socket_options& get_options() { return this->opt; }
+		socket_t get_fd() const { return fd; }
 		void set_fd( socket_t sock ) {
 			detail::close_socket( std::exchange( fd, sock ) );
 			if ( sock != invalid_socket )
 				socket_reconfig();
 		}
-		void close() {
-			set_fd( invalid_socket );
-		}
+		void close() { set_fd( invalid_socket ); }
 
 		// Close the socket on destruction.
 		//
-		~socket() {
-			close();
-		}
+		~socket() { close(); }
 
-	protected:
-		void raise_error( const char* fmt, socket_error e = detail::get_last_error( -1 ) ) {
-			this->stop( stream_stop_error, exception{ fmt, e } );
-		}
+	   protected:
+		void raise_error( const char* fmt, socket_error e = detail::get_last_error( -1 ) ) { this->stop( stream_stop_error, exception{ fmt, e } ); }
 		bool assert_status( const char* fmt, socket_error e ) {
 			if ( !e ) [[likely]] {
 				return true;
@@ -714,14 +717,14 @@ namespace xstd::net {
 			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
 		}
 
-	protected:
+	   protected:
 		fiber fib_main;
 		fiber send_more() {
 			// Allocate the buffer and get the controller.
 			//
 			const size_t buffer_length = opt.sendbuf;
-			const auto   buffer =        std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
-			auto ctrl =                  this->controller();
+			const auto buffer          = std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
+			auto ctrl                  = this->controller();
 
 			// Enter the loop once socket is ready.
 			//
@@ -742,7 +745,8 @@ namespace xstd::net {
 				std::span<const uint8_t> request{ &buffer[ 0 ], count };
 				while ( !request.empty() ) {
 					bool need_poll = this->socket_send( request );
-					if ( need_poll ) co_yield {};
+					if ( need_poll )
+						co_yield {};
 				}
 			}
 		}
@@ -750,20 +754,22 @@ namespace xstd::net {
 			// Allocate the buffer and get the controller.
 			//
 			const size_t buffer_length = opt.recvbuf;
-			const auto   buffer =        std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
-			auto ctrl =                  this->controller();
+			const auto buffer          = std::make_unique_for_overwrite<uint8_t[]>( buffer_length );
+			auto ctrl                  = this->controller();
 
 			// Enter the loop.
 			//
 			bool need_poll = true;
 			while ( true ) {
-				if ( need_poll ) co_yield {};
+				if ( need_poll )
+					co_yield {};
 
 				// Read from the socket, terminate on error.
 				//
 				std::span range{ &buffer[ 0 ], buffer_length };
 				need_poll = this->socket_receive( range );
-				if ( stopped() ) co_return;
+				if ( stopped() )
+					co_return;
 
 				// If we received a FIN, try shutting down.
 				//
@@ -796,7 +802,7 @@ namespace xstd::net {
 			//
 			pollfd poll = { .fd = fd, .events = 0, .revents = 0 };
 			exception exc;
-			auto poll_for = [ & ]( short evt ) FORCE_INLINE{
+			auto poll_for = [ & ]( short evt ) FORCE_INLINE {
 				poll.events = evt;
 				if ( auto err = socket_poll( poll, opt.max_stall ) ) {
 					exc = { XSTD_ESTR( "poll error: %d" ), err };
@@ -815,14 +821,16 @@ namespace xstd::net {
 				if ( auto err = this->socket_connect(); err.has_value() ) {
 					co_return this->raise_error( XSTD_ESTR( "connection failed: %d" ), *err );
 				}
-				if ( stopped() ) co_return;
+				if ( stopped() )
+					co_return;
 
 				// Poll until socket is writable.
 				//
 				auto timeout = time::now() + opt.conn_timeout;
 				while ( true ) {
 					short events = poll_for( POLLOUT );
-					if ( stopped() ) co_return;
+					if ( stopped() )
+						co_return;
 					if ( events & ( POLLERR | POLLHUP ) ) {
 						stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 						co_return;
@@ -841,25 +849,27 @@ namespace xstd::net {
 			// Create the data fibers.
 			//
 			fib_receiver = recv_more();
-			fib_sender = send_more();
+			fib_sender   = send_more();
 
 			// Enter long-poll.
 			//
 			while ( true ) {
 				short events = poll_for( POLLOUT | POLLIN );
-				if ( stopped() ) co_return;
+				if ( stopped() )
+					co_return;
 				if ( events & ( POLLERR | POLLHUP ) ) {
 					stop( exc ? exc : exception{ XSTD_ESTR( "socket error: %d" ), get_socket_error() } );
 					co_return;
-				} 
+				}
 				if ( !( events & ( POLLIN | POLLOUT ) ) ) {
 					co_await yield{};
 					continue;
 				}
-				if ( events & POLLIN )  fib_receiver.resume();
-				if ( events & POLLOUT ) fib_sender.resume();
+				if ( events & POLLIN )
+					fib_receiver.resume();
+				if ( events & POLLOUT )
+					fib_sender.resume();
 			}
-
 		}
 	};
 	struct tcp_server : socket {
@@ -895,15 +905,17 @@ namespace xstd::net {
 			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
 		}
 
-	protected:
+	   protected:
 		template<typename F>
 		fiber accept_more( F callback ) {
 			// Create FD watch.
 			//
 			fd_set fd_er, fd_wr;
 			while ( true ) {
-				FD_ZERO( &fd_er );    FD_ZERO( &fd_wr );
-				FD_SET( fd, &fd_er ); FD_SET( fd, &fd_wr );
+				FD_ZERO( &fd_er );
+				FD_ZERO( &fd_wr );
+				FD_SET( fd, &fd_er );
+				FD_SET( fd, &fd_wr );
 
 				timeval stall_timeout = detail::to_timeval( opt.max_stall );
 				if ( select( int( fd ) + 1, &fd_wr, &fd_wr, &fd_er, &stall_timeout ) < 0 ) {
@@ -913,13 +925,13 @@ namespace xstd::net {
 				if ( stopped() ) {
 					co_return;
 				}
-				
+
 				if ( FD_ISSET( fd, &fd_er ) ) {
 					co_return raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
 				}
 
 				if ( FD_ISSET( fd, &fd_wr ) ) {
-					auto [sock, ip, port] = this->socket_accept();
+					auto [ sock, ip, port ] = this->socket_accept();
 					if ( !sock ) {
 						if ( auto err = get_socket_error() ) {
 							co_return raise_error( XSTD_ESTR( "socket error: %d" ), get_socket_error() );
@@ -937,14 +949,14 @@ namespace xstd::net {
 	// Definition via LWIP:
 	//
 #if XSTD_LWIP
-	using socket_t =     tcp_pcb*;
-	using socket_error = err_t;
+	using socket_t                           = tcp_pcb*;
+	using socket_error                       = err_t;
 	static constexpr socket_t invalid_socket = nullptr;
 
 	// Core lock.
 	//
 	alignas( 64 ) inline recursive_xspinlock<> core_lock = {};
-	
+
 	// Implement DNS resolution.
 	//
 	inline bool dns_query_awaitable::await_suspend( std::coroutine_handle<> hnd ) {
@@ -952,12 +964,15 @@ namespace xstd::net {
 			return g_dns_hook( this, hnd );
 		}
 		std::unique_lock lock{ core_lock };
-		err_t err = dns_gethostbyname_addrtype( this->hostname, this->result.emplace().lwip(), []( const char*, const ip_addr_t* ipaddr, void* callback_arg ) {
-			auto* ctx = ( (dns_query_awaitable*) callback_arg );
-			ctx->result.emplace( ipaddr );
-			if ( ctx->continuation )
-				xstd::chore( ctx->continuation );
-		}, this, LWIP_DNS_ADDRTYPE_IPV4 );
+		err_t err = dns_gethostbyname_addrtype(
+			this->hostname, this->result.emplace().lwip(),
+			[]( const char*, const ip_addr_t* ipaddr, void* callback_arg ) {
+				auto* ctx = ( ( dns_query_awaitable* ) callback_arg );
+				ctx->result.emplace( ipaddr );
+				if ( ctx->continuation )
+					xstd::chore( ctx->continuation );
+			},
+			this, LWIP_DNS_ADDRTYPE_IPV4 );
 
 		if ( err == ERR_INPROGRESS ) {
 			this->continuation = hnd;
@@ -973,41 +988,39 @@ namespace xstd::net {
 	// Base of the stream.
 	//
 	struct socket : duplex {
-	protected:
+	   protected:
 		// Options.
 		//
-		socket_options  opt = {};
+		socket_options opt    = {};
 		socket_protocol proto = {};
 
 		// File descriptor and remote connection details.
 		//
-		socket_t        pcb = invalid_socket;
-		ipv4            address = {};
-		uint16_t        port = 0;
+		socket_t pcb  = invalid_socket;
+		ipv4 address  = {};
+		uint16_t port = 0;
 
 		// Constructed by initial details.
 		//
-		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt )
-			: duplex( opt ), opt( opt ), proto( proto ), address( address ), port( port ) {}
+		socket( socket_protocol proto, ipv4 address, uint16_t port, socket_options opt ) : duplex( opt ), opt( opt ), proto( proto ), address( address ), port( port ) {}
 
 		// Wrappers.
 		//
-	public:
+	   public:
 		socket_error socket_connect() {
 			std::lock_guard _g{ core_lock };
 			return tcp_connect( pcb, address.lwip(), port, []( void* _arg, socket_t pcb, socket_error err ) -> socket_error {
-				if ( err ) return err;
+				if ( err )
+					return err;
 				if ( pcb->sent )
 					return pcb->sent( _arg, pcb, 0 );
 				return ERR_OK;
 			} );
 		}
-		socket_error socket_bind() {
-			return tcp_bind( pcb, address.lwip(), port );
-		}
+		socket_error socket_bind() { return tcp_bind( pcb, address.lwip(), port ); }
 		socket_error socket_listen() {
 			socket_error err = 0;
-			if ( auto new_fd = tcp_listen_with_backlog_and_err( pcb, (uint8_t) std::min( opt.listen_backlog, 0xff ), &err ) ) {
+			if ( auto new_fd = tcp_listen_with_backlog_and_err( pcb, ( uint8_t ) std::min( opt.listen_backlog, 0xff ), &err ) ) {
 				if ( err ) {
 					tcp_abort( new_fd );
 				} else {
@@ -1018,36 +1031,38 @@ namespace xstd::net {
 		}
 		bool socket_send( std::span<const uint8_t>& buffer, int flags = TCP_WRITE_FLAG_COPY ) {
 			std::lock_guard _g{ core_lock };
-			if ( pcb == invalid_socket ) return false;
+			if ( pcb == invalid_socket )
+				return false;
 			const uint8_t* data = buffer.data();
-			size_t         length = buffer.size();
+			size_t length       = buffer.size();
 
-			size_t  offset = 0;
-			bool    exhausted = false;
+			size_t offset  = 0;
+			bool exhausted = false;
 			while ( !exhausted ) {
 				// Calculate the maximum fragment length.
 				//
-				size_t  frag = length - offset;
-				frag = std::min<size_t>( frag, 0xFFFF );
-				if ( !frag ) break;
-				
+				size_t frag = length - offset;
+				frag        = std::min<size_t>( frag, 0xFFFF );
+				if ( !frag )
+					break;
+
 				// Try writing in increasingly smaller sizes.
 				//
 				err_t status;
 				while ( true ) {
-					status = tcp_write( pcb, (char*) data + offset, (uint16_t) frag, flags );
+					status = tcp_write( pcb, ( char* ) data + offset, ( uint16_t ) frag, flags );
 					if ( status != ERR_MEM ) {
 						break;
 					} else {
 						exhausted = true;
 						if ( ( tcp_sndbuf( pcb ) == 0 ) || ( tcp_sndqueuelen( pcb ) >= TCP_SND_QUEUELEN ) ) {
-							frag = 0;
+							frag   = 0;
 							status = ERR_OK;
 							break;
 						} else {
 							frag >>= 1;
 							if ( frag < 256 ) {
-								frag = 0;
+								frag   = 0;
 								status = ERR_OK;
 								break;
 							}
@@ -1060,14 +1075,14 @@ namespace xstd::net {
 				if ( status != ERR_OK ) {
 					raise_error( XSTD_ESTR( "socket write error: %d" ), status );
 					break;
-				} 
+				}
 				// Else, increment offset.
 				//
 				else {
 					offset += frag;
 				}
 			}
-			
+
 			tcp_output( pcb );
 			buffer = buffer.subspan( offset );
 			return !buffer.empty();
@@ -1081,12 +1096,8 @@ namespace xstd::net {
 
 		// Remote/local address.
 		//
-		std::pair<ipv4, uint16_t> get_remote_address() {
-			return { pcb != invalid_socket ? pcb->remote_ip : address, pcb != invalid_socket ? pcb->remote_port : port };
-		}
-		std::pair<ipv4, uint16_t> get_local_address() {
-			return { pcb != invalid_socket ? pcb->local_ip : ipv4{}, pcb != invalid_socket ? pcb->local_port : 0 };
-		}
+		std::pair<ipv4, uint16_t> get_remote_address() { return { pcb != invalid_socket ? pcb->remote_ip : address, pcb != invalid_socket ? pcb->remote_port : port }; }
+		std::pair<ipv4, uint16_t> get_local_address() { return { pcb != invalid_socket ? pcb->local_ip : ipv4{}, pcb != invalid_socket ? pcb->local_port : 0 }; }
 
 		// Configuration.
 		//
@@ -1106,17 +1117,17 @@ namespace xstd::net {
 				opt.timestamps = LWIP_TCP_TIMESTAMPS;
 
 				if ( opt.keepalive ) {
-					pcb->keep_idle = (uint32_t) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
+					pcb->keep_idle = ( uint32_t ) std::clamp<int64_t>( *opt.keepalive / 1ms, 0, UINT32_MAX );
 					ip_set_option( pcb, SOF_KEEPALIVE );
 				} else {
 					ip_reset_option( pcb, SOF_KEEPALIVE );
 				}
 				opt.sendbuf = TCP_SND_BUF;
 				// TODO: linger
-			
+
 				tcp_arg( pcb, this );
 				tcp_err( pcb, []( void* _arg, socket_error err ) {
-					if ( auto arg = (socket*) _arg ) {
+					if ( auto arg = ( socket* ) _arg ) {
 						err = err ? err : ERR_CLSD;
 						arg->close( true );
 						arg->raise_error( XSTD_ESTR( "socket error: %d" ), err );
@@ -1125,10 +1136,12 @@ namespace xstd::net {
 			}
 		}
 		socket_error socket_shutdown( bool r, bool w ) {
-			if ( !r && !w ) return 0;
+			if ( !r && !w )
+				return 0;
 			std::lock_guard _g{ core_lock };
-			if ( pcb == invalid_socket ) return 0;
-			socket_error err = tcp_shutdown( pcb, (int) r, (int) w );
+			if ( pcb == invalid_socket )
+				return 0;
+			socket_error err = tcp_shutdown( pcb, ( int ) r, ( int ) w );
 			if ( !err && r && w )
 				pcb = invalid_socket;
 			return err;
@@ -1138,12 +1151,8 @@ namespace xstd::net {
 			this->opt = opt;
 			socket_reconfig();
 		}
-		const socket_options& get_options() {
-			return this->opt;
-		}
-		socket_t get_pcb() const {
-			return pcb;
-		}
+		const socket_options& get_options() { return this->opt; }
+		socket_t get_pcb() const { return pcb; }
 		void set_pcb( socket_t sock, bool freed = false ) {
 			std::lock_guard _g{ core_lock };
 			if ( auto prev = std::exchange( pcb, sock ); prev != invalid_socket && !freed ) {
@@ -1154,15 +1163,11 @@ namespace xstd::net {
 			if ( sock != invalid_socket )
 				socket_reconfig();
 		}
-		void close( bool freed = false ) {
-			set_pcb( invalid_socket, freed );
-		}
+		void close( bool freed = false ) { set_pcb( invalid_socket, freed ); }
 
 		// Close the socket on destruction.
 		//
-		void raise_error( const char* fmt, socket_error e ) {
-			this->stop( stream_stop_error, exception{ fmt, e } );
-		}
+		void raise_error( const char* fmt, socket_error e ) { this->stop( stream_stop_error, exception{ fmt, e } ); }
 		bool assert_status( const char* fmt, socket_error e ) {
 			if ( !e ) [[likely]] {
 				return true;
@@ -1170,9 +1175,7 @@ namespace xstd::net {
 			raise_error( fmt, e );
 			return false;
 		}
-		~socket() {
-			close();
-		}
+		~socket() { close(); }
 	};
 
 
@@ -1181,11 +1184,7 @@ namespace xstd::net {
 	struct tcp : socket {
 		xstd::timestamp connect_deadline;
 
-		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : 
-			socket( socket_protocol::tcp, address, port, opts ),
-			fib_receiver( recv_more() ),
-			fib_sender( send_more() )
-		{
+		tcp( ipv4 address, uint16_t port, socket_options opts = {}, socket_t client_socket = invalid_socket ) : socket( socket_protocol::tcp, address, port, opts ), fib_receiver( recv_more() ), fib_sender( send_more() ) {
 			std::unique_lock lock{ core_lock };
 			connect_deadline = opt.conn_timeout + xstd::time::now();
 
@@ -1202,8 +1201,8 @@ namespace xstd::net {
 			}
 			set_pcb( client_socket );
 			tcp_sent( client_socket, []( void* _arg, socket_t pcb, uint16_t ) -> socket_error {
-				if ( auto arg = (tcp*) _arg ) {
-					tcp_output( pcb ); // needed?
+				if ( auto arg = ( tcp* ) _arg ) {
+					tcp_output( pcb );  // needed?
 					arg->on_sent();
 					return arg->get_pcb() ? ERR_OK : ERR_ABRT;
 				} else {
@@ -1214,8 +1213,9 @@ namespace xstd::net {
 				}
 			} );
 			tcp_recv( client_socket, []( void* _arg, socket_t pcb, pbuf* p, socket_error err ) -> socket_error {
-				if ( err ) return err;
-				if ( auto arg = (tcp*) _arg ) {
+				if ( err )
+					return err;
+				if ( auto arg = ( tcp* ) _arg ) {
 					arg->on_recv( p );
 					if ( !arg->get_pcb() ) {
 						return ERR_ABRT;
@@ -1231,17 +1231,20 @@ namespace xstd::net {
 					return ERR_ABRT;
 				}
 			} );
-			tcp_poll( client_socket, []( void* _arg, socket_t pcb ) -> socket_error {
-				if ( auto arg = (tcp*) _arg ) {
-					arg->on_poll( pcb );
-					return arg->get_pcb() ? ERR_OK : ERR_ABRT;
-				} else {
-					if ( tcp_close( pcb ) ) {
-						tcp_abort( pcb );
+			tcp_poll(
+				client_socket,
+				[]( void* _arg, socket_t pcb ) -> socket_error {
+					if ( auto arg = ( tcp* ) _arg ) {
+						arg->on_poll( pcb );
+						return arg->get_pcb() ? ERR_OK : ERR_ABRT;
+					} else {
+						if ( tcp_close( pcb ) ) {
+							tcp_abort( pcb );
+						}
+						return ERR_ABRT;
 					}
-					return ERR_ABRT;
-				}
-			}, 1 );
+				},
+				1 );
 
 			// Start the connection.
 			//
@@ -1258,9 +1261,7 @@ namespace xstd::net {
 			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
 		}
 
-		void on_sent() {
-			fib_sender.resume( controller().readable().sched_enter );
-		}
+		void on_sent() { fib_sender.resume( controller().readable().sched_enter ); }
 		void on_recv( pbuf* p ) {
 			// If we received a FIN, stop.
 			//
@@ -1284,7 +1285,7 @@ namespace xstd::net {
 		}
 		void on_poll( socket_t pcb ) {
 			if ( pcb->state == SYN_SENT && connect_deadline < time::now() ) {
-				return (void) stop( XSTD_ESTR( "connection timed out" ) );
+				return ( void ) stop( XSTD_ESTR( "connection timed out" ) );
 			}
 			tcp_output( pcb );
 			if ( tcp_sndbuf( pcb ) ) {
@@ -1292,7 +1293,7 @@ namespace xstd::net {
 			}
 		}
 
-	protected:
+	   protected:
 		std::atomic<bool> req_shutdown = false;
 		fiber fib_receiver;
 		fiber fib_sender;
@@ -1301,7 +1302,8 @@ namespace xstd::net {
 			while ( true ) {
 				co_yield {};
 				co_await ctrl.flush();
-				if ( stopped() ) co_return;
+				if ( stopped() )
+					co_return;
 				if ( req_shutdown ) {
 					ctrl.shutdown();
 					co_return;
@@ -1315,8 +1317,10 @@ namespace xstd::net {
 			// Wait for connection.
 			//
 			while ( true ) {
-				if ( stopped() || !pcb ) co_return;
-				if ( pcb->state >= ESTABLISHED ) break;
+				if ( stopped() || !pcb )
+					co_return;
+				if ( pcb->state >= ESTABLISHED )
+					break;
 				co_yield {};
 			}
 
@@ -1334,18 +1338,21 @@ namespace xstd::net {
 				// Write the data.
 				//
 				while ( true ) {
-					if ( !pcb ) break;
+					if ( !pcb )
+						break;
 					bool need_poll = this->socket_send( request );
-					if ( request.empty() ) break;
-					if ( need_poll ) co_yield {};
+					if ( request.empty() )
+						break;
+					if ( need_poll )
+						co_yield {};
 				}
 			}
 		}
 	};
 	struct tcp_server : socket {
-		xspinlock<>                       accept_queue_mtx;
+		xspinlock<> accept_queue_mtx;
 		std::vector<std::unique_ptr<tcp>> accept_queue;
-		fiber                             fib_accept;
+		fiber fib_accept;
 
 		tcp_server( ipv4 address, uint16_t port, socket_options opts = {} ) : socket( socket_protocol::tcp, address, port, opts ) {
 			// Get a socket.
@@ -1372,8 +1379,9 @@ namespace xstd::net {
 			if ( !this->assert_status( XSTD_ESTR( "failed to listen socket: %d" ), this->socket_listen() ) )
 				return false;
 			tcp_accept( pcb, []( void* _arg, tcp_pcb* new_pcb, err_t err ) -> socket_error {
-				if ( err || !new_pcb ) return ERR_OK;
-				if ( auto arg = (tcp_server*) _arg ) {
+				if ( err || !new_pcb )
+					return ERR_OK;
+				if ( auto arg = ( tcp_server* ) _arg ) {
 					if ( !arg->fib_accept || !arg->get_pcb() )
 						return ERR_CLSD;
 					std::lock_guard _g{ arg->accept_queue_mtx };
@@ -1396,13 +1404,15 @@ namespace xstd::net {
 			stop( stream_stop_killed, XSTD_ESTR( "dropped" ) );
 		}
 
-	protected:
+	   protected:
 		template<typename F>
 		fiber accept_more( F callback ) {
 			bool need_yield = true;
 			while ( true ) {
-				if ( stopped() || !pcb ) co_return;
-				if ( need_yield ) co_yield {};
+				if ( stopped() || !pcb )
+					co_return;
+				if ( need_yield )
+					co_yield {};
 
 				std::unique_ptr<tcp> next;
 				{

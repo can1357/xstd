@@ -8,8 +8,7 @@
 #include "type_helpers.hpp"
 #include "hexdump.hpp"
 
-namespace xstd
-{
+namespace xstd {
 	// Common traits.
 	//
 	template<typename T>
@@ -31,18 +30,22 @@ namespace xstd
 		FORCE_INLINE static constexpr std::array<uint32_t, 4> vec_round( std::array<uint32_t, 4> acc, std::array<uint32_t, 4> input ) {
 #if XSTD_VECTOR_EXT && CLANG_COMPILER
 			using vec = native_vector<uint32_t, 4>;
-			vec vacc = xstd::bit_cast<vec>( acc );
-			vec vinp = xstd::bit_cast<vec>( input );
+			vec vacc  = xstd::bit_cast<vec>( acc );
+			vec vinp  = xstd::bit_cast<vec>( input );
 			vinp *= prime_2;
 			vacc += vinp;
 			vacc = ( vacc << 13 ) | ( vacc >> ( 32 - 13 ) );
 			vacc *= prime_1;
 			return xstd::bit_cast<std::array<uint32_t, 4>>( vacc );
 #else
-			for ( size_t i = 0; i != 4; i++ ) input[ i ] *= prime_2;
-			for ( size_t i = 0; i != 4; i++ ) acc[ i ] += input[ i ];
-			for ( size_t i = 0; i != 4; i++ ) acc[ i ] = rotl( acc[ i ], 13 );
-			for ( size_t i = 0; i != 4; i++ ) acc[ i ] *= prime_1;
+			for ( size_t i = 0; i != 4; i++ )
+				input[ i ] *= prime_2;
+			for ( size_t i = 0; i != 4; i++ )
+				acc[ i ] += input[ i ];
+			for ( size_t i = 0; i != 4; i++ )
+				acc[ i ] = rotl( acc[ i ], 13 );
+			for ( size_t i = 0; i != 4; i++ )
+				acc[ i ] *= prime_1;
 			return acc;
 #endif
 		}
@@ -57,19 +60,16 @@ namespace xstd
 		FORCE_INLINE static constexpr uint32_t digest( std::array<uint32_t, 4> iv, size_t len, const uint8_t* leftover ) {
 			uint32_t hash;
 			if ( len >= 16 ) {
-				hash = rotl( iv[ 0 ], 1 )
-					+ rotl( iv[ 1 ], 7 )
-					+ rotl( iv[ 2 ], 12 )
-					+ rotl( iv[ 3 ], 18 );
+				hash = rotl( iv[ 0 ], 1 ) + rotl( iv[ 1 ], 7 ) + rotl( iv[ 2 ], 12 ) + rotl( iv[ 3 ], 18 );
 			} else {
 				hash = iv[ 2 ] /* == seed */ + prime_5;
 			}
-			hash += (uint32_t) len;
+			hash += ( uint32_t ) len;
 
 			len &= 15;
 			const uint8_t* p = leftover;
 			while ( len >= 4 ) {
-				uint32_t v = *(const uint32_t*) p;
+				uint32_t v = *( const uint32_t* ) p;
 				hash += v * prime_3;
 				hash = rotl( hash, 17 ) * prime_4;
 				p += 4;
@@ -100,18 +100,22 @@ namespace xstd
 		FORCE_INLINE static constexpr std::array<uint64_t, 4> vec_round( std::array<uint64_t, 4> acc, std::array<uint64_t, 4> input ) {
 #if XSTD_VECTOR_EXT && CLANG_COMPILER
 			using vec = native_vector<uint64_t, 4>;
-			vec vacc = xstd::bit_cast<vec>( acc );
-			vec vinp = xstd::bit_cast<vec>( input );
+			vec vacc  = xstd::bit_cast<vec>( acc );
+			vec vinp  = xstd::bit_cast<vec>( input );
 			vinp *= prime_2;
 			vacc += vinp;
 			vacc = ( vacc << 31 ) | ( vacc >> ( 64 - 31 ) );
 			vacc *= prime_1;
 			return xstd::bit_cast<std::array<uint64_t, 4>>( vacc );
 #else
-			for ( size_t i = 0; i != 4; i++ ) input[ i ] *= prime_2;
-			for ( size_t i = 0; i != 4; i++ ) acc[ i ] += input[ i ];
-			for ( size_t i = 0; i != 4; i++ ) acc[ i ] = rotl( acc[ i ], 31 );
-			for ( size_t i = 0; i != 4; i++ ) acc[ i ] *= prime_1;
+			for ( size_t i = 0; i != 4; i++ )
+				input[ i ] *= prime_2;
+			for ( size_t i = 0; i != 4; i++ )
+				acc[ i ] += input[ i ];
+			for ( size_t i = 0; i != 4; i++ )
+				acc[ i ] = rotl( acc[ i ], 31 );
+			for ( size_t i = 0; i != 4; i++ )
+				acc[ i ] *= prime_1;
 			return acc;
 #endif
 		}
@@ -127,7 +131,7 @@ namespace xstd
 			uint64_t hash;
 			if ( len >= 32 ) {
 				hash = rotl( iv[ 0 ], 1 ) + rotl( iv[ 1 ], 7 ) + rotl( iv[ 2 ], 12 ) + rotl( iv[ 3 ], 18 );
-				iv = vec_round( { 0, 0, 0, 0 }, iv );
+				iv   = vec_round( { 0, 0, 0, 0 }, iv );
 				hash = ( hash ^ iv[ 0 ] ) * prime_1 + prime_4;
 				hash = ( hash ^ iv[ 1 ] ) * prime_1 + prime_4;
 				hash = ( hash ^ iv[ 2 ] ) * prime_1 + prime_4;
@@ -135,19 +139,19 @@ namespace xstd
 			} else {
 				hash = iv[ 2 ] /* == seed */ + prime_5;
 			}
-			hash += (uint64_t) len;
+			hash += ( uint64_t ) len;
 
 			len &= 31;
 			const uint8_t* p = leftover;
 			while ( len >= 8 ) {
-				uint64_t v = round( 0, *(const uint64_t*) p );
+				uint64_t v = round( 0, *( const uint64_t* ) p );
 				hash ^= v;
 				hash = rotl( hash, 27 ) * prime_1 + prime_4;
 				p += 8;
 				len -= 8;
 			}
 			if ( len >= 4 ) {
-				hash ^= uint64_t( *(const uint32_t*) p ) * prime_1;
+				hash ^= uint64_t( *( const uint32_t* ) p ) * prime_1;
 				hash = rotl( hash, 23 ) * prime_2 + prime_3;
 				p += 4;
 				len -= 4;
@@ -164,24 +168,22 @@ namespace xstd
 	// Common XXHASH implementation.
 	//
 	template<typename U>
-	struct basic_xxhash
-	{
-		using traits =     xxhash_traits<U>;
-		using value_type = U;
-		using block_type = std::array<U, 4>;
-		static constexpr size_t block_size =  sizeof( U ) * 4;
+	struct basic_xxhash {
+		using traits                        = xxhash_traits<U>;
+		using value_type                    = U;
+		using block_type                    = std::array<U, 4>;
+		static constexpr size_t block_size  = sizeof( U ) * 4;
 		static constexpr size_t digest_size = sizeof( U );
-		
+
 		// Crypto state.
 		//
-		size_t                               input_length = 0;
-		std::array<U, 4>                     iv = {};
+		size_t input_length                           = 0;
+		std::array<U, 4> iv                           = {};
 		std::array<uint8_t, sizeof( U ) * 4> leftover = {};
 
 		// Default seed connstruction.
 		//
-		constexpr basic_xxhash() noexcept
-			: basic_xxhash{ value_type(0) } { }
+		constexpr basic_xxhash() noexcept : basic_xxhash{ value_type( 0 ) } {}
 
 		// Custom seed construction.
 		//
@@ -196,10 +198,10 @@ namespace xstd
 
 		// Default copy/move.
 		//
-		constexpr basic_xxhash( basic_xxhash&& ) noexcept = default;
-		constexpr basic_xxhash( const basic_xxhash& ) = default;
+		constexpr basic_xxhash( basic_xxhash&& ) noexcept            = default;
+		constexpr basic_xxhash( const basic_xxhash& )                = default;
 		constexpr basic_xxhash& operator=( basic_xxhash&& ) noexcept = default;
-		constexpr basic_xxhash& operator=( const basic_xxhash& ) = default;
+		constexpr basic_xxhash& operator=( const basic_xxhash& )     = default;
 
 		// Returns whether or not hash is finalized.
 		//
@@ -221,14 +223,11 @@ namespace xstd
 			}
 			iv = traits::vec_round( iv, data );
 		}
-		FORCE_INLINE constexpr void next_block() {
-			compress( leftover.data() );
-		}
+		FORCE_INLINE constexpr void next_block() { compress( leftover.data() ); }
 
 		// Appends the given array of bytes into the hash value.
 		//
-		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
-		{
+		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n ) {
 			size_t prev_length = input_length;
 			input_length += n;
 			assume( input_length != std::string::npos );
@@ -239,12 +238,12 @@ namespace xstd
 				// Pad with new data.
 				//
 				size_t space_available = leftover.size() - offset;
-				size_t copy_count =      std::min( n, space_available );
+				size_t copy_count      = std::min( n, space_available );
 				if ( std::is_constant_evaluated() )
 					std::copy_n( data, copy_count, leftover.data() + offset );
 				else
 					memcpy( leftover.data() + offset, data, copy_count );
-				n -=    copy_count;
+				n -= copy_count;
 				data += copy_count;
 
 				// Finish the block.
@@ -255,14 +254,15 @@ namespace xstd
 
 				// Break if done.
 				//
-				if ( !n ) return;
+				if ( !n )
+					return;
 			}
 
 			// Add full blocks.
 			//
 			while ( n >= leftover.size() ) {
 				compress( data );
-				n -=    leftover.size();
+				n -= leftover.size();
 				data += leftover.size();
 			}
 
@@ -279,16 +279,12 @@ namespace xstd
 		// Appends the given trivial value as bytes into the hash value.
 		//
 		template<typename T>
-		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
-		{
-			if ( std::is_constant_evaluated() )
-			{
+		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept {
+			if ( std::is_constant_evaluated() ) {
 				using array_t = std::array<uint8_t, sizeof( T )>;
-				array_t arr = xstd::bit_cast< array_t >( data );
+				array_t arr   = xstd::bit_cast<array_t>( data );
 				add_bytes( arr.data(), arr.size() );
-			}
-			else
-			{
+			} else {
 				add_bytes( ( const uint8_t* ) &data, sizeof( T ) );
 			}
 		}
@@ -296,21 +292,26 @@ namespace xstd
 		// Update wrapper.
 		//
 		template<typename T>
-		FORCE_INLINE constexpr basic_xxhash& update(const T& data) noexcept { this->add_bytes<T>(data); return *this; };
-		FORCE_INLINE constexpr basic_xxhash& update(const uint8_t* data, size_t n) { this->add_bytes(data, n); return *this; }
+		FORCE_INLINE constexpr basic_xxhash& update( const T& data ) noexcept {
+			this->add_bytes<T>( data );
+			return *this;
+		};
+		FORCE_INLINE constexpr basic_xxhash& update( const uint8_t* data, size_t n ) {
+			this->add_bytes( data, n );
+			return *this;
+		}
 
 		// Finalization of the hash.
 		//
-		FORCE_INLINE constexpr basic_xxhash& finalize() noexcept
-		{
-			if ( finalized() ) return *this;
-			iv[ 0 ] =      traits::digest( iv, input_length, &leftover[ 0 ] );
+		FORCE_INLINE constexpr basic_xxhash& finalize() noexcept {
+			if ( finalized() )
+				return *this;
+			iv[ 0 ]      = traits::digest( iv, input_length, &leftover[ 0 ] );
 			input_length = std::string::npos;
 			return *this;
 		}
 		FORCE_INLINE constexpr value_type digest() noexcept { return finalize().iv[ 0 ]; }
-		FORCE_INLINE constexpr value_type digest() const noexcept
-		{
+		FORCE_INLINE constexpr value_type digest() const noexcept {
 			if ( finalized() ) [[likely]]
 				return iv;
 			auto clone{ *this };
@@ -346,13 +347,9 @@ namespace xstd
 
 // Make it std::hashable.
 //
-namespace std
-{
+namespace std {
 	template<typename T>
-	struct hash<xstd::basic_xxhash<T>>
-	{
-		constexpr size_t operator()( const xstd::basic_xxhash<T>& value ) const { 
-			return ( size_t ) value.as64(); 
-		}
+	struct hash<xstd::basic_xxhash<T>> {
+		constexpr size_t operator()( const xstd::basic_xxhash<T>& value ) const { return ( size_t ) value.as64(); }
 	};
 };

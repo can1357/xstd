@@ -18,45 +18,41 @@
 // Intel implementation.
 //
 #if XSTD_HW_SHA1 && AMD64_TARGET && GNU_COMPILER
-#include <ia32.hpp>
+	#include <ia32.hpp>
 #endif
 
-namespace xstd
-{
+namespace xstd {
 	// Common SHA implementation.
 	//
 	template<typename Traits>
-	struct basic_sha
-	{
+	struct basic_sha {
 		using value_type = typename Traits::value_type;
 		using block_type = typename Traits::block_type;
-		using unit_type =  typename value_type::value_type;
-		
-		static constexpr size_t block_size =  std::tuple_size_v<block_type>;
+		using unit_type  = typename value_type::value_type;
+
+		static constexpr size_t block_size  = std::tuple_size_v<block_type>;
 		static constexpr size_t digest_size = std::tuple_size_v<value_type> * sizeof( unit_type );
 
 		// Crypto state.
 		//
 		value_type iv;
-		size_t     input_length = 0;
+		size_t input_length = 0;
 		block_type leftover = { 0 };
 
 		// Default IV connstruction.
 		//
-		constexpr basic_sha() noexcept
-			: iv{ Traits::default_iv } {}
+		constexpr basic_sha() noexcept : iv{ Traits::default_iv } {}
 
 		// Custom IV construction.
 		//
-		constexpr basic_sha( value_type iv ) noexcept
-			: iv{ iv } {}
+		constexpr basic_sha( value_type iv ) noexcept : iv{ iv } {}
 
 		// Default copy/move.
 		//
-		constexpr basic_sha( basic_sha&& ) noexcept = default;
-		constexpr basic_sha( const basic_sha& ) = default;
+		constexpr basic_sha( basic_sha&& ) noexcept            = default;
+		constexpr basic_sha( const basic_sha& )                = default;
 		constexpr basic_sha& operator=( basic_sha&& ) noexcept = default;
-		constexpr basic_sha& operator=( const basic_sha& ) = default;
+		constexpr basic_sha& operator=( const basic_sha& )     = default;
 
 		// Returns whether or not hash is finalized.
 		//
@@ -64,16 +60,14 @@ namespace xstd
 
 		// Skips to next block.
 		//
-		FORCE_INLINE constexpr void next_block() 
-		{
+		FORCE_INLINE constexpr void next_block() {
 			Traits::compress( iv, leftover.data() );
 			leftover = { 0 };
 		}
 
 		// Appends the given array of bytes into the hash value.
 		//
-		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n )
-		{
+		FORCE_INLINE constexpr void add_bytes( const uint8_t* data, size_t n ) {
 			size_t prev_length = input_length;
 			input_length += n;
 			assume( input_length != std::string::npos );
@@ -84,12 +78,12 @@ namespace xstd
 				// Pad with new data.
 				//
 				size_t space_available = leftover.size() - offset;
-				size_t copy_count =      std::min( n, space_available );
+				size_t copy_count      = std::min( n, space_available );
 				if ( std::is_constant_evaluated() )
 					std::copy_n( data, copy_count, leftover.data() + offset );
 				else
 					memcpy( leftover.data() + offset, data, copy_count );
-				n -=    copy_count;
+				n -= copy_count;
 				data += copy_count;
 
 				// Finish the block.
@@ -100,14 +94,15 @@ namespace xstd
 
 				// Break if done.
 				//
-				if ( !n ) return;
+				if ( !n )
+					return;
 			}
 
 			// Add full blocks.
 			//
 			while ( n >= leftover.size() ) {
 				Traits::compress( iv, data );
-				n -=    leftover.size();
+				n -= leftover.size();
 				data += leftover.size();
 			}
 
@@ -124,16 +119,12 @@ namespace xstd
 		// Appends the given trivial value as bytes into the hash value.
 		//
 		template<typename T>
-		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept
-		{
-			if ( std::is_constant_evaluated() )
-			{
+		FORCE_INLINE constexpr void add_bytes( const T& data ) noexcept {
+			if ( std::is_constant_evaluated() ) {
 				using array_t = std::array<uint8_t, sizeof( T )>;
-				array_t arr = xstd::bit_cast< array_t >( data );
+				array_t arr   = xstd::bit_cast<array_t>( data );
 				add_bytes( arr.data(), arr.size() );
-			}
-			else
-			{
+			} else {
 				add_bytes( ( const uint8_t* ) &data, sizeof( T ) );
 			}
 		}
@@ -141,20 +132,26 @@ namespace xstd
 		// Update wrapper.
 		//
 		template<typename T>
-		FORCE_INLINE constexpr basic_sha& update(const T& data) noexcept { this->add_bytes<T>(data); return *this; };
-		FORCE_INLINE constexpr basic_sha& update(const uint8_t* data, size_t n) { this->add_bytes(data, n); return *this; }
+		FORCE_INLINE constexpr basic_sha& update( const T& data ) noexcept {
+			this->add_bytes<T>( data );
+			return *this;
+		};
+		FORCE_INLINE constexpr basic_sha& update( const uint8_t* data, size_t n ) {
+			this->add_bytes( data, n );
+			return *this;
+		}
 
 		// Finalization of the hash.
 		//
-		FORCE_INLINE constexpr basic_sha& finalize() noexcept
-		{
-			if ( finalized() ) return *this;
-			
+		FORCE_INLINE constexpr basic_sha& finalize() noexcept {
+			if ( finalized() )
+				return *this;
+
 			// Apply the leftover block and terminate the stream.
 			//
-			size_t leftover_offset = input_length % leftover.size();
+			size_t leftover_offset        = input_length % leftover.size();
 			leftover[ leftover_offset++ ] = 0x80;
-			
+
 			// If padding does not fit in the current block, compress first.
 			//
 			if ( leftover_offset > ( leftover.size() - 8 ) ) {
@@ -189,8 +186,7 @@ namespace xstd
 			return *this;
 		}
 		FORCE_INLINE constexpr value_type digest() noexcept { return finalize().iv; }
-		FORCE_INLINE constexpr value_type digest() const noexcept
-		{
+		FORCE_INLINE constexpr value_type digest() const noexcept {
 			if ( finalized() ) [[likely]]
 				return iv;
 			auto clone{ *this };
@@ -200,8 +196,7 @@ namespace xstd
 		// Explicit conversions.
 		//
 		constexpr uint32_t as32() const noexcept { return uint32_t( digest()[ 0 ] ); }
-		constexpr uint64_t as64() const noexcept
-		{
+		constexpr uint64_t as64() const noexcept {
 			if constexpr ( std::is_same_v<unit_type, uint64_t> ) {
 				return digest()[ 0 ];
 			} else if constexpr ( std::is_same_v<unit_type, uint32_t> ) {
@@ -232,47 +227,39 @@ namespace xstd
 	// Define SHA-1.
 	//
 	template<bool HwAcccel>
-	struct sha1_traits
-	{
-		using block_type = std::array<uint8_t,  64>;
+	struct sha1_traits {
+		using block_type = std::array<uint8_t, 64>;
 		using value_type = std::array<uint32_t, 160 / ( 8 * sizeof( uint32_t ) )>;
-		
+
 		static constexpr value_type default_iv = {
 			0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0,
 		};
-		static constexpr std::array<uint32_t, 4> k_const = {
-			0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6
-		};
-		
+		static constexpr std::array<uint32_t, 4> k_const = { 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 };
+
 		// Implement the compression functor mixing the data.
 		//
-		inline static constexpr void compress( value_type& iv, const uint8_t* block )
-		{
+		inline static constexpr void compress( value_type& iv, const uint8_t* block ) {
 #if XSTD_HW_SHA1
 			if ( HwAcccel && !std::is_constant_evaluated() ) {
-#if AMD64_TARGET && GNU_COMPILER
+	#if AMD64_TARGET && GNU_COMPILER
 				if ( ia32::static_cpuid_s<7, 0, ia32::cpuid_eax_07>.ebx.sha ) {
 					ia32::sha1_compress( iv.data(), block );
 					return;
 				}
-#endif
+	#endif
 			}
 #endif
-			constexpr auto f1 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return z ^ ( x & ( y ^ z ) ); };
-			constexpr auto f2 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return x ^ y ^ z; };
-			constexpr auto f3 = [ ] ( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return ( x & y ) | ( x & z ) | ( y & z ); };
+			constexpr auto f1 = []( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return z ^ ( x & ( y ^ z ) ); };
+			constexpr auto f2 = []( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return x ^ y ^ z; };
+			constexpr auto f3 = []( uint32_t x, uint32_t y, uint32_t z ) FORCE_INLINE { return ( x & y ) | ( x & z ) | ( y & z ); };
 
 			uint32_t workspace[ 80 ] = { 0 };
-			for ( size_t i = 0; i != 16; i++ )
-			{
+			for ( size_t i = 0; i != 16; i++ ) {
 				uint32_t n = 0;
-				if ( std::is_constant_evaluated() )
-				{
+				if ( std::is_constant_evaluated() ) {
 					for ( size_t j = 0; j != 4; j++ )
 						n |= uint32_t( block[ ( i * 4 ) + j ] ) << ( 24 - 8 * j );
-				}
-				else
-				{
+				} else {
 					n = bswapd( *( const uint32_t* ) &block[ ( i * 4 ) ] );
 				}
 				workspace[ i ] = n;
@@ -280,23 +267,24 @@ namespace xstd
 			for ( size_t i = 16; i != 32; i++ )
 				workspace[ i ] = rotl( workspace[ i - 3 ] ^ workspace[ i - 8 ] ^ workspace[ i - 14 ] ^ workspace[ i - 16 ], 1 );
 
-			__hint_unroll()
-			for ( size_t i = 32; i != 80; i++ )
-				workspace[ i ] = rotl( workspace[ i - 6 ] ^ workspace[ i - 16 ] ^ workspace[ i - 28 ] ^ workspace[ i - 32 ], 2 );
+			__hint_unroll() for ( size_t i = 32; i != 80; i++ ) workspace[ i ] = rotl( workspace[ i - 6 ] ^ workspace[ i - 16 ] ^ workspace[ i - 28 ] ^ workspace[ i - 32 ], 2 );
 
 			value_type ivd = iv;
-			auto mix = [ & ] <auto N> ( const_tag<N>, auto&& f ) FORCE_INLINE
-			{
-				auto& [a, b, c, d, e] = ivd;
+			auto mix       = [ & ]<auto N>( const_tag<N>, auto&& f ) FORCE_INLINE {
+				auto& [ a, b, c, d, e ] = ivd;
 
-				for ( size_t i = 0; i != 4; i++ )
-				{
+				for ( size_t i = 0; i != 4; i++ ) {
 					size_t offset = 5 * ( i + N * 4 );
-					e += rotl( a, 5 ) + f( b, c, d ) + workspace[ offset + 0 ] + k_const[ N ]; b = rotl( b, 30 );
-					d += rotl( e, 5 ) + f( a, b, c ) + workspace[ offset + 1 ] + k_const[ N ]; a = rotl( a, 30 );
-					c += rotl( d, 5 ) + f( e, a, b ) + workspace[ offset + 2 ] + k_const[ N ]; e = rotl( e, 30 );
-					b += rotl( c, 5 ) + f( d, e, a ) + workspace[ offset + 3 ] + k_const[ N ]; d = rotl( d, 30 );
-					a += rotl( b, 5 ) + f( c, d, e ) + workspace[ offset + 4 ] + k_const[ N ]; c = rotl( c, 30 );
+					e += rotl( a, 5 ) + f( b, c, d ) + workspace[ offset + 0 ] + k_const[ N ];
+					b = rotl( b, 30 );
+					d += rotl( e, 5 ) + f( a, b, c ) + workspace[ offset + 1 ] + k_const[ N ];
+					a = rotl( a, 30 );
+					c += rotl( d, 5 ) + f( e, a, b ) + workspace[ offset + 2 ] + k_const[ N ];
+					e = rotl( e, 30 );
+					b += rotl( c, 5 ) + f( d, e, a ) + workspace[ offset + 3 ] + k_const[ N ];
+					d = rotl( d, 30 );
+					a += rotl( b, 5 ) + f( c, d, e ) + workspace[ offset + 4 ] + k_const[ N ];
+					c = rotl( c, 30 );
 				}
 			};
 			mix( const_tag<0>{}, f1 );
@@ -308,14 +296,14 @@ namespace xstd
 				iv[ n ] += ivd[ n ];
 		}
 	};
-	using sha1 =   basic_sha<sha1_traits<true>>;
+	using sha1   = basic_sha<sha1_traits<true>>;
 	using sha1_t = typename sha1::value_type;
 };
 
 // String literal.
 //
 static consteval xstd::sha1_t operator""_sha1( const char* data, size_t ) {
-	auto parse_digit = [ ] ( char c ) consteval {
+	auto parse_digit = []( char c ) consteval {
 		if ( '0' <= c && c <= '9' )
 			return c - '0';
 		c |= 0x20;
@@ -334,13 +322,9 @@ static consteval xstd::sha1_t operator""_sha1( const char* data, size_t ) {
 
 // Make it std::hashable.
 //
-namespace std
-{
+namespace std {
 	template<typename T>
-	struct hash<xstd::basic_sha<T>>
-	{
-		constexpr size_t operator()( const xstd::basic_sha<T>& value ) const { 
-			return ( size_t ) value.as64(); 
-		}
+	struct hash<xstd::basic_sha<T>> {
+		constexpr size_t operator()( const xstd::basic_sha<T>& value ) const { return ( size_t ) value.as64(); }
 	};
 };

@@ -5,14 +5,12 @@
 #include "type_helpers.hpp"
 #include "assert.hpp"
 
-namespace xstd
-{
-	// Implements a generic circular buffer for arbitrary length data 
+namespace xstd {
+	// Implements a generic circular buffer for arbitrary length data
 	// that can be consumed and produced concurrently.
 	//
 	template<size_t Len = 2_mb>
-	struct circular_buffer
-	{
+	struct circular_buffer {
 		// Enforce even length.
 		//
 		static constexpr size_t N = ( Len + 1 ) & ~1;
@@ -20,31 +18,58 @@ namespace xstd
 		// Define an iterator.
 		//
 		template<bool C>
-		struct basic_iterator
-		{
+		struct basic_iterator {
 			// Generic iterator typedefs.
 			//
 			using iterator_category = std::random_access_iterator_tag;
-			using difference_type =   size_t;
-			using value_type =        uint8_t;
-			using reference =         make_const_if_t<C, uint8_t&>;
-			using pointer =           make_const_if_t<C, uint8_t*>;
+			using difference_type   = size_t;
+			using value_type        = uint8_t;
+			using reference         = make_const_if_t<C, uint8_t&>;
+			using pointer           = make_const_if_t<C, uint8_t*>;
 
 			// Buffer and the position within.
 			//
-			pointer buffer = nullptr;
+			pointer buffer  = nullptr;
 			size_t position = 0;
 
 			// Support random iteration.
 			//
-			basic_iterator& operator++() { position++; return *this; }
-			basic_iterator& operator--() { position--; return *this; }
-			basic_iterator operator++( int ) { auto s = *this; operator++(); return s; }
-			basic_iterator operator--( int ) { auto s = *this; operator--(); return s; }
-			basic_iterator& operator+=( size_t d ) { position += d; return *this; }
-			basic_iterator& operator-=( size_t d ) { position -= d; return *this; }
-			basic_iterator operator+( size_t d ) const { auto s = *this; s += d ; return s; }
-			basic_iterator operator-( size_t d ) const { auto s = *this; s -= d ; return s; }
+			basic_iterator& operator++() {
+				position++;
+				return *this;
+			}
+			basic_iterator& operator--() {
+				position--;
+				return *this;
+			}
+			basic_iterator operator++( int ) {
+				auto s = *this;
+				operator++();
+				return s;
+			}
+			basic_iterator operator--( int ) {
+				auto s = *this;
+				operator--();
+				return s;
+			}
+			basic_iterator& operator+=( size_t d ) {
+				position += d;
+				return *this;
+			}
+			basic_iterator& operator-=( size_t d ) {
+				position -= d;
+				return *this;
+			}
+			basic_iterator operator+( size_t d ) const {
+				auto s = *this;
+				s += d;
+				return s;
+			}
+			basic_iterator operator-( size_t d ) const {
+				auto s = *this;
+				s -= d;
+				return s;
+			}
 
 			// Comparison and difference against another iterator.
 			//
@@ -55,14 +80,14 @@ namespace xstd
 			bool operator>=( const basic_iterator& other ) const { return ( position % N ) >= ( other.position % N ); }
 			bool operator==( const basic_iterator& other ) const { return ( position % N ) == ( other.position % N ); }
 			bool operator!=( const basic_iterator& other ) const { return ( position % N ) != ( other.position % N ); }
-		
+
 			// Redirect dereferencing to the buffer.
 			//
 			pointer operator->() const { return &buffer[ position % N ]; }
 			reference operator*() const { return buffer[ position % N ]; }
 			operator reference() const { return buffer[ position % N ]; }
 		};
-		using iterator = basic_iterator<false>;
+		using iterator       = basic_iterator<false>;
 		using const_iterator = basic_iterator<true>;
 
 		// Storage of the raw data.
@@ -73,7 +98,7 @@ namespace xstd
 		// - Tail = Number of bytes written so far.
 		// - Dtail = Number of bytes promised to be written so far.
 		//
-		std::atomic<size_t> producer_tail = {};
+		std::atomic<size_t> producer_tail  = {};
 		std::atomic<size_t> producer_dtail = {};
 
 		// Consumer queue.
@@ -84,19 +109,17 @@ namespace xstd
 		// Reserves a number of bytes in the buffer.
 		// - If called with spin = false, will return -1 if the buffer is full.
 		//
-		size_t reserve( size_t count, bool spin = true )
-		{
+		size_t reserve( size_t count, bool spin = true ) {
 			if ( count > ( N - 1 ) )
 				return std::string::npos;
 
 			// Load the intial number of bytes produced.
 			//
 			size_t lp = producer_dtail.load( std::memory_order::relaxed );
-			while ( true )
-			{
+			while ( true ) {
 				// Load the last consumed byte, calculate the free spaces left.
 				//
-				size_t lc = consumer_head.load( std::memory_order::relaxed );
+				size_t lc   = consumer_head.load( std::memory_order::relaxed );
 				size_t free = ( lc - lp ) % N;
 
 				// If there is enough space, return the position.
@@ -106,12 +129,12 @@ namespace xstd
 						return lp;
 					continue;
 				}
-				
+
 				// If we're asked not to spin, fail.
 				//
 				if ( !spin )
 					return std::string::npos;
-				
+
 				// Yield the cpu and try again.
 				//
 				yield_cpu();
@@ -120,20 +143,15 @@ namespace xstd
 
 		// Commits a number of bytes to the previously reserved region.
 		//
-		void commit( size_t count )
-		{
-			producer_tail += count;
-		}
-		void commit( size_t pos, const void* data, size_t count )
-		{
+		void commit( size_t count ) { producer_tail += count; }
+		void commit( size_t pos, const void* data, size_t count ) {
 			write_raw( pos, data, count );
 			return commit( count );
 		}
 
 		// Peeks into the consumer queue and returns the position and the number of bytes.
 		//
-		std::pair<size_t, size_t> peek()
-		{
+		std::pair<size_t, size_t> peek() {
 			size_t lp = producer_dtail.load( std::memory_order::relaxed );
 			size_t lc = consumer_head.load( std::memory_order::relaxed );
 			while ( producer_tail.load( std::memory_order::relaxed ) < lp )
@@ -144,8 +162,7 @@ namespace xstd
 
 		// Consumes a number of bytes at a given position previously peeked.
 		//
-		void consume( size_t pos, size_t count )
-		{
+		void consume( size_t pos, size_t count ) {
 			// Update the consumer head.
 			//
 			consumer_head.store( pos - 1 + count, std::memory_order::release );
@@ -174,13 +191,12 @@ namespace xstd
 
 		// Fast read and write primitives.
 		//
-		size_t read_raw( void* dst, size_t pos, size_t count ) const
-		{
+		size_t read_raw( void* dst, size_t pos, size_t count ) const {
 			dassert( count < N );
 
 			// Normalize the iterator and calculate the ranges.
 			//
-			size_t it = pos % N;
+			size_t it       = pos % N;
 			size_t copy_end = it + count;
 
 			// Copy the data, split into two if it goes around the buffer.
@@ -191,13 +207,12 @@ namespace xstd
 				memcpy( xstd::ptr_at( dst, copy_1 - it ), &raw_data[ 0 ], copy_end -= N );
 			return copy_end;
 		}
-		size_t write_raw( size_t pos, const void* src, size_t count )
-		{
+		size_t write_raw( size_t pos, const void* src, size_t count ) {
 			dassert( count < N );
 
 			// Normalize the iterator and calculate the ranges.
 			//
-			size_t it = pos % N;
+			size_t it       = pos % N;
 			size_t copy_end = it + count;
 
 			// Copy the data, split into two if it goes around the buffer.
@@ -215,9 +230,9 @@ namespace xstd
 		// Places a number of bytes on the queue.
 		// - If called with spin = false, will return false if the buffer is full.
 		//
-		bool write( const void* data, size_t count, bool spin = true )
-		{
-			if ( !count ) return true;
+		bool write( const void* data, size_t count, bool spin = true ) {
+			if ( !count )
+				return true;
 			size_t pos = reserve( count, spin );
 			if ( pos == std::string::npos )
 				return false;
@@ -227,12 +242,13 @@ namespace xstd
 
 		// Consumes the queue with a limit on the number of bytes consumed.
 		//
-		size_t read( void* data, size_t max_length )
-		{
-			if ( !max_length ) return 0;
+		size_t read( void* data, size_t max_length ) {
+			if ( !max_length )
+				return 0;
 
-			auto [pos, length] = peek();
-			if ( !length ) return 0;
+			auto [ pos, length ] = peek();
+			if ( !length )
+				return 0;
 			length = std::min( length, max_length );
 			read_raw( data, pos, length );
 			consume( pos, length );

@@ -4,40 +4,35 @@
 #include "text.hpp"
 #include "bitwise.hpp"
 
-namespace xstd
-{
+namespace xstd {
 	// OID helper.
 	//
-	struct oid
-	{
+	struct oid {
 		// Traits.
 		//
 		static constexpr size_t max_length = 32;
-		
+
 		// Tag used when dispatching string with known length.
 		//
 		struct string_literal_t {};
 
 		// Raw data.
 		//
-		size_t length = 0;
+		size_t length                        = 0;
 		std::array<uint8_t, max_length> data = { 0 };
 
 		// Construction from a string.
 		//
-		inline constexpr oid( const char* str, size_t n, string_literal_t )
-		{
+		inline constexpr oid( const char* str, size_t n, string_literal_t ) {
 			// Until we reach the end of the string:
 			//
 			uint32_t prev = 0;
-			bool first = true;
-			for ( size_t i = 0; i < n; i++ )
-			{
+			bool first    = true;
+			for ( size_t i = 0; i < n; i++ ) {
 				// Decode an integer.
 				//
 				uint32_t value = 0;
-				while ( i != n && str[ i ] != '.' )
-				{
+				while ( i != n && str[ i ] != '.' ) {
 					value *= 10;
 					value += str[ i ] - '0';
 					i++;
@@ -45,25 +40,20 @@ namespace xstd
 
 				// Handle the special case with the first two digits.
 				//
-				if ( first )
-				{
+				if ( first ) {
 					// Validate root.
 					//
-					if ( value > 2 )
-					{
+					if ( value > 2 ) {
 						length = 0;
 						break;
 					}
-					prev = value;
+					prev  = value;
 					first = false;
 					continue;
-				}
-				else if ( !first && prev )
-				{
+				} else if ( !first && prev ) {
 					// Validate child.
 					//
-					if ( prev != 2 && value > 40 )
-					{
+					if ( prev != 2 && value > 40 ) {
 						length = 0;
 						break;
 					}
@@ -73,8 +63,7 @@ namespace xstd
 
 				// Append the value, construct null on failure.
 				//
-				if ( !push_back( value ) )
-				{
+				if ( !push_back( value ) ) {
 					length = 0;
 					break;
 				}
@@ -84,11 +73,9 @@ namespace xstd
 
 		// Constructon from bytes.
 		//
-		inline constexpr oid( const uint8_t* data, size_t length ) : length( length )
-		{
+		inline constexpr oid( const uint8_t* data, size_t length ) : length( length ) {
 			std::copy_n( data, std::min( length, max_length ), this->data.begin() );
-			if ( length > max_length )
-			{
+			if ( length > max_length ) {
 				length = max_length;
 				while ( length && ( this->data[ length - 1 ] & 0x80 ) )
 					length--;
@@ -98,16 +85,15 @@ namespace xstd
 
 		// Default construction / copy.
 		//
-		inline constexpr oid() = default;
-		inline constexpr oid(oid&&) noexcept = default;
-		inline constexpr oid(const oid&) = default;
-		inline constexpr oid& operator=(oid&&) noexcept = default;
-		inline constexpr oid& operator=(const oid&) = default;
+		inline constexpr oid()                            = default;
+		inline constexpr oid( oid&& ) noexcept            = default;
+		inline constexpr oid( const oid& )                = default;
+		inline constexpr oid& operator=( oid&& ) noexcept = default;
+		inline constexpr oid& operator=( const oid& )     = default;
 
 		// Appends a digit.
 		//
-		inline constexpr bool push_back( uint32_t value )
-		{
+		inline constexpr bool push_back( uint32_t value ) {
 			// Determine the required length.
 			//
 			uint8_t required_length = 0;
@@ -121,16 +107,14 @@ namespace xstd
 
 			// Encode in a single byte if possible.
 			//
-			if ( required_length == 1 )
-			{
+			if ( required_length == 1 ) {
 				data[ length++ ] = ( uint8_t ) value;
 				return true;
 			}
 
 			// Encode all digits.
 			//
-			for ( auto j = 0; j != required_length; j++ )
-			{
+			for ( auto j = 0; j != required_length; j++ ) {
 				uint8_t enc = ( j + 1 ) == required_length ? 0 : 1 << 7;
 				enc |= ( value >> ( ( required_length - j - 1 ) * 7 ) ) & fill_bits( 7 );
 				data[ length++ ] = enc;
@@ -140,18 +124,15 @@ namespace xstd
 
 		// Formatting.
 		//
-		std::string to_string() const
-		{
+		std::string to_string() const {
 			std::string result = {};
-			auto str_end = data.begin() + length;
-			for( auto it = data.begin(); it != str_end; )
-			{
+			auto str_end       = data.begin() + length;
+			for ( auto it = data.begin(); it != str_end; ) {
 				// Find the ending.
 				//
 				auto end = it + 1;
-				if ( *it & 0x80 )
-				{
-					end = std::find_if( it, str_end, [ ] ( auto& val ) { return !( val & 0x80 ); } );
+				if ( *it & 0x80 ) {
+					end = std::find_if( it, str_end, []( auto& val ) { return !( val & 0x80 ); } );
 					if ( end != str_end )
 						++end;
 				}
@@ -159,23 +140,21 @@ namespace xstd
 				// Decode the integer.
 				//
 				uint32_t value = 0;
-				size_t length = end - it;
+				size_t length  = end - it;
 				for ( size_t n = 0; n != length; n++ )
 					value |= ( it[ n ] & fill_bits( 7 ) ) << ( ( length - n - 1 ) * 7 );
 
 				// Handle the special case with the first two digits.
 				//
-				if ( it == data.begin() )
-				{
+				if ( it == data.begin() ) {
 					uint32_t root = value / 40;
-					if ( root >= 2 ) root = 2;
+					if ( root >= 2 )
+						root = 2;
 					result += std::to_string( root );
 					result += '.';
 					result += std::to_string( value - ( root * 40 ) );
 					result += '.';
-				}
-				else
-				{
+				} else {
 					result += std::to_string( value );
 					result += '.';
 				}
@@ -191,8 +170,7 @@ namespace xstd
 
 		// Prefix checks.
 		//
-		inline constexpr bool starts_with( const oid& other )
-		{
+		inline constexpr bool starts_with( const oid& other ) {
 			if ( other.size() < size() )
 				return false;
 			for ( size_t n = 0; n != size(); n++ )
@@ -203,12 +181,12 @@ namespace xstd
 
 		// Comparison operators.
 		//
-		inline constexpr bool operator<( const oid& o ) const
-		{
-			if ( length < o.length )      return true;
-			else if ( length > o.length ) return false;
-			for ( size_t n = 0; n != length; n++ )
-			{
+		inline constexpr bool operator<( const oid& o ) const {
+			if ( length < o.length )
+				return true;
+			else if ( length > o.length )
+				return false;
+			for ( size_t n = 0; n != length; n++ ) {
 				if ( data[ n ] < o.data[ n ] )
 					return true;
 				if ( data[ n ] > o.data[ n ] )
@@ -228,28 +206,21 @@ namespace xstd
 };
 
 // OID literals.
-// 
-#if !GNU_COMPILER || defined(__INTELLISENSE__)
-	inline constexpr xstd::oid operator ""_oid( const char* str, size_t n ) 
-	{ 
-		return { str, n, xstd::oid::string_literal_t{} }; 
-	}
+//
+#if !GNU_COMPILER || defined( __INTELLISENSE__ )
+inline constexpr xstd::oid operator""_oid( const char* str, size_t n ) { return { str, n, xstd::oid::string_literal_t{} }; }
 #else
-	namespace xstd::impl
-	{
-		template<char... chars>
-		struct const_oid
-		{
-			inline static constexpr oid value = [ ] ()
-			{
-				constexpr char str[] = { chars... };
-				return oid{ str, sizeof...( chars ), xstd::oid::string_literal_t{} };
-			}();
-		};
+namespace xstd::impl {
+	template<char... chars>
+	struct const_oid {
+		inline static constexpr oid value = []() {
+			constexpr char str[] = { chars... };
+			return oid{ str, sizeof...( chars ), xstd::oid::string_literal_t{} };
+		}();
 	};
-	template<typename T, T... chars> 
-	constexpr const xstd::oid& operator""_oid() 
-	{ 
-		return xstd::impl::const_oid<( ( char ) chars )...>::value; 
-	}
+};
+template<typename T, T... chars>
+constexpr const xstd::oid& operator""_oid() {
+	return xstd::impl::const_oid<( ( char ) chars )...>::value;
+}
 #endif
