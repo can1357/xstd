@@ -422,11 +422,11 @@ namespace xstd {
 	#else
 		#if __has_ia32_vector_builtin( __builtin_ia32_ptestz128 )
 				if constexpr ( ByteLength == 16 )
-					return ( bool ) __builtin_ia32_ptestz128( vec_bytes._nat, vec_bytes._nat );
+					return ( bool ) __builtin_ia32_ptestz128( ( native_vector<long long, 2> ) vec_bytes._nat, ( native_vector<long long, 2> ) vec_bytes._nat );
 		#endif
 		#if __has_ia32_vector_builtin( __builtin_ia32_ptestz256 )
 				if constexpr ( ByteLength == 32 )
-					return ( bool ) __builtin_ia32_ptestz256( vec_bytes._nat, vec_bytes._nat );
+					return ( bool ) __builtin_ia32_ptestz256( ( native_vector<long long, 4> ) vec_bytes._nat, ( native_vector<long long, 4> ) vec_bytes._nat );
 		#endif
 	#endif
 #endif
@@ -455,55 +455,55 @@ namespace xstd {
 
 		// Creates a mask made up of the most significant bit of each byte.
 		//
-		FORCE_INLINE constexpr uint32_t bmask() const noexcept requires ( ByteLength <= 32 )
+		// - Split up calculation for > u32.
+		FORCE_INLINE constexpr auto bmask() const noexcept requires ( ByteLength <= 64 )
 		{
-			auto byte_vec = bytes();
+			if constexpr ( 32 < ByteLength ) {
+				auto byte_vec = bytes();
+				uint32_t low  = byte_vec.template slice<0, 32>().bmask();
+				uint32_t high = byte_vec.template slice<32, 32>().bmask();
+				return low | ( uint64_t( high ) << 32 );
+			} else {
+				auto byte_vec = bytes();
 
-			// Fix odd sizes.
-			//
-			if constexpr ( ByteLength != std::bit_ceil( ByteLength ) )
-				return byte_vec.template resize<std::bit_ceil( ByteLength )>().bmask();
+				// Fix odd sizes.
+				//
+				if constexpr ( ByteLength != std::bit_ceil( ByteLength ) )
+					return byte_vec.template resize<std::bit_ceil( ByteLength )>().bmask();
 
-			// Handle hardware accelerated sizes.
-			//
-			if ( !std::is_constant_evaluated() ) {
+				// Handle hardware accelerated sizes.
+				//
+				if ( !std::is_constant_evaluated() ) {
 #if AMD64_TARGET
 	#if MS_COMPILER
-				if constexpr ( ByteLength == 16 )
-					return ( uint32_t ) _mm_movemask_epi8( bit_cast<__m128i>( byte_vec._nat ) );
-				else if constexpr ( ByteLength == 32 )
-					return ( uint32_t ) _mm256_movemask_epi8( bit_cast<__m256i>( byte_vec._nat ) );
+					if constexpr ( ByteLength == 16 )
+						return ( uint32_t ) _mm_movemask_epi8( bit_cast<__m128i>( byte_vec._nat ) );
+					else if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) _mm256_movemask_epi8( bit_cast<__m256i>( byte_vec._nat ) );
 	#else
 		#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb128 )
-				if constexpr ( ByteLength == 16 )
-					return ( uint32_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
+					if constexpr ( ByteLength == 16 )
+						return ( uint32_t ) __builtin_ia32_pmovmskb128( byte_vec._nat );
 		#endif
 		#if __has_ia32_vector_builtin( __builtin_ia32_pmovmskb256 )
-				if constexpr ( ByteLength == 32 )
-					return ( uint32_t ) __builtin_ia32_pmovmskb256( byte_vec._nat );
+					if constexpr ( ByteLength == 32 )
+						return ( uint32_t ) __builtin_ia32_pmovmskb256( byte_vec._nat );
 		#endif
 	#endif
 #endif
-				// Handle shrinked sizes.
-				//
-				if constexpr ( ByteLength != 1 && ByteLength <= 8 )
-					return byte_vec.template resize<16>().bmask();
-			}
+					// Handle shrinked sizes.
+					//
+					if constexpr ( ByteLength != 1 && ByteLength <= 8 )
+						return byte_vec.template resize<16>().bmask();
+				}
 
-			// Handle constexpr.
-			//
-			uint32_t result = 0;
-			for ( size_t i = 0; i != ByteLength; i++ )
-				result |= ( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
-			return result;
-		}
-		// - Split up calculation for > u32.
-		FORCE_INLINE constexpr uint64_t bmask() const noexcept requires ( 32 < ByteLength && ByteLength <= 64 )
-		{
-			auto byte_vec = bytes();
-			uint32_t low  = byte_vec.template slice<0, 32>().bmask();
-			uint32_t high = byte_vec.template slice<32, 32>().bmask();
-			return low | ( uint64_t( high ) << 32 );
+				// Handle constexpr.
+				//
+				uint32_t result = 0;
+				for ( size_t i = 0; i != ByteLength; i++ )
+					result |= ( ( byte_vec.at( i ) >> 7 ) & 1 ) << i;
+				return result;
+			}
 		}
 
 		// Creates a mask made up of the most significant bit of each element(!).
