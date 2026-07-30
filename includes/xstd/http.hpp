@@ -1074,8 +1074,8 @@ namespace xstd::http {
 
 		// Agent and optional explicit socket.
 		//
-		std::shared_ptr<agent> agent = agent::global();
-		stream_view socket           = nullptr;
+		std::shared_ptr<struct agent> agent = http::agent::global();
+		stream_view socket                  = nullptr;
 
 		// Redirection handling.
 		// - Once the limit is exhaused, response code is returned as is.

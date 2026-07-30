@@ -34,4 +34,9 @@ if(XSTD_BUILD_CHECKS)
 
   add_executable(xstd_include_all ${CMAKE_CURRENT_BINARY_DIR}/include_all.cpp)
   target_link_libraries(xstd_include_all PRIVATE xstd::xstd)
+
+  # xstd assumes BMI2 / SSE4.2 / CX16 on AMD64; match upstream's -march baseline.
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(xstd_include_all PRIVATE -march=haswell)
+  endif()
 endif()
