@@ -5,12 +5,60 @@
 // XSTD_HW_SHA256: Determines the availability of hardware SHA256.
 //
 #ifndef XSTD_HW_SHA256
-	#define XSTD_HW_SHA256 ( AMD64_TARGET && GNU_COMPILER )
+	#define XSTD_HW_SHA256 ( ( AMD64_TARGET && GNU_COMPILER ) || XSTD_ARM_SHA2 )
 #endif
 
 #if XSTD_HW_SHA256 && AMD64_TARGET && GNU_COMPILER
 	#include <ia32.hpp>
 #endif
+
+namespace xstd::impl {
+#if XSTD_HW_SHA256 && XSTD_ARM_SHA2
+	// Compresses one 64-byte block into the eight SHA-256 words.
+	//
+	// sha256h and sha256h2 each produce half of the state for four rounds, and
+	// sha256su0/su1 build the schedule four words ahead. The first twelve groups
+	// extend the schedule; the last four only mix, the schedule being complete.
+	//
+	// `k` is the round constant table in its natural, unnegated form.
+	//
+	FORCE_INLINE inline void arm_sha256_compress( uint32_t* state, const uint8_t* block, const uint32_t* k ) {
+		uint32x4_t state0 = vld1q_u32( state );
+		uint32x4_t state1 = vld1q_u32( state + 4 );
+
+		const uint32x4_t state0_saved = state0;
+		const uint32x4_t state1_saved = state1;
+
+		uint32x4_t msg[ 4 ] = {
+			vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 0 ) ) ),
+			vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 16 ) ) ),
+			vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 32 ) ) ),
+			vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 48 ) ) ),
+		};
+
+		uint32x4_t sum = vaddq_u32( msg[ 0 ], vld1q_u32( k ) );
+		__hint_unroll() for ( size_t i = 0; i != 16; i++ ) {
+			// The next group's constants are folded in before this group runs,
+			// which is what keeps the two hash pipelines fed back to back.
+			//
+			uint32x4_t next = i != 15 ? vaddq_u32( msg[ ( i + 1 ) & 3 ], vld1q_u32( k + 4 * ( i + 1 ) ) ) : sum;
+			if ( i < 12 )
+				msg[ i & 3 ] = vsha256su0q_u32( msg[ i & 3 ], msg[ ( i + 1 ) & 3 ] );
+
+			uint32x4_t held = state0;
+			state0          = vsha256hq_u32( state0, state1, sum );
+			state1          = vsha256h2q_u32( state1, held, sum );
+
+			if ( i < 12 )
+				msg[ i & 3 ] = vsha256su1q_u32( msg[ i & 3 ], msg[ ( i + 2 ) & 3 ], msg[ ( i + 3 ) & 3 ] );
+			sum = next;
+		}
+
+		vst1q_u32( state, vaddq_u32( state0_saved, state0 ) );
+		vst1q_u32( state + 4, vaddq_u32( state1_saved, state1 ) );
+	}
+#endif
+};
 
 namespace xstd {
 	// Define SHA-256.
@@ -30,6 +78,16 @@ namespace xstd {
 			0xe65b3eea, 0xe1c893f8, 0xd8b788b4, 0xcb4f434b, 0xc6e3f34d, 0xb12755b6, 0xa46335b1, 0x97d1900d, 0x8b707d12, 0x875a9c91, 0x7b3787ec, 0x7338fdf8, 0x6f410006, 0x5baf9315, 0x41065c09, 0x398e870e,
 		};
 
+		// The table above is stored negated because the portable round subtracts
+		// it. The instructions add, so they need it the way the standard writes it.
+		//
+		static constexpr std::array<uint32_t, 64> k_natural = [] {
+			std::array<uint32_t, 64> out = {};
+			for ( size_t i = 0; i != out.size(); i++ )
+				out[ i ] = uint32_t( 0 ) - k_const[ i ];
+			return out;
+		}();
+
 		// Implement the compression functor mixing the data.
 		//
 		inline static constexpr void compress( value_type& iv, const uint8_t* block ) {
@@ -40,6 +98,9 @@ namespace xstd {
 					ia32::sha256_compress( iv.data(), block, k_const.data() );
 					return;
 				}
+	#elif XSTD_ARM_SHA2
+				impl::arm_sha256_compress( iv.data(), block, k_natural.data() );
+				return;
 	#endif
 			}
 #endif

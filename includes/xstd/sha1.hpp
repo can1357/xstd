@@ -8,11 +8,23 @@
 #include "type_helpers.hpp"
 #include "hexdump.hpp"
 
+// Armv8 folds SHA-1 and SHA-256 into one feature. Older ACLE spells it CRYPTO,
+// newer spells it SHA2; both mean the same instructions are present, and unlike
+// x86 they are known at compile time, so neither needs a runtime probe.
+//
+#ifndef XSTD_ARM_SHA2
+	#if ARM64_TARGET && ( defined( __ARM_FEATURE_SHA2 ) || defined( __ARM_FEATURE_CRYPTO ) )
+		#define XSTD_ARM_SHA2 1
+	#else
+		#define XSTD_ARM_SHA2 0
+	#endif
+#endif
+
 // [[Configuration]]
 // XSTD_HW_SHA1: Determines the availability of hardware SHA1.
 //
 #ifndef XSTD_HW_SHA1
-	#define XSTD_HW_SHA1 ( AMD64_TARGET && GNU_COMPILER )
+	#define XSTD_HW_SHA1 ( ( AMD64_TARGET && GNU_COMPILER ) || XSTD_ARM_SHA2 )
 #endif
 
 // Intel implementation.
@@ -20,6 +32,163 @@
 #if XSTD_HW_SHA1 && AMD64_TARGET && GNU_COMPILER
 	#include <ia32.hpp>
 #endif
+#if XSTD_ARM_SHA2
+	#include <arm_neon.h>
+#endif
+
+namespace xstd::impl {
+#if XSTD_HW_SHA1 && XSTD_ARM_SHA2
+	// Compresses one 64-byte block into the five SHA-1 words.
+	//
+	// The instructions consume four rounds at a time: sha1h rotates the working
+	// `a` into the next `e`, sha1c/p/m apply the round function for the quarter
+	// it is named after, and sha1su0/su1 extend the message schedule two steps
+	// ahead of where it is consumed.
+	//
+	FORCE_INLINE inline void arm_sha1_compress( uint32_t* state, const uint8_t* block ) {
+		uint32x4_t abcd = vld1q_u32( state );
+		uint32_t e0     = state[ 4 ];
+
+		const uint32x4_t abcd_saved = abcd;
+		const uint32_t e0_saved     = e0;
+
+		uint32x4_t msg0 = vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 0 ) ) );
+		uint32x4_t msg1 = vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 16 ) ) );
+		uint32x4_t msg2 = vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 32 ) ) );
+		uint32x4_t msg3 = vreinterpretq_u32_u8( vrev32q_u8( vld1q_u8( block + 48 ) ) );
+
+		const uint32x4_t k0 = vdupq_n_u32( 0x5a827999 );
+		const uint32x4_t k1 = vdupq_n_u32( 0x6ed9eba1 );
+		const uint32x4_t k2 = vdupq_n_u32( 0x8f1bbcdc );
+		const uint32x4_t k3 = vdupq_n_u32( 0xca62c1d6 );
+
+		uint32x4_t tmp0 = vaddq_u32( msg0, k0 );
+		uint32x4_t tmp1 = vaddq_u32( msg1, k0 );
+		uint32_t e1;
+
+		// Rounds 0-19, choice.
+		//
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1cq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg2, k0 );
+		msg0 = vsha1su0q_u32( msg0, msg1, msg2 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1cq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg3, k0 );
+		msg0 = vsha1su1q_u32( msg0, msg3 );
+		msg1 = vsha1su0q_u32( msg1, msg2, msg3 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1cq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg0, k0 );
+		msg1 = vsha1su1q_u32( msg1, msg0 );
+		msg2 = vsha1su0q_u32( msg2, msg3, msg0 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1cq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg1, k1 );
+		msg2 = vsha1su1q_u32( msg2, msg1 );
+		msg3 = vsha1su0q_u32( msg3, msg0, msg1 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1cq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg2, k1 );
+		msg3 = vsha1su1q_u32( msg3, msg2 );
+		msg0 = vsha1su0q_u32( msg0, msg1, msg2 );
+
+		// Rounds 20-39, parity.
+		//
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg3, k1 );
+		msg0 = vsha1su1q_u32( msg0, msg3 );
+		msg1 = vsha1su0q_u32( msg1, msg2, msg3 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg0, k1 );
+		msg1 = vsha1su1q_u32( msg1, msg0 );
+		msg2 = vsha1su0q_u32( msg2, msg3, msg0 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg1, k1 );
+		msg2 = vsha1su1q_u32( msg2, msg1 );
+		msg3 = vsha1su0q_u32( msg3, msg0, msg1 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg2, k2 );
+		msg3 = vsha1su1q_u32( msg3, msg2 );
+		msg0 = vsha1su0q_u32( msg0, msg1, msg2 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg3, k2 );
+		msg0 = vsha1su1q_u32( msg0, msg3 );
+		msg1 = vsha1su0q_u32( msg1, msg2, msg3 );
+
+		// Rounds 40-59, majority.
+		//
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1mq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg0, k2 );
+		msg1 = vsha1su1q_u32( msg1, msg0 );
+		msg2 = vsha1su0q_u32( msg2, msg3, msg0 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1mq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg1, k2 );
+		msg2 = vsha1su1q_u32( msg2, msg1 );
+		msg3 = vsha1su0q_u32( msg3, msg0, msg1 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1mq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg2, k2 );
+		msg3 = vsha1su1q_u32( msg3, msg2 );
+		msg0 = vsha1su0q_u32( msg0, msg1, msg2 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1mq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg3, k3 );
+		msg0 = vsha1su1q_u32( msg0, msg3 );
+		msg1 = vsha1su0q_u32( msg1, msg2, msg3 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1mq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg0, k3 );
+		msg1 = vsha1su1q_u32( msg1, msg0 );
+		msg2 = vsha1su0q_u32( msg2, msg3, msg0 );
+
+		// Rounds 60-79, parity again.
+		//
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg1, k3 );
+		msg2 = vsha1su1q_u32( msg2, msg1 );
+		msg3 = vsha1su0q_u32( msg3, msg0, msg1 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e0, tmp0 );
+		tmp0 = vaddq_u32( msg2, k3 );
+		msg3 = vsha1su1q_u32( msg3, msg2 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e1, tmp1 );
+		tmp1 = vaddq_u32( msg3, k3 );
+
+		e1   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e0, tmp0 );
+
+		e0   = vsha1h_u32( vgetq_lane_u32( abcd, 0 ) );
+		abcd = vsha1pq_u32( abcd, e1, tmp1 );
+
+		vst1q_u32( state, vaddq_u32( abcd_saved, abcd ) );
+		state[ 4 ] = e0 + e0_saved;
+	}
+#endif
+};
 
 namespace xstd {
 	// Common SHA implementation.
@@ -154,7 +323,14 @@ namespace xstd {
 
 			// If padding does not fit in the current block, compress first.
 			//
-			if ( leftover_offset > ( leftover.size() - 8 ) ) {
+			// The length field is an eighth of the block: 64 bits for the hashes
+			// on a 64-byte block, 128 for SHA-512's 128-byte one. Reserving a
+			// flat eight bytes would let a message ending 112 to 119 bytes into
+			// a SHA-512 block keep its length in that same block, where the
+			// standard says it no longer fits.
+			//
+			constexpr size_t length_field = block_size / 8;
+			if ( leftover_offset > ( leftover.size() - length_field ) ) {
 				next_block();
 			}
 
@@ -246,6 +422,9 @@ namespace xstd {
 					ia32::sha1_compress( iv.data(), block );
 					return;
 				}
+	#elif XSTD_ARM_SHA2
+				impl::arm_sha1_compress( iv.data(), block );
+				return;
 	#endif
 			}
 #endif

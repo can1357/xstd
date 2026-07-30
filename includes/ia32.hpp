@@ -27007,7 +27007,7 @@ namespace ia32
 	_LINKAGE CONST_FN constexpr uint32_t crc32ci( T value, uint32_t crc = ~0 )
 	{
 		if ( !std::is_constant_evaluated() )
-			return xstd::impl::hw_crc32ci( value, crc );
+			return xstd::impl::hw_crc32i<true>( value, crc );
 
 		xstd::crc32c h{ ~crc };
 		h.add_bytes( value );
@@ -27015,7 +27015,7 @@ namespace ia32
 	}
 	_LINKAGE PURE_FN uint32_t crc32ci( const volatile void* _ptr, size_t length, uint32_t crc = ~0 )
 	{
-		return xstd::impl::hw_crc32ci( ( const uint8_t* ) _ptr, length, crc );
+		return xstd::impl::hw_crc32i<true>( ( const uint8_t* ) _ptr, length, crc );
 	}
 	template<xstd::Integral T>
 	_LINKAGE PURE_FN constexpr uint32_t crc32c( const T& value, uint32_t crc = 0 )

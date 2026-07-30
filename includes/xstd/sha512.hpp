@@ -1,6 +1,92 @@
 #pragma once
 #include "sha1.hpp"
 
+// Armv8.2 adds SHA-512 as a feature of its own, separate from the SHA-1/SHA-256
+// pair, so a machine can have those and still lack these.
+//
+#ifndef XSTD_ARM_SHA512
+	#if ARM64_TARGET && defined( __ARM_FEATURE_SHA512 )
+		#define XSTD_ARM_SHA512 1
+	#else
+		#define XSTD_ARM_SHA512 0
+	#endif
+#endif
+
+// [[Configuration]]
+// XSTD_HW_SHA512: Determines the availability of hardware SHA512.
+//
+#ifndef XSTD_HW_SHA512
+	#define XSTD_HW_SHA512 XSTD_ARM_SHA512
+#endif
+
+#if XSTD_ARM_SHA512
+	#include <arm_neon.h>
+#endif
+
+namespace xstd::impl {
+#if XSTD_HW_SHA512 && XSTD_ARM_SHA512
+	// Two message-schedule words, sigma_0 then sigma_1.
+	//
+	// The instructions want their inputs split across three registers, one of
+	// which straddles the 128-bit pairs the schedule is kept in, hence the vext.
+	//
+	FORCE_INLINE inline uint64x2_t arm_sha512_schedule( uint64x2_t w8, uint64x2_t w7, uint64x2_t w4, uint64x2_t w3, uint64x2_t w1 ) {
+		return vsha512su1q_u64( vsha512su0q_u64( w8, w7 ), w1, vextq_u64( w4, w3, 1 ) );
+	}
+
+	// Two rounds of SHA-512.
+	//
+	// sha512h covers Sigma_1 and Ch, sha512h2 the Sigma_0 and Maj half; between
+	// them they replace `gh` and give the addend for `cd`. The state pairs the
+	// instructions read are offset by one word from the pairs it is stored in,
+	// so `de` and `fg` are assembled per call, and the constant sum is swapped
+	// end for end because the schedule produces its two words the other way up.
+	//
+	FORCE_INLINE inline void arm_sha512_round2( const uint64_t* k, size_t index, uint64x2_t words, uint64x2_t& ab, uint64x2_t& cd, uint64x2_t& ef, uint64x2_t& gh ) {
+		uint64x2_t initial_sum = vaddq_u64( words, vld1q_u64( k + index ) );
+		uint64x2_t sum         = vaddq_u64( vextq_u64( initial_sum, initial_sum, 1 ), gh );
+		uint64x2_t de          = vextq_u64( cd, ef, 1 );
+		uint64x2_t fg          = vextq_u64( ef, gh, 1 );
+		uint64x2_t intermed    = vsha512hq_u64( sum, fg, de );
+
+		gh = vsha512h2q_u64( intermed, cd, ab );
+		cd = vaddq_u64( cd, intermed );
+	}
+
+	// Compresses one 128-byte block into the eight SHA-512 words.
+	//
+	// `k` is the round constant table in its natural, unnegated form.
+	//
+	FORCE_INLINE inline void arm_sha512_compress( uint64_t* state, const uint8_t* block, const uint64_t* k ) {
+		uint64x2_t held[ 4 ] = { vld1q_u64( state ), vld1q_u64( state + 2 ), vld1q_u64( state + 4 ), vld1q_u64( state + 6 ) };
+		uint64x2_t live[ 4 ] = { held[ 0 ], held[ 1 ], held[ 2 ], held[ 3 ] };
+		uint64x2_t words[ 8 ];
+
+		// Each pass consumes two rounds and rotates which pair plays which role,
+		// so the state moves by relabelling rather than by copying.
+		//
+		__hint_unroll() for ( size_t pass = 0; pass != 40; pass++ ) {
+			if ( pass < 8 )
+				words[ pass ] = vreinterpretq_u64_u8( vrev64q_u8( vld1q_u8( block + 16 * pass ) ) );
+			else
+				words[ pass & 7 ] = arm_sha512_schedule( words[ pass & 7 ], words[ ( pass + 1 ) & 7 ], words[ ( pass + 4 ) & 7 ], words[ ( pass + 5 ) & 7 ], words[ ( pass + 7 ) & 7 ] );
+
+			arm_sha512_round2(
+				k,
+				2 * pass,
+				words[ pass & 7 ],
+				live[ ( 0 - pass ) & 3 ],
+				live[ ( 1 - pass ) & 3 ],
+				live[ ( 2 - pass ) & 3 ],
+				live[ ( 3 - pass ) & 3 ] );
+		}
+
+		for ( size_t n = 0; n != 4; n++ )
+			vst1q_u64( state + 2 * n, vaddq_u64( held[ n ], live[ n ] ) );
+	}
+#endif
+};
+
 namespace xstd {
 	// Define SHA-512.
 	//
@@ -22,9 +108,25 @@ namespace xstd {
 			0x6f410005dc9ce1d8, 0x5baf9314217d4217, 0x41065c084d3986eb, 0x398e870d1c8dacd5, 0x35d8c13115d99e64, 0x2e794738de3f3df9, 0x15258229321f14e2, 0xa82b08011912e88,  0xf90f98558de89046, 0xf59c823a5d37675a,
 			0xeec067fb4106f252, 0xe48ef4caece3b8e5, 0xd724880adcfb827c, 0xcd355484bf38db6d, 0xc36141f5ea364144, 0xbce2983b63eff2b4, 0xb33a2b4134c1bd4a, 0xa680d663039a81d6, 0xa0349054c5290514, 0x93bbe673b5b8a7e9 };
 
+		// Stored negated for the portable round, which subtracts; the
+		// instructions add, so they take it as the standard writes it.
+		//
+		static constexpr std::array<uint64_t, 80> k_natural = [] {
+			std::array<uint64_t, 80> out = {};
+			for ( size_t i = 0; i != out.size(); i++ )
+				out[ i ] = uint64_t( 0 ) - k_const[ i ];
+			return out;
+		}();
+
 		// Implement the compression functor mixing the data.
 		//
 		inline static constexpr void compress( value_type& iv, const uint8_t* block ) {
+#if XSTD_HW_SHA512
+			if ( HwAcccel && !std::is_constant_evaluated() ) {
+				impl::arm_sha512_compress( iv.data(), block, k_natural.data() );
+				return;
+			}
+#endif
 			constexpr auto e0  = []( uint64_t v ) FORCE_INLINE { return rotr( v, 28 ) ^ rotr( v, 34 ) ^ rotr( v, 39 ); };
 			constexpr auto e1  = []( uint64_t v ) FORCE_INLINE { return rotr( v, 14 ) ^ rotr( v, 18 ) ^ rotr( v, 41 ); };
 			constexpr auto s0  = []( uint64_t v ) FORCE_INLINE { return rotr( v, 1 ) ^ rotr( v, 8 ) ^ ( v >> 7 ); };

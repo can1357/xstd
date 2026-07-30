@@ -39,4 +39,14 @@ if(XSTD_BUILD_CHECKS)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     target_compile_options(xstd_include_all PRIVATE -march=haswell)
   endif()
+
+  # The hash paths are the one place where a second implementation of the same
+  # algorithm exists, so they get a differential test rather than just a vector.
+  enable_testing()
+  add_executable(xstd_hash_test tests/hash_test.cpp)
+  target_link_libraries(xstd_hash_test PRIVATE xstd::xstd)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU" AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(xstd_hash_test PRIVATE -march=haswell)
+  endif()
+  add_test(NAME hash COMMAND xstd_hash_test)
 endif()

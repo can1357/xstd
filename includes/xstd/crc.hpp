@@ -8,11 +8,33 @@
 #include "bitwise.hpp"
 #include "hexdump.hpp"
 
+// CRC is optional in Armv8.0 and only becomes mandatory in Armv8.1, so unlike
+// SSE4.2 on AMD64 its presence has to be established rather than assumed. A
+// bare aarch64 target without it must stay on the tables.
+//
+#ifndef XSTD_ARM_CRC32
+	#if ARM64_TARGET && defined( __ARM_FEATURE_CRC32 ) && ( GNU_COMPILER || MS_COMPILER )
+		#define XSTD_ARM_CRC32 1
+	#else
+		#define XSTD_ARM_CRC32 0
+	#endif
+#endif
+
 // [[Configuration]]
 // XSTD_HW_CRC32C: Determines the availability of hardware CRC32C.
 //
 #ifndef XSTD_HW_CRC32C
-	#define XSTD_HW_CRC32C ( ( AMD64_TARGET || ARM64_TARGET ) && ( GNU_COMPILER || MS_COMPILER ) )
+	#define XSTD_HW_CRC32C ( ( AMD64_TARGET && ( GNU_COMPILER || MS_COMPILER ) ) || XSTD_ARM_CRC32 )
+#endif
+
+// [[Configuration]]
+// XSTD_HW_CRC32: Determines the availability of hardware CRC32.
+//
+// Arm carries instructions for the Ethernet polynomial next to the Castagnoli
+// ones; SSE4.2 only ever implemented the latter, so this is Arm only.
+//
+#ifndef XSTD_HW_CRC32
+	#define XSTD_HW_CRC32 XSTD_ARM_CRC32
 #endif
 
 #if ARM64_TARGET
@@ -20,19 +42,41 @@
 #endif
 
 namespace xstd::impl {
-#if XSTD_HW_CRC32C
-	template<xstd::Integral T>
-	FORCE_INLINE CONST_FN static uint32_t hw_crc32ci( T value, uint32_t crc ) {
+#if XSTD_HW_CRC32C || XSTD_HW_CRC32
+	// One step of a reflected CRC-32 in hardware.
+	//
+	// `Castagnoli` picks the polynomial: 0x82F63B78 on the crc32c instructions,
+	// 0xEDB88320 on the plain ones. Only Arm has the latter.
+	//
+	template<bool Castagnoli, xstd::Integral T>
+	FORCE_INLINE CONST_FN static uint32_t hw_crc32i( T value, uint32_t crc ) {
 	#if ARM64_TARGET
-		if constexpr ( sizeof( T ) == 8 )
-			return ( uint32_t ) __crc32cd( crc, ( uint64_t ) value );
-		else if constexpr ( sizeof( T ) == 4 )
-			return ( uint32_t ) __crc32cw( crc, ( uint32_t ) value );
-		else if constexpr ( sizeof( T ) == 2 )
-			return ( uint32_t ) __crc32ch( crc, ( uint16_t ) value );
-		else if constexpr ( sizeof( T ) == 1 )
-			return ( uint32_t ) __crc32cb( crc, ( uint8_t ) value );
-	#elif MS_COMPILER
+		if constexpr ( Castagnoli ) {
+			if constexpr ( sizeof( T ) == 8 )
+				return ( uint32_t ) __crc32cd( crc, ( uint64_t ) value );
+			else if constexpr ( sizeof( T ) == 4 )
+				return ( uint32_t ) __crc32cw( crc, ( uint32_t ) value );
+			else if constexpr ( sizeof( T ) == 2 )
+				return ( uint32_t ) __crc32ch( crc, ( uint16_t ) value );
+			else if constexpr ( sizeof( T ) == 1 )
+				return ( uint32_t ) __crc32cb( crc, ( uint8_t ) value );
+			else
+				static_assert( sizeof( T ) == 0, "Invalid integral size." );
+		} else {
+			if constexpr ( sizeof( T ) == 8 )
+				return ( uint32_t ) __crc32d( crc, ( uint64_t ) value );
+			else if constexpr ( sizeof( T ) == 4 )
+				return ( uint32_t ) __crc32w( crc, ( uint32_t ) value );
+			else if constexpr ( sizeof( T ) == 2 )
+				return ( uint32_t ) __crc32h( crc, ( uint16_t ) value );
+			else if constexpr ( sizeof( T ) == 1 )
+				return ( uint32_t ) __crc32b( crc, ( uint8_t ) value );
+			else
+				static_assert( sizeof( T ) == 0, "Invalid integral size." );
+		}
+	#else
+		static_assert( Castagnoli, "x86 implements only the Castagnoli polynomial." );
+		#if MS_COMPILER
 		if constexpr ( sizeof( T ) == 8 )
 			return ( uint32_t ) _mm_crc32_u64( crc, ( uint64_t ) value );
 		else if constexpr ( sizeof( T ) == 4 )
@@ -41,7 +85,7 @@ namespace xstd::impl {
 			return ( uint32_t ) _mm_crc32_u16( crc, ( uint16_t ) value );
 		else if constexpr ( sizeof( T ) == 1 )
 			return ( uint32_t ) _mm_crc32_u8( crc, ( uint8_t ) value );
-	#else
+		#else
 		if constexpr ( sizeof( T ) == 8 )
 			return ( uint32_t ) __builtin_ia32_crc32di( crc, ( uint64_t ) value );
 		else if constexpr ( sizeof( T ) == 4 )
@@ -50,16 +94,20 @@ namespace xstd::impl {
 			return ( uint32_t ) __builtin_ia32_crc32hi( crc, ( uint16_t ) value );
 		else if constexpr ( sizeof( T ) == 1 )
 			return ( uint32_t ) __builtin_ia32_crc32qi( crc, ( uint8_t ) value );
-	#endif
+		#endif
 		else
 			static_assert( sizeof( T ) == 0, "Invalid integral size." );
+	#endif
 	}
-	FORCE_INLINE PURE_FN static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc ) {
-		// CRC in 64-byte units using qword CRCs until we're done.
+	template<bool Castagnoli>
+	FORCE_INLINE PURE_FN static uint32_t hw_crc32i( const uint8_t* ptr, size_t length, uint32_t crc ) {
+		// CRC in 64-byte units using qword CRCs until we're done. The input
+		// carries no alignment guarantee, so the wide reads go through
+		// load_misaligned rather than a pointer cast, which would be UB.
 		//
 		length = xstd::unroll_scaled_n<8, 64>(
 			[ & ] {
-				crc = hw_crc32ci( *( uint64_t* ) ptr, crc );
+				crc = hw_crc32i<Castagnoli>( xstd::load_misaligned<uint64_t>( ptr ), crc );
 				ptr += 8;
 			},
 			length );
@@ -67,17 +115,18 @@ namespace xstd::impl {
 		// Handle the leftovers.
 		//
 		if ( length & 4 )
-			crc = hw_crc32ci( *( uint32_t* ) ptr, crc ), ptr += 4;
+			crc = hw_crc32i<Castagnoli>( xstd::load_misaligned<uint32_t>( ptr ), crc ), ptr += 4;
 		if ( length & 2 )
-			crc = hw_crc32ci( *( uint16_t* ) ptr, crc ), ptr += 2;
+			crc = hw_crc32i<Castagnoli>( xstd::load_misaligned<uint16_t>( ptr ), crc ), ptr += 2;
 		if ( length & 1 )
-			crc = hw_crc32ci( *( uint8_t* ) ptr, crc ), ptr += 1;
+			crc = hw_crc32i<Castagnoli>( *ptr, crc ), ptr += 1;
 		return crc;
 	}
 #else
-	template<xstd::Integral T>
-	static uint32_t hw_crc32ci( T value, uint32_t crc );
-	static uint32_t hw_crc32ci( const uint8_t* ptr, size_t length, uint32_t crc );
+	template<bool Castagnoli, xstd::Integral T>
+	static uint32_t hw_crc32i( T value, uint32_t crc );
+	template<bool Castagnoli>
+	static uint32_t hw_crc32i( const uint8_t* ptr, size_t length, uint32_t crc );
 #endif
 };
 
@@ -90,7 +139,11 @@ namespace xstd {
 			using type = crc<U, I, rpoly, new_seed>;
 		};
 
-		static constexpr bool enable_hwcrc = sizeof( U ) == 4 && uint32_t( rpoly ) == 0x82F63B78 && XSTD_HW_CRC32C;
+		// Both reflected 32-bit polynomials the instructions cover.
+		//
+		static constexpr bool hw_castagnoli = sizeof( U ) == 4 && uint32_t( rpoly ) == 0x82F63B78 && XSTD_HW_CRC32C;
+		static constexpr bool hw_ethernet   = sizeof( U ) == 4 && uint32_t( rpoly ) == 0xEDB88320 && XSTD_HW_CRC32;
+		static constexpr bool enable_hwcrc  = hw_castagnoli || hw_ethernet;
 		static constexpr auto lookup_table = []() {
 			std::array<U, 256> table = {};
 
@@ -130,7 +183,7 @@ namespace xstd {
 			//
 			if constexpr ( enable_hwcrc ) {
 				if ( !std::is_constant_evaluated() ) {
-					value = ~impl::hw_crc32ci( data, n, ~value );
+					value = ~impl::hw_crc32i<hw_castagnoli>( data, n, ~value );
 					return;
 				}
 			}
@@ -157,7 +210,7 @@ namespace xstd {
 				// If non-constexpr evaluation of CRC32C under a host with support, use hardware primitive.
 				//
 				if constexpr ( Integral<T> && enable_hwcrc ) {
-					value = ~impl::hw_crc32ci( data, ~value );
+					value = ~impl::hw_crc32i<hw_castagnoli>( data, ~value );
 					return;
 				}
 
