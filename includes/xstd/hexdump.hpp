@@ -29,31 +29,55 @@ namespace xstd::fmt {
 	//
 	template<bool Uppercase, size_t N>
 	FORCE_INLINE inline constexpr std::array<char, 2 * N> print_hex( const std::array<uint8_t, N>& data ) {
-		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
+		// GCC vector extensions require a power-of-two element count; pad odd sizes and truncate the result.
+		if constexpr ( N != std::bit_ceil( N ) ) {
+			std::array<uint8_t, std::bit_ceil( N )> padded = {};
+			for ( size_t i = 0; i != N; i++ )
+				padded[ i ] = data[ i ];
+			auto full                   = print_hex<Uppercase>( padded );
+			std::array<char, 2 * N> out = {};
+			for ( size_t i = 0; i != 2 * N; i++ )
+				out[ i ] = full[ i ];
+			return out;
+		} else {
+			constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
 
-		auto x = vec::cast<uint16_t>( vec::from( data ) );
-		x |= ( x << 12 );
-		x >>= 4;
-		x &= 0x0F0F;
+			auto x = vec::cast<uint16_t>( vec::from( data ) );
+			x |= ( x << 12 );
+			x >>= 4;
+			x &= 0x0F0F;
 
-		auto chars = x.template reinterpret<uint8_t>();
-		chars += '0';
-		chars += ( chars > '9' ) & K;
-		return xstd::bit_cast<std::array<char, 2 * N>>( chars.to_array() );
+			auto chars = x.template reinterpret<uint8_t>();
+			chars += '0';
+			chars += ( chars > '9' ) & K;
+			return xstd::bit_cast<std::array<char, 2 * N>>( chars.to_array() );
+		}
 	}
 	template<bool Uppercase, size_t N>
 	FORCE_INLINE inline constexpr std::array<char16_t, 2 * N> print_hex16( const std::array<uint8_t, N>& data ) {
-		constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
+		// GCC vector extensions require a power-of-two element count; pad odd sizes and truncate the result.
+		if constexpr ( N != std::bit_ceil( N ) ) {
+			std::array<uint8_t, std::bit_ceil( N )> padded = {};
+			for ( size_t i = 0; i != N; i++ )
+				padded[ i ] = data[ i ];
+			auto full                       = print_hex16<Uppercase>( padded );
+			std::array<char16_t, 2 * N> out = {};
+			for ( size_t i = 0; i != 2 * N; i++ )
+				out[ i ] = full[ i ];
+			return out;
+		} else {
+			constexpr char K = ( Uppercase ? 'A' : 'a' ) - '0' - 10;
 
-		auto x = vec::cast<uint32_t>( vec::from( data ) );
-		x |= ( x << 20 );
-		x >>= 4;
-		x &= 0x000F000F;
+			auto x = vec::cast<uint32_t>( vec::from( data ) );
+			x |= ( x << 20 );
+			x >>= 4;
+			x &= 0x000F000F;
 
-		auto chars = x.template reinterpret<uint16_t>();
-		chars += '0';
-		chars += ( chars > '9' ) & K;
-		return xstd::bit_cast<std::array<char16_t, 2 * N>>( chars.to_array() );
+			auto chars = x.template reinterpret<uint16_t>();
+			chars += '0';
+			chars += ( chars > '9' ) & K;
+			return xstd::bit_cast<std::array<char16_t, 2 * N>>( chars.to_array() );
+		}
 	}
 	template<bool Uppercase, typename T>
 	FORCE_INLINE inline constexpr std::array<char, 2 * sizeof( T )> print_hex( const T& data ) {

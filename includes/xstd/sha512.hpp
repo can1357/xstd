@@ -30,9 +30,7 @@ namespace xstd::impl {
 	// The instructions want their inputs split across three registers, one of
 	// which straddles the 128-bit pairs the schedule is kept in, hence the vext.
 	//
-	FORCE_INLINE inline uint64x2_t arm_sha512_schedule( uint64x2_t w8, uint64x2_t w7, uint64x2_t w4, uint64x2_t w3, uint64x2_t w1 ) {
-		return vsha512su1q_u64( vsha512su0q_u64( w8, w7 ), w1, vextq_u64( w4, w3, 1 ) );
-	}
+	FORCE_INLINE inline uint64x2_t arm_sha512_schedule( uint64x2_t w8, uint64x2_t w7, uint64x2_t w4, uint64x2_t w3, uint64x2_t w1 ) { return vsha512su1q_u64( vsha512su0q_u64( w8, w7 ), w1, vextq_u64( w4, w3, 1 ) ); }
 
 	// Two rounds of SHA-512.
 	//
@@ -71,14 +69,7 @@ namespace xstd::impl {
 			else
 				words[ pass & 7 ] = arm_sha512_schedule( words[ pass & 7 ], words[ ( pass + 1 ) & 7 ], words[ ( pass + 4 ) & 7 ], words[ ( pass + 5 ) & 7 ], words[ ( pass + 7 ) & 7 ] );
 
-			arm_sha512_round2(
-				k,
-				2 * pass,
-				words[ pass & 7 ],
-				live[ ( 0 - pass ) & 3 ],
-				live[ ( 1 - pass ) & 3 ],
-				live[ ( 2 - pass ) & 3 ],
-				live[ ( 3 - pass ) & 3 ] );
+			arm_sha512_round2( k, 2 * pass, words[ pass & 7 ], live[ ( 0 - pass ) & 3 ], live[ ( 1 - pass ) & 3 ], live[ ( 2 - pass ) & 3 ], live[ ( 3 - pass ) & 3 ] );
 		}
 
 		for ( size_t n = 0; n != 4; n++ )

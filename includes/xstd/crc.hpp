@@ -144,7 +144,7 @@ namespace xstd {
 		static constexpr bool hw_castagnoli = sizeof( U ) == 4 && uint32_t( rpoly ) == 0x82F63B78 && XSTD_HW_CRC32C;
 		static constexpr bool hw_ethernet   = sizeof( U ) == 4 && uint32_t( rpoly ) == 0xEDB88320 && XSTD_HW_CRC32;
 		static constexpr bool enable_hwcrc  = hw_castagnoli || hw_ethernet;
-		static constexpr auto lookup_table = []() {
+		static constexpr auto lookup_table  = []() {
 			std::array<U, 256> table = {};
 
 			for ( size_t n = 0; n <= 0xFF; n++ ) {
