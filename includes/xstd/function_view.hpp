@@ -10,10 +10,13 @@ namespace xstd {
 	struct function_view;
 	template<typename Ret, typename... Args>
 	struct function_view<Ret( Args... )> {
-		// Hold object pointer, invocation wrapper and whether it is const qualified or not.
+		// Keep object and function pointers in distinct members, paired with an invocation wrapper.
 		//
-		void* obj                     = nullptr;
-		Ret ( *fn )( void*, Args... ) = nullptr;
+		union context {
+			void* object = nullptr;
+			void ( *function )();
+		} obj;
+		Ret ( *fn )( context, Args... ) = nullptr;
 
 		// Null construction.
 		//
@@ -27,28 +30,26 @@ namespace xstd {
 			using Fn     = std::decay_t<F>;
 			using Traits = function_traits<Fn>;
 
-			obj = &functor;
-
 			// Lambda?
 			//
 			if constexpr ( Traits::is_lambda ) {
 				// Stateless lambda?
 				//
 				if constexpr ( Empty<Fn> && DefaultConstructible<Fn> ) {
-					fn = []( void*, Args... args ) -> Ret { return Fn{}( std::forward<Args&&>( args )... ); };
+					fn = []( context, Args... args ) -> Ret { return Fn{}( std::forward<Args&&>( args )... ); };
 				}
 				// Stateful lambda.
 				//
 				else {
-					obj = ( void* ) &functor;
-					fn  = []( void* obj, Args... args ) -> Ret { return ( *( Fn* ) obj )( std::forward<Args&&>( args )... ); };
+					obj.object = ( void* ) &functor;
+					fn = []( context obj, Args... args ) -> Ret { return ( *( Fn* ) obj.object )( std::forward<Args&&>( args )... ); };
 				}
 			}
 			// Function pointer?
 			//
 			else {
-				obj = ( void* ) functor;
-				fn  = []( void* obj, Args... args ) -> Ret { return ( ( Fn ) obj )( std::forward<Args&&>( args )... ); };
+				obj.function = reinterpret_cast<void ( * )()>( functor );
+				fn = []( context obj, Args... args ) -> Ret { return reinterpret_cast<Fn>( obj.function )( std::forward<Args&&>( args )... ); };
 			}
 		}
 

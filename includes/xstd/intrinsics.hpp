@@ -352,6 +352,7 @@ namespace xstd {
 };
 
 // Define assume() / unreachable() / debugbreak() / fastfail(x).
+// CUDA reserves __trap for its device intrinsic in both compilation passes.
 //
 #if MS_COMPILER
 	#define assume( ... )     __assume( __VA_ARGS__ )
@@ -362,7 +363,9 @@ FORCE_INLINE static void fastfail [[noreturn]] ( int status ) {
 	__fastfail( status );
 	unreachable();
 }
+	#if !defined( __CUDACC__ )
 FORCE_INLINE static void __trap() { fastfail( -1 ); }
+	#endif
 #else
 	#if __has_builtin( __builtin_assume )
 		#define assume( ... ) __builtin_assume( __VA_ARGS__ )
@@ -399,6 +402,7 @@ FORCE_INLINE static void __trap() { fastfail( -1 ); }
 			}
 	#endif
 
+	#if !defined( __CUDACC__ )
 FORCE_INLINE static void __trap() {
 	#if __has_builtin( __builtin_trap )
 	__builtin_trap();
@@ -406,12 +410,15 @@ FORCE_INLINE static void __trap() {
 	debugbreak();
 	#endif
 }
+	#endif
 
 FORCE_INLINE static void fastfail [[noreturn]] ( int status ) {
 	#if AMD64_TARGET
 	asm volatile( "int $0x29" ::"c"( status ) );
+	#elif __has_builtin( __builtin_trap )
+	__builtin_trap();
 	#else
-	__trap();
+	debugbreak();
 	#endif
 	unreachable();
 }
@@ -533,7 +540,8 @@ FORCE_INLINE static size_t get_thread_uid() {
 	return id;
 		#endif
 	#endif
-#elif __has_builtin( __builtin_thread_pointer )
+// NVCC may report the host builtin without accepting it in its own front end.
+#elif !defined( __CUDACC__ ) && __has_builtin( __builtin_thread_pointer )
 	return ( size_t ) __builtin_thread_pointer();
 #elif ARM64_TARGET
 	size_t tid;

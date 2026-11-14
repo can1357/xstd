@@ -10,9 +10,28 @@ target_compile_features(xstd INTERFACE cxx_std_20)
 # Portability on non-MSVC compilers.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   target_compile_options(xstd INTERFACE
-    -Wno-unused-value      # RNG discarding index.
-    -Wno-unused-function   # Static helpers.
-    -Wno-format-security)  # Custom logger.
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-value>      # RNG discarding index.
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-function>   # Static helpers.
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-format-security>) # Custom logger.
+endif()
+
+# Opt-in NVCC host-header compatibility check; normal builds never probe CUDA.
+# Configure with -DXSTD_BUILD_CUDA_CHECKS=ON, then build xstd_cuda_checks.
+option(XSTD_BUILD_CUDA_CHECKS "Build the CUDA header compile check" OFF)
+if(XSTD_BUILD_CUDA_CHECKS)
+  enable_language(CUDA)
+  add_library(xstd_cuda_checks OBJECT tests/cuda_check.cu)
+  target_link_libraries(xstd_cuda_checks PRIVATE xstd::xstd)
+  set_target_properties(xstd_cuda_checks PROPERTIES
+    CUDA_STANDARD 20
+    CUDA_STANDARD_REQUIRED YES
+    CUDA_EXTENSIONS NO)
+
+  # Match the host baseline used by the ordinary compile checks.
+  if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"
+     AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(xstd_cuda_checks PRIVATE -Xcompiler=-march=haswell)
+  endif()
 endif()
 
 # CI / development: compile every public header in one TU at the advertised

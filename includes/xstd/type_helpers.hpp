@@ -714,11 +714,11 @@ namespace xstd {
 	//
 	template<typename T> FORCE_INLINE inline constexpr T* make_null() noexcept { return ( T* ) nullptr; }
 
-	// Nontemporal memory helpers.
+	// Nontemporal memory helpers, with ordinary accesses when the builtin is unavailable.
 	//
 	template<typename T>
 	FORCE_INLINE inline T load_nontemporal( const void* p ) {
-#if GNU_COMPILER
+#if __has_builtin( __builtin_nontemporal_load )
 		return __builtin_nontemporal_load( ( const T* ) p );
 #else
 		return *( const T* ) p;
@@ -726,7 +726,7 @@ namespace xstd {
 	}
 	template<typename T>
 	FORCE_INLINE inline void store_nontemporal( void* p, T value ) {
-#if GNU_COMPILER
+#if __has_builtin( __builtin_nontemporal_store )
 		__builtin_nontemporal_store( value, ( T* ) p );
 #else
 		*( T* ) p = value;

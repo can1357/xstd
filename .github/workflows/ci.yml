@@ -13,6 +13,22 @@ jobs:
       - name: clang-format check
         run: git ls-files 'includes/**/*.hpp' 'includes/**/*.h' | xargs clang-format --dry-run -Werror
 
+  cuda:
+    name: linux-cuda
+    runs-on: ubuntu-24.04
+    container: nvidia/cuda:13.0.2-devel-ubuntu24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: install host build tools
+        run: apt-get update && apt-get install -y --no-install-recommends cmake g++-13
+      - name: configure
+        run: >-
+          cmake -B build -DXSTD_BUILD_CUDA_CHECKS=ON
+          -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_CUDA_HOST_COMPILER=g++-13
+          -DCMAKE_CUDA_ARCHITECTURES=75
+      - name: compile CUDA headers
+        run: cmake --build build --target xstd_cuda_checks
+
   compile:
     strategy:
       fail-fast: false

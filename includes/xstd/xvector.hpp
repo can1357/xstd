@@ -339,7 +339,8 @@ namespace xstd {
 		//
 		template<int... Ix>
 		FORCE_INLINE constexpr xvec<T, sizeof...( Ix )> shuffle( const xvec& other, std::integer_sequence<int, Ix...> seq = {} ) const noexcept {
-#if __has_vector_builtin( __builtin_shufflevector )
+			// NVCC cannot expand index packs in this builtin; use the unrolled fallback.
+#if !defined( __NVCC__ ) && __has_vector_builtin( __builtin_shufflevector )
 			if ( !std::is_constant_evaluated() )
 				return xvec<T, sizeof...( Ix )>( std::in_place_t{}, __builtin_shufflevector( _nat, other._nat, Ix... ) );
 #endif
